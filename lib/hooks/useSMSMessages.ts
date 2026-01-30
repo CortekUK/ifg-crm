@@ -1,0 +1,164 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import type { SMSMessage, SMSMatchStatus, SMSMessageCounts } from '@/lib/types/sms'
+
+export function useSMSMessages(matchStatus: 'unmatched' | 'matched' | 'spam') {
+  const supabase = createClient()
+
+  return useQuery<SMSMessage[]>({
+    queryKey: ['sms-messages', matchStatus],
+    queryFn: async () => {
+      let query = supabase
+        .from('sms_messages')
+        .select(`
+          *,
+          contact:contacts(*),
+          pipeline:pipelines(*),
+          matched_by:profiles(*)
+        `)
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+
+      if (matchStatus === 'unmatched') {
+        query = query.eq('match_status', 'unmatched')
+      } else if (matchStatus === 'spam') {
+        query = query.eq('match_status', 'spam')
+      } else {
+        // 'matched' includes both auto and manually matched
+        query = query.in('match_status', ['auto_matched', 'manually_matched'])
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      return data || []
+    },
+  })
+}
+
+export function useSMSMessageCounts() {
+  const supabase = createClient()
+
+  return useQuery<SMSMessageCounts>({
+    queryKey: ['sms-message-counts'],
+    queryFn: async () => {
+      // Get unmatched count
+      const { count: unmatchedCount } = await supabase
+        .from('sms_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'inbound')
+        .eq('match_status', 'unmatched')
+
+      // Get matched count
+      const { count: matchedCount } = await supabase
+        .from('sms_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'inbound')
+        .in('match_status', ['auto_matched', 'manually_matched'])
+
+      // Get spam count
+      const { count: spamCount } = await supabase
+        .from('sms_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'inbound')
+        .eq('match_status', 'spam')
+
+      // Get today's count
+      const startOfDay = new Date()
+      startOfDay.setHours(0, 0, 0, 0)
+
+      const { count: todayCount } = await supabase
+        .from('sms_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'inbound')
+        .gte('created_at', startOfDay.toISOString())
+
+      // Get positive intent count
+      const { count: positiveCount } = await supabase
+        .from('sms_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'inbound')
+        .eq('ai_intent', 'positive')
+        .eq('match_status', 'unmatched')
+
+      // Get negative intent count
+      const { count: negativeCount } = await supabase
+        .from('sms_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'inbound')
+        .eq('ai_intent', 'negative')
+        .eq('match_status', 'unmatched')
+
+      return {
+        unmatched: unmatchedCount || 0,
+        matched: matchedCount || 0,
+        spam: spamCount || 0,
+        today: todayCount || 0,
+        positive: positiveCount || 0,
+        negative: negativeCount || 0,
+      }
+    },
+  })
+}
+
+export function useMatchSMSMessage() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      messageId,
+      contactId,
+      matchedById,
+    }: {
+      messageId: string
+      contactId: string
+      matchedById: string
+    }) => {
+      const { error } = await supabase
+        .from('sms_messages')
+        .update({
+          contact_id: contactId,
+          match_status: 'manually_matched' as SMSMatchStatus,
+          matched_by_id: matchedById,
+          matched_at: new Date().toISOString(),
+        })
+        .eq('id', messageId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sms-messages'] })
+      queryClient.invalidateQueries({ queryKey: ['sms-message-counts'] })
+    },
+  })
+}
+
+export function useMarkSMSAsSpam() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      messageId,
+      matchedById,
+    }: {
+      messageId: string
+      matchedById: string
+    }) => {
+      const { error } = await supabase
+        .from('sms_messages')
+        .update({
+          match_status: 'spam' as SMSMatchStatus,
+          matched_by_id: matchedById,
+          matched_at: new Date().toISOString(),
+        })
+        .eq('id', messageId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sms-messages'] })
+      queryClient.invalidateQueries({ queryKey: ['sms-message-counts'] })
+    },
+  })
+}

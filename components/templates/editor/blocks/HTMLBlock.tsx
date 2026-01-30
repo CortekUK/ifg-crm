@@ -1,0 +1,53 @@
+'use client'
+
+import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertTriangle } from 'lucide-react'
+import type { HTMLBlockContent } from '@/lib/templates/editor-types'
+
+interface HTMLBlockProps {
+  content: Record<string, unknown>
+  isSelected: boolean
+  onUpdate: (updates: Record<string, unknown>) => void
+}
+
+export function HTMLBlock({ content, isSelected, onUpdate }: HTMLBlockProps) {
+  const htmlContent = content as unknown as HTMLBlockContent
+
+  return (
+    <div className="py-2">
+      {/* Settings panel when selected */}
+      {isSelected && (
+        <div className="space-y-3 mb-3">
+          <Alert variant="default" className="bg-amber-50 border-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-700">
+              Custom HTML may not render correctly in all email clients.
+            </AlertDescription>
+          </Alert>
+
+          <Textarea
+            value={htmlContent.code}
+            onChange={(e) => onUpdate({ code: e.target.value })}
+            placeholder="<!-- Enter custom HTML -->"
+            className="font-mono text-sm min-h-[200px]"
+          />
+        </div>
+      )}
+
+      {/* HTML Preview */}
+      <div className="border rounded p-3 bg-gray-50">
+        {htmlContent.code ? (
+          <div
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: htmlContent.code }}
+          />
+        ) : (
+          <div className="text-sm text-gray-400 text-center py-4">
+            Custom HTML block
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

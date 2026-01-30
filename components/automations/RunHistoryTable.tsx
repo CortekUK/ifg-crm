@@ -1,0 +1,198 @@
+'use client'
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Search, History } from 'lucide-react'
+import { formatDateTime } from '@/lib/utils/format'
+import type { AutomationLog, AutomationFilters, Automation } from '@/lib/types/automations'
+
+interface RunHistoryTableProps {
+  logs: AutomationLog[]
+  automations: Automation[]
+  isLoading: boolean
+  filters: AutomationFilters
+  onFiltersChange: (filters: AutomationFilters) => void
+}
+
+const statusConfig = {
+  sent: { label: 'Sent', className: 'bg-green-100 text-green-700' },
+  failed: { label: 'Failed', className: 'bg-red-100 text-red-700' },
+  skipped: { label: 'Skipped', className: 'bg-gray-100 text-gray-700' },
+}
+
+export function RunHistoryTable({
+  logs,
+  automations,
+  isLoading,
+  filters,
+  onFiltersChange,
+}: RunHistoryTableProps) {
+  const getInitials = (firstName?: string, lastName?: string) => {
+    const first = firstName?.[0] || ''
+    const last = lastName?.[0] || ''
+    return (first + last).toUpperCase() || '??'
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Select
+          value={filters.workflow || 'all'}
+          onValueChange={(v) => onFiltersChange({ ...filters, workflow: v })}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="All Workflows" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Workflows</SelectItem>
+            {automations.map((automation) => (
+              <SelectItem key={automation.id} value={automation.id}>
+                {automation.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.status || 'all'}
+          onValueChange={(v) => onFiltersChange({ ...filters, status: v as AutomationFilters['status'] })}
+        >
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="sent">Sent</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="skipped">Skipped</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Workflow</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Step</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Sent At</TableHead>
+                <TableHead>Opened</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-36" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="border rounded-lg p-12 text-center">
+          <History className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <h3 className="text-lg font-medium text-gray-900 mb-1">No run history yet</h3>
+          <p className="text-muted-foreground">
+            Automation runs will appear here once your automations start sending emails.
+          </p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Workflow</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Step</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Sent At</TableHead>
+                <TableHead>Opened</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.map((log) => {
+                const contact = log.deal?.contact
+                const status = statusConfig[log.status]
+                const automationName = log.step?.automation?.name || 'Unknown'
+                const stepOrder = log.step?.step_order || 0
+                const totalSteps = log.step?.automation?.steps?.length || 0
+
+                return (
+                  <TableRow key={log.id}>
+                    {/* Workflow */}
+                    <TableCell className="font-medium">
+                      {automationName}
+                    </TableCell>
+
+                    {/* Contact */}
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                            {getInitials(contact?.first_name, contact?.last_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">
+                          {contact
+                            ? `${contact.first_name} ${contact.last_name}`
+                            : log.deal?.title || 'Unknown'}
+                        </span>
+                      </div>
+                    </TableCell>
+
+                    {/* Step */}
+                    <TableCell className="text-sm text-muted-foreground">
+                      Email {stepOrder} of {totalSteps}
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Badge className={status.className}>{status.label}</Badge>
+                    </TableCell>
+
+                    {/* Sent At */}
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDateTime(log.sent_at)}
+                    </TableCell>
+
+                    {/* Opened */}
+                    <TableCell className="text-sm text-muted-foreground">
+                      —
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  )
+}
