@@ -298,8 +298,8 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl flex flex-col p-0">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+      <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
             Add Player
           </SheetTitle>
@@ -308,7 +308,7 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6">
+        <div className="flex-1 overflow-y-auto px-6">
           <div className="space-y-6 py-6">
             {/* Basic Information */}
             <div className="space-y-4">
@@ -648,9 +648,9 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
               )}
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
           <div className="flex gap-3 w-full">
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel

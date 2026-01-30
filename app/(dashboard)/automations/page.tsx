@@ -8,9 +8,10 @@ import { AutomationsTable } from '@/components/automations/AutomationsTable'
 import { RunHistoryTable } from '@/components/automations/RunHistoryTable'
 import { AutomationDetailSheet } from '@/components/automations/AutomationDetailSheet'
 import { ConfigureAutomationModal } from '@/components/automations/ConfigureAutomationModal'
-import { useAutomations, useAutomationLogs, useToggleAutomation } from '@/lib/hooks/useAutomations'
+import { useAutomations, useAutomationLogs, useToggleAutomation, useCreateAutomation, useUpdateAutomation } from '@/lib/hooks/useAutomations'
 import { useAutomationStats } from '@/lib/hooks/useAutomationStats'
-import type { Automation, AutomationFilters } from '@/lib/types/automations'
+import { toast } from '@/lib/hooks/use-toast'
+import type { Automation, AutomationFilters, AutomationType, AutomationConfig } from '@/lib/types/automations'
 
 export default function AutomationsPage() {
   const [activeTab, setActiveTab] = useState<'automations' | 'history'>('automations')
@@ -24,6 +25,8 @@ export default function AutomationsPage() {
   const { data: logs = [], isLoading: logsLoading } = useAutomationLogs(historyFilters)
   const { data: stats, isLoading: statsLoading } = useAutomationStats()
   const toggleAutomation = useToggleAutomation()
+  const createAutomation = useCreateAutomation()
+  const updateAutomation = useUpdateAutomation()
 
   const handleCreateClick = () => {
     setEditingAutomation(null)
@@ -47,12 +50,59 @@ export default function AutomationsPage() {
     }
   }
 
-  const handleSaveAutomation = async (data: any) => {
-    // TODO: Implement save to Supabase
-    console.log('Save automation:', data)
-    // For now, just close the modal
-    setIsCreateModalOpen(false)
-    setEditingAutomation(null)
+  const handleSaveAutomation = async (data: {
+    id?: string
+    name: string
+    description?: string | null
+    automation_type: AutomationType
+    pipeline_id: string | null
+    trigger_stage_id: string | null
+    stop_on_stage_ids?: string[]
+    config?: AutomationConfig | null
+  }) => {
+    try {
+      if (editingAutomation) {
+        // Update existing automation
+        await updateAutomation.mutateAsync({
+          id: editingAutomation.id,
+          name: data.name,
+          description: data.description,
+          automation_type: data.automation_type,
+          pipeline_id: data.pipeline_id,
+          trigger_stage_id: data.trigger_stage_id,
+          stop_on_stage_ids: data.stop_on_stage_ids,
+          config: data.config,
+        })
+        toast({
+          title: 'Automation updated',
+          description: `"${data.name}" has been updated successfully.`,
+        })
+      } else {
+        // Create new automation
+        await createAutomation.mutateAsync({
+          name: data.name,
+          description: data.description,
+          automation_type: data.automation_type,
+          pipeline_id: data.pipeline_id,
+          trigger_stage_id: data.trigger_stage_id,
+          stop_on_stage_ids: data.stop_on_stage_ids,
+          config: data.config,
+        })
+        toast({
+          title: 'Automation created',
+          description: `"${data.name}" has been created and is paused by default.`,
+        })
+      }
+      setIsCreateModalOpen(false)
+      setEditingAutomation(null)
+    } catch (error) {
+      console.error('Failed to save automation:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to save automation. Please try again.',
+        variant: 'destructive',
+      })
+    }
   }
 
   return (

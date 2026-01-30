@@ -34,7 +34,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { CalendarIcon, Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -154,8 +153,8 @@ export function CreateInvoiceModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl flex flex-col p-0">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+      <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
             Create Invoice
           </SheetTitle>
@@ -164,7 +163,7 @@ export function CreateInvoiceModal({
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6">
+        <div className="flex-1 overflow-y-auto px-6">
           <div className="space-y-6 py-6">
             {/* Contact & Deal */}
             <div className="space-y-4">
@@ -350,9 +349,9 @@ export function CreateInvoiceModal({
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
           <div className="flex gap-3 w-full">
             <Button
               variant="outline"

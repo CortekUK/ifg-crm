@@ -110,8 +110,8 @@ export function AddDealModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-md flex flex-col p-0">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+      <SheetContent className="sm:max-w-md flex flex-col p-0 gap-0">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
             Add Deal to {stage.name}
           </SheetTitle>
@@ -120,8 +120,8 @@ export function AddDealModal({
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-          <div className="flex-1 px-6 py-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
             {/* Contact Selection */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
@@ -255,7 +255,7 @@ export function AddDealModal({
             </div>
           </div>
 
-          <SheetFooter className="border-t px-6 py-4 bg-slate-50">
+          <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
             <div className="flex gap-3 w-full">
               <Button type="button" variant="outline" onClick={onClose} className="flex-1">
                 Cancel
