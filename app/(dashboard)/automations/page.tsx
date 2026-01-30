@@ -7,6 +7,7 @@ import { AutomationTabs } from '@/components/automations/AutomationTabs'
 import { AutomationsTable } from '@/components/automations/AutomationsTable'
 import { RunHistoryTable } from '@/components/automations/RunHistoryTable'
 import { AutomationDetailSheet } from '@/components/automations/AutomationDetailSheet'
+import { ConfigureAutomationModal } from '@/components/automations/ConfigureAutomationModal'
 import { useAutomations, useAutomationLogs, useToggleAutomation } from '@/lib/hooks/useAutomations'
 import { useAutomationStats } from '@/lib/hooks/useAutomationStats'
 import type { Automation, AutomationFilters } from '@/lib/types/automations'
@@ -14,6 +15,8 @@ import type { Automation, AutomationFilters } from '@/lib/types/automations'
 export default function AutomationsPage() {
   const [activeTab, setActiveTab] = useState<'automations' | 'history'>('automations')
   const [selectedAutomation, setSelectedAutomation] = useState<Automation | null>(null)
+  const [editingAutomation, setEditingAutomation] = useState<Automation | null>(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [historyFilters, setHistoryFilters] = useState<AutomationFilters>({})
 
   // Fetch data
@@ -23,8 +26,8 @@ export default function AutomationsPage() {
   const toggleAutomation = useToggleAutomation()
 
   const handleCreateClick = () => {
-    // Future: Open create automation modal
-    console.log('Create automation clicked')
+    setEditingAutomation(null)
+    setIsCreateModalOpen(true)
   }
 
   const handleView = (automation: Automation) => {
@@ -32,8 +35,8 @@ export default function AutomationsPage() {
   }
 
   const handleEdit = (automation: Automation) => {
-    // Future: Open edit automation modal
-    console.log('Edit automation:', automation.id)
+    setEditingAutomation(automation)
+    setIsCreateModalOpen(true)
   }
 
   const handleToggle = async (automationId: string, isActive: boolean) => {
@@ -42,6 +45,14 @@ export default function AutomationsPage() {
     } catch (error) {
       console.error('Failed to toggle automation:', error)
     }
+  }
+
+  const handleSaveAutomation = async (data: any) => {
+    // TODO: Implement save to Supabase
+    console.log('Save automation:', data)
+    // For now, just close the modal
+    setIsCreateModalOpen(false)
+    setEditingAutomation(null)
   }
 
   return (
@@ -85,6 +96,32 @@ export default function AutomationsPage() {
         automationId={selectedAutomation?.id || null}
         isOpen={!!selectedAutomation}
         onClose={() => setSelectedAutomation(null)}
+        onEdit={() => {
+          if (selectedAutomation) {
+            handleEdit(selectedAutomation)
+            setSelectedAutomation(null)
+          }
+        }}
+      />
+
+      {/* Create/Edit Modal */}
+      <ConfigureAutomationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false)
+          setEditingAutomation(null)
+        }}
+        onSave={handleSaveAutomation}
+        editingAutomation={editingAutomation ? {
+          id: editingAutomation.id,
+          name: editingAutomation.name,
+          description: editingAutomation.description,
+          automation_type: editingAutomation.automation_type || 'initial_contact',
+          pipeline_id: editingAutomation.pipeline_id,
+          trigger_stage_id: editingAutomation.trigger_stage_id,
+          stop_on_stage_ids: editingAutomation.stop_on_stage_ids,
+          config: editingAutomation.config,
+        } : null}
       />
     </div>
   )

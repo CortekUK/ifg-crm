@@ -19,34 +19,29 @@ export function useTemplateStats() {
         .from('email_templates')
         .select('*', { count: 'exact', head: true })
 
-      // Email templates
-      const { count: emailTemplates } = await supabase
+      // Automation templates
+      const { count: automationTemplates } = await supabase
         .from('email_templates')
         .select('*', { count: 'exact', head: true })
-        .eq('type', 'email')
+        .eq('category', 'automation')
 
-      // SMS templates
-      const { count: smsTemplates } = await supabase
+      // Campaign templates
+      const { count: campaignTemplates } = await supabase
         .from('email_templates')
         .select('*', { count: 'exact', head: true })
-        .eq('type', 'sms')
+        .eq('category', 'campaign')
 
-      // Templates used in active automations
-      const { data: automationTemplates } = await supabase
+      // Count active automations
+      const { count: activeAutomations } = await supabase
         .from('automations')
-        .select('template_id')
+        .select('*', { count: 'exact', head: true })
         .eq('is_active', true)
-        .not('template_id', 'is', null)
-
-      const uniqueTemplatesInAutomations = new Set(
-        automationTemplates?.map((a) => a.template_id).filter(Boolean)
-      )
 
       return {
         totalTemplates: totalTemplates || 0,
-        emailTemplates: emailTemplates || 0,
-        smsTemplates: smsTemplates || 0,
-        activeAutomations: uniqueTemplatesInAutomations.size,
+        emailTemplates: automationTemplates || 0,
+        smsTemplates: campaignTemplates || 0,
+        activeAutomations: activeAutomations || 0,
       }
     },
     refetchInterval: 60000,

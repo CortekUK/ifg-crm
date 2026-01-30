@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Eye, Pencil, Zap } from 'lucide-react'
+import { MoreHorizontal, Eye, Pencil, Zap, Mail, Users, Clock } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/format'
 import type { Automation } from '@/lib/types/automations'
 
@@ -39,7 +39,7 @@ export function AutomationsTable({
 }: AutomationsTableProps) {
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white">
         <Table>
           <TableHeader>
             <TableRow>
@@ -48,7 +48,7 @@ export function AutomationsTable({
               <TableHead>Pipeline</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Enrolled</TableHead>
-              <TableHead className="text-right">Completed</TableHead>
+              <TableHead className="text-right">In Queue</TableHead>
               <TableHead>Last Run</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -74,7 +74,7 @@ export function AutomationsTable({
 
   if (automations.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
+      <div className="border rounded-lg p-12 text-center bg-white">
         <Zap className="h-12 w-12 mx-auto mb-4 text-gray-300" />
         <h3 className="text-lg font-medium text-gray-900 mb-1">No automations yet</h3>
         <p className="text-muted-foreground">
@@ -87,14 +87,60 @@ export function AutomationsTable({
   const getStepsSummary = (automation: Automation) => {
     const steps = automation.steps || []
     const emailSteps = steps.filter((s) => s.step_type === 'send_email').length
-    const totalDays = steps
-      .filter((s) => s.step_type === 'wait')
-      .reduce((sum, s) => sum + s.delay_days, 0)
-    return `${emailSteps}-step email sequence over ${totalDays} days`
+    const waitSteps = steps.filter((s) => s.step_type === 'wait')
+    const totalDays = waitSteps.reduce((sum, s) => sum + (s.delay_days || 0), 0)
+    
+    if (emailSteps === 0) {
+      return 'No email steps configured'
+    }
+    return `${emailSteps}-email sequence over ${totalDays} days`
+  }
+
+  const getTriggerLabel = (automation: Automation) => {
+    if (automation.automation_type === 'deal_creation') {
+      return 'Form submission'
+    }
+    if (automation.trigger_type === 'enters_stage') {
+      return (
+        <>
+          Deal enters{' '}
+          <span className="font-medium text-gray-700">
+            {automation.trigger_stage?.name || 'Unknown'}
+          </span>
+        </>
+      )
+    }
+    if (automation.trigger_type === 'stage_change') {
+      return (
+        <>
+          Deal moves to{' '}
+          <span className="font-medium text-gray-700">
+            {automation.trigger_stage?.name || 'Unknown'}
+          </span>
+        </>
+      )
+    }
+    return 'No trigger set'
+  }
+
+  const getTotalInQueue = (automation: Automation) => {
+    return automation.steps?.reduce((sum, step) => sum + (step.stats?.in_queue || 0), 0) || 0
+  }
+
+  const getTypeIcon = (type: string | undefined) => {
+    switch (type) {
+      case 'deal_creation':
+        return <Users className="h-4 w-4" />
+      case 'initial_contact':
+      case 'follow_up':
+        return <Mail className="h-4 w-4" />
+      default:
+        return <Zap className="h-4 w-4" />
+    }
   }
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg bg-white">
       <Table>
         <TableHeader>
           <TableRow>
@@ -103,87 +149,101 @@ export function AutomationsTable({
             <TableHead>Pipeline</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Enrolled</TableHead>
-            <TableHead className="text-right">Completed</TableHead>
+            <TableHead className="text-right">In Queue</TableHead>
             <TableHead>Last Run</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {automations.map((automation) => (
-            <TableRow key={automation.id}>
-              {/* Workflow */}
-              <TableCell>
-                <div>
-                  <p className="font-medium text-gray-900">{automation.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {automation.description || getStepsSummary(automation)}
-                  </p>
-                </div>
-              </TableCell>
+          {automations.map((automation) => {
+            const inQueue = getTotalInQueue(automation)
+            
+            return (
+              <TableRow key={automation.id} className="cursor-pointer hover:bg-gray-50" onClick={() => onView(automation)}>
+                {/* Workflow */}
+                <TableCell>
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 bg-blue-100 rounded text-blue-600 mt-0.5">
+                      {getTypeIcon(automation.automation_type)}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{automation.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getStepsSummary(automation)}
+                      </p>
+                    </div>
+                  </div>
+                </TableCell>
 
-              {/* Trigger */}
-              <TableCell className="text-sm text-muted-foreground">
-                {automation.trigger_stage ? (
-                  <>Deal enters <span className="font-medium text-gray-700">{automation.trigger_stage.name}</span> stage</>
-                ) : (
-                  'No trigger set'
-                )}
-              </TableCell>
+                {/* Trigger */}
+                <TableCell className="text-sm text-muted-foreground">
+                  {getTriggerLabel(automation)}
+                </TableCell>
 
-              {/* Pipeline */}
-              <TableCell>
-                {automation.pipeline ? (
-                  <Badge variant="outline">{automation.pipeline.name}</Badge>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </TableCell>
+                {/* Pipeline */}
+                <TableCell>
+                  {automation.pipeline ? (
+                    <Badge variant="outline">{automation.pipeline.name}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
 
-              {/* Status */}
-              <TableCell>
-                <Switch
-                  checked={automation.is_active}
-                  onCheckedChange={(checked) => onToggle(automation.id, checked)}
-                />
-              </TableCell>
+                {/* Status */}
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Switch
+                    checked={automation.is_active}
+                    onCheckedChange={(checked) => onToggle(automation.id, checked)}
+                  />
+                </TableCell>
 
-              {/* Enrolled */}
-              <TableCell className="text-right font-medium">
-                0
-              </TableCell>
+                {/* Enrolled */}
+                <TableCell className="text-right">
+                  <span className="font-medium">{automation.total_enrolled || 0}</span>
+                </TableCell>
 
-              {/* Completed */}
-              <TableCell className="text-right text-muted-foreground">
-                0
-              </TableCell>
+                {/* In Queue */}
+                <TableCell className="text-right">
+                  {inQueue > 0 ? (
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {inQueue}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">0</span>
+                  )}
+                </TableCell>
 
-              {/* Last Run */}
-              <TableCell className="text-sm text-muted-foreground">
-                Never
-              </TableCell>
+                {/* Last Run */}
+                <TableCell className="text-sm text-muted-foreground">
+                  {automation.last_run_at
+                    ? formatDateTime(automation.last_run_at)
+                    : 'Never'}
+                </TableCell>
 
-              {/* Actions */}
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onView(automation)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit(automation)}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+                {/* Actions */}
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onView(automation)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit(automation)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>

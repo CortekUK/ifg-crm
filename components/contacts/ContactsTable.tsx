@@ -134,13 +134,8 @@ export function ContactsTable({
           <TableRow>
             <TableHead className="w-12">
               <Checkbox
-                checked={allSelected}
-                ref={(el) => {
-                  if (el) {
-                    (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate = someSelected
-                  }
-                }}
-                onCheckedChange={(checked) => onSelectAll(checked as boolean)}
+                checked={someSelected ? 'indeterminate' : allSelected}
+                onCheckedChange={(checked) => onSelectAll(checked === true)}
               />
             </TableHead>
             {columns.map((col) => (

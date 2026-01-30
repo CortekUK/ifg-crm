@@ -76,6 +76,9 @@ export function InvoicesTable({
     return new Date(invoice.due_date) < new Date()
   }
 
+  const allSelected = invoices.length > 0 && selectedIds.length === invoices.length
+  const someSelected = selectedIds.length > 0 && selectedIds.length < invoices.length
+
   const handleSelectAll = (checked: boolean) => {
     onSelectChange(checked ? invoices.map((inv) => inv.id) : [])
   }
@@ -148,8 +151,8 @@ export function InvoicesTable({
           <TableRow>
             <TableHead className="w-[40px]">
               <Checkbox
-                checked={selectedIds.length === invoices.length && invoices.length > 0}
-                onCheckedChange={handleSelectAll}
+                checked={someSelected ? 'indeterminate' : allSelected}
+                onCheckedChange={(checked) => handleSelectAll(checked === true)}
               />
             </TableHead>
             <TableHead>Invoice #</TableHead>
