@@ -523,7 +523,7 @@ export function ContactDetailSheet({
                             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                               {enrollment.current_step && (
                                 <span>
-                                  Step {enrollment.current_step.step_order}: {enrollment.current_step.step_name}
+                                  Step {enrollment.current_step.step_order}: {enrollment.current_step.step_type}
                                 </span>
                               )}
                               {enrollment.status === 'active' && enrollment.next_step_at && (
