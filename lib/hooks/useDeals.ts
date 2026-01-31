@@ -5,8 +5,7 @@ import type { Deal } from '@/lib/types/pipelines'
 
 // Helper to compute time in stage
 function computeTimeInStage(deal: Deal): number {
-  const stageDate = deal.stage_changed_at || deal.created_at
-  return calculateDaysBetween(stageDate)
+  return calculateDaysBetween(deal.created_at)
 }
 
 export function useDeals(pipelineId: string | null) {
@@ -41,10 +40,10 @@ export function useDeals(pipelineId: string | null) {
       // Fetch last email sent to each contact from automation_logs
       const { data: emailLogs } = await supabase
         .from('automation_logs')
-        .select('deal_id, created_at')
-        .eq('log_type', 'email_sent')
+        .select('deal_id, sent_at')
+        .eq('status', 'sent')
         .in('deal_id', deals.map((d) => d.id))
-        .order('created_at', { ascending: false })
+        .order('sent_at', { ascending: false })
 
       // Also check deal_activities for email activities
       const { data: emailActivities } = await supabase
@@ -60,7 +59,7 @@ export function useDeals(pipelineId: string | null) {
       // Process automation logs
       emailLogs?.forEach((log) => {
         if (!lastContactedMap.has(log.deal_id)) {
-          lastContactedMap.set(log.deal_id, log.created_at)
+          lastContactedMap.set(log.deal_id, log.sent_at)
         }
       })
 
@@ -109,10 +108,10 @@ export function useDeal(dealId: string | null) {
       // Fetch last contacted time for this deal
       const { data: emailLogs } = await supabase
         .from('automation_logs')
-        .select('created_at')
+        .select('sent_at')
         .eq('deal_id', dealId)
-        .eq('log_type', 'email_sent')
-        .order('created_at', { ascending: false })
+        .eq('status', 'sent')
+        .order('sent_at', { ascending: false })
         .limit(1)
 
       const { data: emailActivities } = await supabase
@@ -125,7 +124,7 @@ export function useDeal(dealId: string | null) {
 
       // Determine last contacted date
       let lastContactedAt: string | null = null
-      const logDate = emailLogs?.[0]?.created_at
+      const logDate = emailLogs?.[0]?.sent_at
       const activityDate = emailActivities?.[0]?.created_at
 
       if (logDate && activityDate) {

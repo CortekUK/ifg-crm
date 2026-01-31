@@ -19,7 +19,7 @@ export function useCalendlyEvents(contactId: string | null) {
         .from('calendly_events')
         .select(`
           *,
-          user:profiles!calendly_events_user_id_fkey(id, full_name, email)
+          user:profiles(id, full_name, email)
         `)
         .eq('contact_id', contactId)
         .order('start_time', { ascending: false })
@@ -47,7 +47,7 @@ export function useUserCalendlyEvents(userId: string | null, filters?: CalendlyE
         .from('calendly_events')
         .select(`
           *,
-          contact:contacts!calendly_events_contact_id_fkey(id, first_name, last_name, email)
+          contact:contacts(id, first_name, last_name, email)
         `)
         .eq('user_id', userId)
       
@@ -90,7 +90,7 @@ export function useDealCalendlyEvents(dealId: string | null) {
         .from('calendly_events')
         .select(`
           *,
-          user:profiles!calendly_events_user_id_fkey(id, full_name, email)
+          user:profiles(id, full_name, email)
         `)
         .eq('deal_id', dealId)
         .order('start_time', { ascending: false })

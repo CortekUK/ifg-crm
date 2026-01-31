@@ -94,7 +94,7 @@ export function useCreateContact() {
         .single()
 
       if (allContactsList && data) {
-        await supabase.from('list_contacts').insert({
+        await supabase.from('contact_lists').insert({
           list_id: allContactsList.id,
           contact_id: data.id,
         })
@@ -202,7 +202,7 @@ export function useContactLists(contactId: string | null) {
       if (!contactId) return []
 
       const { data, error } = await supabase
-        .from('list_contacts')
+        .from('contact_lists')
         .select(`
           list:lists(id, name)
         `)
@@ -238,7 +238,7 @@ export function useContactLastContacted(contactId: string | null) {
       const { data: emailLogs } = await supabase
         .from('automation_logs')
         .select('created_at')
-        .eq('log_type', 'email_sent')
+        .eq('status', 'sent')
         .in('deal_id', dealIds)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -273,19 +273,18 @@ export interface ContactAutomationEnrollment {
   status: 'active' | 'completed' | 'stopped' | 'paused'
   current_step_id: string | null
   next_step_at: string | null
-  started_at: string
+  enrolled_at: string
   completed_at: string | null
   stopped_at: string | null
   stopped_reason: string | null
   automation?: {
     id: string
     name: string
-    automation_type: string
   }
   current_step?: {
     id: string
-    step_name: string
     step_order: number
+    step_type: string
   }
   deal?: {
     id: string
@@ -316,11 +315,11 @@ export function useContactAutomations(contactId: string | null) {
         .from('automation_enrollments')
         .select(`
           *,
-          automation:automations(id, name, automation_type),
-          current_step:automation_steps(id, step_name, step_order)
+          automation:automations(id, name),
+          current_step:automation_steps(id, step_order, step_type)
         `)
         .in('deal_id', dealIds)
-        .order('started_at', { ascending: false })
+        .order('enrolled_at', { ascending: false })
 
       if (error) throw error
 
