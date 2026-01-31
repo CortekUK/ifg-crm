@@ -225,12 +225,14 @@ export function useUpdateList() {
 
   return useMutation({
     mutationFn: async (input: UpdateListInput) => {
+      const updateData: Record<string, unknown> = {}
+      if (input.name !== undefined) updateData.name = input.name
+      if (input.description !== undefined) updateData.description = input.description
+      if (input.is_dynamic !== undefined) updateData.is_dynamic = input.is_dynamic
+
       const { data, error } = await supabase
         .from('lists')
-        .update({
-          name: input.name,
-          description: input.description,
-        })
+        .update(updateData)
         .eq('id', input.id)
         .select()
         .single()
@@ -350,6 +352,28 @@ export function useBulkRemoveContactsFromList() {
   })
 }
 
+// Hook to get contact IDs already in a list (for Add Contacts modal)
+export function useListContactIds(listId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<Set<string>>({
+    queryKey: ['list-contact-ids', listId],
+    queryFn: async () => {
+      if (!listId) return new Set()
+
+      const { data, error } = await supabase
+        .from('contact_lists')
+        .select('contact_id')
+        .eq('list_id', listId)
+
+      if (error) throw error
+
+      return new Set((data || []).map((item) => item.contact_id))
+    },
+    enabled: !!listId,
+  })
+}
+
 export function useExportListContacts() {
   const supabase = createClient()
 
@@ -363,7 +387,8 @@ export function useExportListContacts() {
             first_name,
             last_name,
             email,
-            phone
+            phone,
+            grad_year
           )
         `)
         .eq('list_id', listId)
@@ -372,7 +397,7 @@ export function useExportListContacts() {
       if (error) throw error
 
       // Convert to CSV
-      const headers = ['First Name', 'Last Name', 'Email', 'Phone']
+      const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Grad Year']
       const rows = (data || []).map((item) => {
         const contactData = item.contact
         const contact = Array.isArray(contactData) ? contactData[0] : contactData
@@ -382,6 +407,7 @@ export function useExportListContacts() {
           contact.last_name || '',
           contact.email || '',
           contact.phone || '',
+          contact.grad_year?.toString() || '',
         ]
       }).filter((row) => row.length > 0)
 

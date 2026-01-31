@@ -41,6 +41,7 @@ export interface UpdateListInput {
   id: string
   name?: string
   description?: string
+  is_dynamic?: boolean
 }
 
 export interface ListStats {

@@ -335,6 +335,8 @@ export function ListDetailSheet({
                         </TableHead>
                         <TableHead>Contact</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Grad Year</TableHead>
                         <TableHead>Added</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
@@ -370,6 +372,12 @@ export function ListDetailSheet({
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {contact.email}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {contact.phone || '—'}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {contact.grad_year || '—'}
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm">
                               {formatDate(item.added_at)}

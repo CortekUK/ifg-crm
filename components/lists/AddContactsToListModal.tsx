@@ -15,9 +15,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Search, Loader2, Users } from 'lucide-react'
+import { Search, Loader2, Users, Check } from 'lucide-react'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
-import { useAddContactsToList } from '@/lib/hooks/useLists'
+import { useAddContactsToList, useListContactIds } from '@/lib/hooks/useLists'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Contact } from '@/lib/types/contacts'
@@ -40,7 +40,12 @@ export function AddContactsToListModal({
 
   const debouncedSearch = useDebouncedValue(search, 300)
   const { data: contacts = [], isLoading: contactsLoading } = useSearchContacts(debouncedSearch)
+  const { data: existingContactIds = new Set() } = useListContactIds(listId)
   const addContacts = useAddContactsToList()
+
+  // Filter out contacts that can be added (not already in list)
+  const availableContacts = contacts.filter((c) => !existingContactIds.has(c.id))
+  const alreadyInListContacts = contacts.filter((c) => existingContactIds.has(c.id))
 
   // Reset when modal closes
   useEffect(() => {
@@ -63,10 +68,10 @@ export function AddContactsToListModal({
   }
 
   const handleSelectAll = () => {
-    if (selectedIds.size === contacts.length) {
+    if (selectedIds.size === availableContacts.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(contacts.map((c) => c.id)))
+      setSelectedIds(new Set(availableContacts.map((c) => c.id)))
     }
   }
 
@@ -160,25 +165,88 @@ export function AddContactsToListModal({
                   : 'Start typing to search for contacts.'}
               </p>
             </div>
+          ) : availableContacts.length === 0 && alreadyInListContacts.length > 0 ? (
+            <div className="divide-y">
+              {/* Show already-in-list contacts with message */}
+              <div className="p-3 bg-amber-50 border-b border-amber-100">
+                <p className="text-sm text-amber-700 text-center">
+                  All matching contacts are already in this list
+                </p>
+              </div>
+              {alreadyInListContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex items-center gap-3 p-3 bg-slate-50/50 opacity-60 cursor-not-allowed"
+                >
+                  <div className="h-4 w-4 rounded border border-slate-300 bg-slate-200 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-slate-500" />
+                  </div>
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-slate-100 text-slate-500 text-xs">
+                      {getInitials(contact)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-500 truncate">
+                      {contact.first_name} {contact.last_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {contact.email}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-600">
+                    Already in list
+                  </Badge>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="divide-y">
-              {/* Select All */}
-              {contacts.length > 0 && (
+              {/* Select All - only for available contacts */}
+              {availableContacts.length > 0 && (
                 <div
                   className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b bg-slate-50"
                   onClick={handleSelectAll}
                 >
                   <Checkbox
-                    checked={selectedIds.size === contacts.length && contacts.length > 0}
+                    checked={selectedIds.size === availableContacts.length && availableContacts.length > 0}
                   />
                   <span className="text-sm font-medium text-gray-600">
-                    Select all ({contacts.length})
+                    Select all ({availableContacts.length})
                   </span>
                 </div>
               )}
 
-              {/* Contact Items */}
-              {contacts.map((contact) => (
+              {/* Contacts already in list - shown as disabled */}
+              {alreadyInListContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex items-center gap-3 p-3 bg-slate-50/50 opacity-60 cursor-not-allowed"
+                >
+                  <div className="h-4 w-4 rounded border border-slate-300 bg-slate-200 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-slate-500" />
+                  </div>
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-slate-100 text-slate-500 text-xs">
+                      {getInitials(contact)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-500 truncate">
+                      {contact.first_name} {contact.last_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {contact.email}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-600">
+                    Already in list
+                  </Badge>
+                </div>
+              ))}
+
+              {/* Available contacts */}
+              {availableContacts.map((contact) => (
                 <div
                   key={contact.id}
                   className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer"
