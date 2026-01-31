@@ -6,13 +6,12 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Send,
   Bell,
@@ -20,10 +19,8 @@ import {
   Download,
   Mail,
   Phone,
-  Calendar,
-  FileText,
 } from 'lucide-react'
-import { formatCurrency, formatDate, formatDateLong } from '@/lib/utils/format'
+import { formatCurrency, formatDateLong } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
 import type { InvoiceStatus, InvoiceType } from '@/lib/types/invoices'
@@ -52,11 +49,7 @@ const typeLabels: Record<InvoiceType, string> = {
   other: 'Other',
 }
 
-export function InvoiceDetailSheet({
-  invoiceId,
-  isOpen,
-  onClose,
-}: InvoiceDetailSheetProps) {
+export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetailSheetProps) {
   const { data: invoice, isLoading } = useInvoice(invoiceId)
   const updateStatus = useUpdateInvoiceStatus()
 
@@ -83,212 +76,200 @@ export function InvoiceDetailSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-lg">
+      <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
         {isLoading || !invoice ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">Loading...</p>
+          <div className="px-6 pt-6 pb-4 border-b">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-14 w-14 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
           </div>
         ) : (
           <>
-            <SheetHeader>
-              <div className="flex items-center justify-between">
-                <SheetTitle className="text-blue-600">
-                  {invoice.invoice_number}
-                </SheetTitle>
-                <Badge className={statusConfig[invoice.status].className}>
-                  {statusConfig[invoice.status].label}
-                </Badge>
+            {/* Header */}
+            <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-14 w-14">
+                  <AvatarFallback className="bg-blue-600 text-white text-lg font-semibold">
+                    {getInitials(invoice.contact?.first_name, invoice.contact?.last_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+                    {invoice.invoice_number}
+                  </SheetTitle>
+                  <SheetDescription className="mt-1">
+                    {typeLabels[invoice.type]} - {invoice.description}
+                  </SheetDescription>
+                  <Badge className={cn('mt-2', statusConfig[invoice.status].className)}>
+                    {statusConfig[invoice.status].label}
+                  </Badge>
+                </div>
               </div>
-              <SheetDescription>
-                {typeLabels[invoice.type]} - {invoice.description}
-              </SheetDescription>
+
+              {/* Amount Display */}
+              <div className="text-center py-4 bg-slate-50 rounded-lg mt-4">
+                <p className="text-sm text-slate-500 mb-1">Amount Due</p>
+                <p className="text-3xl font-bold text-gray-900">{formatCurrency(invoice.amount)}</p>
+              </div>
             </SheetHeader>
 
-            <ScrollArea className="h-[calc(100vh-260px)] pr-4">
-              <div className="space-y-6 mt-6">
-                {/* Amount */}
-                <div className="text-center py-6 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Amount Due</p>
-                  <p className="text-4xl font-bold text-gray-900">
-                    {formatCurrency(invoice.amount)}
-                  </p>
-                </div>
-
-                {/* Contact Info */}
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <Avatar className="h-12 w-12">
-                        <AvatarFallback className="bg-blue-100 text-blue-600">
-                          {getInitials(
-                            invoice.contact?.first_name,
-                            invoice.contact?.last_name
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium">
-                          {invoice.contact
-                            ? `${invoice.contact.first_name} ${invoice.contact.last_name}`
-                            : 'Unknown Contact'}
-                        </p>
-                        {invoice.contact?.email && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                            <Mail className="h-3 w-3" />
-                            {invoice.contact.email}
-                          </div>
-                        )}
-                        {invoice.contact?.phone && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                            <Phone className="h-3 w-3" />
-                            {invoice.contact.phone}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Dates */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-xs">Due Date</span>
-                      </div>
-                      <p
-                        className={cn(
-                          'font-medium',
-                          isOverdue(invoice.due_date, invoice.status) &&
-                            'text-red-600'
-                        )}
-                      >
-                        {formatDateLong(invoice.due_date)}
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                        <Send className="h-4 w-4" />
-                        <span className="text-xs">Sent Date</span>
-                      </div>
-                      <p className="font-medium">
-                        {invoice.sent_at ? formatDateLong(invoice.sent_at) : '—'}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Programme / Deal */}
-                {invoice.deal && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                        <FileText className="h-4 w-4" />
-                        <span className="text-sm">Linked Deal</span>
-                      </div>
-                      <p className="font-medium">{invoice.deal.title}</p>
-                      {invoice.deal.pipeline && (
-                        <Badge variant="outline" className="mt-2">
-                          {invoice.deal.pipeline.name}
-                        </Badge>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Description */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-700">Description</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {invoice.description}
-                  </p>
-                </div>
-
-                {/* Notes */}
-                {invoice.notes && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-700">Notes</h4>
-                    <p className="text-sm text-muted-foreground">{invoice.notes}</p>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+              {/* Contact Information */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  Contact Information
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Name</span>
+                    <span className="text-sm font-medium">
+                      {invoice.contact ? `${invoice.contact.first_name} ${invoice.contact.last_name}` : 'Unknown Contact'}
+                    </span>
                   </div>
-                )}
-
-                {/* Payment History */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-700">
-                    Payment History
-                  </h4>
-                  {invoice.paid_at ? (
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-full">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Payment Received</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDateLong(invoice.paid_at)}
-                            </p>
-                          </div>
-                          <p className="font-medium text-green-600">
-                            {formatCurrency(invoice.amount)}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No payments recorded yet.
-                    </p>
+                  {invoice.contact?.email && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Email</span>
+                      <a href={`mailto:${invoice.contact.email}`} className="text-sm font-medium text-blue-600 hover:underline">
+                        {invoice.contact.email}
+                      </a>
+                    </div>
+                  )}
+                  {invoice.contact?.phone && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Phone</span>
+                      <span className="text-sm font-medium">{invoice.contact.phone}</span>
+                    </div>
                   )}
                 </div>
               </div>
-            </ScrollArea>
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2 pt-6 border-t mt-6">
-              {invoice.status === 'draft' && (
-                <Button
-                  onClick={handleSend}
-                  disabled={updateStatus.isPending}
-                  className="flex-1"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Invoice
-                </Button>
+              {/* Invoice Details */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  Invoice Details
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Due Date</span>
+                    <span className={cn('text-sm font-medium', isOverdue(invoice.due_date, invoice.status) && 'text-red-600')}>
+                      {formatDateLong(invoice.due_date)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Sent Date</span>
+                    <span className="text-sm font-medium">{invoice.sent_at ? formatDateLong(invoice.sent_at) : 'Not sent'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Type</span>
+                    <span className="text-sm font-medium">{typeLabels[invoice.type]}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Linked Deal */}
+              {invoice.deal && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    Linked Deal
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Deal</span>
+                      <span className="text-sm font-medium">{invoice.deal.title}</span>
+                    </div>
+                    {invoice.deal.pipeline && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Pipeline</span>
+                        <span className="text-sm font-medium">{invoice.deal.pipeline.name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
-              {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleSend}
-                    disabled={updateStatus.isPending}
-                    className="flex-1"
-                  >
-                    <Bell className="h-4 w-4 mr-2" />
-                    Send Reminder
-                  </Button>
-                  <Button
-                    onClick={handleMarkPaid}
-                    disabled={updateStatus.isPending}
-                    className="flex-1"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Mark Paid
-                  </Button>
-                </>
+              {/* Description */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  Description
+                </h3>
+                <p className="text-sm text-slate-600">{invoice.description}</p>
+              </div>
+
+              {/* Notes */}
+              {invoice.notes && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    Notes
+                  </h3>
+                  <p className="text-sm text-slate-600">{invoice.notes}</p>
+                </div>
               )}
 
-              <Button variant="outline" disabled className="flex-1">
-                <Download className="h-4 w-4 mr-2" />
-                Download PDF
-              </Button>
+              {/* Payment History */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  Payment History
+                </h3>
+                {invoice.paid_at ? (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-green-900">Payment Received</p>
+                      <p className="text-xs text-green-700">{formatDateLong(invoice.paid_at)}</p>
+                    </div>
+                    <p className="font-semibold text-green-600">{formatCurrency(invoice.amount)}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 text-center py-4">No payments recorded yet.</p>
+                )}
+              </div>
             </div>
+
+            {/* Footer Actions */}
+            <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+              <div className="flex flex-wrap gap-2 w-full">
+                {invoice.status === 'draft' && (
+                  <Button onClick={handleSend} disabled={updateStatus.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Invoice
+                  </Button>
+                )}
+
+                {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                  <>
+                    <Button variant="outline" onClick={handleSend} disabled={updateStatus.isPending} className="flex-1">
+                      <Bell className="h-4 w-4 mr-2" />
+                      Send Reminder
+                    </Button>
+                    <Button onClick={handleMarkPaid} disabled={updateStatus.isPending} className="flex-1 bg-green-600 hover:bg-green-700">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Mark Paid
+                    </Button>
+                  </>
+                )}
+
+                {invoice.status === 'paid' && (
+                  <Button variant="outline" disabled className="flex-1">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                )}
+
+                {invoice.status !== 'paid' && invoice.status !== 'draft' && (
+                  <Button variant="outline" disabled className="flex-1">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                )}
+              </div>
+            </SheetFooter>
           </>
         )}
       </SheetContent>

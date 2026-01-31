@@ -19,12 +19,12 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
     queryKey: [`followups-${type}`],
     queryFn: async () => {
       if (type === 'sms') {
-        // Count SMS messages that need follow-up (status is 'open')
+        // Count SMS messages that need follow-up (follow_up_status = 'needed')
         const { count, error } = await supabase
           .from('sms_messages')
           .select('*', { count: 'exact', head: true })
           .eq('direction', 'inbound')
-          .eq('follow_up_status', 'open')
+          .eq('follow_up_status', 'needed')
 
         if (error) {
           console.error('SMS follow-up count error:', error)
@@ -33,11 +33,11 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
 
         return count || 0
       } else {
-        // Count email replies that need follow-up (status is 'open')
+        // Count email replies that need follow-up (follow_up_status = 'needed')
         const { count, error } = await supabase
           .from('email_replies')
           .select('*', { count: 'exact', head: true })
-          .eq('follow_up_status', 'open')
+          .eq('follow_up_status', 'needed')
 
         if (error) {
           console.error('Email follow-up count error:', error)
@@ -53,9 +53,9 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
   const Icon = type === 'sms' ? MessageSquare : Mail
   const title = type === 'sms' ? 'SMS FOLLOW-UPS NEEDED' : 'EMAIL FOLLOW-UPS NEEDED'
   const subtitle = type === 'sms'
-    ? 'SMS replies with open follow-up tasks.'
-    : 'Email replies with open follow-up tasks.'
-  const linkHref = type === 'sms' ? '/sms-replies?status=open' : '/email-replies?status=open'
+    ? 'SMS replies that need follow-up.'
+    : 'Email replies that need follow-up.'
+  const linkHref = type === 'sms' ? '/sms-replies?follow_up=needed' : '/email-replies?follow_up=needed'
 
   if (isLoading) {
     return (
@@ -111,7 +111,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
           </CardTitle>
           {count !== undefined && count > 0 && (
             <span className="px-2.5 py-1 text-xs font-semibold bg-amber-500 text-white rounded-full uppercase">
-              {count} OPEN
+              {count} NEEDED
             </span>
           )}
         </div>
@@ -120,7 +120,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
         <p className="text-sm text-muted-foreground mb-4">{subtitle}</p>
         <Link href={linkHref}>
           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs">
-            View open follow-ups
+            View follow-ups
             <ArrowRight className="h-3 w-3 ml-2" />
           </Button>
         </Link>

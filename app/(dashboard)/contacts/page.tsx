@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Link from 'next/link'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContactsPageHeader } from '@/components/contacts/ContactsPageHeader'
 import { ContactStats } from '@/components/contacts/ContactStats'
@@ -15,13 +16,16 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import type { Contact } from '@/lib/types/contacts'
 
 export default function ContactsPage() {
-  // Pagination state
+  // Pagination state - default 20 per page
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(50)
+  const [pageSize, setPageSize] = useState(20)
 
   // Filter state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [programmeFilter, setProgrammeFilter] = useState('')
+  const [countryFilter, setCountryFilter] = useState('')
+  const [recruiterFilter, setRecruiterFilter] = useState('')
 
   // Sort state
   const [sortBy, setSortBy] = useState('created_at')
@@ -40,6 +44,9 @@ export default function ContactsPage() {
   // Build filters object
   const filters = {
     ...(statusFilter && statusFilter !== 'all' && { subscription_status: statusFilter }),
+    ...(programmeFilter && programmeFilter !== 'all' && { pipeline_id: programmeFilter }),
+    ...(countryFilter && countryFilter !== 'all' && { country: countryFilter }),
+    ...(recruiterFilter && recruiterFilter !== 'all' && { recruiter_id: recruiterFilter }),
   }
 
   // Fetch contacts
@@ -93,6 +100,9 @@ export default function ContactsPage() {
   const handleClearFilters = useCallback(() => {
     setSearch('')
     setStatusFilter('')
+    setProgrammeFilter('')
+    setCountryFilter('')
+    setRecruiterFilter('')
     setPage(1)
   }, [])
 
@@ -125,7 +135,9 @@ export default function ContactsPage() {
       <Tabs defaultValue="contacts">
         <TabsList>
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
-          <TabsTrigger value="lists">Lists</TabsTrigger>
+          <TabsTrigger value="lists" asChild>
+            <Link href="/lists">Lists</Link>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -134,12 +146,27 @@ export default function ContactsPage() {
         search={search}
         onSearchChange={(value) => {
           setSearch(value)
-          setPage(1) // Reset to first page on search
+          setPage(1)
         }}
         statusFilter={statusFilter}
         onStatusFilterChange={(value) => {
           setStatusFilter(value)
-          setPage(1) // Reset to first page on filter change
+          setPage(1)
+        }}
+        programmeFilter={programmeFilter}
+        onProgrammeFilterChange={(value) => {
+          setProgrammeFilter(value)
+          setPage(1)
+        }}
+        countryFilter={countryFilter}
+        onCountryFilterChange={(value) => {
+          setCountryFilter(value)
+          setPage(1)
+        }}
+        recruiterFilter={recruiterFilter}
+        onRecruiterFilterChange={(value) => {
+          setRecruiterFilter(value)
+          setPage(1)
         }}
         onClearFilters={handleClearFilters}
       />

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sparkline } from '@/components/ui/sparkline'
@@ -15,6 +16,7 @@ interface DashboardStatsCardProps {
   colour?: 'blue' | 'orange' | 'green' | 'purple' | 'red' | 'teal'
   sparklineData?: number[]
   isLoading?: boolean
+  href?: string
 }
 
 const colourConfig = {
@@ -71,6 +73,7 @@ export function DashboardStatsCard({
   colour = 'blue',
   sparklineData,
   isLoading = false,
+  href,
 }: DashboardStatsCardProps) {
   const isPositive = trend !== undefined && trend > 0
   const isNegative = trend !== undefined && trend < 0
@@ -99,10 +102,11 @@ export function DashboardStatsCard({
     )
   }
 
-  return (
+  const cardContent = (
     <Card className={cn(
-      'relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow transition-shadow border-l-4',
-      config.border
+      'relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow border-l-4',
+      config.border,
+      href && 'cursor-pointer'
     )}>
       {/* Subtle gradient overlay from top */}
       <div className={cn(
@@ -149,4 +153,14 @@ export function DashboardStatsCard({
       </CardContent>
     </Card>
   )
+
+  if (href) {
+    return (
+      <Link href={href} className="block">
+        {cardContent}
+      </Link>
+    )
+  }
+
+  return cardContent
 }

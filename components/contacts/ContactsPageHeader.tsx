@@ -11,9 +11,14 @@ export function ContactsPageHeader({ onAddContact }: ContactsPageHeaderProps) {
   return (
     <div className="bg-gradient-to-br from-blue-600 to-blue-900 rounded-xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <p className="text-white/90 text-base">
-          Manage your contacts and lists for targeted marketing campaigns.
-        </p>
+        <div>
+          <h1 className="font-oswald text-2xl font-bold uppercase text-white tracking-wide">
+            Contacts
+          </h1>
+          <p className="text-white/80 text-sm mt-1">
+            Manage your contacts and lists for targeted marketing campaigns.
+          </p>
+        </div>
 
         {onAddContact && (
           <Button

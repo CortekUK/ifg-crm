@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
+  SheetFooter,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -23,18 +24,12 @@ import { Input } from '@/components/ui/input'
 import {
   Mail,
   Phone,
-  MapPin,
-  GraduationCap,
-  Trophy,
-  Users,
   Pencil,
   Calendar,
   PoundSterling,
-  Send,
   X,
   Plus,
   Zap,
-  ListIcon,
   Search,
   Clock,
   CheckCircle2,
@@ -42,13 +37,16 @@ import {
   Loader2,
   Video,
   ExternalLink,
-  CalendarCheck,
   XCircle,
+  Activity,
+  ArrowRight,
+  FileText,
+  Trophy,
 } from 'lucide-react'
 import { formatDate, formatRelativeTime, formatTimeAgo } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
-import { useContact, useContactDeals, useContactActivities, useContactLists, useContactLastContacted, useContactAutomations } from '@/lib/hooks/useContacts'
-import { useCalendlyEvents } from '@/lib/hooks/useCalendlyEvents'
+import { useContact, useUpdateContact, useContactDeals, useContactActivities, useContactLists, useContactLastContacted, useContactAutomations } from '@/lib/hooks/useContacts'
+import { useCalendlyEvents, useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
 import { useLists, useAddContactsToList, useRemoveContactFromList } from '@/lib/hooks/useLists'
 import { useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment } from '@/lib/hooks/useAutomations'
 import { toast } from '@/lib/hooks/use-toast'
@@ -69,6 +67,49 @@ interface ContactDetailSheetProps {
   onEdit?: (contact: Contact) => void
 }
 
+function formatSource(source: string | null): string {
+  if (!source) return 'Unknown'
+  const sourceMap: Record<string, string> = {
+    website_form: 'Website Form',
+    sms_reply: 'SMS Reply',
+    email_reply: 'Email Reply',
+    manual: 'Manual Entry',
+    csv_import: 'CSV Import',
+  }
+  return sourceMap[source] || source.replace(/_/g, ' ')
+}
+
+function getActivityIcon(type: string) {
+  switch (type) {
+    case 'email_sent':
+    case 'email_opened':
+      return <Mail className="h-3.5 w-3.5 text-blue-600" />
+    case 'stage_changed':
+      return <ArrowRight className="h-3.5 w-3.5 text-purple-600" />
+    case 'note_added':
+      return <FileText className="h-3.5 w-3.5 text-slate-600" />
+    case 'deal_created':
+    case 'deal_won':
+      return <Trophy className="h-3.5 w-3.5 text-green-600" />
+    case 'deal_lost':
+      return <XCircle className="h-3.5 w-3.5 text-red-600" />
+    case 'meeting_scheduled':
+    case 'meeting_completed':
+      return <Calendar className="h-3.5 w-3.5 text-blue-600" />
+    default:
+      return <Activity className="h-3.5 w-3.5 text-slate-500" />
+  }
+}
+
+function getActivityBg(type: string): string {
+  if (type.includes('email')) return 'bg-blue-50'
+  if (type.includes('stage')) return 'bg-purple-50'
+  if (type.includes('deal_won') || type.includes('deal_created')) return 'bg-green-50'
+  if (type.includes('deal_lost')) return 'bg-red-50'
+  if (type.includes('meeting')) return 'bg-blue-50'
+  return 'bg-slate-50'
+}
+
 export function ContactDetailSheet({
   contactId,
   isOpen,
@@ -79,6 +120,8 @@ export function ContactDetailSheet({
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [isAddListOpen, setIsAddListOpen] = useState(false)
   const [isLogReplyOpen, setIsLogReplyOpen] = useState(false)
+  const [editedNotes, setEditedNotes] = useState('')
+  const [hasNotesChanged, setHasNotesChanged] = useState(false)
 
   const { data: contact, isLoading: contactLoading } = useContact(contactId)
   const { data: deals = [], isLoading: dealsLoading } = useContactDeals(contactId)
@@ -87,6 +130,7 @@ export function ContactDetailSheet({
   const { data: lastContactedAt } = useContactLastContacted(contactId)
   const { data: automations = [], isLoading: automationsLoading } = useContactAutomations(contactId)
   const { data: calendlyEvents = [], isLoading: calendlyEventsLoading } = useCalendlyEvents(contactId)
+  const { data: upcomingEvent } = useUpcomingCalendlyEvent(contactId)
   const { data: allLists = [] } = useLists()
 
   const addToList = useAddContactsToList()
@@ -94,127 +138,104 @@ export function ContactDetailSheet({
   const unenroll = useUnenrollFromAutomation()
   const pauseEnrollment = usePauseEnrollment()
   const resumeEnrollment = useResumeEnrollment()
+  const updateContact = useUpdateContact()
 
-  // Filter out lists the contact is already in
+  useEffect(() => {
+    if (contact) {
+      setEditedNotes(contact.notes || '')
+      setHasNotesChanged(false)
+    }
+  }, [contact])
+
+  useEffect(() => {
+    if (isOpen) setActiveTab('overview')
+  }, [isOpen])
+
   const contactListIds = new Set(lists.map((l) => l.id))
   const availableLists = allLists.filter(
-    (list) =>
-      !contactListIds.has(list.id) &&
-      list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
+    (list) => !contactListIds.has(list.id) && list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
   )
+
+  const totalDealsValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
 
   const handleAddToList = async (listId: string, listName: string) => {
     if (!contactId) return
-
     try {
       await addToList.mutateAsync({ listId, contactIds: [contactId] })
-      toast({
-        title: 'Added to list',
-        description: `Contact added to "${listName}".`,
-      })
+      toast({ title: 'Added to list', description: `Contact added to "${listName}".` })
       setIsAddListOpen(false)
       setListSearchQuery('')
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add contact to list.',
-        variant: 'destructive',
-      })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add contact to list.', variant: 'destructive' })
     }
   }
 
   const handleRemoveFromList = async (listId: string, listName: string) => {
     if (!contactId) return
-
     try {
       await removeFromList.mutateAsync({ listId, contactId })
-      toast({
-        title: 'Removed from list',
-        description: `Contact removed from "${listName}".`,
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to remove contact from list.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Removed from list', description: `Contact removed from "${listName}".` })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to remove contact from list.', variant: 'destructive' })
     }
   }
 
-  const handleUnenrollFromAutomation = async (enrollmentId: string, automationName: string) => {
+  const handleUnenroll = async (enrollmentId: string, name: string) => {
     try {
       await unenroll.mutateAsync({ enrollmentId })
-      toast({
-        title: 'Unenrolled',
-        description: `Contact removed from "${automationName}".`,
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to unenroll contact.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Unenrolled', description: `Removed from "${name}".` })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to unenroll.', variant: 'destructive' })
     }
   }
 
-  const handlePauseResumeAutomation = async (enrollmentId: string, currentStatus: string) => {
+  const handlePauseResume = async (enrollmentId: string, status: string) => {
     try {
-      if (currentStatus === 'active') {
+      if (status === 'active') {
         await pauseEnrollment.mutateAsync({ enrollmentId })
-        toast({ title: 'Enrollment paused' })
-      } else if (currentStatus === 'paused') {
+        toast({ title: 'Paused' })
+      } else {
         await resumeEnrollment.mutateAsync({ enrollmentId })
-        toast({ title: 'Enrollment resumed' })
+        toast({ title: 'Resumed' })
       }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update enrollment.',
-        variant: 'destructive',
-      })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update.', variant: 'destructive' })
     }
   }
 
-  const getInitials = (firstName?: string, lastName?: string) => {
-    const first = firstName?.[0] || ''
-    const last = lastName?.[0] || ''
-    return (first + last).toUpperCase() || '??'
-  }
-
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'subscribed':
-        return <Badge className="bg-green-100 text-green-700">Subscribed</Badge>
-      case 'unsubscribed':
-        return <Badge className="bg-red-100 text-red-700">Unsubscribed</Badge>
-      case 'bounced':
-        return <Badge className="bg-orange-100 text-orange-700">Bounced</Badge>
-      default:
-        return <Badge className="bg-gray-100 text-gray-700">Unknown</Badge>
+  const handleSaveNotes = async () => {
+    if (!contactId) return
+    try {
+      await updateContact.mutateAsync({ contactId, updates: { notes: editedNotes } })
+      setHasNotesChanged(false)
+      toast({ title: 'Notes saved' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save notes.', variant: 'destructive' })
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP',
-      minimumFractionDigits: 0,
-    }).format(amount)
-  }
+  const getInitials = (first?: string, last?: string) => ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || '??'
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0 }).format(amount)
 
   if (contactLoading) {
     return (
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="sm:max-w-lg">
-          <SheetHeader>
+        <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <div className="flex items-center gap-4">
-              <Skeleton className="h-16 w-16 rounded-full" />
+              <Skeleton className="h-14 w-14 rounded-full" />
               <div className="space-y-2">
-                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-5 w-32" />
                 <Skeleton className="h-4 w-24" />
               </div>
             </div>
           </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <Skeleton className="h-10 w-full mb-4" />
+            <Skeleton className="h-32 w-full" />
+          </div>
         </SheetContent>
       </Sheet>
     )
@@ -224,159 +245,256 @@ export function ContactDetailSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="pb-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="bg-blue-100 text-blue-600 text-lg font-semibold">
-                  {getInitials(contact.first_name, contact.last_name)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <SheetTitle className="text-xl">
-                  {contact.first_name} {contact.last_name}
-                </SheetTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  {getStatusBadge(contact.subscription_status)}
-                </div>
-              </div>
+      <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
+        {/* Header */}
+        <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+          <div className="flex items-start gap-4">
+            <Avatar className="h-14 w-14">
+              <AvatarFallback className="bg-blue-600 text-white text-lg font-semibold">
+                {getInitials(contact.first_name, contact.last_name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+                {contact.first_name} {contact.last_name}
+              </SheetTitle>
+              <SheetDescription className="mt-1 flex items-center gap-2">
+                {contact.subscription_status === 'active' || contact.subscription_status === 'subscribed' ? (
+                  <Badge className="bg-green-100 text-green-700 border-0">Subscribed</Badge>
+                ) : contact.subscription_status === 'unsubscribed' ? (
+                  <Badge className="bg-red-100 text-red-700 border-0">Unsubscribed</Badge>
+                ) : null}
+                {contact.graduation_year && (
+                  <span className="text-muted-foreground">Class of {contact.graduation_year}</span>
+                )}
+              </SheetDescription>
             </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-4 gap-2 mt-4">
+            <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" asChild>
+              <a href={`mailto:${contact.email}`}>
+                <Mail className="h-4 w-4" />
+                <span className="text-xs">Email</span>
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" asChild={!!contact.phone} disabled={!contact.phone}>
+              {contact.phone ? (
+                <a href={`tel:${contact.phone}`}>
+                  <Phone className="h-4 w-4" />
+                  <span className="text-xs">Call</span>
+                </a>
+              ) : (
+                <>
+                  <Phone className="h-4 w-4" />
+                  <span className="text-xs">Call</span>
+                </>
+              )}
+            </Button>
+            <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" onClick={() => setIsLogReplyOpen(true)}>
+              <MessageCircle className="h-4 w-4" />
+              <span className="text-xs">Log Reply</span>
+            </Button>
             {onEdit && (
-              <Button variant="outline" size="sm" onClick={() => onEdit(contact)}>
-                <Pencil className="h-4 w-4 mr-1" />
-                Edit
+              <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" onClick={() => onEdit(contact)}>
+                <Pencil className="h-4 w-4" />
+                <span className="text-xs">Edit</span>
               </Button>
             )}
           </div>
         </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="deals">Deals</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-          </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4 mt-4">
-            {/* Last Contacted Card */}
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Send className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-muted-foreground">LAST CONTACTED</span>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Upcoming Meeting Banner */}
+          {upcomingEvent && (
+            <div className="mx-6 mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Video className="h-5 w-5 text-green-600" />
                   </div>
-                  <span
-                    className={cn(
-                      'font-semibold text-sm',
-                      lastContactedAt ? 'text-green-700' : 'text-orange-600'
-                    )}
-                  >
-                    {lastContactedAt
-                      ? formatTimeAgo(lastContactedAt).toUpperCase()
-                      : 'NEVER CONTACTED'}
-                  </span>
+                  <div>
+                    <p className="font-medium text-green-900">{upcomingEvent.event_name || 'Meeting scheduled'}</p>
+                    <p className="text-sm text-green-700">
+                      {formatDate(upcomingEvent.start_time)} at{' '}
+                      {new Date(upcomingEvent.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Contact Information */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {contact.email && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <a href={`mailto:${contact.email}`} className="text-blue-600 hover:underline">
-                      {contact.email}
+                {upcomingEvent.join_url && (
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700" asChild>
+                    <a href={upcomingEvent.join_url} target="_blank" rel="noopener noreferrer">
+                      Join
+                      <ExternalLink className="h-3 w-3 ml-1" />
                     </a>
-                  </div>
+                  </Button>
                 )}
-                {contact.phone && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{contact.phone}</span>
-                  </div>
-                )}
-                {(contact.city || contact.state || contact.country) && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {[contact.city, contact.state, contact.country].filter(Boolean).join(', ')}
+              </div>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+            <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-6">
+              <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="deals" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
+                Deals
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
+                Activity
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
+                Notes
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="px-6 py-6 space-y-6 mt-0">
+              {/* Contact Details */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  Contact Details
+                </h3>
+                <div className="space-y-3">
+                  {contact.email && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Email</span>
+                      <a href={`mailto:${contact.email}`} className="text-sm font-medium text-blue-600 hover:underline">
+                        {contact.email}
+                      </a>
+                    </div>
+                  )}
+                  {contact.phone && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Phone</span>
+                      <a href={`tel:${contact.phone}`} className="text-sm font-medium text-blue-600 hover:underline">
+                        {contact.phone}
+                      </a>
+                    </div>
+                  )}
+                  {(contact.city || contact.country) && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Location</span>
+                      <span className="text-sm font-medium">{[contact.city, contact.state, contact.country].filter(Boolean).join(', ')}</span>
+                    </div>
+                  )}
+                  {contact.graduation_year && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Graduation</span>
+                      <span className="text-sm font-medium">Class of {contact.graduation_year}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  Status
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Last Contacted</span>
+                    <span className={cn("text-sm font-medium", lastContactedAt ? 'text-green-600' : 'text-orange-600')}>
+                      {lastContactedAt ? formatTimeAgo(lastContactedAt) : 'Never contacted'}
                     </span>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Last Activity</span>
+                    <span className={cn("text-sm font-medium", contact.last_activity_at ? 'text-green-600' : 'text-orange-600')}>
+                      {contact.last_activity_at ? formatTimeAgo(contact.last_activity_at) : 'No activity'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Source</span>
+                    <span className="text-sm font-medium">{formatSource(contact.source)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500">Added</span>
+                    <span className="text-sm font-medium">{formatDate(contact.created_at)}</span>
+                  </div>
+                </div>
+              </div>
 
-            {/* Football Information */}
-            {(contact.position || contact.club_name || contact.gpa || contact.graduation_year) && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Football Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {contact.graduation_year && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                      <span>Class of {contact.graduation_year}</span>
-                    </div>
-                  )}
-                  {contact.position && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <Trophy className="h-4 w-4 text-muted-foreground" />
-                      <span>{contact.position}</span>
-                    </div>
-                  )}
-                  {contact.club_name && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>{contact.club_name}</span>
-                    </div>
-                  )}
-                  {contact.gpa && (
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">GPA:</span> {contact.gpa}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+              {/* Player Information */}
+              {(contact.position || contact.club_name || contact.gpa || contact.sport) && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    Player Information
+                  </h3>
+                  <div className="space-y-3">
+                    {contact.sport && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Sport</span>
+                        <span className="text-sm font-medium">{contact.sport === 'football' ? 'Football' : 'Basketball'}</span>
+                      </div>
+                    )}
+                    {contact.position && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Position</span>
+                        <span className="text-sm font-medium">{contact.position}</span>
+                      </div>
+                    )}
+                    {contact.club_name && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Club</span>
+                        <span className="text-sm font-medium">{contact.club_name}</span>
+                      </div>
+                    )}
+                    {contact.gpa && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">GPA</span>
+                        <span className="text-sm font-medium">{contact.gpa}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            {/* Parent/Guardian */}
-            {(contact.parent_name || contact.parent_email || contact.parent_phone) && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Parent/Guardian</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  {contact.parent_name && <p>{contact.parent_name}</p>}
-                  {contact.parent_email && (
-                    <a href={`mailto:${contact.parent_email}`} className="text-blue-600 hover:underline block">
-                      {contact.parent_email}
-                    </a>
-                  )}
-                  {contact.parent_phone && <p className="text-muted-foreground">{contact.parent_phone}</p>}
-                </CardContent>
-              </Card>
-            )}
+              {/* Parent/Guardian */}
+              {(contact.parent_name || contact.parent_email || contact.parent_phone) && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    Parent/Guardian
+                  </h3>
+                  <div className="space-y-3">
+                    {contact.parent_name && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Name</span>
+                        <span className="text-sm font-medium">{contact.parent_name}</span>
+                      </div>
+                    )}
+                    {contact.parent_email && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Email</span>
+                        <a href={`mailto:${contact.parent_email}`} className="text-sm font-medium text-blue-600 hover:underline">
+                          {contact.parent_email}
+                        </a>
+                      </div>
+                    )}
+                    {contact.parent_phone && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Phone</span>
+                        <span className="text-sm font-medium">{contact.parent_phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            {/* Lists Section */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                    <ListIcon className="h-4 w-4" />
-                    LISTS
-                  </CardTitle>
+              {/* Lists */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                    Lists
+                  </h3>
                   <Popover open={isAddListOpen} onOpenChange={setIsAddListOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs">
+                      <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700">
                         <Plus className="h-3 w-3 mr-1" />
                         Add to List
                       </Button>
@@ -392,57 +510,40 @@ export function ContactDetailSheet({
                             className="h-8 pl-7 text-sm"
                           />
                         </div>
-                        <div className="max-h-48 overflow-y-auto">
+                        <div className="max-h-40 overflow-y-auto">
                           {availableLists.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4">
-                              {listSearchQuery ? 'No lists found' : 'Contact is in all lists'}
+                            <p className="text-xs text-muted-foreground text-center py-3">
+                              {listSearchQuery ? 'No lists found' : 'In all lists'}
                             </p>
                           ) : (
-                            <div className="space-y-1">
-                              {availableLists.slice(0, 10).map((list) => (
-                                <button
-                                  key={list.id}
-                                  onClick={() => handleAddToList(list.id, list.name)}
-                                  disabled={addToList.isPending}
-                                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 disabled:opacity-50 flex items-center justify-between"
-                                >
-                                  <span className="truncate">{list.name}</span>
-                                  {addToList.isPending && (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  )}
-                                </button>
-                              ))}
-                            </div>
+                            availableLists.slice(0, 8).map((list) => (
+                              <button
+                                key={list.id}
+                                onClick={() => handleAddToList(list.id, list.name)}
+                                disabled={addToList.isPending}
+                                className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 disabled:opacity-50"
+                              >
+                                {list.name}
+                              </button>
+                            ))
                           )}
                         </div>
                       </div>
                     </PopoverContent>
                   </Popover>
                 </div>
-              </CardHeader>
-              <CardContent>
                 {listsLoading ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Skeleton className="h-6 w-24" />
-                    <Skeleton className="h-6 w-20" />
-                    <Skeleton className="h-6 w-28" />
-                  </div>
+                  <Skeleton className="h-8 w-full" />
                 ) : lists.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Not in any lists yet.</p>
+                  <p className="text-sm text-slate-500">Not in any lists</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {lists.map((list) => (
-                      <Badge
-                        key={list.id}
-                        variant="secondary"
-                        className="bg-slate-100 text-slate-700 pr-1 group"
-                      >
+                      <Badge key={list.id} variant="secondary" className="pr-1">
                         {list.name}
                         <button
                           onClick={() => handleRemoveFromList(list.id, list.name)}
-                          disabled={removeFromList.isPending}
-                          className="ml-1 p-0.5 rounded-full hover:bg-slate-200 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
-                          title="Remove from list"
+                          className="ml-1 p-0.5 rounded-full hover:bg-slate-300/50"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -450,125 +551,70 @@ export function ContactDetailSheet({
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Automations Section */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    AUTOMATIONS
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
+              {/* Automations */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  Automations
+                </h3>
                 {automationsLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                  </div>
+                  <Skeleton className="h-12 w-full" />
                 ) : automations.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Not enrolled in any automations.</p>
+                  <p className="text-sm text-slate-500">Not enrolled in any automations</p>
                 ) : (
                   <div className="space-y-2">
                     {automations.map((enrollment) => {
-                      const automationName = enrollment.automation?.name || 'Unknown Automation'
+                      const name = enrollment.automation?.name || 'Unknown'
                       const canManage = enrollment.status === 'active' || enrollment.status === 'paused'
-
                       return (
-                        <div
-                          key={enrollment.id}
-                          className={cn(
-                            'flex items-start justify-between p-2 rounded-lg border',
-                            enrollment.status === 'paused'
-                              ? 'bg-amber-50/50 border-amber-200'
-                              : 'bg-slate-50'
-                          )}
-                        >
-                          <div className="flex-1 min-w-0">
+                        <div key={enrollment.id} className={cn(
+                          'flex items-center justify-between p-3 rounded-lg border',
+                          enrollment.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
+                        )}>
+                          <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm truncate">
-                                {automationName}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  'text-[10px] px-1.5',
-                                  enrollment.status === 'active'
-                                    ? 'bg-green-50 text-green-700 border-green-200'
-                                    : enrollment.status === 'paused'
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                    : enrollment.status === 'completed'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                                )}
-                              >
-                                {enrollment.status === 'active' && (
-                                  <Zap className="h-2.5 w-2.5 mr-0.5" />
-                                )}
-                                {enrollment.status === 'paused' && (
-                                  <Pause className="h-2.5 w-2.5 mr-0.5" />
-                                )}
-                                {enrollment.status === 'completed' && (
-                                  <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
-                                )}
-                                {enrollment.status === 'stopped' && (
-                                  <StopCircle className="h-2.5 w-2.5 mr-0.5" />
-                                )}
-                                {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
+                              <span className="font-medium text-sm">{name}</span>
+                              <Badge variant="outline" className={cn(
+                                'text-[10px]',
+                                enrollment.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
+                                enrollment.status === 'paused' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-slate-50 text-slate-600 border-slate-200'
+                              )}>
+                                {enrollment.status === 'active' && <Zap className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status === 'paused' && <Pause className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status === 'completed' && <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status === 'stopped' && <StopCircle className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status}
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                              {enrollment.current_step && (
-                                <span>
-                                  Step {enrollment.current_step.step_order}: {enrollment.current_step.step_type}
-                                </span>
-                              )}
-                              {enrollment.status === 'active' && enrollment.next_step_at && (
-                                <span className="flex items-center gap-1 text-amber-600">
-                                  <Clock className="h-3 w-3" />
-                                  Next: {formatRelativeTime(enrollment.next_step_at)}
-                                </span>
-                              )}
-                            </div>
-                            {enrollment.deal && (
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                Deal: {enrollment.deal.title}
-                              </div>
+                            {enrollment.status === 'active' && enrollment.next_step_at && (
+                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Next: {formatRelativeTime(enrollment.next_step_at)}
+                              </p>
                             )}
                           </div>
                           {canManage && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {enrollment.status === 'active' && (
-                                  <DropdownMenuItem
-                                    onClick={() => handlePauseResumeAutomation(enrollment.id, 'active')}
-                                  >
-                                    <Pause className="h-4 w-4 mr-2" />
-                                    Pause
+                                  <DropdownMenuItem onClick={() => handlePauseResume(enrollment.id, 'active')}>
+                                    <Pause className="h-4 w-4 mr-2" /> Pause
                                   </DropdownMenuItem>
                                 )}
                                 {enrollment.status === 'paused' && (
-                                  <DropdownMenuItem
-                                    onClick={() => handlePauseResumeAutomation(enrollment.id, 'paused')}
-                                  >
-                                    <Play className="h-4 w-4 mr-2" />
-                                    Resume
+                                  <DropdownMenuItem onClick={() => handlePauseResume(enrollment.id, 'paused')}>
+                                    <Play className="h-4 w-4 mr-2" /> Resume
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem
-                                  onClick={() => handleUnenrollFromAutomation(enrollment.id, automationName)}
-                                  className="text-red-600"
-                                >
-                                  <X className="h-4 w-4 mr-2" />
-                                  Unenroll
+                                <DropdownMenuItem onClick={() => handleUnenroll(enrollment.id, name)} className="text-red-600">
+                                  <X className="h-4 w-4 mr-2" /> Unenroll
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -578,247 +624,156 @@ export function ContactDetailSheet({
                     })}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Calendly Events Section */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                  <Video className="h-4 w-4" />
-                  CALENDLY EVENTS
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {calendlyEventsLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                  </div>
-                ) : calendlyEvents.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
-                    <p>No Calendly events yet.</p>
-                    <p className="text-xs mt-1">
-                      Events appear automatically when meetings are scheduled via Calendly.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {/* Upcoming Events */}
-                    {calendlyEvents
-                      .filter((event) => event.status === 'scheduled' && new Date(event.start_time) > new Date())
-                      .map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex items-start justify-between p-2 rounded-lg bg-green-50 border border-green-200"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm truncate">
-                                {event.event_name}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 bg-green-100 text-green-700 border-green-300">
-                                <CalendarCheck className="h-2.5 w-2.5 mr-0.5" />
-                                Upcoming
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {formatDate(event.start_time)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {new Date(event.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              {event.location && (
-                                <span>{event.location}</span>
-                              )}
-                            </div>
-                            {event.user && (
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                Host: {event.user.full_name || event.user.email}
-                              </div>
-                            )}
-                          </div>
-                          {event.join_url && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="shrink-0 h-7 text-xs"
-                              asChild
-                            >
-                              <a href={event.join_url} target="_blank" rel="noopener noreferrer">
-                                <Video className="h-3 w-3 mr-1" />
-                                Join
-                                <ExternalLink className="h-3 w-3 ml-1" />
-                              </a>
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-
-                    {/* Past/Completed Events */}
-                    {calendlyEvents
-                      .filter((event) => event.status === 'completed' || (event.status === 'scheduled' && new Date(event.start_time) <= new Date()))
-                      .slice(0, 3) // Show only last 3
-                      .map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex items-start justify-between p-2 rounded-lg bg-slate-50"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm truncate text-muted-foreground">
-                                {event.event_name}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 bg-blue-50 text-blue-700 border-blue-200">
-                                <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
-                                Completed
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {formatDate(event.start_time)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                    {/* Cancelled Events */}
-                    {calendlyEvents
-                      .filter((event) => event.status === 'cancelled')
-                      .slice(0, 2) // Show only last 2
-                      .map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex items-start justify-between p-2 rounded-lg bg-red-50/50 border border-red-100"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm truncate text-muted-foreground line-through">
-                                {event.event_name}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 bg-red-50 text-red-600 border-red-200">
-                                <XCircle className="h-2.5 w-2.5 mr-0.5" />
-                                Cancelled
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {formatDate(event.start_time)}
-                              {event.cancellation_reason && (
-                                <span className="ml-2">- {event.cancellation_reason}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Deals Tab */}
-          <TabsContent value="deals" className="mt-4">
-            {dealsLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
               </div>
-            ) : deals.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No deals found for this contact.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {deals.map((deal) => (
-                  <Card key={deal.id} className="cursor-pointer hover:bg-gray-50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{deal.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {deal.pipeline?.name} - {deal.stage?.name}
-                          </p>
+
+              {/* Meeting History */}
+              {calendlyEvents.length > 0 && !calendlyEventsLoading && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    Meeting History
+                  </h3>
+                  <div className="space-y-2">
+                    {calendlyEvents
+                      .filter((e) => e.status !== 'scheduled' || new Date(e.start_time) <= new Date())
+                      .slice(0, 3)
+                      .map((event) => (
+                        <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
+                          <div>
+                            <p className="text-sm font-medium">{event.event_name}</p>
+                            <p className="text-xs text-muted-foreground">{formatDate(event.start_time)}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                            <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                            Completed
+                          </Badge>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{formatCurrency(deal.deal_value || 0)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(deal.created_at)}
-                          </p>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Deals Tab */}
+            <TabsContent value="deals" className="px-6 py-6 mt-0">
+              {dealsLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : deals.length === 0 ? (
+                <div className="text-center py-12">
+                  <PoundSterling className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                  <p className="text-muted-foreground">No deals yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-green-700">Total Pipeline Value</span>
+                      <span className="text-xl font-bold text-green-700">{formatCurrency(totalDealsValue)}</span>
+                    </div>
+                    <p className="text-xs text-green-600 mt-1">{deals.length} deal{deals.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="space-y-2">
+                    {deals.map((deal) => (
+                      <div
+                        key={deal.id}
+                        className="p-4 rounded-lg border bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+                        style={{ borderLeftWidth: 4, borderLeftColor: deal.stage?.color || '#e2e8f0' }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{deal.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="secondary" className="text-xs" style={{
+                                backgroundColor: deal.stage?.color ? `${deal.stage.color}15` : undefined,
+                                color: deal.stage?.color,
+                              }}>
+                                {deal.stage?.name}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">{deal.pipeline?.name}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-green-600">{formatCurrency(deal.deal_value || 0)}</p>
+                            <p className="text-xs text-muted-foreground">{formatTimeAgo(deal.created_at)}</p>
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Activity Tab */}
-          <TabsContent value="activity" className="mt-4">
-            {/* Log Reply Button */}
-            <div className="flex justify-end mb-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsLogReplyOpen(true)}
-                disabled={!contact?.email}
-              >
-                <MessageCircle className="h-4 w-4 mr-1.5" />
-                Log Reply
-              </Button>
-            </div>
-
-            {activitiesLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : activities.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No activities recorded yet.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activities.map((activity) => (
-                  <div key={activity.id} className="flex gap-3 text-sm border-l-2 border-gray-200 pl-3 py-1">
-                    <div className="flex-1">
-                      <p className="font-medium capitalize">
-                        {activity.activity_type.replace(/_/g, ' ')}
-                      </p>
-                      {activity.description && (
-                        <p className="text-muted-foreground">{activity.description}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatRelativeTime(activity.created_at)}
-                        {activity.performed_by && ` by ${activity.performed_by.full_name || activity.performed_by.email}`}
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Activity Tab */}
+            <TabsContent value="activity" className="px-6 py-6 mt-0">
+              <div className="flex justify-end mb-4">
+                <Button variant="outline" size="sm" onClick={() => setIsLogReplyOpen(true)} disabled={!contact.email}>
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Log Reply
+                </Button>
               </div>
-            )}
-          </TabsContent>
+              {activitiesLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : activities.length === 0 ? (
+                <div className="text-center py-12">
+                  <Activity className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                  <p className="text-muted-foreground">No activities yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activities.map((activity) => (
+                    <div key={activity.id} className="flex gap-3">
+                      <div className={cn('flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center', getActivityBg(activity.activity_type))}>
+                        {getActivityIcon(activity.activity_type)}
+                      </div>
+                      <div className="flex-1 pb-3 border-b last:border-0">
+                        <p className="text-sm font-medium capitalize">{activity.activity_type.replace(/_/g, ' ')}</p>
+                        {activity.description && <p className="text-sm text-muted-foreground">{activity.description}</p>}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {formatRelativeTime(activity.created_at)}
+                          {activity.performed_by && ` by ${activity.performed_by.full_name || activity.performed_by.email}`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
 
-          {/* Notes Tab */}
-          <TabsContent value="notes" className="mt-4 space-y-4">
-            <Textarea
-              placeholder="Add a note..."
-              rows={3}
-              disabled
-            />
-            <Button disabled className="w-full">
-              Save Note (coming soon)
-            </Button>
+            {/* Notes Tab */}
+            <TabsContent value="notes" className="px-6 py-6 mt-0 space-y-4">
+              <Textarea
+                value={editedNotes}
+                onChange={(e) => {
+                  setEditedNotes(e.target.value)
+                  setHasNotesChanged(e.target.value !== (contact.notes || ''))
+                }}
+                placeholder="Add notes about this contact..."
+                rows={6}
+                className="resize-none"
+              />
+              <Button onClick={handleSaveNotes} disabled={!hasNotesChanged || updateContact.isPending} className="w-full bg-blue-600 hover:bg-blue-700">
+                {updateContact.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Notes'}
+              </Button>
+              {contact.notes && (
+                <p className="text-xs text-muted-foreground text-center">Last updated {formatRelativeTime(contact.updated_at)}</p>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
 
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              Note history will appear here.
-            </div>
-          </TabsContent>
-        </Tabs>
+        {/* Footer */}
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+          <Button variant="outline" onClick={onClose} className="w-full">
+            Close
+          </Button>
+        </SheetFooter>
 
-        {/* Log Reply Modal */}
         {contact && (
           <LogReplyModal
             isOpen={isLogReplyOpen}

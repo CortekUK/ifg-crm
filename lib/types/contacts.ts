@@ -19,7 +19,7 @@ export interface Contact {
   source: 'website_form' | 'sms_reply' | 'email_reply' | 'manual' | 'csv_import' | null
   source_detail: string | null
   sport: 'football' | 'basketball'
-  subscription_status: 'active' | 'unsubscribed'
+  subscription_status: 'active' | 'unsubscribed' | 'subscribed'
   notes: string | null
   created_at: string
   updated_at: string
@@ -38,6 +38,8 @@ export interface UseContactsParams {
     gender?: string
     country?: string
     source?: string
+    pipeline_id?: string
+    recruiter_id?: string
   }
 }
 

@@ -10,12 +10,20 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 
 interface ContactFiltersProps {
   search: string
   onSearchChange: (value: string) => void
   statusFilter: string
   onStatusFilterChange: (value: string) => void
+  programmeFilter?: string
+  onProgrammeFilterChange?: (value: string) => void
+  countryFilter?: string
+  onCountryFilterChange?: (value: string) => void
+  recruiterFilter?: string
+  onRecruiterFilterChange?: (value: string) => void
   onClearFilters: () => void
 }
 
@@ -24,9 +32,60 @@ export function ContactFilters({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
+  programmeFilter = '',
+  onProgrammeFilterChange,
+  countryFilter = '',
+  onCountryFilterChange,
+  recruiterFilter = '',
+  onRecruiterFilterChange,
   onClearFilters,
 }: ContactFiltersProps) {
-  const hasFilters = search || statusFilter
+  const supabase = createClient()
+
+  // Fetch pipelines (programmes)
+  const { data: pipelines = [] } = useQuery({
+    queryKey: ['pipelines-filter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pipelines')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name')
+      if (error) throw error
+      return data || []
+    },
+  })
+
+  // Fetch distinct countries from contacts
+  const { data: countries = [] } = useQuery({
+    queryKey: ['contacts-countries'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('country')
+        .not('country', 'is', null)
+        .not('country', 'eq', '')
+      if (error) throw error
+      // Get unique countries
+      const uniqueCountries = [...new Set(data?.map(c => c.country).filter(Boolean))]
+      return uniqueCountries.sort() as string[]
+    },
+  })
+
+  // Fetch recruiters (portal_users/profiles)
+  const { data: recruiters = [] } = useQuery({
+    queryKey: ['recruiters-filter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .order('full_name')
+      if (error) throw error
+      return data || []
+    },
+  })
+
+  const hasFilters = search || statusFilter || programmeFilter || countryFilter || recruiterFilter
 
   return (
     <div className="flex flex-col sm:flex-row gap-4">
@@ -43,49 +102,69 @@ export function ContactFilters({
 
       {/* Filter Dropdowns */}
       <div className="flex flex-wrap gap-2">
+        {/* Status Filter */}
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="subscribed">Subscribed</SelectItem>
             <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
           </SelectContent>
         </Select>
 
-        <Select>
+        {/* Programme Filter */}
+        <Select 
+          value={programmeFilter} 
+          onValueChange={onProgrammeFilterChange || (() => {})}
+        >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Programmes" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Programmes</SelectItem>
-            <SelectItem value="uclan-2026">UCLan 2026</SelectItem>
-            <SelectItem value="salford-2026">Salford 2026</SelectItem>
-            <SelectItem value="gap-year-2026">UK Gap Year 2026</SelectItem>
-            <SelectItem value="residency-2026">UK Residency 2026</SelectItem>
+            {pipelines.map((pipeline) => (
+              <SelectItem key={pipeline.id} value={pipeline.id}>
+                {pipeline.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Select>
+        {/* Country Filter */}
+        <Select 
+          value={countryFilter} 
+          onValueChange={onCountryFilterChange || (() => {})}
+        >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All Countries" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Countries</SelectItem>
-            <SelectItem value="united-states">United States</SelectItem>
-            <SelectItem value="united-kingdom">United Kingdom</SelectItem>
-            <SelectItem value="canada">Canada</SelectItem>
-            <SelectItem value="australia">Australia</SelectItem>
+            {countries.map((country) => (
+              <SelectItem key={country} value={country}>
+                {country}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Select>
+        {/* Recruiter Filter */}
+        <Select 
+          value={recruiterFilter} 
+          onValueChange={onRecruiterFilterChange || (() => {})}
+        >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All Recruiters" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Recruiters</SelectItem>
+            {recruiters.map((recruiter) => (
+              <SelectItem key={recruiter.id} value={recruiter.id}>
+                {recruiter.full_name || recruiter.email}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

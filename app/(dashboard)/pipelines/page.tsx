@@ -171,6 +171,7 @@ export default function PipelinesPage() {
       <KanbanBoard
         stages={stages}
         deals={filteredDeals}
+        pipelineId={selectedPipelineId}
         isLoading={isLoading && !stages.length}
         onDragEnd={handleDragEnd}
         onAddClick={handleAddClick}

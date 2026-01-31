@@ -18,7 +18,7 @@ import {
   Activity,
 } from 'lucide-react'
 
-// Generate random sparkline data
+// Generate random sparkline data for visual indicator
 const generateSparklineData = (length = 12) => {
   return Array.from({ length }, () => Math.floor(Math.random() * 10) + 2)
 }
@@ -36,19 +36,20 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatsCard
           title="Total Leads"
-          value={isLoading ? '...' : formatNumber(stats?.totalContacts || 0)}
+          value={isLoading ? '...' : formatNumber(stats?.totalLeads || 0)}
           icon={Users}
-          trend={12}
+          trend={stats?.totalLeadsTrend}
           trendLabel="vs last month"
           colour="blue"
           sparklineData={generateSparklineData()}
           isLoading={isLoading}
+          href="/pipelines"
         />
         <DashboardStatsCard
           title="Unmatched Replies"
           value={isLoading ? '...' : formatNumber(stats?.unmatchedReplies || 0)}
           icon={MessageSquareWarning}
-          trend={stats?.unmatchedReplies && stats.unmatchedReplies > 0 ? -5 : 0}
+          trend={stats?.unmatchedRepliesTrend}
           trendLabel="vs last month"
           colour={
             stats?.unmatchedReplies && stats.unmatchedReplies > 0
@@ -57,26 +58,29 @@ export default function DashboardPage() {
           }
           sparklineData={generateSparklineData()}
           isLoading={isLoading}
+          href="/sms-replies"
         />
         <DashboardStatsCard
           title="Active Programmes"
           value={isLoading ? '...' : formatNumber(stats?.activeProgrammes || 0)}
           icon={GraduationCap}
-          trend={2}
+          trend={stats?.activeProgrammesTrend}
           trendLabel="vs last month"
           colour="green"
           sparklineData={generateSparklineData()}
           isLoading={isLoading}
+          href="/pipelines"
         />
         <DashboardStatsCard
           title="Today's Activity"
           value={isLoading ? '...' : formatNumber(stats?.todayActivities || 0)}
           icon={Activity}
-          trend={8}
+          trend={stats?.todayActivitiesTrend}
           trendLabel="vs yesterday"
           colour="purple"
           sparklineData={generateSparklineData()}
           isLoading={isLoading}
+          href="/automations"
         />
       </div>
 

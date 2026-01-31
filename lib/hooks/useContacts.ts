@@ -8,9 +8,51 @@ export function useContacts(params?: UseContactsParams) {
   return useQuery<{ contacts: Contact[]; total: number }>({
     queryKey: ['contacts', params],
     queryFn: async () => {
+      // If filtering by pipeline or recruiter, we need to get contact IDs first
+      let contactIdsFromDeals: string[] | null = null
+
+      if (params?.filters?.pipeline_id && params.filters.pipeline_id !== 'all') {
+        const { data: deals } = await supabase
+          .from('deals')
+          .select('contact_id')
+          .eq('pipeline_id', params.filters.pipeline_id)
+          .not('contact_id', 'is', null)
+
+        contactIdsFromDeals = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
+        if (contactIdsFromDeals.length === 0) {
+          return { contacts: [], total: 0 }
+        }
+      }
+
+      if (params?.filters?.recruiter_id && params.filters.recruiter_id !== 'all') {
+        const { data: deals } = await supabase
+          .from('deals')
+          .select('contact_id')
+          .eq('deal_owner_id', params.filters.recruiter_id)
+          .not('contact_id', 'is', null)
+
+        const recruiterContactIds = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
+        
+        if (contactIdsFromDeals) {
+          // Intersect with pipeline filter
+          contactIdsFromDeals = contactIdsFromDeals.filter(id => recruiterContactIds.includes(id))
+        } else {
+          contactIdsFromDeals = recruiterContactIds
+        }
+
+        if (contactIdsFromDeals.length === 0) {
+          return { contacts: [], total: 0 }
+        }
+      }
+
       let query = supabase
         .from('contacts')
         .select('*', { count: 'exact' })
+
+      // Filter by contact IDs if we have pipeline/recruiter filters
+      if (contactIdsFromDeals) {
+        query = query.in('id', contactIdsFromDeals)
+      }
 
       // Apply search
       if (params?.search) {
@@ -38,6 +80,13 @@ export function useContacts(params?: UseContactsParams) {
         query = query.order(params.sortBy, { ascending: params.sortOrder === 'asc' })
       } else {
         query = query.order('created_at', { ascending: false })
+      }
+
+      // Apply pagination
+      if (params?.page && params?.pageSize) {
+        const from = (params.page - 1) * params.pageSize
+        const to = from + params.pageSize - 1
+        query = query.range(from, to)
       }
 
       const { data, error, count } = await query

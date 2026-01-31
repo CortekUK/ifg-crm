@@ -3,22 +3,45 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Plus, Send } from 'lucide-react'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 
 interface WelcomeBannerProps {
   onNewLead?: () => void
 }
 
 export function WelcomeBanner({ onNewLead }: WelcomeBannerProps) {
+  const { data: user, isLoading } = useCurrentUser()
+
+  // Extract first name from full_name or email
+  const getFirstName = () => {
+    if (!user) return ''
+    if (user.full_name) {
+      return user.full_name.split(' ')[0]
+    }
+    if (user.email) {
+      return user.email.split('@')[0]
+    }
+    return ''
+  }
+
+  const firstName = getFirstName()
+
   return (
     <div 
       className="rounded-lg p-6 mb-6"
       style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)' }}
     >
       <div className="flex items-center justify-between">
-        <p className="text-base text-white">
-          <span className="font-semibold">Welcome back!</span>
-          <span className="text-white/80 ml-2">Manage recruitment performance at a glance.</span>
-        </p>
+        <div className="text-base text-white">
+          {isLoading ? (
+            <span className="inline-block h-5 w-48 bg-white/20 rounded animate-pulse" />
+          ) : (
+            <>
+              <span className="font-semibold">Welcome back{firstName ? `, ${firstName}` : ''}!</span>
+              <span className="text-white/80 ml-2">Manage recruitment performance at a glance.</span>
+            </>
+          )}
+        </div>
         <div className="flex gap-3">
           <Button
             variant="outline"
