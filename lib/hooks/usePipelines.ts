@@ -19,3 +19,29 @@ export function usePipelines() {
     },
   })
 }
+
+// Get deal counts per pipeline
+export function usePipelineDealCounts() {
+  const supabase = createClient()
+
+  return useQuery<Record<string, number>>({
+    queryKey: ['pipeline-deal-counts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deals')
+        .select('pipeline_id')
+
+      if (error) throw error
+
+      // Count deals per pipeline
+      const counts: Record<string, number> = {}
+      data?.forEach((deal) => {
+        if (deal.pipeline_id) {
+          counts[deal.pipeline_id] = (counts[deal.pipeline_id] || 0) + 1
+        }
+      })
+
+      return counts
+    },
+  })
+}

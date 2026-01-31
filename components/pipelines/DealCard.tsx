@@ -167,9 +167,10 @@ export function DealCard({ deal, index, onClick }: DealCardProps) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className={cn(
-                          'flex items-center gap-1 text-xs',
-                          deal.time_in_stage > 14 && 'text-amber-600',
-                          deal.time_in_stage > 30 && 'text-red-600'
+                          'flex items-center gap-1 text-xs px-1.5 py-0.5 rounded',
+                          deal.time_in_stage <= 7 && 'bg-slate-100 text-slate-600',
+                          deal.time_in_stage > 7 && deal.time_in_stage <= 30 && 'bg-amber-100 text-amber-700',
+                          deal.time_in_stage > 30 && 'bg-red-100 text-red-700'
                         )}>
                           <Clock className="h-3 w-3" />
                           <span>{formatDuration(deal.time_in_stage)}</span>

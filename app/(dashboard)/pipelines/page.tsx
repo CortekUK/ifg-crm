@@ -8,16 +8,20 @@ import { PipelineStats } from '@/components/pipelines/PipelineStats'
 import { KanbanBoard } from '@/components/pipelines/KanbanBoard'
 import { AddDealModal } from '@/components/pipelines/AddDealModal'
 import { DealDetailSheet } from '@/components/pipelines/DealDetailSheet'
-import { usePipelines } from '@/lib/hooks/usePipelines'
+import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
 
+const PIPELINE_STORAGE_KEY = 'ifg-crm-selected-pipeline'
+
 export default function PipelinesPage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [ownerFilter, setOwnerFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [userId, setUserId] = useState<string | null>(null)
   
   // Modal state
@@ -40,6 +44,9 @@ export default function PipelinesPage() {
   // Fetch pipelines
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines()
 
+  // Fetch deal counts per pipeline
+  const { data: dealCounts = {} } = usePipelineDealCounts()
+
   // Fetch stages for selected pipeline
   const { data: stages = [], isLoading: stagesLoading } = usePipelineStages(
     selectedPipelineId
@@ -51,32 +58,61 @@ export default function PipelinesPage() {
   // Mutation for moving deals
   const moveDeal = useMoveDeal()
 
-  // Set default pipeline when data loads
+  // Load selected pipeline from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(PIPELINE_STORAGE_KEY)
+    if (stored) {
+      setSelectedPipelineId(stored)
+    }
+  }, [])
+
+  // Set default pipeline when data loads (only if not already set)
   useEffect(() => {
     if (pipelines.length > 0 && !selectedPipelineId) {
-      setSelectedPipelineId(pipelines[0].id)
+      // Check if stored pipeline still exists
+      const stored = localStorage.getItem(PIPELINE_STORAGE_KEY)
+      if (stored && pipelines.some(p => p.id === stored)) {
+        setSelectedPipelineId(stored)
+      } else {
+        setSelectedPipelineId(pipelines[0].id)
+      }
     }
   }, [pipelines, selectedPipelineId])
 
-  // Calculate deal counts per pipeline
-  const dealCounts = pipelines.reduce<Record<string, number>>((acc, pipeline) => {
-    // This would ideally come from a separate query, but for now we'll show 0
-    acc[pipeline.id] = 0
-    return acc
-  }, {})
+  // Save selected pipeline to localStorage
+  const handlePipelineChange = useCallback((pipelineId: string) => {
+    setSelectedPipelineId(pipelineId)
+    localStorage.setItem(PIPELINE_STORAGE_KEY, pipelineId)
+  }, [])
 
-  // Filter deals by search
-  const filteredDeals = search
-    ? deals.filter((deal) => {
-        const contactName = deal.contact
-          ? `${deal.contact.first_name} ${deal.contact.last_name}`.toLowerCase()
-          : deal.title.toLowerCase()
-        return (
-          contactName.includes(search.toLowerCase()) ||
-          deal.title.toLowerCase().includes(search.toLowerCase())
-        )
-      })
-    : deals
+  // Filter deals by search, owner, and status
+  const filteredDeals = deals.filter((deal) => {
+    // Search filter
+    if (search) {
+      const contactName = deal.contact
+        ? `${deal.contact.first_name} ${deal.contact.last_name}`.toLowerCase()
+        : deal.title.toLowerCase()
+      if (!contactName.includes(search.toLowerCase()) && !deal.title.toLowerCase().includes(search.toLowerCase())) {
+        return false
+      }
+    }
+
+    // Owner filter
+    if (ownerFilter && ownerFilter !== 'all') {
+      if (deal.deal_owner_id !== ownerFilter) {
+        return false
+      }
+    }
+
+    // Status filter
+    if (statusFilter && statusFilter !== 'all') {
+      if (statusFilter === 'won' && !deal.won_at) return false
+      if (statusFilter === 'lost' && !deal.lost_at) return false
+      if (statusFilter === 'open' && (deal.won_at || deal.lost_at)) return false
+    }
+
+    return true
+  })
 
   // Handle drag end
   const handleDragEnd = useCallback(
@@ -156,13 +192,21 @@ export default function PipelinesPage() {
       <PipelinesPageHeader
         pipelines={pipelines}
         selectedPipelineId={selectedPipelineId}
-        onPipelineChange={setSelectedPipelineId}
+        onPipelineChange={handlePipelineChange}
         isLoading={pipelinesLoading}
         dealCounts={dealCounts}
       />
 
       {/* Filters */}
-      <PipelineFilters search={search} onSearchChange={setSearch} />
+      <PipelineFilters
+        search={search}
+        onSearchChange={setSearch}
+        ownerFilter={ownerFilter}
+        onOwnerFilterChange={setOwnerFilter}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        deals={deals}
+      />
 
       {/* Stats */}
       <PipelineStats deals={filteredDeals} lastUpdated={lastUpdated} />

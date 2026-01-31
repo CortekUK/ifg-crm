@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Download, Users, PoundSterling, Trophy, TrendingUp } from 'lucide-react'
-import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import { formatCurrency, formatNumber, formatDate } from '@/lib/utils/format'
 import type { Deal } from '@/lib/types/pipelines'
 
 interface PipelineStatsProps {
@@ -37,6 +37,72 @@ const colourConfig = {
     iconBg: 'bg-orange-100',
     iconColour: 'text-orange-600',
   },
+}
+
+function exportDealsToCSV(deals: Deal[]) {
+  // Define CSV headers
+  const headers = [
+    'Contact Name',
+    'Email',
+    'Phone',
+    'Deal Title',
+    'Value',
+    'Stage',
+    'Pipeline',
+    'Owner',
+    'Graduation Year',
+    'Time in Stage (days)',
+    'Created Date',
+    'Status',
+  ]
+
+  // Convert deals to CSV rows
+  const rows = deals.map((deal) => {
+    const contactName = deal.contact
+      ? `${deal.contact.first_name} ${deal.contact.last_name}`
+      : ''
+    const status = deal.won_at ? 'Won' : deal.lost_at ? 'Lost' : 'Open'
+
+    return [
+      contactName,
+      deal.contact?.email || '',
+      deal.contact?.phone || '',
+      deal.title,
+      deal.deal_value?.toString() || '0',
+      deal.stage?.name || '',
+      deal.pipeline?.name || '',
+      deal.owner?.full_name || deal.owner?.email || '',
+      deal.contact?.graduation_year?.toString() || '',
+      deal.time_in_stage?.toFixed(0) || '',
+      formatDate(deal.created_at),
+      status,
+    ]
+  })
+
+  // Combine headers and rows
+  const csvContent = [
+    headers.join(','),
+    ...rows.map((row) =>
+      row.map((cell) => {
+        // Escape cells containing commas or quotes
+        if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+          return `"${cell.replace(/"/g, '""')}"`
+        }
+        return cell
+      }).join(',')
+    ),
+  ].join('\n')
+
+  // Create and download the file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', `pipeline-deals-${new Date().toISOString().split('T')[0]}.csv`)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 export function PipelineStats({ deals, lastUpdated }: PipelineStatsProps) {
@@ -107,7 +173,12 @@ export function PipelineStats({ deals, lastUpdated }: PipelineStatsProps) {
       </div>
       
       <div className="flex justify-end">
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => exportDealsToCSV(deals)}
+          disabled={deals.length === 0}
+        >
           <Download className="h-4 w-4 mr-2" />
           Export CSV
         </Button>

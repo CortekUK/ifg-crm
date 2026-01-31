@@ -4,8 +4,10 @@ import { calculateDaysBetween } from '@/lib/utils/format'
 import type { Deal } from '@/lib/types/pipelines'
 
 // Helper to compute time in stage
+// Uses stage_entered_at or stage_changed_at if available, otherwise falls back to created_at
 function computeTimeInStage(deal: Deal): number {
-  return calculateDaysBetween(deal.created_at)
+  const stageDate = deal.stage_entered_at || deal.stage_changed_at || deal.created_at
+  return calculateDaysBetween(stageDate)
 }
 
 export function useDeals(pipelineId: string | null) {
