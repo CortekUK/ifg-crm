@@ -28,6 +28,7 @@ export interface Campaign {
   created_by_id: string
   created_at: string
   updated_at: string
+  recipient_list_ids: string[] | null
   template?: EmailTemplate | null
   from_user?: {
     id: string
@@ -39,10 +40,38 @@ export interface Campaign {
     email: string
     full_name: string | null
   }
+  // Computed/joined data
+  recipient_lists?: {
+    id: string
+    name: string
+    contact_count?: number
+  }[]
   // Aggregated stats (from campaign_recipients)
   recipient_count?: number
   open_count?: number
   click_count?: number
+}
+
+export interface CreateCampaignInput {
+  name: string
+  type: 'email' | 'sms'
+  status: 'draft' | 'scheduled'
+  email_template_id?: string
+  sms_content?: string
+  from_user_id: string
+  created_by_id: string
+  scheduled_at?: string
+  recipient_list_ids?: string[]
+}
+
+export interface UpdateCampaignInput {
+  id: string
+  name?: string
+  status?: Campaign['status']
+  email_template_id?: string
+  sms_content?: string
+  scheduled_at?: string | null
+  recipient_list_ids?: string[]
 }
 
 export interface CampaignFilters {

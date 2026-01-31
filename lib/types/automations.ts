@@ -33,10 +33,24 @@ export interface AutomationStep {
   automation?: Automation | null
 }
 
+export interface FieldMappings {
+  first_name?: string
+  last_name?: string
+  email?: string
+  phone?: string
+  sport?: string
+  graduation_year?: string
+  position?: string
+  [key: string]: string | undefined
+}
+
 export interface AutomationConfig {
   // For deal creation
   round_robin_users?: string[]
   form_id?: string
+  form_source?: 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
+  field_mappings?: FieldMappings
+  initial_stage_id?: string
   // For sequences
   emails?: {
     step: number

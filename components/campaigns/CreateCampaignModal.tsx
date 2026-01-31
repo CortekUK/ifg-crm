@@ -28,12 +28,12 @@ import {
 } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Mail, MessageSquare, CalendarIcon, Loader2, X } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Mail, MessageSquare, CalendarIcon, Loader2, X, Users, Search, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatDate } from '@/lib/utils/format'
-import { useCreateCampaign, useLists, useEmailTemplates } from '@/lib/hooks/useCampaigns'
+import { formatDate, formatNumber } from '@/lib/utils/format'
+import { useCreateCampaign, useCampaignLists, useEmailTemplates, useCalculateRecipients } from '@/lib/hooks/useCampaigns'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface CreateCampaignModalProps {
@@ -52,6 +52,8 @@ export function CreateCampaignModal({
   const [name, setName] = useState('')
   const [type, setType] = useState<'email' | 'sms'>('email')
   const [selectedLists, setSelectedLists] = useState<string[]>([])
+  const [listSearchQuery, setListSearchQuery] = useState('')
+  const [isListDropdownOpen, setIsListDropdownOpen] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
   const [templateId, setTemplateId] = useState<string>('')
   const [smsContent, setSmsContent] = useState('')
@@ -59,9 +61,15 @@ export function CreateCampaignModal({
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>()
   const [scheduledTime, setScheduledTime] = useState('09:00')
 
-  const { data: lists = [] } = useLists()
+  const { data: lists = [] } = useCampaignLists()
   const { data: templates = [] } = useEmailTemplates()
+  const { data: recipientData, isLoading: recipientCountLoading } = useCalculateRecipients(selectedLists)
   const createCampaign = useCreateCampaign()
+
+  // Filter lists based on search query
+  const filteredLists = lists.filter((list) =>
+    list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
+  )
 
   // Reset form when modal opens
   useEffect(() => {
@@ -69,6 +77,8 @@ export function CreateCampaignModal({
       setName('')
       setType('email')
       setSelectedLists([])
+      setListSearchQuery('')
+      setIsListDropdownOpen(false)
       setEmailSubject('')
       setTemplateId('')
       setSmsContent('')
@@ -111,6 +121,7 @@ export function CreateCampaignModal({
         from_user_id: userId,
         created_by_id: userId,
         scheduled_at: !saveAsDraft && isScheduled ? scheduledAt : undefined,
+        recipient_list_ids: selectedLists.length > 0 ? selectedLists : undefined,
       })
 
       toast({
@@ -197,38 +208,88 @@ export function CreateCampaignModal({
                 Recipients
               </h3>
               
-              <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
-                {lists.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No lists available</p>
-                ) : (
-                  lists.map((list) => (
-                    <div key={list.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-md">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={list.id}
-                          checked={selectedLists.includes(list.id)}
-                          onCheckedChange={() => handleListToggle(list.id)}
+              {/* List Selection Dropdown */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Select Lists</Label>
+                <Popover open={isListDropdownOpen} onOpenChange={setIsListDropdownOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="text-muted-foreground">
+                        {selectedLists.length === 0
+                          ? 'Select lists...'
+                          : `${selectedLists.length} list${selectedLists.length > 1 ? 's' : ''} selected`}
+                      </span>
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <div className="p-2 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search lists..."
+                          value={listSearchQuery}
+                          onChange={(e) => setListSearchQuery(e.target.value)}
+                          className="pl-8"
                         />
-                        <label htmlFor={list.id} className="text-sm font-medium cursor-pointer">
-                          {list.name}
-                        </label>
                       </div>
                     </div>
-                  ))
-                )}
+                    <div className="max-h-60 overflow-y-auto p-1">
+                      {filteredLists.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No lists found
+                        </p>
+                      ) : (
+                        filteredLists.map((list) => {
+                          const isSelected = selectedLists.includes(list.id)
+                          return (
+                            <div
+                              key={list.id}
+                              className={cn(
+                                'flex items-center justify-between p-2 rounded-md cursor-pointer',
+                                isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                              )}
+                              onClick={() => handleListToggle(list.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Checkbox checked={isSelected} />
+                                <span className="text-sm font-medium">{list.name}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {formatNumber(list.contact_count || 0)} contacts
+                              </span>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               
+              {/* Selected Lists Badges */}
               {selectedLists.length > 0 && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-2">
                   {selectedLists.map((listId) => {
                     const list = lists.find((l) => l.id === listId)
                     return list ? (
-                      <Badge key={listId} variant="secondary" className="text-xs">
+                      <Badge
+                        key={listId}
+                        variant="secondary"
+                        className="bg-blue-50 text-blue-700 border border-blue-200 pr-1"
+                      >
                         {list.name}
+                        <span className="text-blue-500 ml-1">
+                          ({formatNumber(list.contact_count || 0)})
+                        </span>
                         <button
                           type="button"
                           onClick={() => handleListToggle(listId)}
-                          className="ml-1 hover:text-destructive"
+                          className="ml-1 p-0.5 rounded-full hover:bg-blue-200"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -236,6 +297,40 @@ export function CreateCampaignModal({
                     ) : null
                   })}
                 </div>
+              )}
+
+              {/* Total Recipients Card */}
+              {selectedLists.length > 0 && (
+                <Card className="bg-slate-50 border-slate-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-blue-600" />
+                        <span className="text-sm font-medium text-slate-700">Total Recipients</span>
+                      </div>
+                      <div className="text-right">
+                        {recipientCountLoading ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Calculating...</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-lg font-bold text-blue-600">
+                              {formatNumber(recipientData?.count || 0)}
+                            </span>
+                            <span className="text-sm text-slate-600 ml-1">contacts</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {recipientData?.hasDuplicates && !recipientCountLoading && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        (duplicates removed across lists)
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
               )}
             </div>
 

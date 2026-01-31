@@ -215,3 +215,123 @@ export function useContactLists(contactId: string | null) {
     enabled: !!contactId,
   })
 }
+
+export function useContactLastContacted(contactId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<string | null>({
+    queryKey: ['contact-last-contacted', contactId],
+    queryFn: async () => {
+      if (!contactId) return null
+
+      // Get deals for this contact
+      const { data: deals } = await supabase
+        .from('deals')
+        .select('id')
+        .eq('contact_id', contactId)
+
+      if (!deals || deals.length === 0) return null
+
+      const dealIds = deals.map((d) => d.id)
+
+      // Check automation_logs for email_sent
+      const { data: emailLogs } = await supabase
+        .from('automation_logs')
+        .select('created_at')
+        .eq('log_type', 'email_sent')
+        .in('deal_id', dealIds)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      // Check deal_activities for email_sent
+      const { data: emailActivities } = await supabase
+        .from('deal_activities')
+        .select('created_at')
+        .eq('activity_type', 'email_sent')
+        .in('deal_id', dealIds)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      // Return the most recent date
+      const logDate = emailLogs?.[0]?.created_at
+      const activityDate = emailActivities?.[0]?.created_at
+
+      if (logDate && activityDate) {
+        return new Date(logDate) > new Date(activityDate) ? logDate : activityDate
+      }
+
+      return logDate || activityDate || null
+    },
+    enabled: !!contactId,
+  })
+}
+
+export interface ContactAutomationEnrollment {
+  id: string
+  deal_id: string
+  automation_id: string
+  status: 'active' | 'completed' | 'stopped' | 'paused'
+  current_step_id: string | null
+  next_step_at: string | null
+  started_at: string
+  completed_at: string | null
+  stopped_at: string | null
+  stopped_reason: string | null
+  automation?: {
+    id: string
+    name: string
+    automation_type: string
+  }
+  current_step?: {
+    id: string
+    step_name: string
+    step_order: number
+  }
+  deal?: {
+    id: string
+    title: string
+  }
+}
+
+export function useContactAutomations(contactId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<ContactAutomationEnrollment[]>({
+    queryKey: ['contact-automations', contactId],
+    queryFn: async () => {
+      if (!contactId) return []
+
+      // Get deals for this contact
+      const { data: deals } = await supabase
+        .from('deals')
+        .select('id, title')
+        .eq('contact_id', contactId)
+
+      if (!deals || deals.length === 0) return []
+
+      const dealIds = deals.map((d) => d.id)
+
+      // Get automation enrollments for these deals
+      const { data: enrollments, error } = await supabase
+        .from('automation_enrollments')
+        .select(`
+          *,
+          automation:automations(id, name, automation_type),
+          current_step:automation_steps(id, step_name, step_order)
+        `)
+        .in('deal_id', dealIds)
+        .order('started_at', { ascending: false })
+
+      if (error) throw error
+
+      // Merge deal info with enrollments
+      const dealMap = new Map(deals.map((d) => [d.id, d]))
+
+      return (enrollments || []).map((enrollment) => ({
+        ...enrollment,
+        deal: dealMap.get(enrollment.deal_id),
+      }))
+    },
+    enabled: !!contactId,
+  })
+}

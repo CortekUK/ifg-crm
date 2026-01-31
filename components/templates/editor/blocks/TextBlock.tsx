@@ -17,10 +17,10 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { templateVariables, TextBlockContent } from '@/lib/templates/editor-types'
+import { TextBlockContent } from '@/lib/templates/editor-types'
+import { MergeTagDropdown } from '../MergeTagDropdown'
 
 interface TextBlockProps {
   content: Record<string, unknown>
@@ -182,28 +182,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
 
           <div className="w-px h-5 bg-gray-300 mx-1" />
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 text-xs px-2">
-                <Plus className="h-3 w-3 mr-1" />
-                Variable
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-2" align="start">
-              <div className="space-y-1">
-                {templateVariables.map((v) => (
-                  <button
-                    key={v.value}
-                    onClick={() => insertVariable(v.value)}
-                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100"
-                  >
-                    <div className="font-medium">{v.label}</div>
-                    <div className="text-xs text-gray-500">{v.value}</div>
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <MergeTagDropdown onInsert={insertVariable} variant="compact" />
         </div>
       )}
 

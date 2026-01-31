@@ -175,14 +175,32 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
 }
 
 export const templateVariables = [
-  { label: 'First Name', value: '{{first_name}}', description: "Contact's first name" },
-  { label: 'Last Name', value: '{{last_name}}', description: "Contact's last name" },
-  { label: 'Email', value: '{{email}}', description: "Contact's email" },
-  { label: 'Programme', value: '{{programme}}', description: 'Programme name' },
-  { label: 'Calendly Link', value: '{{calendly_link}}', description: "Recruiter's Calendly URL" },
-  { label: 'Recruiter Name', value: '{{recruiter_name}}', description: "Recruiter's name" },
-  { label: 'Recruiter Email', value: '{{recruiter_email}}', description: "Recruiter's email" },
+  // Contact fields
+  { label: 'First Name', value: '{{first_name}}', description: "Contact's first name", category: 'contact' },
+  { label: 'Last Name', value: '{{last_name}}', description: "Contact's last name", category: 'contact' },
+  { label: 'Email', value: '{{email}}', description: "Contact's email", category: 'contact' },
+  { label: 'Phone', value: '{{phone}}', description: "Contact's phone number", category: 'contact' },
+  
+  // Deal fields
+  { label: 'Deal Title', value: '{{deal_title}}', description: 'Title of the deal', category: 'deal' },
+  { label: 'Deal Value', value: '{{deal_value}}', description: 'Monetary value of the deal', category: 'deal' },
+  { label: 'Deal Stage', value: '{{deal_stage}}', description: 'Current stage of the deal', category: 'deal' },
+  { label: 'Deal Pipeline', value: '{{deal_pipeline}}', description: 'Pipeline the deal belongs to', category: 'deal' },
+  
+  // Deal owner fields
+  { label: 'Owner Name', value: '{{deal_owner_name}}', description: 'Full name of the deal owner', category: 'owner' },
+  { label: 'Owner Email', value: '{{deal_owner_email}}', description: 'Email address of the deal owner', category: 'owner' },
+  { label: 'Owner Phone', value: '{{deal_owner_phone}}', description: 'Phone number of the deal owner', category: 'owner' },
+  { label: 'Calendly Link', value: '{{deal_owner_calendly}}', description: 'Calendly scheduling link', category: 'owner' },
+  { label: 'Email Signature', value: '{{deal_owner_signature}}', description: 'Email signature of the deal owner', category: 'owner' },
 ]
+
+// Category labels for grouping in UI
+export const templateVariableCategories = {
+  contact: 'Contact',
+  deal: 'Deal',
+  owner: 'Deal Owner',
+} as const
 
 export const sampleContacts = [
   { id: '1', first_name: 'John', last_name: 'Smith', email: 'john.smith@example.com' },

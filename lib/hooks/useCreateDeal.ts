@@ -9,6 +9,9 @@ interface CreateDealParams {
   dealValue: number
   title: string
   notes?: string
+  description?: string
+  winProbability?: number
+  forecastedCloseDate?: string
 }
 
 export function useCreateDeal() {
@@ -24,6 +27,9 @@ export function useCreateDeal() {
       dealValue,
       title,
       notes,
+      description,
+      winProbability,
+      forecastedCloseDate,
     }: CreateDealParams) => {
       // Create the deal
       const { data: deal, error: dealError } = await supabase
@@ -36,6 +42,9 @@ export function useCreateDeal() {
           deal_value: dealValue,
           title,
           notes,
+          description: description || null,
+          win_probability: winProbability ?? null,
+          forecasted_close_date: forecastedCloseDate || null,
         })
         .select()
         .single()

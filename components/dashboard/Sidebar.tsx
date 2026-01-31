@@ -34,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MapPin,
+  ListIcon,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 
@@ -61,6 +62,7 @@ const navSections = [
     label: 'MARKETING',
     items: [
       { href: '/campaigns', label: 'Campaigns', icon: Send },
+      { href: '/lists', label: 'Lists', icon: ListIcon },
       { href: '/templates', label: 'Templates', icon: FileText },
     ],
   },

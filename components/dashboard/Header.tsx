@@ -32,6 +32,7 @@ const pageTitles: Record<string, string> = {
   '/sms-replies': 'SMS REPLIES',
   '/email-replies': 'EMAIL REPLIES',
   '/campaigns': 'CAMPAIGNS',
+  '/lists': 'LISTS',
   '/templates': 'TEMPLATES',
   '/automations': 'AUTOMATIONS',
   '/invoices': 'INVOICES',

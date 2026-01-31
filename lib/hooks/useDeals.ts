@@ -1,6 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { calculateDaysBetween } from '@/lib/utils/format'
 import type { Deal } from '@/lib/types/pipelines'
+
+// Helper to compute time in stage
+function computeTimeInStage(deal: Deal): number {
+  const stageDate = deal.stage_changed_at || deal.created_at
+  return calculateDaysBetween(stageDate)
+}
 
 export function useDeals(pipelineId: string | null) {
   const supabase = createClient()
@@ -10,7 +17,8 @@ export function useDeals(pipelineId: string | null) {
     queryFn: async () => {
       if (!pipelineId) return []
 
-      const { data, error } = await supabase
+      // Fetch deals with their relationships
+      const { data: deals, error } = await supabase
         .from('deals')
         .select(`
           *,
@@ -23,7 +31,53 @@ export function useDeals(pipelineId: string | null) {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return data || []
+      if (!deals || deals.length === 0) return []
+
+      // Get contact IDs to fetch last contacted times
+      const contactIds = deals
+        .filter((d) => d.contact_id)
+        .map((d) => d.contact_id)
+
+      // Fetch last email sent to each contact from automation_logs
+      const { data: emailLogs } = await supabase
+        .from('automation_logs')
+        .select('deal_id, created_at')
+        .eq('log_type', 'email_sent')
+        .in('deal_id', deals.map((d) => d.id))
+        .order('created_at', { ascending: false })
+
+      // Also check deal_activities for email activities
+      const { data: emailActivities } = await supabase
+        .from('deal_activities')
+        .select('deal_id, created_at')
+        .eq('activity_type', 'email_sent')
+        .in('deal_id', deals.map((d) => d.id))
+        .order('created_at', { ascending: false })
+
+      // Build a map of deal_id -> last contacted at
+      const lastContactedMap = new Map<string, string>()
+
+      // Process automation logs
+      emailLogs?.forEach((log) => {
+        if (!lastContactedMap.has(log.deal_id)) {
+          lastContactedMap.set(log.deal_id, log.created_at)
+        }
+      })
+
+      // Process email activities (use whichever is more recent)
+      emailActivities?.forEach((activity) => {
+        const existing = lastContactedMap.get(activity.deal_id)
+        if (!existing || new Date(activity.created_at) > new Date(existing)) {
+          lastContactedMap.set(activity.deal_id, activity.created_at)
+        }
+      })
+
+      // Enrich deals with computed fields
+      return deals.map((deal) => ({
+        ...deal,
+        time_in_stage: computeTimeInStage(deal),
+        last_contacted_at: lastContactedMap.get(deal.id) || null,
+      }))
     },
     enabled: !!pipelineId,
   })
@@ -37,7 +91,7 @@ export function useDeal(dealId: string | null) {
     queryFn: async () => {
       if (!dealId) return null
 
-      const { data, error } = await supabase
+      const { data: deal, error } = await supabase
         .from('deals')
         .select(`
           *,
@@ -50,7 +104,41 @@ export function useDeal(dealId: string | null) {
         .single()
 
       if (error) throw error
-      return data
+      if (!deal) return null
+
+      // Fetch last contacted time for this deal
+      const { data: emailLogs } = await supabase
+        .from('automation_logs')
+        .select('created_at')
+        .eq('deal_id', dealId)
+        .eq('log_type', 'email_sent')
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      const { data: emailActivities } = await supabase
+        .from('deal_activities')
+        .select('created_at')
+        .eq('deal_id', dealId)
+        .eq('activity_type', 'email_sent')
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      // Determine last contacted date
+      let lastContactedAt: string | null = null
+      const logDate = emailLogs?.[0]?.created_at
+      const activityDate = emailActivities?.[0]?.created_at
+
+      if (logDate && activityDate) {
+        lastContactedAt = new Date(logDate) > new Date(activityDate) ? logDate : activityDate
+      } else {
+        lastContactedAt = logDate || activityDate || null
+      }
+
+      return {
+        ...deal,
+        time_in_stage: computeTimeInStage(deal),
+        last_contacted_at: lastContactedAt,
+      }
     },
     enabled: !!dealId,
   })

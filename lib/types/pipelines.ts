@@ -62,6 +62,11 @@ export interface Deal {
   lost_at: string | null
   lost_reason: string | null
   last_activity_at: string | null
+  stage_changed_at?: string | null
+  // New fields
+  win_probability?: number | null // 0-100 percentage
+  forecasted_close_date?: string | null // ISO date string
+  description?: string | null // Additional notes/description
   contact?: {
     id: string
     first_name: string
@@ -75,4 +80,7 @@ export interface Deal {
   pipeline?: Pipeline
   status?: 'active' | 'won' | 'lost'
   closed_at?: string | null
+  // Computed fields
+  time_in_stage?: number // days in current stage
+  last_contacted_at?: string | null // when last email was sent
 }

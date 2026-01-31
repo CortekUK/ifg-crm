@@ -97,6 +97,79 @@ export function formatRelativeTime(date: Date | string): string {
   return rtf.format(-diffInYears, 'year')
 }
 
+// Format time ago (e.g., "2 hours ago", "3 days ago")
+export function formatTimeAgo(date: Date | string | null): string {
+  if (!date) return 'Never'
+  
+  const now = new Date()
+  const then = new Date(date)
+  const diffInSeconds = Math.floor((now.getTime() - then.getTime()) / 1000)
+  
+  if (diffInSeconds < 60) {
+    return 'Just now'
+  }
+  
+  const diffInMinutes = Math.floor(diffInSeconds / 60)
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`
+  }
+  
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) {
+    return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`
+  }
+  
+  const diffInDays = Math.floor(diffInHours / 24)
+  if (diffInDays < 7) {
+    return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`
+  }
+  
+  const diffInWeeks = Math.floor(diffInDays / 7)
+  if (diffInWeeks < 4) {
+    return `${diffInWeeks} week${diffInWeeks === 1 ? '' : 's'} ago`
+  }
+  
+  const diffInMonths = Math.floor(diffInDays / 30)
+  if (diffInMonths < 12) {
+    return `${diffInMonths} month${diffInMonths === 1 ? '' : 's'} ago`
+  }
+  
+  const diffInYears = Math.floor(diffInDays / 365)
+  return `${diffInYears} year${diffInYears === 1 ? '' : 's'} ago`
+}
+
+// Format duration in compact form (e.g., "3d", "2w", "3mo")
+export function formatDuration(days: number): string {
+  if (days < 1) {
+    return '<1d'
+  }
+  
+  if (days < 7) {
+    return `${Math.floor(days)}d`
+  }
+  
+  if (days < 30) {
+    const weeks = Math.floor(days / 7)
+    return `${weeks}w`
+  }
+  
+  if (days < 365) {
+    const months = Math.floor(days / 30)
+    return `${months}mo`
+  }
+  
+  const years = Math.floor(days / 365)
+  return `${years}y`
+}
+
+// Calculate days between two dates
+export function calculateDaysBetween(startDate: Date | string, endDate: Date | string = new Date()): number {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const diffInMs = end.getTime() - start.getTime()
+  return diffInMs / (1000 * 60 * 60 * 24)
+}
+
 // Format phone number (UK format)
 export function formatPhoneNumber(phone: string): string {
   // Remove all non-digits

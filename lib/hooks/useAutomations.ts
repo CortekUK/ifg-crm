@@ -426,3 +426,207 @@ export function useUpdateAutomation() {
     },
   })
 }
+
+// ============================================
+// Enrollment Management Hooks
+// ============================================
+
+export function useEnrollInAutomation() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ automationId, dealId }: { automationId: string; dealId: string }) => {
+      // Get the first step of the automation
+      const { data: firstStep, error: stepError } = await supabase
+        .from('automation_steps')
+        .select('id, delay_days, delay_hours')
+        .eq('automation_id', automationId)
+        .order('step_order', { ascending: true })
+        .limit(1)
+        .single()
+
+      if (stepError) throw new Error('Automation has no steps')
+
+      // Calculate next_step_at based on first step's delay
+      const now = new Date()
+      const delayMs =
+        (firstStep.delay_days || 0) * 24 * 60 * 60 * 1000 +
+        (firstStep.delay_hours || 0) * 60 * 60 * 1000
+      const nextStepAt = new Date(now.getTime() + delayMs)
+
+      // Create enrollment
+      const { data: enrollment, error } = await supabase
+        .from('automation_enrollments')
+        .insert({
+          automation_id: automationId,
+          deal_id: dealId,
+          status: 'active',
+          current_step_id: firstStep.id,
+          enrolled_at: now.toISOString(),
+          next_step_at: nextStepAt.toISOString(),
+        })
+        .select()
+        .single()
+
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('This deal is already enrolled in this automation')
+        }
+        throw error
+      }
+
+      return enrollment
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
+      queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
+      queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+    },
+  })
+}
+
+export function useUnenrollFromAutomation() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ enrollmentId, automationId }: { enrollmentId: string; automationId?: string }) => {
+      const { error } = await supabase
+        .from('automation_enrollments')
+        .update({
+          status: 'stopped',
+          stopped_reason: 'Manually unenrolled',
+          next_step_at: null,
+        })
+        .eq('id', enrollmentId)
+
+      if (error) throw error
+    },
+    onSuccess: (_, variables) => {
+      if (variables.automationId) {
+        queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
+        queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
+      }
+      queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+    },
+  })
+}
+
+export function usePauseEnrollment() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ enrollmentId, automationId }: { enrollmentId: string; automationId?: string }) => {
+      const { error } = await supabase
+        .from('automation_enrollments')
+        .update({
+          status: 'paused',
+        })
+        .eq('id', enrollmentId)
+
+      if (error) throw error
+    },
+    onSuccess: (_, variables) => {
+      if (variables.automationId) {
+        queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
+        queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
+      }
+      queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+    },
+  })
+}
+
+export function useResumeEnrollment() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ enrollmentId, automationId }: { enrollmentId: string; automationId?: string }) => {
+      // Get the enrollment to recalculate next_step_at
+      const { data: enrollment, error: fetchError } = await supabase
+        .from('automation_enrollments')
+        .select('current_step_id')
+        .eq('id', enrollmentId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      // Get current step to calculate delay
+      let nextStepAt = new Date()
+      if (enrollment.current_step_id) {
+        const { data: step } = await supabase
+          .from('automation_steps')
+          .select('delay_days, delay_hours')
+          .eq('id', enrollment.current_step_id)
+          .single()
+
+        if (step) {
+          const delayMs =
+            (step.delay_days || 0) * 24 * 60 * 60 * 1000 +
+            (step.delay_hours || 0) * 60 * 60 * 1000
+          nextStepAt = new Date(nextStepAt.getTime() + delayMs)
+        }
+      }
+
+      const { error } = await supabase
+        .from('automation_enrollments')
+        .update({
+          status: 'active',
+          next_step_at: nextStepAt.toISOString(),
+        })
+        .eq('id', enrollmentId)
+
+      if (error) throw error
+    },
+    onSuccess: (_, variables) => {
+      if (variables.automationId) {
+        queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
+        queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
+      }
+      queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+    },
+  })
+}
+
+export function useAvailableDealsForEnrollment(automationId: string | null, pipelineId: string | null) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['available-deals-for-enrollment', automationId, pipelineId],
+    queryFn: async () => {
+      if (!automationId || !pipelineId) return []
+
+      // Get deals in the same pipeline that are not already enrolled
+      const { data: enrolledDeals } = await supabase
+        .from('automation_enrollments')
+        .select('deal_id')
+        .eq('automation_id', automationId)
+        .in('status', ['active', 'paused'])
+
+      const enrolledDealIds = enrolledDeals?.map((e) => e.deal_id) || []
+
+      let query = supabase
+        .from('deals')
+        .select(`
+          id,
+          title,
+          contact:contacts(id, first_name, last_name, email)
+        `)
+        .eq('pipeline_id', pipelineId)
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (enrolledDealIds.length > 0) {
+        query = query.not('id', 'in', `(${enrolledDealIds.join(',')})`)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!automationId && !!pipelineId,
+  })
+}

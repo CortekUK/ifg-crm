@@ -18,9 +18,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2 } from 'lucide-react'
-import { formatDate } from '@/lib/utils/format'
+import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon } from 'lucide-react'
+import { formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { Campaign } from '@/lib/types/campaigns'
 
@@ -123,8 +129,10 @@ export function CampaignsTable({
         <TableBody>
           {campaigns.map((campaign) => {
             const status = statusConfig[campaign.status]
-            // Placeholder stats
-            const recipients = Math.floor(Math.random() * 5000) + 500
+            // Calculate recipient count from lists or use stored count
+            const recipientLists = campaign.recipient_lists || []
+            const totalRecipients = recipientLists.reduce((sum, list) => sum + (list.contact_count || 0), 0)
+            const recipients = campaign.recipient_count || totalRecipients
             const openRate = campaign.type === 'email' && campaign.status === 'sent' 
               ? `${(Math.random() * 30 + 15).toFixed(1)}%` 
               : '-'
@@ -160,7 +168,37 @@ export function CampaignsTable({
                         )}
                       </div>
                     )}
-                    <span className="font-medium">{campaign.name}</span>
+                    <div className="space-y-1">
+                      <span className="font-medium block">{campaign.name}</span>
+                      {recipientLists.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1 cursor-default">
+                                  <ListIcon className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">
+                                    {recipientLists.length} list{recipientLists.length > 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-xs">
+                                <div className="space-y-1">
+                                  {recipientLists.map((list) => (
+                                    <div key={list.id} className="flex items-center justify-between gap-4 text-xs">
+                                      <span>{list.name}</span>
+                                      <span className="text-muted-foreground">
+                                        {formatNumber(list.contact_count || 0)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -179,7 +217,7 @@ export function CampaignsTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {recipients.toLocaleString('en-GB')}
+                  {formatNumber(recipients)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{openRate}</TableCell>
                 <TableCell className="text-muted-foreground">{clickRate}</TableCell>

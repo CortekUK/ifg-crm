@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { SettingsNav } from '@/components/settings/SettingsNav'
+import { ProfileSettings } from '@/components/settings/ProfileSettings'
 import { GeneralSettings } from '@/components/settings/GeneralSettings'
 import { IntegrationsSettings } from '@/components/settings/IntegrationsSettings'
+import { CalendlySettings } from '@/components/settings/CalendlySettings'
 import { EmailSettingsSection } from '@/components/settings/EmailSettingsSection'
 import { SMSSettingsSection } from '@/components/settings/SMSSettingsSection'
 import { NotificationsSettings } from '@/components/settings/NotificationsSettings'
@@ -13,14 +15,18 @@ import { DataPrivacySettings } from '@/components/settings/DataPrivacySettings'
 import type { SettingsSection } from '@/lib/types/settings'
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general')
+  const [activeSection, setActiveSection] = useState<SettingsSection>('profile')
 
   const renderContent = () => {
     switch (activeSection) {
+      case 'profile':
+        return <ProfileSettings />
       case 'general':
         return <GeneralSettings />
       case 'integrations':
         return <IntegrationsSettings />
+      case 'calendly':
+        return <CalendlySettings />
       case 'email':
         return <EmailSettingsSection />
       case 'sms':
@@ -30,7 +36,7 @@ export default function SettingsPage() {
       case 'data':
         return <DataPrivacySettings />
       default:
-        return <GeneralSettings />
+        return <ProfileSettings />
     }
   }
 

@@ -27,7 +27,10 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Check, ChevronsUpDown, Loader2, PoundSterling } from 'lucide-react'
+import { Calendar } from '@/components/ui/calendar'
+import { Slider } from '@/components/ui/slider'
+import { Check, ChevronsUpDown, Loader2, PoundSterling, CalendarIcon, TrendingUp } from 'lucide-react'
+import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
 import { useCreateDeal } from '@/lib/hooks/useCreateDeal'
@@ -58,6 +61,10 @@ export function AddDealModal({
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
   const [dealValue, setDealValue] = useState(defaultDealValue.toString())
   const [notes, setNotes] = useState('')
+  const [description, setDescription] = useState('')
+  const [winProbability, setWinProbability] = useState<number | null>(null)
+  const [forecastedCloseDate, setForecastedCloseDate] = useState<Date | undefined>()
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
 
   const debouncedSearch = useDebouncedValue(contactSearch, 300)
   const { data: contacts = [], isLoading: isSearching } = useSearchContacts(debouncedSearch)
@@ -70,6 +77,9 @@ export function AddDealModal({
       setSelectedContact(null)
       setDealValue(defaultDealValue.toString())
       setNotes('')
+      setDescription('')
+      setWinProbability(null)
+      setForecastedCloseDate(undefined)
     }
   }, [isOpen, defaultDealValue])
 
@@ -87,6 +97,9 @@ export function AddDealModal({
         dealValue: parseFloat(dealValue) || 0,
         title: `${selectedContact.first_name} ${selectedContact.last_name}`,
         notes: notes || undefined,
+        description: description || undefined,
+        winProbability: winProbability ?? undefined,
+        forecastedCloseDate: forecastedCloseDate ? forecastedCloseDate.toISOString().split('T')[0] : undefined,
       })
 
       toast({
@@ -250,6 +263,104 @@ export function AddDealModal({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add any notes about this deal..."
                   rows={3}
+                />
+              </div>
+            </div>
+
+            {/* Forecasting */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                Forecasting (Optional)
+              </h3>
+              
+              {/* Win Probability */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Win Probability
+                  </Label>
+                  <span className="text-sm font-semibold">
+                    {winProbability !== null ? `${winProbability}%` : 'Not set'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Slider
+                    value={winProbability !== null ? [winProbability] : [50]}
+                    onValueChange={(value) => setWinProbability(value[0])}
+                    max={100}
+                    step={5}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setWinProbability(null)}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              {/* Forecasted Close Date */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  Forecasted Close Date
+                </Label>
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !forecastedCloseDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {forecastedCloseDate ? formatDate(forecastedCloseDate.toISOString()) : 'Select a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={forecastedCloseDate}
+                      onSelect={(date) => {
+                        setForecastedCloseDate(date)
+                        setDatePickerOpen(false)
+                      }}
+                      initialFocus
+                    />
+                    {forecastedCloseDate && (
+                      <div className="p-2 border-t">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setForecastedCloseDate(undefined)
+                            setDatePickerOpen(false)
+                          }}
+                        >
+                          Clear date
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Description</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Add a detailed description of this deal..."
+                  rows={4}
                 />
               </div>
             </div>

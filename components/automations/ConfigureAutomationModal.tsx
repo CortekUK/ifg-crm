@@ -34,6 +34,8 @@ import {
   Zap,
   Plus,
   ChevronRight,
+  FileText,
+  Link,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePipelines } from '@/lib/hooks/usePipelines'
@@ -342,10 +344,13 @@ export function ConfigureAutomationModal({
                 {/* Pipeline & Trigger */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-blue-900 uppercase">
-                    Trigger Settings
+                    {selectedTemplate?.type === 'deal_creation' ? 'Pipeline Settings' : 'Trigger Settings'}
                   </h3>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={cn(
+                    'grid gap-4',
+                    selectedTemplate?.type === 'deal_creation' ? 'grid-cols-1' : 'grid-cols-2'
+                  )}>
                     <div className="space-y-2">
                       <Label>Pipeline *</Label>
                       <Select
@@ -356,6 +361,10 @@ export function ConfigureAutomationModal({
                             pipeline_id: value,
                             trigger_stage_id: '',
                             stop_on_stage_ids: [],
+                            config: {
+                              ...prev.config,
+                              initial_stage_id: '', // Reset initial stage when pipeline changes
+                            },
                           }))
                         }
                       >
@@ -370,45 +379,249 @@ export function ConfigureAutomationModal({
                           ))}
                         </SelectContent>
                       </Select>
+                      {selectedTemplate?.type === 'deal_creation' && (
+                        <p className="text-xs text-muted-foreground">
+                          New deals will be created in this pipeline
+                        </p>
+                      )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>
-                        {selectedTemplate?.trigger_type === 'enters_stage'
-                          ? 'When deal enters stage'
-                          : selectedTemplate?.trigger_type === 'stage_change'
-                          ? 'When deal moves to stage'
-                          : 'Trigger Stage'}{' '}
-                        *
-                      </Label>
-                      <Select
-                        value={formData.trigger_stage_id}
-                        onValueChange={(value) =>
-                          setFormData((prev) => ({ ...prev, trigger_stage_id: value }))
-                        }
-                        disabled={!formData.pipeline_id}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select stage" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {stages.map((stage) => (
-                            <SelectItem key={stage.id} value={stage.id}>
-                              {stage.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {selectedTemplate?.type === 'deal_creation' ? (
+                      <div className="space-y-2">
+                        <Label>Initial Stage</Label>
+                        <Select
+                          value={formData.config.initial_stage_id || ''}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, initial_stage_id: value },
+                            }))
+                          }
+                          disabled={!formData.pipeline_id}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="First stage (default)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stages.map((stage) => (
+                              <SelectItem key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          New deals will start in this stage (defaults to first stage)
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label>
+                          {selectedTemplate?.trigger_type === 'enters_stage'
+                            ? 'When deal enters stage'
+                            : selectedTemplate?.trigger_type === 'stage_change'
+                            ? 'When deal moves to stage'
+                            : 'Trigger Stage'}{' '}
+                          *
+                        </Label>
+                        <Select
+                          value={formData.trigger_stage_id}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({ ...prev, trigger_stage_id: value }))
+                          }
+                          disabled={!formData.pipeline_id}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select stage" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stages.map((stage) => (
+                              <SelectItem key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Form Configuration (for deal creation) */}
+                {selectedTemplate?.type === 'deal_creation' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Form Integration
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Configure the form webhook to create deals from submissions
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="form_id">Form ID</Label>
+                          <Input
+                            id="form_id"
+                            placeholder="e.g., form_123 or gravity_1"
+                            value={formData.config.form_id || ''}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: { ...prev.config, form_id: e.target.value },
+                              }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            The unique ID from your WordPress form
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Form Source</Label>
+                          <Select
+                            value={formData.config.form_source || 'generic'}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: { 
+                                  ...prev.config, 
+                                  form_source: value as 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
+                                },
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select form plugin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gravity_forms">Gravity Forms</SelectItem>
+                              <SelectItem value="wpforms">WPForms</SelectItem>
+                              <SelectItem value="contact_form_7">Contact Form 7</SelectItem>
+                              <SelectItem value="elementor_forms">Elementor Forms</SelectItem>
+                              <SelectItem value="generic">Generic / Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <Label>Field Mappings</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Map your form field names to contact fields (e.g., input_1, field_email)
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">First Name Field</Label>
+                            <Input
+                              placeholder="e.g., input_1 or first_name"
+                              value={formData.config.field_mappings?.first_name || ''}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    field_mappings: {
+                                      ...prev.config.field_mappings,
+                                      first_name: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Last Name Field</Label>
+                            <Input
+                              placeholder="e.g., input_2 or last_name"
+                              value={formData.config.field_mappings?.last_name || ''}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    field_mappings: {
+                                      ...prev.config.field_mappings,
+                                      last_name: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Email Field *</Label>
+                            <Input
+                              placeholder="e.g., input_3 or email"
+                              value={formData.config.field_mappings?.email || ''}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    field_mappings: {
+                                      ...prev.config.field_mappings,
+                                      email: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Phone Field</Label>
+                            <Input
+                              placeholder="e.g., input_4 or phone"
+                              value={formData.config.field_mappings?.phone || ''}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    field_mappings: {
+                                      ...prev.config.field_mappings,
+                                      phone: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <Card className="bg-blue-50/50 border-blue-200">
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-2">
+                            <Link className="h-4 w-4 text-blue-600 mt-0.5" />
+                            <div className="text-sm">
+                              <p className="font-medium text-blue-900">Webhook URL</p>
+                              <code className="text-xs text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                                {typeof window !== 'undefined' 
+                                  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/form-webhook`
+                                  : 'https://[your-project].supabase.co/functions/v1/form-webhook'
+                                }
+                              </code>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Configure your form to POST to this URL
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
 
                 {/* Round Robin (for deal creation) */}
                 {selectedTemplate?.configurable.round_robin && (
                   <>
                     <Separator />
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase flex items-center gap-2">
+                        <Users className="h-4 w-4" />
                         Deal Owner Assignment
                       </h3>
                       <p className="text-sm text-muted-foreground">
@@ -434,6 +647,11 @@ export function ConfigureAutomationModal({
                           </div>
                         ))}
                       </div>
+                      {formData.config.round_robin_users && formData.config.round_robin_users.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {formData.config.round_robin_users.length} recruiter{formData.config.round_robin_users.length !== 1 ? 's' : ''} selected for round-robin assignment
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
@@ -630,7 +848,11 @@ export function ConfigureAutomationModal({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!formData.name || !formData.pipeline_id || !formData.trigger_stage_id}
+                disabled={
+                  !formData.name || 
+                  !formData.pipeline_id || 
+                  (selectedTemplate?.type !== 'deal_creation' && !formData.trigger_stage_id)
+                }
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {editingAutomation ? 'Save Changes' : 'Create Automation'}

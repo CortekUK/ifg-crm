@@ -11,6 +11,7 @@ interface ProcessingSummary {
   stagesMoved: number
   enrollmentsCompleted: number
   enrollmentsStopped: number
+  enrollmentsStoppedByReply: number
   errors: string[]
 }
 
@@ -70,21 +71,27 @@ Deno.serve(async (req) => {
       stagesMoved: 0,
       enrollmentsCompleted: 0,
       enrollmentsStopped: 0,
+      enrollmentsStoppedByReply: 0,
       errors: [],
     }
 
     // ============================================
-    // 1. TRIGGER CHECK - Enroll deals in automations
+    // 1. CHECK REPLIES - Stop automations where contact replied
+    // ============================================
+    await checkReplies(supabase, summary)
+
+    // ============================================
+    // 2. TRIGGER CHECK - Enroll deals in automations
     // ============================================
     await checkTriggers(supabase, summary)
 
     // ============================================
-    // 2. PROCESS QUEUE - Execute ready steps
+    // 3. PROCESS QUEUE - Execute ready steps
     // ============================================
     await processQueue(supabase, summary)
 
     // ============================================
-    // 3. EXIT CONDITIONS - Stop enrollments that should exit
+    // 4. EXIT CONDITIONS - Stop enrollments that should exit
     // ============================================
     await checkExitConditions(supabase, summary)
 
@@ -113,6 +120,127 @@ Deno.serve(async (req) => {
     )
   }
 })
+
+/**
+ * Check for email replies and stop automations accordingly
+ */
+async function checkReplies(
+  supabase: ReturnType<typeof createClient>,
+  summary: ProcessingSummary
+) {
+  try {
+    // Get unprocessed replies
+    const { data: replies, error: repliesError } = await supabase
+      .from('email_replies')
+      .select(`
+        id,
+        contact_id,
+        email_send_id,
+        received_at
+      `)
+      .eq('processed', false)
+      .limit(50)
+
+    if (repliesError || !replies || replies.length === 0) {
+      return
+    }
+
+    for (const reply of replies) {
+      try {
+        if (!reply.email_send_id) {
+          // Mark as processed since we can't link it to an automation
+          await supabase
+            .from('email_replies')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('id', reply.id)
+          continue
+        }
+
+        // Get the email send and related automation log
+        const { data: emailSend } = await supabase
+          .from('email_sends')
+          .select('automation_log_id')
+          .eq('id', reply.email_send_id)
+          .single()
+
+        if (!emailSend?.automation_log_id) {
+          await supabase
+            .from('email_replies')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('id', reply.id)
+          continue
+        }
+
+        // Get the automation log to find the enrollment
+        const { data: log } = await supabase
+          .from('automation_logs')
+          .select('enrollment_id')
+          .eq('id', emailSend.automation_log_id)
+          .single()
+
+        if (!log?.enrollment_id) {
+          await supabase
+            .from('email_replies')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('id', reply.id)
+          continue
+        }
+
+        // Get the enrollment with automation settings
+        const { data: enrollment } = await supabase
+          .from('automation_enrollments')
+          .select(`
+            id,
+            status,
+            automation:automations(exit_on_reply, config)
+          `)
+          .eq('id', log.enrollment_id)
+          .single()
+
+        if (!enrollment || enrollment.status !== 'active') {
+          await supabase
+            .from('email_replies')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('id', reply.id)
+          continue
+        }
+
+        // Check if automation should exit on reply
+        const automation = enrollment.automation as { exit_on_reply: boolean; config: { exit_on_reply?: boolean } } | null
+        const exitOnReply = automation?.exit_on_reply ?? automation?.config?.exit_on_reply ?? true
+
+        if (exitOnReply) {
+          // Stop the enrollment
+          const { error: stopError } = await supabase
+            .from('automation_enrollments')
+            .update({
+              status: 'stopped',
+              stopped_reason: 'Contact replied',
+              next_step_at: null,
+            })
+            .eq('id', enrollment.id)
+
+          if (stopError) {
+            summary.errors.push(`Failed to stop enrollment ${enrollment.id}: ${stopError.message}`)
+          } else {
+            summary.enrollmentsStoppedByReply++
+            console.log(`Stopped enrollment ${enrollment.id} - contact replied`)
+          }
+        }
+
+        // Mark reply as processed
+        await supabase
+          .from('email_replies')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('id', reply.id)
+      } catch (err) {
+        summary.errors.push(`Error processing reply ${reply.id}: ${err}`)
+      }
+    }
+  } catch (err) {
+    summary.errors.push(`Error checking replies: ${err}`)
+  }
+}
 
 /**
  * Check triggers and enroll deals in automations
@@ -352,7 +480,7 @@ async function processQueue(
 }
 
 /**
- * Process an email step - log for later sending
+ * Process an email step - send email via Resend
  */
 async function processEmailStep(
   supabase: ReturnType<typeof createClient>,
@@ -360,24 +488,168 @@ async function processEmailStep(
   step: AutomationStep,
   summary: ProcessingSummary
 ) {
-  // Log the email action (actual sending will be implemented later via Resend)
-  await logStepExecution(supabase, enrollment, step, 'sent')
-  summary.emailsQueued++
+  try {
+    if (!step.email_template_id) {
+      summary.errors.push(`Email step ${step.id} has no template`)
+      await logStepExecution(supabase, enrollment, step, 'failed', 'No email template configured')
+      return
+    }
 
-  // TODO: Implement actual email sending via Resend
-  // const { data: deal } = await supabase
-  //   .from('deals')
-  //   .select('contact:contacts(email, first_name, last_name)')
-  //   .eq('id', enrollment.deal_id)
-  //   .single()
-  //
-  // const { data: template } = await supabase
-  //   .from('email_templates')
-  //   .select('*')
-  //   .eq('id', step.email_template_id)
-  //   .single()
-  //
-  // await sendEmail(deal.contact.email, template)
+    // Get deal with contact and owner info
+    const { data: deal, error: dealError } = await supabase
+      .from('deals')
+      .select(`
+        id,
+        title,
+        contact:contacts(id, email, first_name, last_name),
+        owner:profiles(id, email, full_name)
+      `)
+      .eq('id', enrollment.deal_id)
+      .single()
+
+    if (dealError || !deal) {
+      summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError?.message}`)
+      await logStepExecution(supabase, enrollment, step, 'failed', 'Deal not found')
+      return
+    }
+
+    // Get contact info (handle array response from join)
+    const contactData = deal.contact
+    const contact = Array.isArray(contactData) ? contactData[0] : contactData
+    
+    if (!contact?.email) {
+      summary.errors.push(`Deal ${enrollment.deal_id} has no contact email`)
+      await logStepExecution(supabase, enrollment, step, 'failed', 'No contact email')
+      return
+    }
+
+    // Get owner info (handle array response from join)
+    const ownerData = deal.owner
+    const owner = Array.isArray(ownerData) ? ownerData[0] : ownerData
+
+    // Get email template
+    const { data: template, error: templateError } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('id', step.email_template_id)
+      .single()
+
+    if (templateError || !template) {
+      summary.errors.push(`Failed to fetch template ${step.email_template_id}: ${templateError?.message}`)
+      await logStepExecution(supabase, enrollment, step, 'failed', 'Template not found')
+      return
+    }
+
+    // Replace merge tags in subject and body
+    const mergeData = {
+      first_name: contact.first_name || '',
+      last_name: contact.last_name || '',
+      deal_owner_name: owner?.full_name || 'The Team',
+      deal_owner_email: owner?.email || '',
+      deal_title: deal.title || '',
+    }
+
+    const subject = replaceMergeTags(template.subject, mergeData)
+    const htmlBody = replaceMergeTags(template.body_html, mergeData)
+
+    // Determine from name and reply_to
+    let fromName = 'International Football Group'
+    let replyTo = owner?.email || undefined
+
+    if (template.from_name_type === 'deal_owner' && owner?.full_name) {
+      fromName = owner.full_name
+    } else if (template.from_name_type === 'fixed' && template.fixed_from_name) {
+      fromName = template.fixed_from_name
+    }
+
+    // Get the from email (must be verified domain in Resend)
+    const fromEmail = Deno.env.get('FROM_EMAIL') || 'notifications@ifg-crm.com'
+
+    // Generate tracking ID for this email
+    const trackingId = crypto.randomUUID()
+
+    // Log step execution first (to get the log id)
+    const { data: logEntry, error: logError } = await supabase
+      .from('automation_logs')
+      .insert({
+        enrollment_id: enrollment.id,
+        step_id: step.id,
+        deal_id: enrollment.deal_id,
+        status: 'sent',
+        log_type: 'email_sent',
+        sent_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (logError) {
+      summary.errors.push(`Failed to create log entry: ${logError.message}`)
+    }
+
+    // Call the send-email Edge Function
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    const sendEmailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        to: contact.email,
+        from_name: fromName,
+        from_email: fromEmail,
+        reply_to: replyTo,
+        subject: subject,
+        html_body: htmlBody,
+        tracking_id: trackingId,
+        contact_id: contact.id,
+        automation_log_id: logEntry?.id,
+      }),
+    })
+
+    const sendResult = await sendEmailResponse.json()
+
+    if (!sendResult.success) {
+      summary.errors.push(`Failed to send email to ${contact.email}: ${sendResult.error}`)
+      
+      // Update log entry to failed
+      if (logEntry?.id) {
+        await supabase
+          .from('automation_logs')
+          .update({
+            status: 'failed',
+            error_message: sendResult.error,
+          })
+          .eq('id', logEntry.id)
+      }
+      return
+    }
+
+    summary.emailsQueued++
+    console.log(`Sent email to ${contact.email} for enrollment ${enrollment.id}, message_id: ${sendResult.message_id}`)
+
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    summary.errors.push(`Error sending email for enrollment ${enrollment.id}: ${errorMessage}`)
+    await logStepExecution(supabase, enrollment, step, 'failed', errorMessage)
+  }
+}
+
+/**
+ * Replace merge tags in email content
+ */
+function replaceMergeTags(content: string, data: Record<string, string>): string {
+  let result = content
+
+  // Replace {{tag_name}} patterns
+  for (const [key, value] of Object.entries(data)) {
+    const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'gi')
+    result = result.replace(regex, value)
+  }
+
+  return result
 }
 
 /**

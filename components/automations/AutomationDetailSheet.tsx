@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -7,6 +8,22 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -14,10 +31,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle } from 'lucide-react'
-import { useAutomation, useAutomationEnrollments, useToggleAutomation } from '@/lib/hooks/useAutomations'
+import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight } from 'lucide-react'
+import { useAutomation, useAutomationEnrollments, useToggleAutomation, useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment } from '@/lib/hooks/useAutomations'
 import { AutomationWorkflowPreview } from './AutomationWorkflowPreview'
+import { EnrollContactModal } from './EnrollContactModal'
 import { formatDateTime } from '@/lib/utils/format'
+import { toast } from '@/lib/hooks/use-toast'
 
 interface AutomationDetailSheetProps {
   automationId: string | null
@@ -32,13 +51,61 @@ export function AutomationDetailSheet({
   onClose,
   onEdit,
 }: AutomationDetailSheetProps) {
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false)
+  const [enrollmentToUnenroll, setEnrollmentToUnenroll] = useState<{ id: string; name: string } | null>(null)
+
   const { data: automation, isLoading } = useAutomation(automationId)
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
   const toggleAutomation = useToggleAutomation()
+  const unenroll = useUnenrollFromAutomation()
+  const pauseEnrollment = usePauseEnrollment()
+  const resumeEnrollment = useResumeEnrollment()
 
   const handleToggle = async (isActive: boolean) => {
     if (!automationId) return
     await toggleAutomation.mutateAsync({ automationId, isActive })
+  }
+
+  const handleUnenroll = async () => {
+    if (!enrollmentToUnenroll || !automationId) return
+
+    try {
+      await unenroll.mutateAsync({
+        enrollmentId: enrollmentToUnenroll.id,
+        automationId,
+      })
+      toast({
+        title: 'Contact unenrolled',
+        description: `${enrollmentToUnenroll.name} has been removed from this automation.`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to unenroll contact.',
+        variant: 'destructive',
+      })
+    }
+    setEnrollmentToUnenroll(null)
+  }
+
+  const handlePauseResume = async (enrollmentId: string, currentStatus: string) => {
+    if (!automationId) return
+
+    try {
+      if (currentStatus === 'active') {
+        await pauseEnrollment.mutateAsync({ enrollmentId, automationId })
+        toast({ title: 'Enrollment paused' })
+      } else if (currentStatus === 'paused') {
+        await resumeEnrollment.mutateAsync({ enrollmentId, automationId })
+        toast({ title: 'Enrollment resumed' })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update enrollment.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const getInitials = (name: string) => {
@@ -51,8 +118,52 @@ export function AutomationDetailSheet({
   }
 
   const activeEnrollments = enrollments.filter((e) => e.status === 'active')
+  const pausedEnrollments = enrollments.filter((e) => e.status === 'paused')
   const completedEnrollments = enrollments.filter((e) => e.status === 'completed')
   const stoppedEnrollments = enrollments.filter((e) => e.status === 'stopped')
+
+  // Helper to get badge for stopped reason
+  const getStoppedReasonBadge = (reason: string | null) => {
+    if (!reason) {
+      return {
+        label: 'Stopped',
+        className: 'bg-gray-100 text-gray-600',
+        icon: <Ban className="h-2.5 w-2.5 mr-0.5" />,
+      }
+    }
+
+    const reasonLower = reason.toLowerCase()
+    
+    if (reasonLower.includes('replied') || reasonLower.includes('reply')) {
+      return {
+        label: 'Replied',
+        className: 'bg-blue-100 text-blue-700',
+        icon: <MessageCircle className="h-2.5 w-2.5 mr-0.5" />,
+      }
+    }
+    
+    if (reasonLower.includes('stage') || reasonLower.includes('exit')) {
+      return {
+        label: 'Stage Exit',
+        className: 'bg-orange-100 text-orange-700',
+        icon: <ArrowRight className="h-2.5 w-2.5 mr-0.5" />,
+      }
+    }
+    
+    if (reasonLower.includes('manual')) {
+      return {
+        label: 'Unenrolled',
+        className: 'bg-red-100 text-red-700',
+        icon: <X className="h-2.5 w-2.5 mr-0.5" />,
+      }
+    }
+
+    return {
+      label: 'Stopped',
+      className: 'bg-gray-100 text-gray-600',
+      icon: <Ban className="h-2.5 w-2.5 mr-0.5" />,
+    }
+  }
 
   // Calculate totals
   const totalSent = automation?.steps?.reduce(
@@ -96,12 +207,22 @@ export function AutomationDetailSheet({
                     {automation.description || 'No description provided'}
                   </SheetDescription>
                 </div>
-                {onEdit && (
-                  <Button variant="outline" size="sm" onClick={onEdit} className="shrink-0">
-                    <Pencil className="h-4 w-4 mr-1.5" />
-                    Edit
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEnrollModalOpen(true)}
+                  >
+                    <UserPlus className="h-4 w-4 mr-1.5" />
+                    Enroll
                   </Button>
-                )}
+                  {onEdit && (
+                    <Button variant="outline" size="sm" onClick={onEdit}>
+                      <Pencil className="h-4 w-4 mr-1.5" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3 mt-3">
                 <Badge
@@ -271,15 +392,35 @@ export function AutomationDetailSheet({
                 <TabsContent value="enrolled" className="mt-0 px-6 py-6 space-y-6 data-[state=inactive]:hidden">
                   {/* Active Enrollments */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
-                      Currently Active ({activeEnrollments.length})
-                    </h3>
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                        Currently Active ({activeEnrollments.length})
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setIsEnrollModalOpen(true)}
+                      >
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Add
+                      </Button>
+                    </div>
                     {activeEnrollments.length === 0 ? (
                       <div className="text-center py-8">
                         <Users className="h-10 w-10 mx-auto text-gray-300 mb-3" />
                         <p className="text-sm text-muted-foreground">
                           No contacts currently enrolled
                         </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => setIsEnrollModalOpen(true)}
+                        >
+                          <UserPlus className="h-4 w-4 mr-1.5" />
+                          Enroll Contacts
+                        </Button>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -305,15 +446,39 @@ export function AutomationDetailSheet({
                                       {contact?.email || 'No email'}
                                     </p>
                                   </div>
-                                  <div className="text-right shrink-0">
-                                    <Badge className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-100">
-                                      Active
-                                    </Badge>
-                                    {enrollment.next_step_at && (
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        Next: {formatDateTime(enrollment.next_step_at)}
-                                      </p>
-                                    )}
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <div className="text-right">
+                                      <Badge className="text-xs bg-green-100 text-green-700 hover:bg-green-100">
+                                        Active
+                                      </Badge>
+                                      {enrollment.next_step_at && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          Next: {formatDateTime(enrollment.next_step_at)}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onClick={() => handlePauseResume(enrollment.id, 'active')}
+                                        >
+                                          <Pause className="h-4 w-4 mr-2" />
+                                          Pause
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => setEnrollmentToUnenroll({ id: enrollment.id, name })}
+                                          className="text-red-600"
+                                        >
+                                          <X className="h-4 w-4 mr-2" />
+                                          Unenroll
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </div>
                               </CardContent>
@@ -328,6 +493,71 @@ export function AutomationDetailSheet({
                       </div>
                     )}
                   </div>
+
+                  {/* Paused Enrollments */}
+                  {pausedEnrollments.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-amber-700 uppercase border-b border-slate-200 pb-2">
+                        Paused ({pausedEnrollments.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {pausedEnrollments.slice(0, 5).map((enrollment) => {
+                          const deal = enrollment.deal
+                          const contact = deal?.contact
+                          const name = contact
+                            ? `${contact.first_name} ${contact.last_name}`
+                            : deal?.title || 'Unknown'
+
+                          return (
+                            <Card key={enrollment.id} className="border-amber-200 bg-amber-50/50">
+                              <CardContent className="p-3">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-9 w-9">
+                                    <AvatarFallback className="bg-amber-100 text-amber-600 text-xs font-medium">
+                                      {getInitials(name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {contact?.email || 'No email'}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100">
+                                      Paused
+                                    </Badge>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onClick={() => handlePauseResume(enrollment.id, 'paused')}
+                                        >
+                                          <Play className="h-4 w-4 mr-2" />
+                                          Resume
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => setEnrollmentToUnenroll({ id: enrollment.id, name })}
+                                          className="text-red-600"
+                                        >
+                                          <X className="h-4 w-4 mr-2" />
+                                          Unenroll
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Recently Completed */}
                   <div className="space-y-3">
@@ -369,6 +599,55 @@ export function AutomationDetailSheet({
                       </div>
                     )}
                   </div>
+
+                  {/* Stopped Enrollments */}
+                  {stoppedEnrollments.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-red-700 uppercase border-b border-slate-200 pb-2">
+                        Stopped / Exited ({stoppedEnrollments.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {stoppedEnrollments.slice(0, 5).map((enrollment) => {
+                          const deal = enrollment.deal
+                          const contact = deal?.contact
+                          const name = contact
+                            ? `${contact.first_name} ${contact.last_name}`
+                            : deal?.title || 'Unknown'
+                          const stoppedBadge = getStoppedReasonBadge(enrollment.stopped_reason)
+
+                          return (
+                            <div
+                              key={enrollment.id}
+                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100"
+                            >
+                              <Avatar className="h-7 w-7">
+                                <AvatarFallback className="bg-red-100 text-red-600 text-xs">
+                                  {getInitials(name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-gray-900 truncate">{name}</p>
+                                {enrollment.stopped_reason && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {enrollment.stopped_reason}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge className={`text-xs ${stoppedBadge.className} hover:${stoppedBadge.className}`}>
+                                {stoppedBadge.icon}
+                                {stoppedBadge.label}
+                              </Badge>
+                            </div>
+                          )
+                        })}
+                        {stoppedEnrollments.length > 5 && (
+                          <p className="text-xs text-muted-foreground text-center pt-2">
+                            +{stoppedEnrollments.length - 5} more stopped
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
               </div>
             </Tabs>
@@ -388,6 +667,36 @@ export function AutomationDetailSheet({
                 />
               </div>
             </div>
+
+            {/* Enroll Contact Modal */}
+            <EnrollContactModal
+              isOpen={isEnrollModalOpen}
+              onClose={() => setIsEnrollModalOpen(false)}
+              automation={automation}
+            />
+
+            {/* Unenroll Confirmation Dialog */}
+            <AlertDialog open={!!enrollmentToUnenroll} onOpenChange={() => setEnrollmentToUnenroll(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Unenroll from automation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to remove{' '}
+                    <span className="font-medium">{enrollmentToUnenroll?.name}</span> from this
+                    automation? They will no longer receive any scheduled emails.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleUnenroll}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Unenroll
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </SheetContent>

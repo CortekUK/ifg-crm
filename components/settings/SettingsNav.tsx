@@ -8,6 +8,8 @@ import {
   MessageSquare,
   Bell,
   Shield,
+  User,
+  Calendar,
 } from 'lucide-react'
 import type { SettingsSection } from '@/lib/types/settings'
 
@@ -17,8 +19,10 @@ interface SettingsNavProps {
 }
 
 const navItems: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
+  { id: 'profile', label: 'My Profile', icon: User },
   { id: 'general', label: 'General', icon: Settings },
   { id: 'integrations', label: 'Integrations', icon: Plug },
+  { id: 'calendly', label: 'Calendly', icon: Calendar },
   { id: 'email', label: 'Email Settings', icon: Mail },
   { id: 'sms', label: 'SMS Settings', icon: MessageSquare },
   { id: 'notifications', label: 'Notifications', icon: Bell },
