@@ -23,7 +23,7 @@ import {
   Send,
   FileText,
   Zap,
-  Receipt,
+  ReceiptPoundSterling,
   CreditCard,
   BarChart3,
   FileBarChart,
@@ -72,7 +72,7 @@ const navSections = [
   {
     label: 'FINANCE',
     items: [
-      { href: '/invoices', label: 'Invoices', icon: Receipt },
+      { href: '/invoices', label: 'Invoices', icon: ReceiptPoundSterling },
       { href: '/payments', label: 'Payments', icon: CreditCard },
     ],
   },

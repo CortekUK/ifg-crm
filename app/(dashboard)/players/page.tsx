@@ -18,7 +18,7 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import type { PlayerFilters as PlayerFiltersType, Player } from '@/lib/types/players'
 
 export default function PlayersPage() {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [filters, setFilters] = useState<PlayerFiltersType>({})
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
