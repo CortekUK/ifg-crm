@@ -27,7 +27,7 @@ export function useAutomations() {
         .select(`
           *,
           pipeline:pipelines(*),
-          trigger_stage:pipeline_stages!automations_trigger_stage_id_fkey(*),
+          trigger_stage:stages!automations_trigger_stage_id_fkey(*),
           steps:automation_steps(*, template:email_templates(*))
         `)
         .order('created_at', { ascending: false })
@@ -51,7 +51,7 @@ export function useAutomation(automationId: string | null) {
         .select(`
           *,
           pipeline:pipelines(*),
-          trigger_stage:pipeline_stages!automations_trigger_stage_id_fkey(*),
+          trigger_stage:stages!automations_trigger_stage_id_fkey(*),
           steps:automation_steps(*, template:email_templates(*))
         `)
         .eq('id', automationId)

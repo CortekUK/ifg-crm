@@ -24,7 +24,7 @@ export function useDeals(pipelineId: string | null) {
         .select(`
           *,
           contact:contacts(id, first_name, last_name, email, phone, graduation_year),
-          stage:pipeline_stages(*),
+          stage:stages(*),
           owner:profiles(id, email, full_name, avatar_url, calendly_url),
           pipeline:pipelines(*)
         `)
@@ -97,7 +97,7 @@ export function useDeal(dealId: string | null) {
         .select(`
           *,
           contact:contacts(id, first_name, last_name, email, phone, graduation_year),
-          stage:pipeline_stages(*),
+          stage:stages(*),
           owner:profiles(id, email, full_name, avatar_url, calendly_url),
           pipeline:pipelines(*)
         `)
@@ -176,7 +176,7 @@ export function useMoveDeal() {
 
         if (deal?.current_stage_id) {
           const { data: stageData } = await supabase
-            .from('pipeline_stages')
+            .from('stages')
             .select('name')
             .eq('id', deal.current_stage_id)
             .single()
@@ -191,7 +191,7 @@ export function useMoveDeal() {
       let newStage = newStageName
       if (!newStage) {
         const { data: stage } = await supabase
-          .from('pipeline_stages')
+          .from('stages')
           .select('name')
           .eq('id', newStageId)
           .single()

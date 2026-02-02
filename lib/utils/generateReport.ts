@@ -85,7 +85,7 @@ async function generatePipelineReport(dateRange: { start: Date; end: Date }) {
     .select(`
       id, title, value, status, created_at, updated_at,
       contact:contacts(first_name, last_name, email),
-      stage:pipeline_stages(name),
+      stage:stages(name),
       pipeline:pipelines(name),
       owner:profiles(full_name, email)
     `)
@@ -183,7 +183,7 @@ async function generateResponsesReport(dateRange: { start: Date; end: Date }) {
 
   // Get SMS replies
   const { data: smsReplies } = await supabase
-    .from('sms_messages')
+    .from('sms_replies')
     .select(`
       id, body, from_number, received_at,
       contact:contacts(first_name, last_name)

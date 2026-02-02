@@ -11,7 +11,7 @@ export function usePipelineStages(pipelineId: string | null) {
       if (!pipelineId) return []
       
       const { data, error } = await supabase
-        .from('pipeline_stages')
+        .from('stages')
         .select('*')
         .eq('pipeline_id', pipelineId)
         .order('display_order')

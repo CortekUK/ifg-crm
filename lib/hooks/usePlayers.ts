@@ -123,7 +123,7 @@ export function usePlayerDeals(playerId: string | null) {
           deal_value,
           created_at,
           pipeline:pipelines(id, name),
-          stage:pipeline_stages(id, name, color),
+          stage:stages(id, name, color),
           owner:profiles(id, full_name)
         `)
         .eq('contact_id', playerId)

@@ -164,28 +164,28 @@ export function useAnalytics(dateRange: string = '30d') {
 
       // SMS stats
       const { count: smsSent } = await supabase
-        .from('sms_messages')
+        .from('sms_replies')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'outbound')
         .gte('sent_at', start.toISOString())
         .lte('sent_at', end.toISOString())
 
       const { count: smsReplies } = await supabase
-        .from('sms_messages')
+        .from('sms_replies')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .gte('received_at', start.toISOString())
         .lte('received_at', end.toISOString())
 
       const { count: prevSmsSent } = await supabase
-        .from('sms_messages')
+        .from('sms_replies')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'outbound')
         .gte('sent_at', previousStart.toISOString())
         .lte('sent_at', previousEnd.toISOString())
 
       const { count: prevSmsReplies } = await supabase
-        .from('sms_messages')
+        .from('sms_replies')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .gte('received_at', previousStart.toISOString())
@@ -210,7 +210,7 @@ export function useAnalytics(dateRange: string = '30d') {
 
       // Pipeline funnel
       const { data: stagesData } = await supabase
-        .from('pipeline_stages')
+        .from('stages')
         .select('id, name, position')
         .order('position')
 

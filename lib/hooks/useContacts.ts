@@ -194,7 +194,7 @@ export function useContactDeals(contactId: string | null) {
         .select(`
           *,
           pipeline:pipelines(*),
-          stage:pipeline_stages(*),
+          stage:stages(*),
           owner:profiles(*)
         `)
         .eq('contact_id', contactId)

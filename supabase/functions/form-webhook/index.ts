@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
     let stageId = config.initial_stage_id
     if (!stageId) {
       const { data: stages } = await supabase
-        .from('pipeline_stages')
+        .from('stages')
         .select('id')
         .eq('pipeline_id', pipelineId)
         .order('position', { ascending: true })

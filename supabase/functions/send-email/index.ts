@@ -254,7 +254,7 @@ async function fetchMergeDataForDeal(
       id,
       title,
       value,
-      stage:pipeline_stages!deals_stage_id_fkey(name),
+      stage:stages!deals_stage_id_fkey(name),
       pipeline:pipelines!deals_pipeline_id_fkey(name),
       contact:contacts!deals_contact_id_fkey(
         first_name,

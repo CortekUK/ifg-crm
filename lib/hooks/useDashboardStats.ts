@@ -69,7 +69,7 @@ export function useDashboardStats() {
       // =====================
       // Current unmatched SMS
       const { count: unmatchedSMS } = await supabase
-        .from('sms_messages')
+        .from('sms_replies')
         .select('*', { count: 'exact', head: true })
         .eq('match_status', 'unmatched')
         .eq('direction', 'inbound')
@@ -84,7 +84,7 @@ export function useDashboardStats() {
 
       // Unmatched SMS last month
       const { count: unmatchedSMSLastMonth } = await supabase
-        .from('sms_messages')
+        .from('sms_replies')
         .select('*', { count: 'exact', head: true })
         .eq('match_status', 'unmatched')
         .eq('direction', 'inbound')
@@ -182,7 +182,7 @@ export function useDashboardStats() {
 
       // Deals won
       const { data: wonStages } = await supabase
-        .from('pipeline_stages')
+        .from('stages')
         .select('id')
         .in('stage_type', ['payment', 'completed'])
       const wonStageIds = wonStages?.map((s) => s.id) || []
