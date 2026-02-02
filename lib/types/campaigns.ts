@@ -21,6 +21,15 @@ export interface Campaign {
   status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled'
   email_template_id: string | null
   sms_content: string | null
+  // Email-specific fields
+  subject: string | null
+  body_text: string | null
+  body_html: string | null
+  from_name: string | null
+  from_email: string | null
+  reply_to: string | null
+  preview_text: string | null
+  // User references
   from_user_id: string
   thumbnail_url: string | null
   scheduled_at: string | null
@@ -48,16 +57,29 @@ export interface Campaign {
   }[]
   // Aggregated stats (from campaign_recipients)
   recipient_count?: number
+  delivered_count?: number
   open_count?: number
   click_count?: number
+  bounce_count?: number
+  unsubscribe_count?: number
 }
 
 export interface CreateCampaignInput {
   name: string
   type: 'email' | 'sms'
   status: 'draft' | 'scheduled'
+  // Email fields
   email_template_id?: string
+  subject?: string
+  body_text?: string
+  body_html?: string
+  from_name?: string
+  from_email?: string
+  reply_to?: string
+  preview_text?: string
+  // SMS fields
   sms_content?: string
+  // Common fields
   from_user_id: string
   created_by_id: string
   scheduled_at?: string
@@ -68,8 +90,18 @@ export interface UpdateCampaignInput {
   id: string
   name?: string
   status?: Campaign['status']
+  // Email fields
   email_template_id?: string
+  subject?: string
+  body_text?: string
+  body_html?: string
+  from_name?: string
+  from_email?: string
+  reply_to?: string
+  preview_text?: string
+  // SMS fields
   sms_content?: string
+  // Common fields
   scheduled_at?: string | null
   recipient_list_ids?: string[]
 }

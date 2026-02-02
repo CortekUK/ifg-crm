@@ -3,13 +3,21 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { Send, Mail, MessageSquare, Eye, TrendingUp, TrendingDown } from 'lucide-react'
+import { Send, Mail, MessageSquare, Eye } from 'lucide-react'
 import { formatNumber } from '@/lib/utils/format'
 import type { Campaign } from '@/lib/types/campaigns'
 
 interface CampaignStatsProps {
   campaigns: Campaign[]
   isLoading?: boolean
+}
+
+interface StatItem {
+  label: string
+  value: string
+  icon: React.ComponentType<{ className?: string }>
+  colour: 'blue' | 'green' | 'purple' | 'orange'
+  subtitle?: string
 }
 
 const colourConfig = {
@@ -40,15 +48,26 @@ const colourConfig = {
 }
 
 export function CampaignStats({ campaigns, isLoading }: CampaignStatsProps) {
-  // Calculate stats
+  // Calculate stats from campaigns data
   const totalCampaigns = campaigns.length
-  const emailCampaigns = campaigns.filter((c) => c.type === 'email')
-  const smsCampaigns = campaigns.filter((c) => c.type === 'sms')
+  const sentCampaigns = campaigns.filter((c) => c.status === 'sent')
+  const scheduledCampaigns = campaigns.filter((c) => c.status === 'scheduled')
+  const draftCampaigns = campaigns.filter((c) => c.status === 'draft')
   
-  // Placeholder values for sent counts (would come from campaign_recipients in real app)
-  const emailsSent = emailCampaigns.filter((c) => c.status === 'sent').length * 1250
-  const smsSent = smsCampaigns.filter((c) => c.status === 'sent').length * 850
-  const avgOpenRate = 24.5 // Placeholder
+  // Calculate total recipients from sent campaigns
+  const totalRecipients = sentCampaigns.reduce((sum, c) => {
+    const listRecipients = c.recipient_lists?.reduce((s, l) => s + (l.contact_count || 0), 0) || 0
+    return sum + (c.recipient_count || listRecipients)
+  }, 0)
+  
+  // Calculate average open rate from campaigns with stats
+  const campaignsWithStats = sentCampaigns.filter(c => c.open_count !== undefined && c.delivered_count)
+  const avgOpenRate = campaignsWithStats.length > 0
+    ? campaignsWithStats.reduce((sum, c) => {
+        const rate = (c.open_count! / (c.delivered_count || 1)) * 100
+        return sum + rate
+      }, 0) / campaignsWithStats.length
+    : 0
 
   const stats = [
     {
@@ -56,28 +75,28 @@ export function CampaignStats({ campaigns, isLoading }: CampaignStatsProps) {
       value: formatNumber(totalCampaigns),
       icon: Send,
       colour: 'blue' as const,
-      trend: 12,
+      subtitle: `${sentCampaigns.length} sent, ${scheduledCampaigns.length} scheduled`,
     },
     {
-      label: 'Emails Sent',
-      value: formatNumber(emailsSent),
+      label: 'Sent This Month',
+      value: formatNumber(sentCampaigns.length),
       icon: Mail,
       colour: 'green' as const,
-      trend: 8,
+      subtitle: `${formatNumber(totalRecipients)} total recipients`,
     },
     {
-      label: 'SMS Sent',
-      value: formatNumber(smsSent),
+      label: 'Drafts',
+      value: formatNumber(draftCampaigns.length),
       icon: MessageSquare,
       colour: 'purple' as const,
-      trend: 15,
+      subtitle: 'Awaiting completion',
     },
     {
       label: 'Avg Open Rate',
-      value: `${avgOpenRate}%`,
+      value: avgOpenRate > 0 ? `${avgOpenRate.toFixed(1)}%` : '-',
       icon: Eye,
       colour: 'orange' as const,
-      trend: 3,
+      subtitle: campaignsWithStats.length > 0 ? `From ${campaignsWithStats.length} campaigns` : 'No data yet',
     },
   ]
 
@@ -115,7 +134,6 @@ export function CampaignStats({ campaigns, isLoading }: CampaignStatsProps) {
       {stats.map((stat) => {
         const Icon = stat.icon
         const config = colourConfig[stat.colour]
-        const isPositive = stat.trend > 0
         return (
           <Card key={stat.label} className={cn(
             'relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow transition-shadow border-l-4',
@@ -135,17 +153,11 @@ export function CampaignStats({ campaigns, isLoading }: CampaignStatsProps) {
                 </div>
               </div>
               <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-              <div className="flex items-center gap-1.5 text-sm mt-2">
-                {isPositive ? (
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                ) : (
-                  <TrendingDown className="h-4 w-4 text-red-500" />
-                )}
-                <span className={isPositive ? 'text-green-600' : 'text-red-600'}>
-                  {isPositive && '+'}{stat.trend}%
-                </span>
-                <span className="text-gray-400">vs last month</span>
-              </div>
+              {stat.subtitle && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {stat.subtitle}
+                </p>
+              )}
             </CardContent>
           </Card>
         )

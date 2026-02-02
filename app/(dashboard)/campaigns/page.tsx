@@ -6,16 +6,20 @@ import { CampaignStats } from '@/components/campaigns/CampaignStats'
 import { CampaignFilters } from '@/components/campaigns/CampaignFilters'
 import { CampaignsTable } from '@/components/campaigns/CampaignsTable'
 import { CreateCampaignModal } from '@/components/campaigns/CreateCampaignModal'
+import { CampaignDetailSheet } from '@/components/campaigns/CampaignDetailSheet'
 import { useCampaigns } from '@/lib/hooks/useCampaigns'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { createClient } from '@/lib/supabase/client'
 import type { CampaignFilters as CampaignFiltersType } from '@/lib/types/campaigns'
+import type { Campaign } from '@/lib/types/campaigns'
 
 export default function CampaignsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [filters, setFilters] = useState<CampaignFiltersType>({})
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [editCampaign, setEditCampaign] = useState<Campaign | null>(null)
+  const [viewCampaignId, setViewCampaignId] = useState<string | null>(null)
 
   // Debounce search
   const debouncedFilters = {
@@ -62,13 +66,33 @@ export default function CampaignsPage() {
     [campaigns]
   )
 
+  const handleViewCampaign = useCallback((campaign: Campaign) => {
+    setViewCampaignId(campaign.id)
+  }, [])
+
+  const handleEditCampaign = useCallback((campaign: Campaign) => {
+    setEditCampaign(campaign)
+    setCreateModalOpen(true)
+  }, [])
+
+  const handleCloseCreateModal = useCallback(() => {
+    setCreateModalOpen(false)
+    setEditCampaign(null)
+  }, [])
+
+  const handleEditFromDetail = useCallback((campaign: Campaign) => {
+    setViewCampaignId(null)
+    setEditCampaign(campaign)
+    setCreateModalOpen(true)
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <CampaignsPageHeader onCreateClick={() => setCreateModalOpen(true)} />
 
       {/* Stats */}
-      <CampaignStats campaigns={campaigns} />
+      <CampaignStats campaigns={campaigns} isLoading={isLoading} />
 
       {/* Filters */}
       <CampaignFilters filters={filters} onFiltersChange={setFilters} />
@@ -95,16 +119,27 @@ export default function CampaignsPage() {
         selectedIds={selectedIds}
         onSelectChange={handleSelectChange}
         onSelectAll={handleSelectAll}
+        onViewCampaign={handleViewCampaign}
+        onEditCampaign={handleEditCampaign}
       />
 
-      {/* Create Campaign Modal */}
+      {/* Create/Edit Campaign Modal */}
       {userId && (
         <CreateCampaignModal
           isOpen={createModalOpen}
-          onClose={() => setCreateModalOpen(false)}
+          onClose={handleCloseCreateModal}
           userId={userId}
+          editCampaign={editCampaign}
         />
       )}
+
+      {/* Campaign Detail Sheet */}
+      <CampaignDetailSheet
+        campaignId={viewCampaignId}
+        isOpen={!!viewCampaignId}
+        onClose={() => setViewCampaignId(null)}
+        onEdit={handleEditFromDetail}
+      />
     </div>
   )
 }
