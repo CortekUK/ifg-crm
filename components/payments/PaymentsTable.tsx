@@ -29,7 +29,6 @@ import {
   CircleDot,
   Receipt,
 } from 'lucide-react'
-import Link from 'next/link'
 import type { Payment } from '@/lib/types/payments'
 
 interface PaymentsTableProps {
@@ -37,6 +36,7 @@ interface PaymentsTableProps {
   isLoading: boolean
   onView?: (payment: Payment) => void
   onRefund?: (payment: Payment) => void
+  onViewInvoice?: (invoiceId: string) => void
 }
 
 const methodConfig: Record<string, { label: string; icon: React.ElementType }> = {
@@ -61,6 +61,7 @@ export function PaymentsTable({
   isLoading,
   onView,
   onRefund,
+  onViewInvoice,
 }: PaymentsTableProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -180,12 +181,15 @@ export function PaymentsTable({
                 {/* Invoice # */}
                 <TableCell>
                   {payment.invoice ? (
-                    <Link
-                      href={`/invoices/${payment.invoice.id}`}
-                      className="text-blue-600 hover:underline text-sm"
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onViewInvoice?.(payment.invoice!.id)
+                      }}
+                      className="text-blue-600 hover:underline text-sm text-left"
                     >
                       {payment.invoice.invoice_number}
-                    </Link>
+                    </button>
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}

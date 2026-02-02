@@ -5,6 +5,7 @@ import { PaymentsPageHeader } from '@/components/payments/PaymentsPageHeader'
 import { PaymentStats } from '@/components/payments/PaymentStats'
 import { PaymentFilters } from '@/components/payments/PaymentFilters'
 import { PaymentsTable } from '@/components/payments/PaymentsTable'
+import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet'
 import { usePayments, usePaymentStats } from '@/lib/hooks/usePayments'
 import type { PaymentFilters as Filters, Payment } from '@/lib/types/payments'
 
@@ -16,6 +17,7 @@ export default function PaymentsPage() {
     dateFrom: null,
     dateTo: null,
   })
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
 
   const { data: payments = [], isLoading: paymentsLoading } = usePayments()
   const { data: stats, isLoading: statsLoading } = usePaymentStats()
@@ -73,6 +75,10 @@ export default function PaymentsPage() {
     }
   }
 
+  const handleViewInvoice = (invoiceId: string) => {
+    setSelectedInvoiceId(invoiceId)
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -96,6 +102,14 @@ export default function PaymentsPage() {
         isLoading={paymentsLoading}
         onView={handleViewPayment}
         onRefund={handleRefundPayment}
+        onViewInvoice={handleViewInvoice}
+      />
+
+      {/* Invoice Detail Sheet */}
+      <InvoiceDetailSheet
+        invoiceId={selectedInvoiceId}
+        isOpen={!!selectedInvoiceId}
+        onClose={() => setSelectedInvoiceId(null)}
       />
     </div>
   )
