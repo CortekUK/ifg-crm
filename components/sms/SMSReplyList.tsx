@@ -1,7 +1,8 @@
 'use client'
 
 import { Skeleton } from '@/components/ui/skeleton'
-import { MessageSquare } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { MessageSquare, Loader2 } from 'lucide-react'
 import { SMSReplyCard } from './SMSReplyCard'
 import type { SMSMessage } from '@/lib/types/sms'
 
@@ -11,7 +12,11 @@ interface SMSReplyListProps {
   onMatchClick: (message: SMSMessage) => void
   onViewContact: (contactId: string) => void
   onMarkSpam: (message: SMSMessage) => void
+  onViewFull: (message: SMSMessage) => void
   emptyMessage?: string
+  hasNextPage?: boolean
+  onLoadMore?: () => void
+  isLoadingMore?: boolean
 }
 
 export function SMSReplyList({
@@ -20,7 +25,11 @@ export function SMSReplyList({
   onMatchClick,
   onViewContact,
   onMarkSpam,
+  onViewFull,
   emptyMessage = 'No messages to display.',
+  hasNextPage,
+  onLoadMore,
+  isLoadingMore,
 }: SMSReplyListProps) {
   if (isLoading) {
     return (
@@ -67,8 +76,29 @@ export function SMSReplyList({
           onMatchClick={onMatchClick}
           onViewContact={onViewContact}
           onMarkSpam={onMarkSpam}
+          onViewFull={onViewFull}
         />
       ))}
+      
+      {/* Load More Button */}
+      {hasNextPage && onLoadMore && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Load More'
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

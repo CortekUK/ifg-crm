@@ -428,6 +428,39 @@ export function useUpdateAutomation() {
 }
 
 // ============================================
+export function useDeleteAutomation() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (automationId: string) => {
+      // Delete enrollments first (cascade should handle this, but being explicit)
+      await supabase
+        .from('automation_enrollments')
+        .delete()
+        .eq('automation_id', automationId)
+
+      // Delete steps (cascade should handle this too)
+      await supabase
+        .from('automation_steps')
+        .delete()
+        .eq('automation_id', automationId)
+
+      // Delete the automation
+      const { error } = await supabase
+        .from('automations')
+        .delete()
+        .eq('id', automationId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automations'] })
+      queryClient.invalidateQueries({ queryKey: ['automation-stats'] })
+    },
+  })
+}
+
 // Enrollment Management Hooks
 // ============================================
 

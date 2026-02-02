@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Phone, User, Trash2, ExternalLink, UserPlus } from 'lucide-react'
+import { Phone, Trash2, ExternalLink, UserPlus, Eye } from 'lucide-react'
 import { formatRelativeTime, formatPhoneNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { SMSMessage, SMSIntent } from '@/lib/types/sms'
@@ -14,6 +14,7 @@ interface SMSReplyCardProps {
   onMatchClick: (message: SMSMessage) => void
   onViewContact: (contactId: string) => void
   onMarkSpam: (message: SMSMessage) => void
+  onViewFull: (message: SMSMessage) => void
 }
 
 const intentConfig: Record<SMSIntent, { label: string; className: string }> = {
@@ -28,6 +29,7 @@ export function SMSReplyCard({
   onMatchClick,
   onViewContact,
   onMarkSpam,
+  onViewFull,
 }: SMSReplyCardProps) {
   const isMatched = message.match_status === 'auto_matched' || message.match_status === 'manually_matched'
   const isSpam = message.match_status === 'spam'
@@ -90,13 +92,18 @@ export function SMSReplyCard({
 
             {/* Footer Row */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              {/* Intent Badges */}
-              <div className="flex items-center gap-2">
+              {/* Badges */}
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge className={intentInfo.className}>{intentInfo.label}</Badge>
                 {confidence !== null && (
                   <span className="text-xs text-muted-foreground">
                     {confidence}% confident
                   </span>
+                )}
+                {!isMatched && !isSpam && (
+                  <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                    Unmatched
+                  </Badge>
                 )}
                 {isMatched && message.match_status === 'auto_matched' && (
                   <Badge variant="outline" className="text-xs">Auto-matched</Badge>
@@ -108,6 +115,16 @@ export function SMSReplyCard({
 
               {/* Actions */}
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewFull(message)}
+                  className="text-muted-foreground"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View
+                </Button>
+
                 {!isMatched && !isSpam && (
                   <>
                     <Button
@@ -116,7 +133,7 @@ export function SMSReplyCard({
                       onClick={() => onMatchClick(message)}
                     >
                       <UserPlus className="h-4 w-4 mr-1" />
-                      Match to Contact
+                      Match
                     </Button>
                     <Button
                       variant="ghost"
@@ -136,7 +153,7 @@ export function SMSReplyCard({
                     onClick={() => onViewContact(message.contact!.id)}
                   >
                     <ExternalLink className="h-4 w-4 mr-1" />
-                    View Contact
+                    Contact
                   </Button>
                 )}
               </div>

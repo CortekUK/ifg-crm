@@ -121,9 +121,10 @@ export function MatchEmailModal({
 
       onClose()
     } catch (error) {
+      console.error("Match error:", error)
       toast({
         title: 'Failed to match contact',
-        description: error instanceof Error ? error.message : 'An error occurred',
+        description: error instanceof Error ? error.message : JSON.stringify(error),
         variant: 'destructive',
       })
     }

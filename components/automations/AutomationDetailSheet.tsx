@@ -31,8 +31,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight } from 'lucide-react'
-import { useAutomation, useAutomationEnrollments, useToggleAutomation, useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment } from '@/lib/hooks/useAutomations'
+import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight, Trash2, Loader2 } from 'lucide-react'
+import { useAutomation, useAutomationEnrollments, useToggleAutomation, useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment, useDeleteAutomation } from '@/lib/hooks/useAutomations'
 import { AutomationWorkflowPreview } from './AutomationWorkflowPreview'
 import { EnrollContactModal } from './EnrollContactModal'
 import { formatDateTime } from '@/lib/utils/format'
@@ -53,6 +53,7 @@ export function AutomationDetailSheet({
 }: AutomationDetailSheetProps) {
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false)
   const [enrollmentToUnenroll, setEnrollmentToUnenroll] = useState<{ id: string; name: string } | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const { data: automation, isLoading } = useAutomation(automationId)
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
@@ -60,12 +61,33 @@ export function AutomationDetailSheet({
   const unenroll = useUnenrollFromAutomation()
   const pauseEnrollment = usePauseEnrollment()
   const resumeEnrollment = useResumeEnrollment()
+  const deleteAutomation = useDeleteAutomation()
 
   const handleToggle = async (isActive: boolean) => {
     if (!automationId) return
     await toggleAutomation.mutateAsync({ automationId, isActive })
   }
 
+
+  const handleDelete = async () => {
+    if (!automationId || !automation) return
+
+    try {
+      await deleteAutomation.mutateAsync(automationId)
+      toast({
+        title: 'Automation deleted',
+        description: `"${automation.name}" has been deleted.`,
+      })
+      setShowDeleteDialog(false)
+      onClose()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete automation.',
+        variant: 'destructive',
+      })
+    }
+  }
   const handleUnenroll = async () => {
     if (!enrollmentToUnenroll || !automationId) return
 
@@ -222,6 +244,14 @@ export function AutomationDetailSheet({
                       Edit
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
               <div className="flex items-center gap-3 mt-3">
@@ -693,6 +723,38 @@ export function AutomationDetailSheet({
                     className="bg-red-600 hover:bg-red-700"
                   >
                     Unenroll
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete automation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete{' '}
+                    <span className="font-medium">"{automation?.name}"</span>?
+                    This will remove the automation and all its steps. Enrolled contacts will be unenrolled.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={deleteAutomation.isPending}
+                  >
+                    {deleteAutomation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

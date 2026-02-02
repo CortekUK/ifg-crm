@@ -1,7 +1,8 @@
 'use client'
 
 import { Skeleton } from '@/components/ui/skeleton'
-import { Mail } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Mail, Loader2 } from 'lucide-react'
 import { EmailReplyCard } from './EmailReplyCard'
 import type { EmailReply } from '@/lib/types/email'
 
@@ -13,6 +14,9 @@ interface EmailReplyListProps {
   onMarkSpam: (reply: EmailReply) => void
   onViewFull: (reply: EmailReply) => void
   emptyMessage?: string
+  hasNextPage?: boolean
+  onLoadMore?: () => void
+  isLoadingMore?: boolean
 }
 
 export function EmailReplyList({
@@ -23,6 +27,9 @@ export function EmailReplyList({
   onMarkSpam,
   onViewFull,
   emptyMessage = 'No emails to display.',
+  hasNextPage,
+  onLoadMore,
+  isLoadingMore,
 }: EmailReplyListProps) {
   if (isLoading) {
     return (
@@ -73,6 +80,26 @@ export function EmailReplyList({
           onViewFull={onViewFull}
         />
       ))}
+      
+      {/* Load More Button */}
+      {hasNextPage && onLoadMore && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Load More'
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

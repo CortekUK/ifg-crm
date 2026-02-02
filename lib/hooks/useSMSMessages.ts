@@ -1,13 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { SMSMessage, SMSMatchStatus, SMSMessageCounts } from '@/lib/types/sms'
+
+const SMS_PAGE_SIZE = 20
 
 export function useSMSMessages(matchStatus: 'unmatched' | 'matched' | 'spam') {
   const supabase = createClient()
 
-  return useQuery<SMSMessage[]>({
+  return useInfiniteQuery<SMSMessage[]>({
     queryKey: ['sms-messages', matchStatus],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from('sms_messages')
         .select(`
@@ -18,19 +20,23 @@ export function useSMSMessages(matchStatus: 'unmatched' | 'matched' | 'spam') {
         `)
         .eq('direction', 'inbound')
         .order('created_at', { ascending: false })
+        .range(pageParam * SMS_PAGE_SIZE, (pageParam + 1) * SMS_PAGE_SIZE - 1)
 
       if (matchStatus === 'unmatched') {
         query = query.eq('match_status', 'unmatched')
       } else if (matchStatus === 'spam') {
         query = query.eq('match_status', 'spam')
       } else {
-        // 'matched' includes both auto and manually matched
         query = query.in('match_status', ['auto_matched', 'manually_matched'])
       }
 
       const { data, error } = await query
       if (error) throw error
       return data || []
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === SMS_PAGE_SIZE ? allPages.length : undefined
     },
   })
 }

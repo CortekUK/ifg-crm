@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { EmailReply as EmailReplyType, EmailReplyCounts } from '@/lib/types/email'
 
@@ -29,13 +29,15 @@ export interface CreateEmailReplyInput {
   received_at?: string
 }
 
+const PAGE_SIZE = 20
+
 // Hook for fetching email replies by tab/status (for email-replies page)
 export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatched') {
   const supabase = createClient()
 
-  return useQuery<EmailReplyType[]>({
+  return useInfiniteQuery<EmailReplyType[]>({
     queryKey: ['email-replies', tab],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from('email_replies')
         .select(`
@@ -44,8 +46,8 @@ export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatch
           campaign:campaigns(*),
           matched_by:profiles(*)
         `)
-        .order('created_at', { ascending: false })
-        .limit(100)
+        .order('received_at', { ascending: false })
+        .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1)
 
       if (tab === 'unmatched') {
         query = query.eq('match_status', 'unmatched')
@@ -60,9 +62,12 @@ export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatch
       if (error) throw error
       return (data || []) as EmailReplyType[]
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === PAGE_SIZE ? allPages.length : undefined
+    },
   })
 }
-
 // Hook for fetching email replies for a specific contact
 export function useContactEmailReplies(contactId: string | null) {
   const supabase = createClient()
@@ -155,7 +160,6 @@ export function useMarkEmailAsSpam() {
         .update({ 
           match_status: 'spam',
           matched_by_id: matchedById,
-          matched_at: new Date().toISOString(),
         })
         .eq('id', replyId)
         .select()
@@ -197,6 +201,7 @@ export function useCreateEmailReply() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['email-replies', data.contact_id] })
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
       // Also trigger reply processing
       queryClient.invalidateQueries({ queryKey: ['automation-enrollments'] })
     },
@@ -244,13 +249,13 @@ export function useMatchEmailReply() {
 
   return useMutation({
     mutationFn: async ({ replyId, contactId, matchedById }: MatchEmailReplyInput) => {
-      // Update the email reply with matched contact
       const { data, error } = await supabase
         .from('email_replies')
         .update({
           contact_id: contactId,
-          processed: true,
-          processed_at: new Date().toISOString(),
+          match_status: 'manually_matched',
+          matched_by_id: matchedById,
+          matched_at: new Date().toISOString(),
         })
         .eq('id', replyId)
         .select()
@@ -259,10 +264,10 @@ export function useMatchEmailReply() {
       if (error) throw error
       return data
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-replies'] })
       queryClient.invalidateQueries({ queryKey: ['unmatched-email-replies'] })
-      queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
     },
   })
 }

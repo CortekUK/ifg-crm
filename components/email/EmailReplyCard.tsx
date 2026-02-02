@@ -100,6 +100,11 @@ export function EmailReplyCard({
                     {reply.campaign.name}
                   </Badge>
                 )}
+                {!isMatched && !isSpam && (
+                  <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                    Unmatched
+                  </Badge>
+                )}
                 {isMatched && reply.match_status === 'auto_matched' && (
                   <Badge variant="outline" className="text-xs">Auto-matched</Badge>
                 )}

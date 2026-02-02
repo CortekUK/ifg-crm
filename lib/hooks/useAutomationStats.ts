@@ -5,7 +5,7 @@ interface AutomationStats {
   totalAutomations: number
   active: number
   paused: number
-  runsThisMonth: number
+  totalEnrolled: number
 }
 
 export function useAutomationStats() {
@@ -31,21 +31,17 @@ export function useAutomationStats() {
         .select('*', { count: 'exact', head: true })
         .eq('is_active', false)
 
-      // Runs this month
-      const firstOfMonth = new Date()
-      firstOfMonth.setDate(1)
-      firstOfMonth.setHours(0, 0, 0, 0)
-
-      const { count: runsThisMonth } = await supabase
-        .from('automation_logs')
+      // Total enrolled (active enrollments across all automations)
+      const { count: totalEnrolled } = await supabase
+        .from('automation_enrollments')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', firstOfMonth.toISOString())
+        .eq('status', 'active')
 
       return {
         totalAutomations: totalAutomations || 0,
         active: active || 0,
         paused: paused || 0,
-        runsThisMonth: runsThisMonth || 0,
+        totalEnrolled: totalEnrolled || 0,
       }
     },
     refetchInterval: 60000,

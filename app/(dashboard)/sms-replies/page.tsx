@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { SMSRepliesPageHeader } from '@/components/sms/SMSRepliesPageHeader'
 import { SMSReplyTabs } from '@/components/sms/SMSReplyTabs'
 import { SMSReplyStats } from '@/components/sms/SMSReplyStats'
 import { SMSReplyList } from '@/components/sms/SMSReplyList'
 import { MatchContactModal } from '@/components/sms/MatchContactModal'
+import { SMSDetailSheet } from '@/components/sms/SMSDetailSheet'
 import {
   useSMSMessages,
   useSMSMessageCounts,
@@ -20,6 +21,7 @@ export default function SMSRepliesPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'unmatched' | 'matched' | 'spam'>('unmatched')
   const [selectedMessage, setSelectedMessage] = useState<SMSMessage | null>(null)
+  const [viewingMessage, setViewingMessage] = useState<SMSMessage | null>(null)
 
   // Fetch current user
   useEffect(() => {
@@ -33,13 +35,29 @@ export default function SMSRepliesPage() {
     fetchUser()
   }, [])
 
-  // Fetch data
-  const { data: messages = [], isLoading } = useSMSMessages(activeTab)
+  // Fetch data with infinite query
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useSMSMessages(activeTab)
+  
+  // Flatten pages into single array
+  const messages = useMemo(() => {
+    return data?.pages.flat() || []
+  }, [data])
+
   const { data: counts, isLoading: countsLoading } = useSMSMessageCounts()
   const markAsSpam = useMarkSMSAsSpam()
 
   const handleMatchClick = (message: SMSMessage) => {
     setSelectedMessage(message)
+  }
+
+  const handleViewFull = (message: SMSMessage) => {
+    setViewingMessage(message)
   }
 
   const handleViewContact = (contactId: string) => {
@@ -105,7 +123,11 @@ export default function SMSRepliesPage() {
         onMatchClick={handleMatchClick}
         onViewContact={handleViewContact}
         onMarkSpam={handleMarkSpam}
+        onViewFull={handleViewFull}
         emptyMessage={getEmptyMessage()}
+        hasNextPage={hasNextPage}
+        onLoadMore={fetchNextPage}
+        isLoadingMore={isFetchingNextPage}
       />
 
       {/* Match Contact Modal */}
@@ -117,6 +139,13 @@ export default function SMSRepliesPage() {
           userId={userId}
         />
       )}
+
+      {/* SMS Detail Sheet */}
+      <SMSDetailSheet
+        message={viewingMessage}
+        isOpen={!!viewingMessage}
+        onClose={() => setViewingMessage(null)}
+      />
     </div>
   )
 }

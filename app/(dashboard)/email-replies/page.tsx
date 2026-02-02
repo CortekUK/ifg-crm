@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { EmailRepliesPageHeader } from '@/components/email/EmailRepliesPageHeader'
 import { EmailReplyTabs } from '@/components/email/EmailReplyTabs'
@@ -35,8 +35,20 @@ export default function EmailRepliesPage() {
     fetchUser()
   }, [])
 
-  // Fetch data
-  const { data: replies = [], isLoading } = useEmailReplies(activeTab)
+  // Fetch data with infinite query
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useEmailReplies(activeTab)
+  
+  // Flatten pages into single array
+  const replies = useMemo(() => {
+    return data?.pages.flat() || []
+  }, [data])
+
   const { data: counts, isLoading: countsLoading } = useEmailReplyCounts()
   const markAsSpam = useMarkEmailAsSpam()
 
@@ -113,6 +125,9 @@ export default function EmailRepliesPage() {
         onMarkSpam={handleMarkSpam}
         onViewFull={handleViewFull}
         emptyMessage={getEmptyMessage()}
+        hasNextPage={hasNextPage}
+        onLoadMore={fetchNextPage}
+        isLoadingMore={isFetchingNextPage}
       />
 
       {/* Match Contact Modal */}

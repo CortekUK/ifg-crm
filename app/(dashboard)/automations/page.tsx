@@ -115,7 +115,7 @@ export default function AutomationsPage() {
         totalAutomations={stats?.totalAutomations || 0}
         active={stats?.active || 0}
         paused={stats?.paused || 0}
-        runsThisMonth={stats?.runsThisMonth || 0}
+        totalEnrolled={stats?.totalEnrolled || 0}
         isLoading={statsLoading}
       />
 

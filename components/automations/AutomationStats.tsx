@@ -3,14 +3,14 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { Zap, Play, Pause, CheckCircle } from 'lucide-react'
+import { Zap, Play, Pause, Users } from 'lucide-react'
 import { formatNumber } from '@/lib/utils/format'
 
 interface AutomationStatsProps {
   totalAutomations: number
   active: number
   paused: number
-  runsThisMonth: number
+  totalEnrolled: number
   isLoading: boolean
 }
 
@@ -45,7 +45,7 @@ export function AutomationStats({
   totalAutomations,
   active,
   paused,
-  runsThisMonth,
+  totalEnrolled,
   isLoading,
 }: AutomationStatsProps) {
   const stats = [
@@ -68,9 +68,9 @@ export function AutomationStats({
       colour: 'orange' as const,
     },
     {
-      label: 'Runs This Month',
-      value: runsThisMonth,
-      icon: CheckCircle,
+      label: 'Total Enrolled',
+      value: totalEnrolled,
+      icon: Users,
       colour: 'purple' as const,
     },
   ]
