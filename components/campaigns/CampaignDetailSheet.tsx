@@ -494,10 +494,10 @@ export function CampaignDetailSheet({
                             <TableCell>
                               <div>
                                 <p className="font-medium">
-                                  {recipient.contact?.first_name} {recipient.contact?.last_name}
+                                  {recipient.contact?.[0]?.first_name} {recipient.contact?.[0]?.last_name}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {recipient.contact?.email}
+                                  {recipient.contact?.[0]?.email}
                                 </p>
                               </div>
                             </TableCell>
