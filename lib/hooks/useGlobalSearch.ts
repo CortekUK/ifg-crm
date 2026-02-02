@@ -48,7 +48,8 @@ export function useGlobalSearch(query: string) {
 
       if (deals) {
         deals.forEach((deal) => {
-          const contact = deal.contact as { first_name: string | null; last_name: string | null } | null
+          const contactArr = deal.contact as unknown as { first_name: string | null; last_name: string | null }[] | null
+          const contact = contactArr?.[0] || null
           results.push({
             id: deal.id,
             type: 'deal',

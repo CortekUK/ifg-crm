@@ -9,7 +9,8 @@ export function useSMSMessages(matchStatus: 'unmatched' | 'matched' | 'spam') {
 
   return useInfiniteQuery<SMSMessage[]>({
     queryKey: ['sms-messages', matchStatus],
-    queryFn: async ({ pageParam = 0 }) => {
+    queryFn: async ({ pageParam }) => {
+      const page = (pageParam as number) ?? 0
       let query = supabase
         .from('sms_messages')
         .select(`
@@ -20,7 +21,7 @@ export function useSMSMessages(matchStatus: 'unmatched' | 'matched' | 'spam') {
         `)
         .eq('direction', 'inbound')
         .order('created_at', { ascending: false })
-        .range(pageParam * SMS_PAGE_SIZE, (pageParam + 1) * SMS_PAGE_SIZE - 1)
+        .range(page * SMS_PAGE_SIZE, (page + 1) * SMS_PAGE_SIZE - 1)
 
       if (matchStatus === 'unmatched') {
         query = query.eq('match_status', 'unmatched')

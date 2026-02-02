@@ -37,7 +37,8 @@ export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatch
 
   return useInfiniteQuery<EmailReplyType[]>({
     queryKey: ['email-replies', tab],
-    queryFn: async ({ pageParam = 0 }) => {
+    queryFn: async ({ pageParam }) => {
+      const page = (pageParam as number) ?? 0
       let query = supabase
         .from('email_replies')
         .select(`
@@ -47,7 +48,7 @@ export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatch
           matched_by:profiles(*)
         `)
         .order('received_at', { ascending: false })
-        .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
       if (tab === 'unmatched') {
         query = query.eq('match_status', 'unmatched')

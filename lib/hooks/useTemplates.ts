@@ -141,7 +141,14 @@ export function useTemplateUsage(templateId: string) {
       if (error) throw error
 
       const automations = automationSteps
-        ?.map((step) => step.automation)
+        ?.map((step) => {
+          const automation = step.automation as unknown as { id: string; name: string }[] | { id: string; name: string } | null
+          // Handle both array and object cases from Supabase join
+          if (Array.isArray(automation)) {
+            return automation[0] || null
+          }
+          return automation
+        })
         .filter((a): a is { id: string; name: string } => a !== null)
         .filter((v, i, arr) => arr.findIndex((a) => a.id === v.id) === i) // unique
 

@@ -1,6 +1,6 @@
 import type { Invoice } from '@/lib/types/invoices'
 
-interface InvoiceWithRelations extends Invoice {
+interface InvoiceWithRelations extends Omit<Invoice, 'contact' | 'deal'> {
   contact?: {
     first_name: string | null
     last_name: string | null
@@ -238,7 +238,7 @@ export function generateInvoicePDF(invoice: InvoiceWithRelations) {
       <div class="dates-section">
         <div class="date-item">
           <label>Issue Date</label>
-          <span>${new Date(invoice.issue_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          <span>${new Date(invoice.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </div>
         <div class="date-item">
           <label>Due Date</label>
