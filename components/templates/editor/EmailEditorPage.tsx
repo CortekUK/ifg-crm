@@ -9,6 +9,8 @@ import { EditorPreview } from './EditorPreview'
 import { PreviewModal } from './PreviewModal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEmailEditor } from '@/lib/hooks/useEmailEditor'
+import { useDeleteTemplate } from '@/lib/hooks/useTemplates'
+import { toast } from '@/lib/hooks/use-toast'
 
 interface EmailEditorPageProps {
   templateId?: string
@@ -17,6 +19,7 @@ interface EmailEditorPageProps {
 export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
   const router = useRouter()
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const deleteTemplateMutation = useDeleteTemplate()
 
   const {
     blocks,
@@ -41,6 +44,25 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
 
   const handleClose = () => {
     router.push('/templates')
+  }
+
+  const handleDeleteTemplate = async () => {
+    if (!templateId) return
+
+    try {
+      await deleteTemplateMutation.mutateAsync(templateId)
+      toast({
+        title: 'Template deleted',
+        description: `"${settings.name}" has been removed.`,
+      })
+      router.push('/templates')
+    } catch (error) {
+      toast({
+        title: 'Failed to delete template',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
   }
 
   // Get the currently selected block
@@ -99,8 +121,10 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
         onPreview={() => setShowPreviewModal(true)}
         onSaveDraft={() => saveTemplate(false)}
         onSaveAndExit={() => saveTemplate(true)}
+        onDelete={handleDeleteTemplate}
         isSaving={isSaving}
         hasUnsavedChanges={hasUnsavedChanges}
+        isEditingExisting={!!templateId}
       />
 
       {/* Main Content */}

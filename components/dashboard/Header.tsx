@@ -1,7 +1,6 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -10,10 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Search, Bell, Settings, LogOut } from 'lucide-react'
+import { Settings, LogOut } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/app/(auth)/login/actions'
+import { GlobalSearch } from './GlobalSearch'
+import { NotificationsDropdown } from './NotificationsDropdown'
+import { MobileSidebar } from './MobileSidebar'
 
 interface HeaderProps {
   user: {
@@ -60,34 +62,25 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b-2 border-blue-600 bg-white px-6">
-      {/* Page Title - Oswald font, bold */}
-      <h1 className="font-oswald text-2xl font-bold uppercase text-gray-900">
-        {title}
-      </h1>
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b-2 border-blue-600 bg-white px-4 md:px-6">
+      {/* Left side - Mobile menu + Page Title */}
+      <div className="flex items-center gap-3">
+        {/* Mobile Hamburger Menu */}
+        <MobileSidebar user={user} />
+        
+        {/* Page Title - Oswald font, bold */}
+        <h1 className="font-oswald text-xl md:text-2xl font-bold uppercase text-gray-900">
+          {title}
+        </h1>
+      </div>
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search..."
-            className="pl-9 pr-14 w-56 h-9 bg-gray-50 border-gray-200 focus:bg-white"
-          />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-gray-200 bg-gray-100 px-1.5 font-mono text-[10px] font-medium text-gray-500">
-            <span className="text-xs">⌘</span>K
-          </kbd>
-        </div>
+        {/* Global Search */}
+        <GlobalSearch />
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700 relative h-9 w-9">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-          <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
-            3
-          </span>
-        </Button>
+        <NotificationsDropdown />
 
         {/* User Menu */}
         <DropdownMenu>

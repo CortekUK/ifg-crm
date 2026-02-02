@@ -14,6 +14,7 @@ import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
+import { ErrorState } from '@/components/ui/error-state'
 
 const PIPELINE_STORAGE_KEY = 'ifg-crm-selected-pipeline'
 
@@ -53,7 +54,7 @@ export default function PipelinesPage() {
   )
 
   // Fetch deals for selected pipeline
-  const { data: deals = [], isLoading: dealsLoading } = useDeals(selectedPipelineId)
+  const { data: deals = [], isLoading: dealsLoading, error: dealsError, refetch: refetchDeals, isFetching: dealsFetching } = useDeals(selectedPipelineId)
 
   // Mutation for moving deals
   const moveDeal = useMoveDeal()
@@ -210,6 +211,17 @@ export default function PipelinesPage() {
 
       {/* Stats */}
       <PipelineStats deals={filteredDeals} lastUpdated={lastUpdated} />
+
+      {/* Error State */}
+      {dealsError && (
+        <ErrorState
+          title="Failed to load deals"
+          message="We couldn't load the deals for this pipeline. Please check your connection and try again."
+          onRetry={() => refetchDeals()}
+          isRetrying={dealsFetching}
+          compact
+        />
+      )}
 
       {/* Kanban Board */}
       <KanbanBoard

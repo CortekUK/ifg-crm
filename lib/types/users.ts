@@ -8,6 +8,8 @@ export interface User {
   role: UserRole
   calendly_url: string | null
   avatar_url: string | null
+  phone: string | null
+  email_signature: string | null
   sport: Sport
   is_active: boolean
   created_at: string
@@ -21,6 +23,7 @@ export interface CreateUserInput {
   role: UserRole
   sport: Sport
   calendly_url?: string
+  phone?: string
 }
 
 export interface UpdateUserInput {
@@ -28,5 +31,7 @@ export interface UpdateUserInput {
   role?: UserRole
   sport?: Sport
   calendly_url?: string
+  phone?: string
+  email_signature?: string
   is_active?: boolean
 }

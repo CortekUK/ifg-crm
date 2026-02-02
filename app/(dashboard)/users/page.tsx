@@ -1,19 +1,53 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { UsersPageHeader } from '@/components/users/UsersPageHeader'
+import { UsersFilters, UsersFiltersState } from '@/components/users/UsersFilters'
 import { UsersTable } from '@/components/users/UsersTable'
 import { InviteUserModal } from '@/components/users/InviteUserModal'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { useUsers, useUpdateUser } from '@/lib/hooks/useUsers'
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import type { User } from '@/lib/types/users'
 
 export default function UsersPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [filters, setFilters] = useState<UsersFiltersState>({
+    search: '',
+    role: 'all',
+    status: 'all',
+  })
 
   const { data: users = [], isLoading } = useUsers()
   const updateUser = useUpdateUser()
+
+  // Debounce search
+  const debouncedSearch = useDebouncedValue(filters.search, 300)
+
+  // Filter users based on search, role, and status
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      // Search filter
+      if (debouncedSearch) {
+        const searchLower = debouncedSearch.toLowerCase()
+        const matchesName = user.full_name?.toLowerCase().includes(searchLower)
+        const matchesEmail = user.email.toLowerCase().includes(searchLower)
+        if (!matchesName && !matchesEmail) return false
+      }
+
+      // Role filter
+      if (filters.role !== 'all' && user.role !== filters.role) {
+        return false
+      }
+
+      // Status filter
+      if (filters.status === 'active' && !user.is_active) return false
+      if (filters.status === 'inactive' && user.is_active) return false
+
+      return true
+    })
+  }, [users, debouncedSearch, filters.role, filters.status])
 
   const handleEdit = (user: User) => {
     setEditingUser(user)
@@ -38,9 +72,12 @@ export default function UsersPage() {
       {/* Page Header */}
       <UsersPageHeader onInviteClick={() => setInviteModalOpen(true)} />
 
+      {/* Filters */}
+      <UsersFilters filters={filters} onFiltersChange={setFilters} />
+
       {/* Users Table */}
       <UsersTable
-        users={users}
+        users={filteredUsers}
         isLoading={isLoading}
         onEdit={handleEdit}
         onDeactivate={handleDeactivate}

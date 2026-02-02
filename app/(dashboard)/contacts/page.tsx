@@ -14,6 +14,7 @@ import { useContacts } from '@/lib/hooks/useContacts'
 import { useContactStats } from '@/lib/hooks/useContactStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import type { Contact } from '@/lib/types/contacts'
+import { ErrorState } from '@/components/ui/error-state'
 
 export default function ContactsPage() {
   // Pagination state - default 20 per page
@@ -50,7 +51,7 @@ export default function ContactsPage() {
   }
 
   // Fetch contacts
-  const { data, isLoading, error } = useContacts({
+  const { data, isLoading, error, refetch, isFetching } = useContacts({
     page,
     pageSize,
     search: debouncedSearch,
@@ -188,9 +189,13 @@ export default function ContactsPage() {
 
       {/* Error State */}
       {error && (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg">
-          Failed to load contacts. Please try again.
-        </div>
+        <ErrorState
+          title="Failed to load contacts"
+          message="We couldn't load your contacts. Please check your connection and try again."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          compact
+        />
       )}
 
       {/* Table */}

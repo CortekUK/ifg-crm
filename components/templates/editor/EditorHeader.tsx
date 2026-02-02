@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { X, Undo2, Redo2, Eye, Save, Loader2 } from 'lucide-react'
+import { X, Undo2, Redo2, Eye, Save, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface EditorHeaderProps {
@@ -27,8 +27,10 @@ interface EditorHeaderProps {
   onPreview: () => void
   onSaveDraft: () => void
   onSaveAndExit: () => void
+  onDelete?: () => void
   isSaving: boolean
   hasUnsavedChanges: boolean
+  isEditingExisting?: boolean
 }
 
 export function EditorHeader({
@@ -42,10 +44,13 @@ export function EditorHeader({
   onPreview,
   onSaveDraft,
   onSaveAndExit,
+  onDelete,
   isSaving,
   hasUnsavedChanges,
+  isEditingExisting = false,
 }: EditorHeaderProps) {
   const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isEditingName, setIsEditingName] = useState(false)
 
   const handleClose = () => {
@@ -59,6 +64,15 @@ export function EditorHeader({
   const handleConfirmClose = () => {
     setShowCloseDialog(false)
     onClose()
+  }
+
+  const handleDeleteClick = () => {
+    setShowDeleteDialog(true)
+  }
+
+  const handleConfirmDelete = () => {
+    setShowDeleteDialog(false)
+    onDelete?.()
   }
 
   return (
@@ -137,6 +151,17 @@ export function EditorHeader({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
+          {isEditingExisting && onDelete && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleDeleteClick}
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm" 
@@ -173,6 +198,31 @@ export function EditorHeader({
           </Button>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete Template
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{name}"? This action cannot be undone.
+              This template may be used in automations or campaigns.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Template
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>

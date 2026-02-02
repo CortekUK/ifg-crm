@@ -20,7 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Eye, Send, CheckCircle, Trash2, Receipt } from 'lucide-react'
+import { MoreHorizontal, Eye, Send, CheckCircle, Trash2, Receipt, FileDown } from 'lucide-react'
+import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { Invoice, InvoiceStatus, InvoiceType } from '@/lib/types/invoices'
@@ -265,6 +266,10 @@ export function InvoicesTable({
                       <DropdownMenuItem onClick={() => onView(invoice)}>
                         <Eye className="h-4 w-4 mr-2" />
                         View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => generateInvoicePDF(invoice)}>
+                        <FileDown className="h-4 w-4 mr-2" />
+                        Download PDF
                       </DropdownMenuItem>
                       {invoice.status === 'draft' && (
                         <DropdownMenuItem onClick={() => onSend(invoice)}>

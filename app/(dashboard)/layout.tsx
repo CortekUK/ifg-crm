@@ -32,13 +32,15 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      {/* Sidebar */}
-      <Sidebar user={userData} />
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <div className="hidden md:block">
+        <Sidebar user={userData} />
+      </div>
       
-      {/* Main Content */}
-      <div className="pl-64 transition-all duration-300">
+      {/* Main Content - No left padding on mobile, sidebar width padding on desktop */}
+      <div className="md:pl-64 transition-all duration-300">
         <Header user={userData} />
-        <main className="p-6">
+        <main className="p-4 md:p-6">
           {children}
         </main>
       </div>

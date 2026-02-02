@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -18,18 +18,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, FileText } from 'lucide-react'
+import { Loader2, FileText, AlertCircle } from 'lucide-react'
 import { useToast } from '@/lib/hooks/use-toast'
+import { generateReport, ReportType } from '@/lib/utils/generateReport'
 
-const reportInfo: Record<string, { name: string; formats: string[] }> = {
-  'contacts-export': { name: 'Contacts Export', formats: ['csv'] },
-  'pipeline-report': { name: 'Pipeline Report', formats: ['csv', 'pdf'] },
-  'revenue-report': { name: 'Revenue Report', formats: ['csv', 'pdf'] },
-  'campaign-performance': { name: 'Campaign Performance', formats: ['csv', 'pdf'] },
-  'recruiter-performance': { name: 'Recruiter Performance', formats: ['csv', 'pdf'] },
-  'monthly-summary': { name: 'Monthly Summary', formats: ['pdf'] },
-  'automation-report': { name: 'Automation Report', formats: ['csv'] },
-  'sms-email-responses': { name: 'SMS/Email Responses', formats: ['csv'] },
+const reportInfo: Record<string, { name: string; formats: string[]; reportType: ReportType | null }> = {
+  'contacts-export': { name: 'Contacts Export', formats: ['csv'], reportType: 'contacts' },
+  'pipeline-report': { name: 'Pipeline Report', formats: ['csv'], reportType: 'pipeline' },
+  'revenue-report': { name: 'Revenue Report', formats: ['csv'], reportType: 'revenue' },
+  'campaign-performance': { name: 'Campaign Performance', formats: ['csv'], reportType: 'campaign' },
+  'recruiter-performance': { name: 'Recruiter Performance', formats: ['csv'], reportType: 'recruiter' },
+  'monthly-summary': { name: 'Monthly Summary', formats: ['csv'], reportType: 'monthly' },
+  'automation-report': { name: 'Automation Report', formats: ['csv'], reportType: 'automation' },
+  'sms-email-responses': { name: 'SMS/Email Responses', formats: ['csv'], reportType: 'responses' },
 }
 
 interface GenerateReportModalProps {
@@ -47,24 +48,74 @@ export function GenerateReportModal({
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const { toast } = useToast()
 
   const report = reportId ? reportInfo[reportId] : null
 
+  // Set default dates when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const today = new Date()
+      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+      setDateFrom(thirtyDaysAgo.toISOString().split('T')[0])
+      setDateTo(today.toISOString().split('T')[0])
+      setError(null)
+    }
+  }, [isOpen])
+
   const handleGenerate = async () => {
+    if (!report || !report.reportType) {
+      toast({
+        title: 'Not available',
+        description: 'This report type is not yet implemented.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!dateFrom || !dateTo) {
+      setError('Please select both start and end dates')
+      return
+    }
+
+    const startDate = new Date(dateFrom)
+    const endDate = new Date(dateTo)
+    endDate.setHours(23, 59, 59, 999) // Include the full end day
+
+    if (startDate > endDate) {
+      setError('Start date must be before end date')
+      return
+    }
+
     setIsGenerating(true)
+    setError(null)
 
-    // Simulate generation
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      await generateReport({
+        type: report.reportType,
+        dateRange: { start: startDate, end: endDate },
+        format: format as 'csv' | 'pdf',
+      })
 
-    toast({
-      title: 'Coming soon',
-      description: 'Report generation will be available soon.',
-    })
+      toast({
+        title: 'Report generated',
+        description: `Your ${report.name} has been downloaded.`,
+      })
 
-    setIsGenerating(false)
-    onClose()
+      onClose()
+    } catch (err) {
+      console.error('Report generation error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to generate report')
+      toast({
+        title: 'Generation failed',
+        description: 'Failed to generate the report. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   if (!report) return null
@@ -95,7 +146,10 @@ export function GenerateReportModal({
                 id="dateFrom"
                 type="date"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => {
+                  setDateFrom(e.target.value)
+                  setError(null)
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -104,7 +158,10 @@ export function GenerateReportModal({
                 id="dateTo"
                 type="date"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => {
+                  setDateTo(e.target.value)
+                  setError(null)
+                }}
               />
             </div>
           </div>
@@ -125,6 +182,13 @@ export function GenerateReportModal({
             </Select>
           </div>
 
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4">
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel
@@ -140,7 +204,7 @@ export function GenerateReportModal({
                   Generating...
                 </>
               ) : (
-                'Generate Report'
+                'Download Report'
               )}
             </Button>
           </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   LineChart,
   Line,
@@ -16,56 +17,36 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
+import type { AnalyticsData } from '@/lib/hooks/useAnalytics'
 
-// Mock data for charts
-const leadsOverTime = [
-  { date: '01/01', leads: 45 },
-  { date: '08/01', leads: 52 },
-  { date: '15/01', leads: 38 },
-  { date: '22/01', leads: 65 },
-  { date: '29/01', leads: 48 },
+interface AnalyticsChartsProps {
+  isLoading?: boolean
+  data?: Omit<AnalyticsData, 'kpis'>
+}
+
+// Fallback data for when there's no data
+const defaultLeadsOverTime = [
+  { date: '01/01', leads: 0 },
 ]
 
-const pipelineFunnel = [
-  { stage: 'Initial Lead', count: 248 },
-  { stage: 'In Contact', count: 186 },
-  { stage: 'Zoom', count: 124 },
-  { stage: 'Follow Up', count: 98 },
-  { stage: 'Applied', count: 72 },
-  { stage: 'Offer', count: 56 },
-  { stage: 'Deposit', count: 42 },
+const defaultPipelineFunnel = [
+  { stage: 'No data', count: 0 },
 ]
 
-const revenueByMonth = [
-  { month: 'Sep', revenue: 45000 },
-  { month: 'Oct', revenue: 52000 },
-  { month: 'Nov', revenue: 48000 },
-  { month: 'Dec', revenue: 61000 },
-  { month: 'Jan', revenue: 38000 },
+const defaultRevenueByMonth = [
+  { month: 'N/A', revenue: 0 },
 ]
 
-const leadsBySource = [
-  { name: 'Website Form', value: 85, color: '#3B82F6' },
-  { name: 'SMS Reply', value: 62, color: '#10B981' },
-  { name: 'Email Reply', value: 48, color: '#F59E0B' },
-  { name: 'Manual', value: 32, color: '#8B5CF6' },
-  { name: 'CSV Import', value: 21, color: '#EC4899' },
+const defaultLeadsBySource = [
+  { name: 'No data', value: 0, color: '#E5E7EB' },
 ]
 
-const topRecruiters = [
-  { name: 'James Wilson', deals: 28 },
-  { name: 'Sarah Johnson', deals: 24 },
-  { name: 'Michael Brown', deals: 19 },
-  { name: 'Emma Davis', deals: 15 },
-  { name: 'David Taylor', deals: 12 },
+const defaultTopRecruiters = [
+  { name: 'No data', deals: 0 },
 ]
 
-const programmePerformance = [
-  { programme: 'UCLan 2026', enrolments: 42 },
-  { programme: 'Salford 2026', enrolments: 38 },
-  { programme: 'Chester 2026', enrolments: 28 },
-  { programme: 'Leeds 2026', enrolments: 24 },
-  { programme: 'Liverpool 2026', enrolments: 18 },
+const defaultProgrammePerformance = [
+  { programme: 'No data', enrolments: 0 },
 ]
 
 const formatCurrency = (value: number) => {
@@ -77,7 +58,30 @@ const formatCurrency = (value: number) => {
   }).format(value)
 }
 
-export function AnalyticsCharts() {
+export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
+  const leadsOverTime = data?.leadsOverTime?.length ? data.leadsOverTime : defaultLeadsOverTime
+  const pipelineFunnel = data?.pipelineFunnel?.length ? data.pipelineFunnel : defaultPipelineFunnel
+  const revenueByMonth = data?.revenueByMonth?.length ? data.revenueByMonth : defaultRevenueByMonth
+  const leadsBySource = data?.leadsBySource?.length ? data.leadsBySource : defaultLeadsBySource
+  const topRecruiters = data?.topRecruiters?.length ? data.topRecruiters : defaultTopRecruiters
+  const programmePerformance = data?.programmePerformance?.length ? data.programmePerformance : defaultProgrammePerformance
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-5 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Leads Over Time */}

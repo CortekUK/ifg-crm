@@ -12,6 +12,7 @@ import {
   Mail,
   MessageSquare,
 } from 'lucide-react'
+import type { AnalyticsData } from '@/lib/hooks/useAnalytics'
 
 interface KPI {
   title: string
@@ -24,6 +25,7 @@ interface KPI {
 
 interface AnalyticsKPIsProps {
   isLoading?: boolean
+  data?: AnalyticsData['kpis']
 }
 
 const colourConfig = {
@@ -65,52 +67,66 @@ const colourConfig = {
   },
 }
 
-export function AnalyticsKPIs({ isLoading }: AnalyticsKPIsProps) {
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+function calculateChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0
+  return ((current - previous) / previous) * 100
+}
+
+export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
   const kpis: KPI[] = [
     {
       title: 'Total Leads',
-      value: '248',
-      change: 12.5,
+      value: data?.totalLeads?.toString() || '0',
+      change: data ? calculateChange(data.totalLeads, data.totalLeadsPrevious) : 0,
       changeLabel: 'vs last period',
       icon: Users,
       colour: 'blue',
     },
     {
       title: 'Conversion Rate',
-      value: '18.4%',
-      change: 2.1,
+      value: `${(data?.conversionRate || 0).toFixed(1)}%`,
+      change: data ? (data.conversionRate - data.conversionRatePrevious) : 0,
       changeLabel: 'vs last period',
       icon: Target,
       colour: 'green',
     },
     {
       title: 'Revenue',
-      value: '£142,500',
-      change: 8.3,
+      value: formatCurrency(data?.revenue || 0),
+      change: data ? calculateChange(data.revenue, data.revenuePrevious) : 0,
       changeLabel: 'vs last period',
       icon: PoundSterling,
       colour: 'emerald',
     },
     {
       title: 'Avg Deal Value',
-      value: '£3,125',
-      change: -4.2,
+      value: formatCurrency(data?.avgDealValue || 0),
+      change: data ? calculateChange(data.avgDealValue, data.avgDealValuePrevious) : 0,
       changeLabel: 'vs last period',
       icon: TrendingUp,
       colour: 'purple',
     },
     {
       title: 'Email Open Rate',
-      value: '42.8%',
-      change: 5.6,
+      value: `${(data?.emailOpenRate || 0).toFixed(1)}%`,
+      change: data ? (data.emailOpenRate - data.emailOpenRatePrevious) : 0,
       changeLabel: 'vs last period',
       icon: Mail,
       colour: 'orange',
     },
     {
       title: 'SMS Response Rate',
-      value: '28.3%',
-      change: -1.8,
+      value: `${(data?.smsResponseRate || 0).toFixed(1)}%`,
+      change: data ? (data.smsResponseRate - data.smsResponseRatePrevious) : 0,
       changeLabel: 'vs last period',
       icon: MessageSquare,
       colour: 'teal',

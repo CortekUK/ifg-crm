@@ -1,44 +1,41 @@
--- Test email templates
--- Run this in the Supabase SQL Editor after you have created a user account
+-- Migration: Seed Email Templates
+-- Creates default email templates for the CRM
+
+-- First, add unique constraint on name if it doesn't exist
+CREATE UNIQUE INDEX IF NOT EXISTS idx_email_templates_name_unique ON email_templates(name);
 
 DO $$
 DECLARE
   profile_id uuid;
+  template_count integer;
 BEGIN
-  -- Get the first profile (your logged-in user)
+  -- Get the first profile (any logged-in user)
   SELECT id INTO profile_id FROM profiles LIMIT 1;
   
+  -- If no profile exists, skip seeding (will be run when first user signs up)
   IF profile_id IS NULL THEN
-    RAISE EXCEPTION 'No profile found. Please log in to create a user profile first.';
+    RAISE NOTICE 'No profile found. Templates will be created when a user signs up.';
+    RETURN;
+  END IF;
+
+  -- Check if templates already exist
+  SELECT COUNT(*) INTO template_count FROM email_templates WHERE name LIKE 'Initial Contact Email%';
+  IF template_count > 0 THEN
+    RAISE NOTICE 'Templates already exist. Skipping seed.';
+    RETURN;
   END IF;
   
-  -- Clear existing test templates
-  DELETE FROM email_templates WHERE name IN (
-    'Initial Contact Email 1',
-    'Initial Contact Email 2',
-    'Initial Contact Email 3',
-    'Follow Up Email 1',
-    'Follow Up Email 2',
-    'Follow Up Email 3',
-    'Meeting Confirmation',
-    'Document Request',
-    'Monthly Newsletter',
-    'Invoice Reminder',
-    'Welcome to IFG',
-    'Payment Confirmation'
-  );
-  
-  -- Insert test templates
+  -- Insert templates
   INSERT INTO email_templates (name, subject, body_html, category, from_name_type, fixed_from_name, fixed_from_email, created_by_id) VALUES
     (
       'Initial Contact Email 1',
       'Hi {{first_name}}, let''s chat about your football future',
       '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <p>Hi {{first_name}},</p>
-        <p>I hope this email finds you well. My name is {{recruiter_name}} and I''m reaching out from International Football Group.</p>
+        <p>I hope this email finds you well. My name is {{deal_owner_name}} and I''m reaching out from International Football Group.</p>
         <p>We''ve been following your progress and believe you have what it takes to play football at a UK university while earning a degree.</p>
         <p>Would you be interested in a quick call to discuss your options?</p>
-        <p>Best regards,<br>{{recruiter_name}}</p>
+        <p>Best regards,<br>{{deal_owner_name}}</p>
       </div>',
       'automation',
       'deal_owner',
@@ -54,7 +51,7 @@ BEGIN
         <p>I wanted to follow up on my previous email about playing football in the UK.</p>
         <p>This is a fantastic opportunity to combine your passion for football with a quality education.</p>
         <p>Let me know if you''d like to schedule a call!</p>
-        <p>Best,<br>{{recruiter_name}}</p>
+        <p>Best,<br>{{deal_owner_name}}</p>
       </div>',
       'automation',
       'deal_owner',
@@ -70,7 +67,7 @@ BEGIN
         <p>This is my final attempt to connect with you about the UK football programme.</p>
         <p>If you''re interested, please reply to this email or book a call directly.</p>
         <p>If not, no worries at all - I wish you the best in your football journey!</p>
-        <p>Cheers,<br>{{recruiter_name}}</p>
+        <p>Cheers,<br>{{deal_owner_name}}</p>
       </div>',
       'automation',
       'deal_owner',
@@ -83,10 +80,10 @@ BEGIN
       'Ready to take the next step, {{first_name}}?',
       '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <p>Hi {{first_name}},</p>
-        <p>Great speaking with you about the {{programme}} programme!</p>
+        <p>Great speaking with you about the programme!</p>
         <p>As discussed, here are the next steps...</p>
         <p>Looking forward to working with you.</p>
-        <p>Best,<br>{{recruiter_name}}</p>
+        <p>Best,<br>{{deal_owner_name}}</p>
       </div>',
       'automation',
       'deal_owner',
@@ -96,12 +93,12 @@ BEGIN
     ),
     (
       'Follow Up Email 2',
-      'Checking in - {{programme}} application',
+      'Checking in - application progress',
       '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <p>Hi {{first_name}},</p>
         <p>I wanted to check in on your application progress.</p>
         <p>Do you have any questions or need any assistance?</p>
-        <p>Best,<br>{{recruiter_name}}</p>
+        <p>Best,<br>{{deal_owner_name}}</p>
       </div>',
       'automation',
       'deal_owner',
@@ -111,14 +108,14 @@ BEGIN
     ),
     (
       'Follow Up Email 3',
-      'Final reminder - {{programme}} deadline approaching',
+      'Final reminder - deadline approaching',
       '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <p>Hi {{first_name}},</p>
-        <p>I wanted to send a final reminder about the {{programme}} programme.</p>
+        <p>I wanted to send a final reminder about the programme.</p>
         <p>The application deadline is approaching, and I''d hate for you to miss out on this opportunity.</p>
         <p>If you have any last-minute questions or need help completing your application, please don''t hesitate to reach out.</p>
-        <p>You can book a quick call with me here: {{calendly_link}}</p>
-        <p>Best regards,<br>{{recruiter_name}}</p>
+        <p>You can book a quick call with me here: {{deal_owner_calendly}}</p>
+        <p>Best regards,<br>{{deal_owner_name}}</p>
       </div>',
       'automation',
       'deal_owner',
@@ -134,8 +131,7 @@ BEGIN
         <p>Great news! Your meeting has been confirmed.</p>
         <p><strong>Meeting Details:</strong></p>
         <ul>
-          <li><strong>Date & Time:</strong> As scheduled via Calendly</li>
-          <li><strong>With:</strong> {{recruiter_name}}</li>
+          <li><strong>With:</strong> {{deal_owner_name}}</li>
           <li><strong>Topic:</strong> UK Football Programme Discussion</li>
         </ul>
         <p>Please ensure you have:</p>
@@ -146,7 +142,7 @@ BEGIN
         </ul>
         <p>If you need to reschedule, please let me know at least 24 hours in advance.</p>
         <p>Looking forward to speaking with you!</p>
-        <p>Best regards,<br>{{recruiter_name}}<br>{{recruiter_email}}</p>
+        <p>Best regards,<br>{{deal_owner_name}}<br>{{deal_owner_email}}</p>
       </div>',
       'automation',
       'deal_owner',
@@ -156,10 +152,10 @@ BEGIN
     ),
     (
       'Document Request',
-      'Documents needed for your {{programme}} application',
+      'Documents needed for your application',
       '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <p>Hi {{first_name}},</p>
-        <p>Thank you for your interest in the {{programme}} programme!</p>
+        <p>Thank you for your interest in the programme!</p>
         <p>To proceed with your application, we''ll need the following documents:</p>
         <ol>
           <li><strong>Football CV</strong> - Including your playing history, positions, and achievements</li>
@@ -170,7 +166,7 @@ BEGIN
         </ol>
         <p>Please reply to this email with the documents attached, or upload them to our secure portal.</p>
         <p>If you have any questions about what''s required, please don''t hesitate to ask.</p>
-        <p>Best regards,<br>{{recruiter_name}}<br>International Football Group</p>
+        <p>Best regards,<br>{{deal_owner_name}}<br>International Football Group</p>
       </div>',
       'automation',
       'deal_owner',
@@ -199,10 +195,10 @@ BEGIN
     ),
     (
       'Invoice Reminder',
-      'Payment Reminder - Invoice {{invoice_number}}',
+      'Payment Reminder - Invoice Due',
       '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <p>Hi {{first_name}},</p>
-        <p>This is a friendly reminder that invoice {{invoice_number}} for £{{amount}} is due on {{due_date}}.</p>
+        <p>This is a friendly reminder that your invoice is due soon.</p>
         <p>You can make payment via bank transfer or through our online portal.</p>
         <p>If you have any questions, please don''t hesitate to get in touch.</p>
         <p>Best regards,<br>IFG Finance Team</p>
@@ -235,8 +231,8 @@ BEGIN
       'Payment Received - Thank you, {{first_name}}!',
       '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <p>Hi {{first_name}},</p>
-        <p>Thank you for your payment of £{{amount}}.</p>
-        <p>This email confirms that we have received your payment for {{description}}.</p>
+        <p>Thank you for your payment.</p>
+        <p>This email confirms that we have received your payment.</p>
         <p>If you have any questions, please contact us.</p>
         <p>Best regards,<br>IFG Finance Team</p>
       </div>',
@@ -245,16 +241,8 @@ BEGIN
       'IFG Finance',
       'finance@ifg-crm.com',
       profile_id
-    );
+    )
+  ON CONFLICT (name) DO NOTHING;
   
-  RAISE NOTICE 'Successfully created 12 test email templates';
+  RAISE NOTICE 'Successfully seeded email templates';
 END $$;
-
--- Verify the templates were created
-SELECT 
-  name,
-  category,
-  from_name_type,
-  created_at
-FROM email_templates
-ORDER BY category, created_at;

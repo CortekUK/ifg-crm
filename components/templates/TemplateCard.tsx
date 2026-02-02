@@ -3,7 +3,14 @@
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Mail, Pencil, Trash2 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Mail, Pencil, Trash2, Copy, Eye, MoreVertical } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { Template } from '@/lib/types/templates'
@@ -12,6 +19,8 @@ interface TemplateCardProps {
   template: Template
   onEdit: (template: Template) => void
   onDelete: (template: Template) => void
+  onDuplicate: (template: Template) => void
+  onPreview: (template: Template) => void
 }
 
 const categoryConfig: Record<Template['category'], { label: string; className: string }> = {
@@ -20,21 +29,42 @@ const categoryConfig: Record<Template['category'], { label: string; className: s
   transactional: { label: 'Transactional', className: 'bg-green-100 text-green-700' },
 }
 
-export function TemplateCard({ template, onEdit, onDelete }: TemplateCardProps) {
+export function TemplateCard({ 
+  template, 
+  onEdit, 
+  onDelete, 
+  onDuplicate, 
+  onPreview 
+}: TemplateCardProps) {
   const category = categoryConfig[template.category]
 
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+    <Card className="overflow-hidden hover:shadow-md transition-shadow group">
       {/* Preview Thumbnail */}
-      <div className="h-40 bg-gray-100 flex items-center justify-center border-b">
+      <div 
+        className="h-40 bg-gray-100 flex items-center justify-center border-b relative cursor-pointer"
+        onClick={() => onPreview(template)}
+      >
         <Mail className="h-12 w-12 text-gray-300" />
+        {/* Hover overlay with preview button */}
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <Button variant="secondary" size="sm">
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </Button>
+        </div>
       </div>
 
       <CardContent className="p-4">
         {/* Template Name */}
-        <h3 className="font-semibold text-gray-900 truncate mb-2">
+        <h3 className="font-semibold text-gray-900 truncate mb-1">
           {template.name}
         </h3>
+
+        {/* Subject Line */}
+        <p className="text-sm text-muted-foreground truncate mb-3">
+          {template.subject || 'No subject'}
+        </p>
 
         {/* Badges */}
         <div className="flex flex-wrap gap-2 mb-3">
@@ -62,14 +92,32 @@ export function TemplateCard({ template, onEdit, onDelete }: TemplateCardProps) 
           <Pencil className="h-4 w-4 mr-1" />
           Edit
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          onClick={() => onDelete(template)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onPreview(template)}>
+              <Eye className="h-4 w-4 mr-2" />
+              Preview
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDuplicate(template)}>
+              <Copy className="h-4 w-4 mr-2" />
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => onDelete(template)}
+              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardFooter>
     </Card>
   )

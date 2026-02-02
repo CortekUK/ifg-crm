@@ -1,13 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Save, Calendar, Phone, FileSignature, Eye, Loader2 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Save, Calendar, Phone, FileSignature, Eye, Loader2, Upload, Key, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 
@@ -17,19 +28,75 @@ interface ProfileData {
   phone: string
   calendly_url: string
   email_signature: string
+  avatar_url: string
+}
+
+interface PasswordData {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
+// URL validation helper
+function isValidUrl(url: string): boolean {
+  if (!url) return true // Empty is valid (optional field)
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 export function ProfileSettings() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+  const [calendlyUrlError, setCalendlyUrlError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [originalProfile, setOriginalProfile] = useState<ProfileData | null>(null)
   const [profile, setProfile] = useState<ProfileData>({
     full_name: '',
     email: '',
     phone: '',
     calendly_url: '',
     email_signature: '',
+    avatar_url: '',
   })
+  const [passwordData, setPasswordData] = useState<PasswordData>({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [passwordErrors, setPasswordErrors] = useState<Partial<PasswordData>>({})
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (originalProfile) {
+      const hasChanges = 
+        profile.full_name !== originalProfile.full_name ||
+        profile.phone !== originalProfile.phone ||
+        profile.calendly_url !== originalProfile.calendly_url ||
+        profile.email_signature !== originalProfile.email_signature
+      setHasUnsavedChanges(hasChanges)
+    }
+  }, [profile, originalProfile])
+
+  // Warn on page unload if unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   useEffect(() => {
     fetchProfile()
@@ -47,19 +114,22 @@ export function ProfileSettings() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, email, phone, calendly_url, email_signature')
+        .select('full_name, email, phone, calendly_url, email_signature, avatar_url')
         .eq('id', user.id)
         .single()
 
       if (error) throw error
 
-      setProfile({
+      const profileData = {
         full_name: data.full_name || '',
         email: data.email || user.email || '',
         phone: data.phone || '',
         calendly_url: data.calendly_url || '',
         email_signature: data.email_signature || '',
-      })
+        avatar_url: data.avatar_url || '',
+      }
+      setProfile(profileData)
+      setOriginalProfile(profileData)
     } catch (error) {
       console.error('Failed to fetch profile:', error)
       toast({
@@ -72,11 +142,195 @@ export function ProfileSettings() {
     }
   }
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select an image file.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please select an image under 2MB.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsUploadingAvatar(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) throw new Error('Not authenticated')
+
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
+      setProfile((prev) => ({ ...prev, avatar_url: publicUrl }))
+      toast({
+        title: 'Avatar updated',
+        description: 'Your profile picture has been changed.',
+      })
+    } catch (error) {
+      console.error('Failed to upload avatar:', error)
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload avatar. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
+
+  const handlePasswordChange = async () => {
+    // Validate passwords
+    const errors: Partial<PasswordData> = {}
+    
+    if (!passwordData.currentPassword) {
+      errors.currentPassword = 'Current password is required'
+    }
+    if (!passwordData.newPassword) {
+      errors.newPassword = 'New password is required'
+    } else if (passwordData.newPassword.length < 6) {
+      errors.newPassword = 'Password must be at least 6 characters'
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors)
+      return
+    }
+
+    setIsChangingPassword(true)
+    setPasswordErrors({})
+
+    try {
+      const supabase = createClient()
+      
+      // First verify current password by re-authenticating
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.email) throw new Error('Not authenticated')
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: passwordData.currentPassword,
+      })
+
+      if (signInError) {
+        setPasswordErrors({ currentPassword: 'Current password is incorrect' })
+        return
+      }
+
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordData.newPassword,
+      })
+
+      if (updateError) throw updateError
+
+      // Clear form
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      })
+
+      toast({
+        title: 'Password changed',
+        description: 'Your password has been updated successfully.',
+      })
+    } catch (error) {
+      console.error('Failed to change password:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to change password. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   const handleChange = (field: keyof ProfileData, value: string) => {
     setProfile((prev) => ({ ...prev, [field]: value }))
+    
+    // Validate Calendly URL
+    if (field === 'calendly_url') {
+      if (value && !isValidUrl(value)) {
+        setCalendlyUrlError('Please enter a valid URL (e.g., https://calendly.com/your-name)')
+      } else if (value && !value.includes('calendly.com')) {
+        setCalendlyUrlError('This doesn\'t look like a Calendly URL')
+      } else {
+        setCalendlyUrlError(null)
+      }
+    }
+  }
+
+  const handlePasswordFieldChange = (field: keyof PasswordData, value: string) => {
+    setPasswordData((prev) => ({ ...prev, [field]: value }))
+    // Clear error when user starts typing
+    if (passwordErrors[field]) {
+      setPasswordErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
+  }
+
+  const getInitials = (name: string, email: string) => {
+    if (name) {
+      return name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    }
+    return email.slice(0, 2).toUpperCase()
   }
 
   const handleSave = async () => {
+    // Validate Calendly URL before saving
+    if (profile.calendly_url && !isValidUrl(profile.calendly_url)) {
+      toast({
+        title: 'Invalid URL',
+        description: 'Please enter a valid Calendly URL.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setIsSaving(true)
     try {
       const supabase = createClient()
@@ -97,6 +351,10 @@ export function ProfileSettings() {
         .eq('id', user.id)
 
       if (error) throw error
+
+      // Update original profile to clear unsaved changes
+      setOriginalProfile({ ...profile })
+      setHasUnsavedChanges(false)
 
       toast({
         title: 'Profile updated',
@@ -138,12 +396,64 @@ export function ProfileSettings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">Profile Settings</h2>
-        <p className="text-sm text-muted-foreground">
-          Configure your personal details used in automated emails.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Profile Settings</h2>
+          <p className="text-sm text-muted-foreground">
+            Configure your personal details used in automated emails.
+          </p>
+        </div>
+        {hasUnsavedChanges && (
+          <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            Unsaved changes
+          </span>
+        )}
       </div>
+
+      {/* Avatar Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Profile Picture</CardTitle>
+          <CardDescription>
+            Upload a profile picture that will be displayed across the CRM.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-6">
+            <Avatar className="h-20 w-20">
+              <AvatarImage src={profile.avatar_url || undefined} />
+              <AvatarFallback className="bg-blue-100 text-blue-600 text-xl">
+                {getInitials(profile.full_name, profile.email)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+              >
+                {isUploadingAvatar ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {isUploadingAvatar ? 'Uploading...' : 'Upload Photo'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG or GIF. Max 2MB.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -208,10 +518,15 @@ export function ProfileSettings() {
                 value={profile.calendly_url}
                 onChange={(e) => handleChange('calendly_url', e.target.value)}
                 placeholder="https://calendly.com/your-name"
+                className={calendlyUrlError ? 'border-red-500' : ''}
               />
-              <p className="text-xs text-muted-foreground">
-                Available as {'{{deal_owner_calendly}}'} in templates
-              </p>
+              {calendlyUrlError ? (
+                <p className="text-xs text-red-500">{calendlyUrlError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Your Calendly booking link. Available as {'{{deal_owner_calendly}}'} in templates.
+                </p>
+              )}
             </div>
           </div>
         </CardContent>
@@ -280,8 +595,85 @@ International Football Group<br>
         </CardContent>
       </Card>
 
+      {/* Password Change Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            Change Password
+          </CardTitle>
+          <CardDescription>
+            Update your password to keep your account secure.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="max-w-md space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="current_password">Current Password</Label>
+              <Input
+                id="current_password"
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={(e) => handlePasswordFieldChange('currentPassword', e.target.value)}
+                placeholder="Enter current password"
+                className={passwordErrors.currentPassword ? 'border-red-500' : ''}
+              />
+              {passwordErrors.currentPassword && (
+                <p className="text-xs text-red-500">{passwordErrors.currentPassword}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new_password">New Password</Label>
+              <Input
+                id="new_password"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => handlePasswordFieldChange('newPassword', e.target.value)}
+                placeholder="Enter new password"
+                className={passwordErrors.newPassword ? 'border-red-500' : ''}
+              />
+              {passwordErrors.newPassword && (
+                <p className="text-xs text-red-500">{passwordErrors.newPassword}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Must be at least 6 characters
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirm_password">Confirm New Password</Label>
+              <Input
+                id="confirm_password"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => handlePasswordFieldChange('confirmPassword', e.target.value)}
+                placeholder="Confirm new password"
+                className={passwordErrors.confirmPassword ? 'border-red-500' : ''}
+              />
+              {passwordErrors.confirmPassword && (
+                <p className="text-xs text-red-500">{passwordErrors.confirmPassword}</p>
+              )}
+            </div>
+
+            <Button 
+              onClick={handlePasswordChange} 
+              disabled={isChangingPassword}
+              variant="outline"
+            >
+              {isChangingPassword ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Key className="h-4 w-4 mr-2" />
+              )}
+              Change Password
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving || !!calendlyUrlError}>
           {isSaving ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
@@ -290,6 +682,24 @@ International Football Group<br>
           Save Changes
         </Button>
       </div>
+
+      {/* Unsaved Changes Dialog */}
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700">
+              Discard Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

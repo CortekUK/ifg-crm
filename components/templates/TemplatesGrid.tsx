@@ -10,6 +10,8 @@ interface TemplatesGridProps {
   isLoading: boolean
   onEdit: (template: Template) => void
   onDelete: (template: Template) => void
+  onDuplicate: (template: Template) => void
+  onPreview: (template: Template) => void
 }
 
 export function TemplatesGrid({
@@ -17,6 +19,8 @@ export function TemplatesGrid({
   isLoading,
   onEdit,
   onDelete,
+  onDuplicate,
+  onPreview,
 }: TemplatesGridProps) {
   if (isLoading) {
     return (
@@ -26,6 +30,7 @@ export function TemplatesGrid({
             <Skeleton className="h-40 w-full" />
             <div className="p-4 space-y-3">
               <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-full" />
               <div className="flex gap-2">
                 <Skeleton className="h-5 w-16" />
                 <Skeleton className="h-5 w-20" />
@@ -62,6 +67,8 @@ export function TemplatesGrid({
           template={template}
           onEdit={onEdit}
           onDelete={onDelete}
+          onDuplicate={onDuplicate}
+          onPreview={onPreview}
         />
       ))}
     </div>
