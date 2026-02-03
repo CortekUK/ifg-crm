@@ -194,6 +194,7 @@ export function AutomationsTable({
                   <Switch
                     checked={automation.is_active}
                     onCheckedChange={(checked) => onToggle(automation.id, checked)}
+                    className="data-[state=checked]:bg-green-500"
                   />
                 </TableCell>
 

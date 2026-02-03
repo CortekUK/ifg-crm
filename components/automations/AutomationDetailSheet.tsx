@@ -694,6 +694,7 @@ export function AutomationDetailSheet({
                 <Switch
                   checked={automation.is_active}
                   onCheckedChange={handleToggle}
+                  className="data-[state=checked]:bg-green-500"
                 />
               </div>
             </div>
