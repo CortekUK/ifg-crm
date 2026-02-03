@@ -166,7 +166,7 @@ export function EditorHeader({
             variant="outline" 
             size="sm" 
             onClick={onPreview}
-            className="text-slate-700 border-slate-300 hover:bg-slate-50"
+            className="text-slate-700 border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             <Eye className="h-4 w-4 mr-2" />
             Preview
@@ -176,7 +176,7 @@ export function EditorHeader({
             size="sm" 
             onClick={onSaveDraft} 
             disabled={isSaving}
-            className="text-slate-700 border-slate-300 hover:bg-slate-50"
+            className="text-slate-700 border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -228,7 +228,7 @@ export function EditorHeader({
       <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+            <AlertDialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
               Unsaved Changes
             </AlertDialogTitle>
             <AlertDialogDescription>

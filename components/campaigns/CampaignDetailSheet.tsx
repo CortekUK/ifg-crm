@@ -159,7 +159,7 @@ export function CampaignDetailSheet({
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+                <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
                   {isLoading ? <Skeleton className="h-7 w-48" /> : campaign?.name}
                 </SheetTitle>
                 <SheetDescription>
@@ -195,7 +195,7 @@ export function CampaignDetailSheet({
                 <TabsContent value="details" className="px-6 py-4 space-y-6 mt-0">
                   {/* Campaign Info */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Campaign Information
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -264,14 +264,14 @@ export function CampaignDetailSheet({
                   {/* Recipient Lists */}
                   {campaign.recipient_lists && campaign.recipient_lists.length > 0 && (
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Recipient Lists
                       </h3>
                       <div className="space-y-2">
                         {campaign.recipient_lists.map((list) => (
                           <div
                             key={list.id}
-                            className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                            className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                           >
                             <div className="flex items-center gap-2">
                               <Users className="h-4 w-4 text-muted-foreground" />
@@ -289,7 +289,7 @@ export function CampaignDetailSheet({
                   {/* Stats (only for sent campaigns) */}
                   {campaign.status === 'sent' && (
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Performance
                       </h3>
                       {statsLoading ? (
@@ -357,7 +357,7 @@ export function CampaignDetailSheet({
 
                   {/* Actions */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Actions
                     </h3>
                     <div className="flex flex-wrap gap-2">
@@ -409,7 +409,7 @@ export function CampaignDetailSheet({
                 </TabsContent>
 
                 <TabsContent value="content" className="px-6 py-4 space-y-6 mt-0">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     {campaign.type === 'email' ? 'Email Content' : 'SMS Content'}
                   </h3>
 
@@ -429,14 +429,14 @@ export function CampaignDetailSheet({
                       )}
                       <Separator />
                       {campaign.body_html ? (
-                        <div className="border rounded-lg p-4 bg-white">
+                        <div className="border rounded-lg p-4 bg-white dark:bg-slate-900 dark:bg-slate-900">
                           <div
                             className="prose prose-sm max-w-none"
                             dangerouslySetInnerHTML={{ __html: campaign.body_html }}
                           />
                         </div>
                       ) : campaign.body_text ? (
-                        <div className="border rounded-lg p-4 bg-slate-50">
+                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 dark:bg-slate-800">
                           <p className="whitespace-pre-wrap text-sm">{campaign.body_text}</p>
                         </div>
                       ) : campaign.template ? (
@@ -453,7 +453,7 @@ export function CampaignDetailSheet({
                   ) : (
                     <div className="space-y-4">
                       {campaign.sms_content ? (
-                        <div className="border rounded-lg p-4 bg-slate-50">
+                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 dark:bg-slate-800">
                           <p className="whitespace-pre-wrap">{campaign.sms_content}</p>
                           <p className="text-xs text-muted-foreground mt-2">
                             {campaign.sms_content.length} characters •{' '}
@@ -468,7 +468,7 @@ export function CampaignDetailSheet({
                 </TabsContent>
 
                 <TabsContent value="recipients" className="px-6 py-4 space-y-6 mt-0">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Recipients
                   </h3>
 
@@ -507,7 +507,7 @@ export function CampaignDetailSheet({
                                 className={cn(
                                   recipient.status === 'delivered' && 'bg-green-50 text-green-700',
                                   recipient.status === 'bounced' && 'bg-red-50 text-red-700',
-                                  recipient.status === 'pending' && 'bg-gray-50 text-gray-700'
+                                  recipient.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700'
                                 )}
                               >
                                 {recipient.status}

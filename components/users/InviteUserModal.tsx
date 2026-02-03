@@ -79,7 +79,7 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
             Invite User
           </DialogTitle>
           <DialogDescription>

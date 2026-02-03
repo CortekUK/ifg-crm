@@ -62,7 +62,7 @@ export function EmailReplyList({
     return (
       <div className="border rounded-lg p-12 text-center">
         <Mail className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No emails</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No emails</h3>
         <p className="text-muted-foreground">{emptyMessage}</p>
       </div>
     )

@@ -92,7 +92,7 @@ export function ErrorState({
       <div className="p-4 bg-red-100 rounded-full mb-4">
         <Icon className="h-8 w-8 text-red-600" />
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
         {title || config.defaultTitle}
       </h3>
       <p className="text-sm text-gray-500 text-center max-w-sm mb-6">

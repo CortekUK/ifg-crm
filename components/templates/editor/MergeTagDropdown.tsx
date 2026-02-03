@@ -97,7 +97,7 @@ export function MergeTagDropdown({ onInsert, className, variant = 'default' }: M
                       className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm text-gray-900">
+                        <span className="font-medium text-sm text-gray-900 dark:text-white">
                           {variable.label}
                         </span>
                         <Badge 

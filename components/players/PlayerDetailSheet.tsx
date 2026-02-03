@@ -166,7 +166,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+                  <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
                     {fullName}
                   </SheetTitle>
                   <SheetDescription className="mt-1 flex items-center gap-2 flex-wrap">
@@ -236,7 +236,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                 <TabsContent value="overview" className="px-6 py-6 space-y-6 mt-0">
                   {/* Contact Information */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Contact Information
                     </h3>
                     <div className="space-y-3">
@@ -270,7 +270,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   {/* Parent/Guardian */}
                   {(player.parent_name || player.parent_email || player.parent_phone) && (
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Parent/Guardian
                       </h3>
                       <div className="space-y-3">
@@ -300,7 +300,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
 
                   {/* Academic & Club */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Academic & Club
                     </h3>
                     <div className="space-y-3">
@@ -327,7 +327,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
 
                   {/* Assigned To */}
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                       <h3 className="text-sm font-semibold text-blue-900 uppercase">
                         Assigned To
                       </h3>
@@ -369,7 +369,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   {/* Notes */}
                   {player.notes && (
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Notes
                       </h3>
                       <p className="text-sm text-slate-600 whitespace-pre-wrap">{player.notes}</p>
@@ -387,7 +387,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   ) : (
                     <div className="space-y-3">
                       {deals.map((deal) => (
-                        <div key={deal.id} className="p-4 rounded-lg border bg-white" style={{ borderLeftWidth: 4, borderLeftColor: deal.stage?.color || '#e2e8f0' }}>
+                        <div key={deal.id} className="p-4 rounded-lg border bg-white dark:bg-slate-900 dark:bg-slate-900" style={{ borderLeftWidth: 4, borderLeftColor: deal.stage?.color || '#e2e8f0' }}>
                           <div className="flex items-start justify-between">
                             <div>
                               <p className="font-medium">{deal.pipeline?.name || 'Unknown Pipeline'}</p>
@@ -468,7 +468,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
             </div>
 
             {/* Footer */}
-            <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+            <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
               <Button variant="outline" onClick={onClose} className="w-full">
                 Close
               </Button>

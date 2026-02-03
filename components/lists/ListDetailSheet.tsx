@@ -215,10 +215,10 @@ export function ListDetailSheet({
             </div>
           ) : (
             <>
-              <SheetHeader className="px-6 pt-6 pb-4 border-b bg-white shrink-0">
+              <SheetHeader className="px-6 pt-6 pb-4 border-b bg-white dark:bg-slate-900 shrink-0">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+                    <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
                       {list.name}
                     </SheetTitle>
                     <SheetDescription className="mt-1 line-clamp-2">
@@ -263,7 +263,7 @@ export function ListDetailSheet({
               </SheetHeader>
 
               {/* Search and Bulk Actions */}
-              <div className="px-6 py-4 border-b bg-slate-50 shrink-0">
+              <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-800 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -365,7 +365,7 @@ export function ListDetailSheet({
                                     {getInitials(contact)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="font-medium text-gray-900">
+                                <span className="font-medium text-gray-900 dark:text-white">
                                   {contact.first_name} {contact.last_name}
                                 </span>
                               </div>
@@ -407,7 +407,7 @@ export function ListDetailSheet({
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+                <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
                   <div className="flex items-center justify-between w-full">
                     <p className="text-sm text-muted-foreground">
                       Showing {(page - 1) * pageSize + 1}-

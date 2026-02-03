@@ -77,7 +77,7 @@ export function SMSDetailSheet({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900">{displayName}</p>
+                <p className="font-medium text-gray-900 dark:text-white">{displayName}</p>
                 <p className="text-sm text-muted-foreground">
                   {formatPhoneNumber(message.phone_number)}
                 </p>
@@ -137,8 +137,8 @@ export function SMSDetailSheet({
             {/* Message Content */}
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Message</h3>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+              <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {message.content || '(No content)'}
                 </p>
               </div>

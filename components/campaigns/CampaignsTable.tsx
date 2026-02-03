@@ -54,7 +54,7 @@ interface CampaignsTableProps {
 }
 
 const statusConfig: Record<Campaign['status'], { label: string; className: string }> = {
-  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-700 hover:bg-gray-100' },
+  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-700 dark:text-gray-300 hover:bg-gray-100' },
   scheduled: { label: 'Scheduled', className: 'bg-blue-100 text-blue-700 hover:bg-blue-100' },
   sending: { label: 'Sending', className: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 animate-pulse' },
   sent: { label: 'Sent', className: 'bg-green-100 text-green-700 hover:bg-green-100' },
@@ -172,8 +172,8 @@ export function CampaignsTable({
   if (campaigns.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
-        <Mail className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No campaigns yet</h3>
+        <Mail className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No campaigns yet</h3>
         <p className="text-muted-foreground">
           Create your first campaign to start reaching out to players.
         </p>

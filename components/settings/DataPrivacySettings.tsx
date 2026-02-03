@@ -19,7 +19,7 @@ export function DataPrivacySettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Data & Privacy</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data & Privacy</h2>
         <p className="text-sm text-muted-foreground">
           Manage your data and privacy preferences.
         </p>
@@ -43,19 +43,19 @@ export function DataPrivacySettings() {
           </p>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="font-medium text-gray-900">Data Location</p>
+              <p className="font-medium text-gray-900 dark:text-white">Data Location</p>
               <p className="text-muted-foreground">EU (Ireland)</p>
             </div>
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="font-medium text-gray-900">Encryption</p>
+              <p className="font-medium text-gray-900 dark:text-white">Encryption</p>
               <p className="text-muted-foreground">AES-256 at rest</p>
             </div>
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="font-medium text-gray-900">Retention Period</p>
+              <p className="font-medium text-gray-900 dark:text-white">Retention Period</p>
               <p className="text-muted-foreground">As per your settings</p>
             </div>
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="font-medium text-gray-900">Data Processing</p>
+              <p className="font-medium text-gray-900 dark:text-white">Data Processing</p>
               <p className="text-muted-foreground">GDPR Article 6(1)(b)</p>
             </div>
           </div>

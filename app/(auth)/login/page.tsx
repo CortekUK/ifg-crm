@@ -92,22 +92,22 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white dark:bg-slate-900">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">
               IFG
             </div>
-            <span className="text-lg font-semibold text-gray-900">IFG CRM</span>
+            <span className="text-lg font-semibold text-gray-900 dark:text-white">IFG CRM</span>
           </div>
 
           {/* Welcome Text */}
           <div className="text-center lg:text-left mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               WELCOME BACK
             </h2>
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-gray-400">
               Sign in to your account
             </p>
           </div>

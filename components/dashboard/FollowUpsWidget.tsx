@@ -59,7 +59,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
 
   if (isLoading) {
     return (
-      <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+      <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
         <CardHeader className="relative z-10 pb-3">
           <div className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
 
   if (error) {
     return (
-      <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+      <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
         <CardHeader className="relative z-10 pb-3">
           <div className="flex items-center gap-2">
@@ -97,7 +97,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
   }
 
   return (
-    <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       {/* Subtle gradient overlay from top */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
       

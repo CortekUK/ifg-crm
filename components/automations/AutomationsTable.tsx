@@ -44,7 +44,7 @@ export function AutomationsTable({
 }: AutomationsTableProps) {
   if (isLoading) {
     return (
-      <div className="border rounded-lg bg-white">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -79,9 +79,9 @@ export function AutomationsTable({
 
   if (automations.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center bg-white">
-        <Zap className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No automations yet</h3>
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Zap className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No automations yet</h3>
         <p className="text-muted-foreground">
           Create your first automation to streamline your follow-ups.
         </p>
@@ -109,7 +109,7 @@ export function AutomationsTable({
       return (
         <>
           Deal enters{' '}
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-gray-700 dark:text-gray-300 dark:text-gray-300">
             {automation.trigger_stage?.name || 'Unknown'}
           </span>
         </>
@@ -119,7 +119,7 @@ export function AutomationsTable({
       return (
         <>
           Deal moves to{' '}
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-gray-700 dark:text-gray-300 dark:text-gray-300">
             {automation.trigger_stage?.name || 'Unknown'}
           </span>
         </>
@@ -145,7 +145,7 @@ export function AutomationsTable({
   }
 
   return (
-    <div className="border rounded-lg bg-white">
+    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>
@@ -164,15 +164,15 @@ export function AutomationsTable({
             const inQueue = getTotalInQueue(automation)
             
             return (
-              <TableRow key={automation.id} className="cursor-pointer hover:bg-gray-50" onClick={() => onView(automation)}>
+              <TableRow key={automation.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800" onClick={() => onView(automation)}>
                 {/* Workflow */}
                 <TableCell>
                   <div className="flex items-start gap-3">
-                    <div className="p-1.5 bg-blue-100 rounded text-blue-600 mt-0.5">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-600 mt-0.5">
                       {getTypeIcon(automation.automation_type)}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{automation.name}</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{automation.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {getStepsSummary(automation)}
                       </p>

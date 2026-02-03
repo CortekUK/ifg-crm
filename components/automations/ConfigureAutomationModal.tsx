@@ -258,12 +258,12 @@ export function ConfigureAutomationModal({
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-600">
                         {getTemplateIcon(template.type)}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-gray-900">{template.name}</h3>
+                          <h3 className="font-semibold text-gray-900 dark:text-white">{template.name}</h3>
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -628,7 +628,7 @@ export function ConfigureAutomationModal({
                         {recruiters.map((user) => (
                           <div
                             key={user.id}
-                            className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50"
+                            className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50 dark:hover:bg-slate-800"
                           >
                             <Checkbox
                               id={`user-${user.id}`}
@@ -821,7 +821,7 @@ export function ConfigureAutomationModal({
                             .map((stage) => (
                               <div
                                 key={stage.id}
-                                className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50"
+                                className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50 dark:hover:bg-slate-800"
                               >
                                 <Checkbox
                                   id={`stage-${stage.id}`}

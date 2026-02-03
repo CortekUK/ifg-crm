@@ -73,7 +73,7 @@ export function SMSReplyCard({
             {/* Header Row */}
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-gray-900">{displayName}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{displayName}</span>
                 {message.pipeline && (
                   <Badge variant="outline" className="text-xs">
                     {message.pipeline.name}

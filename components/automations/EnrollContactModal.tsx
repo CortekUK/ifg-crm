@@ -155,7 +155,7 @@ export function EnrollContactModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
             Enroll in Automation
           </DialogTitle>
           <DialogDescription>
@@ -255,7 +255,7 @@ export function EnrollContactModal({
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {getName(dealData)}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">

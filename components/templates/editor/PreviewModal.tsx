@@ -92,7 +92,7 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
       <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="p-4 border-b border-slate-200 bg-white shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+            <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
               Email Preview
             </DialogTitle>
             <div className="flex items-center gap-4">

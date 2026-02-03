@@ -44,7 +44,7 @@ export function NotificationsSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h2>
         <p className="text-sm text-muted-foreground">
           Configure how and when you receive notifications.
         </p>

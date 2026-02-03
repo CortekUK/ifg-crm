@@ -57,7 +57,7 @@ export function TemplateCard({
 
       <CardContent className="p-4">
         {/* Template Name */}
-        <h3 className="font-semibold text-gray-900 truncate mb-1">
+        <h3 className="font-semibold text-gray-900 dark:text-white truncate mb-1">
           {template.name}
         </h3>
 

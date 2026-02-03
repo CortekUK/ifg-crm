@@ -16,16 +16,16 @@ interface ListStatsProps {
 
 const colourConfig = {
   blue: {
-    gradient: 'from-blue-50/60',
+    gradient: 'from-blue-50/60 dark:from-blue-950/60',
     border: 'border-l-blue-400',
-    iconBg: 'bg-blue-100',
-    iconColour: 'text-blue-600',
+    iconBg: 'bg-blue-100 dark:bg-blue-900/50',
+    iconColour: 'text-blue-600 dark:text-blue-400',
   },
   green: {
-    gradient: 'from-green-50/60',
+    gradient: 'from-green-50/60 dark:from-green-950/60',
     border: 'border-l-green-400',
-    iconBg: 'bg-green-100',
-    iconColour: 'text-green-600',
+    iconBg: 'bg-green-100 dark:bg-green-900/50',
+    iconColour: 'text-green-600 dark:text-green-400',
   },
   amber: {
     gradient: 'from-amber-50/60',
@@ -71,7 +71,7 @@ export function ListStats({
           const config = colourConfig[stat.colour]
           return (
             <Card key={i} className={cn(
-              'relative overflow-hidden bg-white border border-slate-200 shadow-sm border-l-4',
+              'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4',
               config.border
             )}>
               <div className={cn(
@@ -100,7 +100,7 @@ export function ListStats({
         const config = colourConfig[stat.colour]
         return (
           <Card key={stat.label} className={cn(
-            'relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow transition-shadow border-l-4',
+            'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow transition-shadow border-l-4',
             config.border
           )}>
             <div className={cn(
@@ -109,14 +109,14 @@ export function ListStats({
             )} />
             <CardContent className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
-                <p className="font-oswald text-xs font-medium text-blue-900 uppercase">
+                <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-100 uppercase">
                   {stat.label}
                 </p>
                 <div className={cn('p-2.5 rounded-full', config.iconBg)}>
                   <Icon className={cn('h-5 w-5', config.iconColour)} />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
                 {formatNumber(stat.value)}
               </p>
               {stat.subtitle && (

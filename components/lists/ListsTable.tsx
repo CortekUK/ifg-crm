@@ -71,8 +71,8 @@ export function ListsTable({
   if (lists.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
-        <ListIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No lists yet</h3>
+        <ListIcon className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No lists yet</h3>
         <p className="text-muted-foreground">
           Create your first list to organise your contacts.
         </p>
@@ -103,10 +103,10 @@ export function ListsTable({
               {/* Name */}
               <TableCell>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                     <Users className="h-4 w-4 text-blue-600" />
                   </div>
-                  <span className="font-medium text-gray-900">{list.name}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{list.name}</span>
                 </div>
               </TableCell>
 

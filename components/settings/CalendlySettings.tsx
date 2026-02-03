@@ -130,7 +130,7 @@ export function CalendlySettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Calendly Integration</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Calendly Integration</h2>
         <p className="text-sm text-muted-foreground">
           Connect your Calendly account to automatically track scheduled meetings.
         </p>

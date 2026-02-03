@@ -31,7 +31,7 @@ export function ReportCard({
             <Icon className="h-5 w-5 text-blue-600" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">{name}</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">{name}</h3>
             <p className="text-sm text-muted-foreground mt-1">{description}</p>
           </div>
         </div>

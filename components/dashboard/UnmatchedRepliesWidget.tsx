@@ -98,7 +98,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
   // Show error state
   if (error) {
     return (
-      <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+      <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
         <CardHeader className="relative z-10 pb-3">
           <div className="flex items-center gap-2">
@@ -118,7 +118,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
   }
 
   return (
-    <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       {/* Subtle gradient overlay from top */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
       
@@ -150,7 +150,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
         {isLoading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="p-4 bg-white rounded-lg border border-slate-100">
+              <div key={i} className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100">
                 <div className="flex justify-between mb-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-7 w-16" />
@@ -173,7 +173,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
               (data.messages as SMSMessage[]).map((message) => (
                 <div
                   key={message.id}
-                  className="p-4 bg-white rounded-lg border border-slate-100 hover:border-slate-200 transition-colors"
+                  className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -181,7 +181,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
                         <User className="h-3 w-3 text-slate-500" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate text-gray-900">
+                        <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
                           Unknown number
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
@@ -208,7 +208,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
               (data.messages as EmailReply[]).map((email) => (
                 <div
                   key={email.id}
-                  className="p-4 bg-white rounded-lg border border-slate-100 hover:border-slate-200 transition-colors"
+                  className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -216,7 +216,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
                         <User className="h-3 w-3 text-slate-500" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate text-gray-900">
+                        <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
                           {email.from_name || 'Unknown'}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
@@ -230,7 +230,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
                       </Button>
                     </Link>
                   </div>
-                  <p className="text-sm font-medium truncate text-gray-900">
+                  <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
                     {email.subject}
                   </p>
                   <p className="text-sm text-muted-foreground line-clamp-2">

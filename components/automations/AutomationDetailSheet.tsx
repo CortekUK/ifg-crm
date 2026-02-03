@@ -219,10 +219,10 @@ export function AutomationDetailSheet({
           </div>
         ) : (
           <>
-            <SheetHeader className="px-6 pt-6 pb-4 border-b bg-white shrink-0">
+            <SheetHeader className="px-6 pt-6 pb-4 border-b bg-white dark:bg-slate-900 shrink-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+                  <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
                     {automation.name}
                   </SheetTitle>
                   <SheetDescription className="mt-1 line-clamp-2">
@@ -271,7 +271,7 @@ export function AutomationDetailSheet({
             </SheetHeader>
 
             <Tabs defaultValue="workflow" className="flex-1 flex flex-col min-h-0">
-              <div className="px-6 pt-4 pb-4 border-b bg-slate-50 shrink-0">
+              <div className="px-6 pt-4 pb-4 border-b bg-slate-50 dark:bg-slate-800 shrink-0">
                 <TabsList className="grid w-full grid-cols-3 h-10">
                   <TabsTrigger value="workflow" className="text-sm">Workflow</TabsTrigger>
                   <TabsTrigger value="stats" className="text-sm">Stats</TabsTrigger>
@@ -292,77 +292,77 @@ export function AutomationDetailSheet({
                 <TabsContent value="stats" className="mt-0 px-6 py-6 space-y-6 data-[state=inactive]:hidden">
                   {/* Quick Stats */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Overview
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
-                      <Card className="border-slate-200">
+                      <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-blue-100 rounded-lg">
+                          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                             <Users className="h-4 w-4 text-blue-600" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-gray-900">{activeEnrollments.length}</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeEnrollments.length}</p>
                             <p className="text-xs text-muted-foreground">Currently Enrolled</p>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200">
+                      <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className="p-2.5 bg-amber-100 rounded-lg">
                             <Clock className="h-4 w-4 text-amber-600" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-gray-900">{totalInQueue}</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalInQueue}</p>
                             <p className="text-xs text-muted-foreground">In Queue</p>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200">
+                      <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className="p-2.5 bg-green-100 rounded-lg">
                             <Send className="h-4 w-4 text-green-600" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-gray-900">{totalSent}</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
                             <p className="text-xs text-muted-foreground">Total Sent</p>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200">
+                      <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className="p-2.5 bg-purple-100 rounded-lg">
                             <Eye className="h-4 w-4 text-purple-600" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-gray-900">{avgOpenRate.toFixed(1)}%</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{avgOpenRate.toFixed(1)}%</p>
                             <p className="text-xs text-muted-foreground">Avg. Open Rate</p>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200">
+                      <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className="p-2.5 bg-green-100 rounded-lg">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-gray-900">{completedEnrollments.length}</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedEnrollments.length}</p>
                             <p className="text-xs text-muted-foreground">Completed</p>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200">
+                      <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className="p-2.5 bg-red-100 rounded-lg">
                             <XCircle className="h-4 w-4 text-red-600" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-gray-900">{stoppedEnrollments.length}</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stoppedEnrollments.length}</p>
                             <p className="text-xs text-muted-foreground">Stopped / Exited</p>
                           </div>
                         </CardContent>
@@ -372,37 +372,37 @@ export function AutomationDetailSheet({
 
                   {/* Per-Step Stats */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Step Performance
                     </h3>
                     {automation.steps
                       ?.filter((s) => s.step_type === 'send_email')
                       .sort((a, b) => a.step_order - b.step_order)
                       .map((step, index) => (
-                        <Card key={step.id} className="border-slate-200">
+                        <Card key={step.id} className="border-slate-200 dark:border-slate-700">
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between mb-3">
-                              <p className="text-sm font-medium text-gray-900">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
                                 Email {index + 1}: {step.template?.name || 'No template'}
                               </p>
                             </div>
                             <div className="grid grid-cols-4 gap-2 text-center">
-                              <div className="p-2 bg-slate-50 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900">{step.stats?.sent || 0}</p>
+                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">{step.stats?.sent || 0}</p>
                                 <p className="text-xs text-muted-foreground">Sent</p>
                               </div>
-                              <div className="p-2 bg-slate-50 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900">{step.stats?.opened || 0}</p>
+                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">{step.stats?.opened || 0}</p>
                                 <p className="text-xs text-muted-foreground">Opened</p>
                               </div>
-                              <div className="p-2 bg-slate-50 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900">
+                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">
                                   {step.stats?.open_rate?.toFixed(1) || 0}%
                                 </p>
                                 <p className="text-xs text-muted-foreground">Open Rate</p>
                               </div>
-                              <div className="p-2 bg-slate-50 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900">
+                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">
                                   {step.stats?.click_rate?.toFixed(1) || 0}%
                                 </p>
                                 <p className="text-xs text-muted-foreground">Click Rate</p>
@@ -422,7 +422,7 @@ export function AutomationDetailSheet({
                 <TabsContent value="enrolled" className="mt-0 px-6 py-6 space-y-6 data-[state=inactive]:hidden">
                   {/* Active Enrollments */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                       <h3 className="text-sm font-semibold text-blue-900 uppercase">
                         Currently Active ({activeEnrollments.length})
                       </h3>
@@ -462,7 +462,7 @@ export function AutomationDetailSheet({
                             : deal?.title || 'Unknown'
 
                           return (
-                            <Card key={enrollment.id} className="border-slate-200">
+                            <Card key={enrollment.id} className="border-slate-200 dark:border-slate-700">
                               <CardContent className="p-3">
                                 <div className="flex items-center gap-3">
                                   <Avatar className="h-9 w-9">
@@ -471,7 +471,7 @@ export function AutomationDetailSheet({
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{name}</p>
                                     <p className="text-xs text-muted-foreground truncate">
                                       {contact?.email || 'No email'}
                                     </p>
@@ -527,7 +527,7 @@ export function AutomationDetailSheet({
                   {/* Paused Enrollments */}
                   {pausedEnrollments.length > 0 && (
                     <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-amber-700 uppercase border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-amber-700 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Paused ({pausedEnrollments.length})
                       </h3>
                       <div className="space-y-2">
@@ -548,7 +548,7 @@ export function AutomationDetailSheet({
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{name}</p>
                                     <p className="text-xs text-muted-foreground truncate">
                                       {contact?.email || 'No email'}
                                     </p>
@@ -591,7 +591,7 @@ export function AutomationDetailSheet({
 
                   {/* Recently Completed */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Recently Completed ({completedEnrollments.length})
                     </h3>
                     {completedEnrollments.length === 0 ? (
@@ -610,7 +610,7 @@ export function AutomationDetailSheet({
                           return (
                             <div
                               key={enrollment.id}
-                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100"
+                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100"
                             >
                               <Avatar className="h-7 w-7">
                                 <AvatarFallback className="bg-green-100 text-green-600 text-xs">
@@ -618,7 +618,7 @@ export function AutomationDetailSheet({
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm text-gray-900 truncate">{name}</p>
+                                <p className="text-sm text-gray-900 dark:text-white truncate">{name}</p>
                               </div>
                               <Badge className="text-xs bg-green-100 text-green-700 hover:bg-green-100">
                                 Completed
@@ -633,7 +633,7 @@ export function AutomationDetailSheet({
                   {/* Stopped Enrollments */}
                   {stoppedEnrollments.length > 0 && (
                     <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-red-700 uppercase border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-red-700 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Stopped / Exited ({stoppedEnrollments.length})
                       </h3>
                       <div className="space-y-2">
@@ -648,7 +648,7 @@ export function AutomationDetailSheet({
                           return (
                             <div
                               key={enrollment.id}
-                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100"
+                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100"
                             >
                               <Avatar className="h-7 w-7">
                                 <AvatarFallback className="bg-red-100 text-red-600 text-xs">
@@ -656,7 +656,7 @@ export function AutomationDetailSheet({
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm text-gray-900 truncate">{name}</p>
+                                <p className="text-sm text-gray-900 dark:text-white truncate">{name}</p>
                                 {enrollment.stopped_reason && (
                                   <p className="text-xs text-muted-foreground truncate">
                                     {enrollment.stopped_reason}
@@ -683,10 +683,10 @@ export function AutomationDetailSheet({
             </Tabs>
 
             {/* Footer with toggle */}
-            <div className="border-t px-6 py-4 bg-slate-50 shrink-0">
+            <div className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Automation Status</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Automation Status</p>
                   <p className="text-xs text-muted-foreground">
                     {automation.is_active ? 'Automation is running' : 'Automation is paused'}
                   </p>

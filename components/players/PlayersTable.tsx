@@ -94,8 +94,8 @@ export function PlayersTable({
   if (players.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
-        <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No players found</h3>
+        <Users className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No players found</h3>
         <p className="text-muted-foreground">
           Try adjusting your filters or add a new player.
         </p>

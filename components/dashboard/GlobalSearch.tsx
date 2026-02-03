@@ -87,7 +87,7 @@ export function GlobalSearch() {
           <div className="pl-9 pr-14 w-56 h-9 bg-gray-50 border border-gray-200 rounded-md flex items-center text-sm text-gray-500 hover:bg-gray-100 transition-colors">
             Search...
           </div>
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-gray-200 bg-gray-100 px-1.5 font-mono text-[10px] font-medium text-gray-500">
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-gray-200 bg-gray-100 px-1.5 font-mono text-[10px] font-medium text-gray-500 dark:text-gray-400">
             <span className="text-xs">⌘</span>K
           </kbd>
         </button>
@@ -107,7 +107,7 @@ export function GlobalSearch() {
           </div>
           <CommandList className="max-h-[300px] overflow-y-auto">
             {query.length < 2 ? (
-              <div className="py-6 text-center text-sm text-gray-500">
+              <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                 Type at least 2 characters to search...
               </div>
             ) : isLoading ? (
@@ -158,7 +158,7 @@ export function GlobalSearch() {
             )}
           </CommandList>
           {results.length > 0 && (
-            <div className="border-t px-3 py-2 text-xs text-gray-500">
+            <div className="border-t px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
               Press <kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">↵</kbd> to select,{' '}
               <kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">esc</kbd> to close
             </div>

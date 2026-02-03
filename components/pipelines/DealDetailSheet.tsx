@@ -216,7 +216,7 @@ export function DealDetailSheet({
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+              <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
                 {deal.contact ? `${deal.contact.first_name} ${deal.contact.last_name}` : deal.title}
               </SheetTitle>
               <SheetDescription className="mt-1 flex items-center gap-2">
@@ -306,7 +306,7 @@ export function DealDetailSheet({
             <TabsContent value="overview" className="px-6 py-6 space-y-6 mt-0">
               {/* Deal Owner */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <h3 className="text-sm font-semibold text-blue-900 uppercase">
                     Deal Owner
                   </h3>
@@ -354,7 +354,7 @@ export function DealDetailSheet({
               {/* Contact Details */}
               {deal.contact && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Contact Details
                   </h3>
                   <div className="space-y-3">
@@ -384,7 +384,7 @@ export function DealDetailSheet({
 
               {/* Status */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Status
                 </h3>
                 <div className="space-y-3">
@@ -414,7 +414,7 @@ export function DealDetailSheet({
 
               {/* Deal Forecast */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Deal Forecast
                 </h3>
                 <div className="space-y-3">
@@ -461,7 +461,7 @@ export function DealDetailSheet({
 
               {/* Description */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <h3 className="text-sm font-semibold text-blue-900 uppercase">Description</h3>
                   {!isEditingDescription && (
                     <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => { setEditDescription(deal.description || ''); setIsEditingDescription(true) }}>
@@ -488,7 +488,7 @@ export function DealDetailSheet({
 
               {/* Deal Information */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Deal Information
                 </h3>
                 <div className="space-y-3">
@@ -521,7 +521,7 @@ export function DealDetailSheet({
               ) : (
                 <div className="space-y-3">
                   {activities.map((activity) => (
-                    <div key={activity.id} className="flex gap-3 text-sm border-l-2 border-slate-200 pl-3 py-1">
+                    <div key={activity.id} className="flex gap-3 text-sm border-l-2 border-slate-200 dark:border-slate-700 pl-3 py-1">
                       <div className="flex-1">
                         <p className="font-medium capitalize">{activity.activity_type.replace(/_/g, ' ')}</p>
                         {activity.description && <p className="text-slate-500">{activity.description}</p>}
@@ -549,7 +549,7 @@ export function DealDetailSheet({
               ) : (
                 <div className="space-y-3 border-t pt-4">
                   {notes.map((note) => (
-                    <div key={note.id} className="bg-slate-50 rounded-lg p-3">
+                    <div key={note.id} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
                       <p className="text-sm">{note.description}</p>
                       <p className="text-xs text-slate-400 mt-2">
                         {formatRelativeTime(note.created_at)}
@@ -564,7 +564,7 @@ export function DealDetailSheet({
         </div>
 
         {/* Footer */}
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
           <Button variant="outline" onClick={onClose} className="w-full">
             Close
           </Button>

@@ -73,7 +73,7 @@ export function RecentActivityTimeline() {
   })
 
   return (
-    <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       {/* Subtle gradient overlay from top */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
       
@@ -131,7 +131,7 @@ export function RecentActivityTimeline() {
                     <Icon className={`h-4 w-4 ${config.iconColour}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{config.label}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{config.label}</p>
                     <p className="text-sm text-muted-foreground truncate">
                       {activity.description || contactName}
                     </p>

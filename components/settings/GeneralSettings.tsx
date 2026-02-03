@@ -33,7 +33,7 @@ export function GeneralSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">General Settings</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">General Settings</h2>
         <p className="text-sm text-muted-foreground">
           Configure basic settings for your CRM.
         </p>

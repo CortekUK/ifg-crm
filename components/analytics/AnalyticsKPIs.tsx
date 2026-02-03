@@ -187,7 +187,7 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
                   <Icon className={cn('h-5 w-5', config.iconColour)} />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-900">{kpi.value}</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">{kpi.value}</p>
               <div className="flex items-center gap-1.5 text-sm mt-2">
                 {isPositive ? (
                   <TrendingUp className="h-4 w-4 text-green-500" />

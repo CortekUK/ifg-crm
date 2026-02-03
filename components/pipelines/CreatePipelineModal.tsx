@@ -103,7 +103,7 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-md flex flex-col p-0 gap-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-          <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+          <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
             Create Pipeline
           </SheetTitle>
           <SheetDescription>

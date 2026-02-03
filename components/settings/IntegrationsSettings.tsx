@@ -37,7 +37,7 @@ export function IntegrationsSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Integrations</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Integrations</h2>
         <p className="text-sm text-muted-foreground">
           Connect external services to extend your CRM functionality.
         </p>
@@ -189,7 +189,7 @@ export function IntegrationsSettings() {
                 Accept payments and manage subscriptions through Stripe.
               </CardDescription>
             </div>
-            <Badge className="bg-gray-100 text-gray-700">
+            <Badge className="bg-gray-100 text-gray-700 dark:text-gray-300 dark:text-gray-300">
               <XCircle className="h-3 w-3 mr-1" />
               Not Connected
             </Badge>
@@ -227,7 +227,7 @@ export function IntegrationsSettings() {
                 Sync invoices and payments with your Xero account.
               </CardDescription>
             </div>
-            <Badge className="bg-gray-100 text-gray-700">
+            <Badge className="bg-gray-100 text-gray-700 dark:text-gray-300 dark:text-gray-300">
               <XCircle className="h-3 w-3 mr-1" />
               Not Connected
             </Badge>

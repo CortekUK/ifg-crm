@@ -398,7 +398,7 @@ export function ProfileSettings() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Profile Settings</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Profile Settings</h2>
           <p className="text-sm text-muted-foreground">
             Configure your personal details used in automated emails.
           </p>
@@ -559,7 +559,7 @@ export function ProfileSettings() {
             
             {showPreview ? (
               <div 
-                className="min-h-[150px] p-4 border rounded-md bg-white prose prose-sm max-w-none"
+                className="min-h-[150px] p-4 border rounded-md bg-white dark:bg-slate-900 prose prose-sm max-w-none"
                 dangerouslySetInnerHTML={{ 
                   __html: profile.email_signature || '<span class="text-muted-foreground">No signature set</span>' 
                 }}

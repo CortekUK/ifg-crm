@@ -56,7 +56,7 @@ export function PlayerCard({
           </Avatar>
 
           {/* Name */}
-          <h3 className="font-semibold text-gray-900">{fullName}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white">{fullName}</h3>
 
           {/* Badges */}
           <div className="flex flex-wrap gap-1 mt-2 justify-center">

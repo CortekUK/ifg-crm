@@ -104,7 +104,7 @@ export function AutomationWorkflowPreview({
             <Zap className="h-4 w-4" />
           </div>
           <div className="flex-1 pt-2">
-            <p className="text-sm font-medium text-gray-900">Start automation when</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Start automation when</p>
             <p className="text-sm text-muted-foreground mt-0.5">
               {getTriggerDescription()}
               {automation.pipeline && (
@@ -141,7 +141,7 @@ export function AutomationWorkflowPreview({
                 <Card className="border-slate-200 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         Send an email:{' '}
                         {step.template ? (
                           <span className="text-blue-600 font-medium">
@@ -165,21 +165,21 @@ export function AutomationWorkflowPreview({
                       <div className="flex items-center gap-4 text-xs pt-2 border-t border-slate-100">
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Send className="h-3 w-3" />
-                          <span className="font-semibold text-gray-700">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-300">
                             {step.stats.sent ?? 0}
                           </span>{' '}
                           sent
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Eye className="h-3 w-3" />
-                          <span className="font-semibold text-gray-700">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-300">
                             {(step.stats.open_rate ?? 0).toFixed(1)}%
                           </span>{' '}
                           opened
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <MousePointer className="h-3 w-3" />
-                          <span className="font-semibold text-gray-700">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-300">
                             {(step.stats.click_rate ?? 0).toFixed(1)}%
                           </span>{' '}
                           clicked
@@ -201,7 +201,7 @@ export function AutomationWorkflowPreview({
               {/* Wait Step */}
               {step.step_type === 'wait' && (
                 <div className="flex items-center gap-2 py-2">
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-gray-700 dark:text-gray-300 dark:text-gray-300">
                     Wait for{' '}
                     <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
                       {formatWaitDuration(step)}
@@ -220,7 +220,7 @@ export function AutomationWorkflowPreview({
               {step.step_type === 'move_to_stage' && (
                 <Card className="border-orange-200 shadow-sm bg-orange-50/50">
                   <CardContent className="p-4">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
                       Move deal to stage:{' '}
                       <span className="text-orange-600 font-semibold">
                         {/* This would need to fetch the target stage name */}
@@ -235,7 +235,7 @@ export function AutomationWorkflowPreview({
               {step.step_type === 'create_deal' && (
                 <Card className="border-purple-200 shadow-sm bg-purple-50/50">
                   <CardContent className="p-4">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
                       Create a deal for contact
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -259,7 +259,7 @@ export function AutomationWorkflowPreview({
             <div className="flex-1 pt-0.5">
               <Card className="border-green-200 shadow-sm bg-green-50/50">
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium text-gray-900 mb-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
                     Exit early when
                   </p>
                   <p className="text-xs text-muted-foreground">

@@ -268,7 +268,7 @@ export function ContactDetailSheet({
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+              <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
                 {contact.first_name} {contact.last_name}
               </SheetTitle>
               <SheetDescription className="mt-1 flex items-center gap-2">
@@ -369,7 +369,7 @@ export function ContactDetailSheet({
             <TabsContent value="overview" className="px-6 py-6 space-y-6 mt-0">
               {/* Contact Details */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Contact Details
                 </h3>
                 <div className="space-y-3">
@@ -406,7 +406,7 @@ export function ContactDetailSheet({
 
               {/* Status */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Status
                 </h3>
                 <div className="space-y-3">
@@ -435,7 +435,7 @@ export function ContactDetailSheet({
 
               {/* Assigned To */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <h3 className="text-sm font-semibold text-blue-900 uppercase">
                     Assigned To
                   </h3>
@@ -477,7 +477,7 @@ export function ContactDetailSheet({
               {/* Player Information */}
               {(contact.position || contact.club_name || contact.gpa || contact.sport) && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Player Information
                   </h3>
                   <div className="space-y-3">
@@ -512,7 +512,7 @@ export function ContactDetailSheet({
               {/* Parent/Guardian */}
               {(contact.parent_name || contact.parent_email || contact.parent_phone) && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Parent/Guardian
                   </h3>
                   <div className="space-y-3">
@@ -542,7 +542,7 @@ export function ContactDetailSheet({
 
               {/* Lists */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <h3 className="text-sm font-semibold text-blue-900 uppercase">
                     Lists
                   </h3>
@@ -609,7 +609,7 @@ export function ContactDetailSheet({
 
               {/* Automations */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Automations
                 </h3>
                 {automationsLoading ? (
@@ -624,7 +624,7 @@ export function ContactDetailSheet({
                       return (
                         <div key={enrollment.id} className={cn(
                           'flex items-center justify-between p-3 rounded-lg border',
-                          enrollment.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
+                          enrollment.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                         )}>
                           <div>
                             <div className="flex items-center gap-2">
@@ -633,7 +633,7 @@ export function ContactDetailSheet({
                                 'text-[10px]',
                                 enrollment.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
                                 enrollment.status === 'paused' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                'bg-slate-50 text-slate-600 border-slate-200'
+                                'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
                               )}>
                                 {enrollment.status === 'active' && <Zap className="h-2.5 w-2.5 mr-0.5" />}
                                 {enrollment.status === 'paused' && <Pause className="h-2.5 w-2.5 mr-0.5" />}
@@ -683,7 +683,7 @@ export function ContactDetailSheet({
               {/* Meeting History */}
               {calendlyEvents.length > 0 && !calendlyEventsLoading && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Meeting History
                   </h3>
                   <div className="space-y-2">
@@ -691,7 +691,7 @@ export function ContactDetailSheet({
                       .filter((e) => e.status !== 'scheduled' || new Date(e.start_time) <= new Date())
                       .slice(0, 3)
                       .map((event) => (
-                        <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
+                        <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800 dark:bg-slate-800">
                           <div>
                             <p className="text-sm font-medium">{event.event_name}</p>
                             <p className="text-xs text-muted-foreground">{formatDate(event.start_time)}</p>
@@ -732,7 +732,7 @@ export function ContactDetailSheet({
                     {deals.map((deal) => (
                       <div
                         key={deal.id}
-                        className="p-4 rounded-lg border bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+                        className="p-4 rounded-lg border bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800 transition-colors cursor-pointer"
                         style={{ borderLeftWidth: 4, borderLeftColor: deal.stage?.color || '#e2e8f0' }}
                       >
                         <div className="flex items-center justify-between">
@@ -822,7 +822,7 @@ export function ContactDetailSheet({
         </div>
 
         {/* Footer */}
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
           <Button variant="outline" onClick={onClose} className="w-full">
             Close
           </Button>

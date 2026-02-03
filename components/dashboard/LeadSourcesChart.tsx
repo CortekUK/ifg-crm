@@ -73,7 +73,7 @@ export function LeadSourcesChart() {
   const maxCount = data?.sources?.[0]?.count || 1
 
   return (
-    <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       {/* Subtle gradient overlay from top */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
       
@@ -120,7 +120,7 @@ export function LeadSourcesChart() {
                       className="w-2.5 h-2.5 rounded-full"
                       style={{ backgroundColor: sourceColours[source.source] || sourceColours.other }}
                     />
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {sourceLabels[source.source] || source.source}
                     </span>
                   </div>

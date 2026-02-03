@@ -16,6 +16,7 @@ import { logout } from '@/app/(auth)/login/actions'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationsDropdown } from './NotificationsDropdown'
 import { MobileSidebar } from './MobileSidebar'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 interface HeaderProps {
   user: {
@@ -62,25 +63,28 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b-2 border-blue-600 bg-white px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b-2 border-blue-600 dark:border-blue-500 bg-white dark:bg-slate-900 px-4 md:px-6">
       {/* Left side - Mobile menu + Page Title */}
       <div className="flex items-center gap-3">
         {/* Mobile Hamburger Menu */}
         <MobileSidebar user={user} />
         
         {/* Page Title - Oswald font, bold */}
-        <h1 className="font-oswald text-xl md:text-2xl font-bold uppercase text-gray-900">
+        <h1 className="font-oswald text-xl md:text-2xl font-bold uppercase text-gray-900 dark:text-white">
           {title}
         </h1>
       </div>
 
       {/* Right Side Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Global Search */}
         <GlobalSearch />
 
         {/* Notifications */}
         <NotificationsDropdown />
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* User Menu */}
         <DropdownMenu>

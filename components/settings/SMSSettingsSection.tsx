@@ -26,7 +26,7 @@ export function SMSSettingsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">SMS Settings</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">SMS Settings</h2>
         <p className="text-sm text-muted-foreground">
           Configure default SMS settings for campaigns and automations.
         </p>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Inter, Oswald } from "next/font/google"
 import { QueryProvider } from "@/components/providers/QueryProvider"
+import { ThemeProvider } from "@/components/providers/ThemeProvider"
 import "./globals.css"
 
 const inter = Inter({
@@ -25,11 +26,18 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${oswald.variable} font-sans antialiased`}>
-        <QueryProvider>
-          {children}
-        </QueryProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <QueryProvider>
+            {children}
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

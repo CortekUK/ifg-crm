@@ -21,45 +21,45 @@ interface DashboardStatsCardProps {
 
 const colourConfig = {
   blue: {
-    gradient: 'from-blue-50/60',
+    gradient: 'from-blue-50/60 dark:from-blue-950/60',
     border: 'border-l-blue-400',
-    iconBg: 'bg-blue-100',
-    iconColour: 'text-blue-600',
+    iconBg: 'bg-blue-100 dark:bg-blue-900/50',
+    iconColour: 'text-blue-600 dark:text-blue-400',
     sparkline: 'bg-blue-400',
   },
   orange: {
-    gradient: 'from-orange-50/60',
+    gradient: 'from-orange-50/60 dark:from-orange-950/60',
     border: 'border-l-orange-400',
-    iconBg: 'bg-orange-100',
-    iconColour: 'text-orange-600',
+    iconBg: 'bg-orange-100 dark:bg-orange-900/50',
+    iconColour: 'text-orange-600 dark:text-orange-400',
     sparkline: 'bg-orange-400',
   },
   green: {
-    gradient: 'from-green-50/60',
+    gradient: 'from-green-50/60 dark:from-green-950/60',
     border: 'border-l-green-400',
-    iconBg: 'bg-green-100',
-    iconColour: 'text-green-600',
+    iconBg: 'bg-green-100 dark:bg-green-900/50',
+    iconColour: 'text-green-600 dark:text-green-400',
     sparkline: 'bg-green-400',
   },
   purple: {
-    gradient: 'from-purple-50/60',
+    gradient: 'from-purple-50/60 dark:from-purple-950/60',
     border: 'border-l-purple-400',
-    iconBg: 'bg-purple-100',
-    iconColour: 'text-purple-600',
+    iconBg: 'bg-purple-100 dark:bg-purple-900/50',
+    iconColour: 'text-purple-600 dark:text-purple-400',
     sparkline: 'bg-purple-400',
   },
   red: {
-    gradient: 'from-red-50/60',
+    gradient: 'from-red-50/60 dark:from-red-950/60',
     border: 'border-l-red-400',
-    iconBg: 'bg-red-100',
-    iconColour: 'text-red-600',
+    iconBg: 'bg-red-100 dark:bg-red-900/50',
+    iconColour: 'text-red-600 dark:text-red-400',
     sparkline: 'bg-red-400',
   },
   teal: {
-    gradient: 'from-teal-50/60',
+    gradient: 'from-teal-50/60 dark:from-teal-950/60',
     border: 'border-l-teal-400',
-    iconBg: 'bg-teal-100',
-    iconColour: 'text-teal-600',
+    iconBg: 'bg-teal-100 dark:bg-teal-900/50',
+    iconColour: 'text-teal-600 dark:text-teal-400',
     sparkline: 'bg-teal-400',
   },
 }
@@ -82,7 +82,7 @@ export function DashboardStatsCard({
   if (isLoading) {
     return (
       <Card className={cn(
-        'relative overflow-hidden bg-white border border-slate-200 shadow-sm border-l-4',
+        'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4',
         config.border
       )}>
         <div className={cn(
@@ -104,7 +104,7 @@ export function DashboardStatsCard({
 
   const cardContent = (
     <Card className={cn(
-      'relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow border-l-4',
+      'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow border-l-4',
       config.border,
       href && 'cursor-pointer'
     )}>
@@ -116,7 +116,7 @@ export function DashboardStatsCard({
       
       <CardContent className="relative z-10 p-5">
         <div className="flex items-start justify-between mb-3">
-          <p className="font-oswald text-xs font-medium text-blue-900 uppercase">
+          <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-100 uppercase">
             {title}
           </p>
           {/* Subtle/muted icon styling */}
@@ -125,7 +125,7 @@ export function DashboardStatsCard({
           </div>
         </div>
         
-        <p className="text-4xl font-bold text-gray-900 mb-1">{value}</p>
+        <p className="text-4xl font-bold text-gray-900 dark:text-white mb-1">{value}</p>
         
         {trend !== undefined && (
           <div className="flex items-center gap-1.5 text-sm mb-4">
@@ -134,9 +134,9 @@ export function DashboardStatsCard({
             <span
               className={cn(
                 'font-medium',
-                isPositive && 'text-green-600',
-                isNegative && 'text-red-600',
-                !isPositive && !isNegative && 'text-gray-500'
+                isPositive && 'text-green-600 dark:text-green-400',
+                isNegative && 'text-red-600 dark:text-red-400',
+                !isPositive && !isNegative && 'text-gray-500 dark:text-gray-400'
               )}
             >
               {isPositive && '+'}

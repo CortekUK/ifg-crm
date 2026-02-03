@@ -68,7 +68,7 @@ export function EmailReplyCard({
             {/* Header Row */}
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                <span className="font-medium text-gray-900">{displayName}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{displayName}</span>
                 {reply.from_name && (
                   <span className="text-sm text-muted-foreground">
                     &lt;{reply.from_email}&gt;

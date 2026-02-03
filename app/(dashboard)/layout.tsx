@@ -31,7 +31,7 @@ export default async function DashboardLayout({
   } : null
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
       {/* Desktop Sidebar - Hidden on mobile */}
       <div className="hidden md:block">
         <Sidebar user={userData} />

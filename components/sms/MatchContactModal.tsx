@@ -142,7 +142,7 @@ export function MatchContactModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
             Match to Contact
           </DialogTitle>
           <DialogDescription>
@@ -160,7 +160,7 @@ export function MatchContactModal({
               <Card className="bg-slate-50">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full">
                       <MessageSquare className="h-4 w-4 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -226,7 +226,7 @@ export function MatchContactModal({
                           'w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors',
                           selectedContactId === contact.id
                             ? 'bg-blue-50 border border-blue-200'
-                            : 'hover:bg-gray-50'
+                            : 'hover:bg-gray-50 dark:hover:bg-slate-800'
                         )}
                       >
                         <Avatar className="h-10 w-10">

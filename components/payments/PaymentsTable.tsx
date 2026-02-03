@@ -122,8 +122,8 @@ export function PaymentsTable({
   if (payments.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
-        <Receipt className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No payments yet</h3>
+        <Receipt className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No payments yet</h3>
         <p className="text-muted-foreground">
           Payments will appear here once recorded.
         </p>

@@ -69,7 +69,7 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
                       className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100"
                     >
                       <div className="font-medium">{v.label}</div>
-                      <div className="text-xs text-gray-500">{v.value}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{v.value}</div>
                     </button>
                   ))}
                 </div>

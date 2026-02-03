@@ -124,7 +124,7 @@ export function NotificationsDropdown() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-gray-500 hover:text-gray-700 relative h-9 w-9"
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-300 relative h-9 w-9"
         >
           <Bell className="h-5 w-5" />
           <span className="sr-only">Notifications</span>
@@ -166,7 +166,7 @@ export function NotificationsDropdown() {
           {notifications.length === 0 ? (
             <div className="py-12 text-center">
               <Bell className="h-8 w-8 mx-auto mb-3 text-gray-300" />
-              <p className="text-sm text-gray-500">No notifications yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No notifications yet</p>
               <p className="text-xs text-gray-400 mt-1">
                 We'll notify you when something happens
               </p>
@@ -182,7 +182,7 @@ export function NotificationsDropdown() {
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
                     className={cn(
-                      'w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex gap-3',
+                      'w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors flex gap-3',
                       !notification.read && 'bg-blue-50/50'
                     )}
                   >

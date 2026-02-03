@@ -69,7 +69,7 @@ export function EmailDetailSheet({
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-gray-900 dark:text-white">
                   {reply.from_name || reply.from_email}
                 </p>
                 {reply.from_name && (
@@ -118,7 +118,7 @@ export function EmailDetailSheet({
             {/* Subject */}
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-1">Subject</h3>
-              <p className="text-lg font-medium text-gray-900">
+              <p className="text-lg font-medium text-gray-900 dark:text-white">
                 {reply.subject || '(No subject)'}
               </p>
             </div>
@@ -126,8 +126,8 @@ export function EmailDetailSheet({
             {/* Body */}
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Message</h3>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+              <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {reply.body_full || reply.body_preview || '(No content)'}
                 </p>
               </div>

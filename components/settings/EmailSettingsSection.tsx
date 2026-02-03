@@ -32,7 +32,7 @@ www.ifg-crm.com`,
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Email Settings</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Email Settings</h2>
         <p className="text-sm text-muted-foreground">
           Configure default email settings for campaigns and automations.
         </p>

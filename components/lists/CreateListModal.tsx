@@ -103,7 +103,7 @@ export function CreateListModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+          <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
             {isEditing ? 'Edit List' : 'Create List'}
           </DialogTitle>
           <DialogDescription>

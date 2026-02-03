@@ -299,7 +299,7 @@ export function CreateCampaignModal({
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-            <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
+            <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
               {isEditing ? 'Edit Campaign' : 'Create Campaign'}
             </SheetTitle>
             <SheetDescription>
@@ -414,7 +414,7 @@ export function CreateCampaignModal({
                                 key={list.id}
                                 className={cn(
                                   'flex items-center justify-between p-2 rounded-md cursor-pointer',
-                                  isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                                  isSelected ? 'bg-blue-50' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                                 )}
                                 onClick={() => handleListToggle(list.id)}
                               >

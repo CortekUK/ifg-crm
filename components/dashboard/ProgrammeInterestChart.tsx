@@ -84,7 +84,7 @@ export function ProgrammeInterestChart() {
   const circumference = 2 * Math.PI * radius
 
   return (
-    <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm">
+    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       {/* Subtle gradient overlay from top */}
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
       
@@ -154,7 +154,7 @@ export function ProgrammeInterestChart() {
               </svg>
               {/* Center text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-gray-900">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
                   {formatNumber(data?.total || 0)}
                 </span>
                 <span className="text-xs text-muted-foreground">Total Leads</span>

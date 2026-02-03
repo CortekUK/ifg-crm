@@ -117,7 +117,7 @@ export function CanvasBlock({
         'group relative mb-2 rounded-lg transition-all border-2',
         isSelected && 'border-blue-500 shadow-md bg-blue-50/30',
         isDragging && 'shadow-lg opacity-90 border-blue-400',
-        !isSelected && !isDragging && 'border-transparent hover:border-slate-300 hover:bg-slate-50/50'
+        !isSelected && !isDragging && 'border-transparent hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
       )}
       onClick={(e) => {
         e.stopPropagation()
