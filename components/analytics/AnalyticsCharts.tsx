@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -59,6 +60,13 @@ const formatCurrency = (value: number) => {
 }
 
 export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
+  // Wait for client-side mount to avoid ResponsiveContainer SSR dimension issues
+  const [isMounted, setIsMounted] = useState(false)
+  
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   const leadsOverTime = data?.leadsOverTime?.length ? data.leadsOverTime : defaultLeadsOverTime
   const pipelineFunnel = data?.pipelineFunnel?.length ? data.pipelineFunnel : defaultPipelineFunnel
   const revenueByMonth = data?.revenueByMonth?.length ? data.revenueByMonth : defaultRevenueByMonth
@@ -66,7 +74,7 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
   const topRecruiters = data?.topRecruiters?.length ? data.topRecruiters : defaultTopRecruiters
   const programmePerformance = data?.programmePerformance?.length ? data.programmePerformance : defaultProgrammePerformance
 
-  if (isLoading) {
+  if (isLoading || !isMounted) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {[1, 2, 3, 4, 5, 6].map((i) => (

@@ -10,13 +10,17 @@ export function usePipelineStages(pipelineId: string | null) {
     queryFn: async () => {
       if (!pipelineId) return []
       
+      // Try pipeline_stages table (per migration schema)
       const { data, error } = await supabase
-        .from('stages')
+        .from('pipeline_stages')
         .select('*')
         .eq('pipeline_id', pipelineId)
         .order('display_order')
 
-      if (error) throw error
+      if (error) {
+        console.warn('Failed to fetch pipeline stages:', error.message)
+        return []
+      }
       return data || []
     },
     enabled: !!pipelineId,

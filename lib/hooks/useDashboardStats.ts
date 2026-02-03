@@ -122,48 +122,70 @@ export function useDashboardStats() {
         : 0
 
       // =====================
-      // TODAY'S ACTIVITY (deal_activities + automation_step_logs + email tracking)
+      // TODAY'S ACTIVITY (deal_activities + automation_logs + email tracking)
       // =====================
-      // Deal activities today
-      const { count: dealActivitiesToday } = await supabase
-        .from('deal_activities')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', today.toISOString())
+      // Deal activities today (non-fatal)
+      let dealActivitiesToday = 0
+      let dealActivitiesYesterday = 0
+      try {
+        const { count } = await supabase
+          .from('deal_activities')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', today.toISOString())
+        dealActivitiesToday = count || 0
 
-      // Automation step logs today
-      const { count: automationLogsToday } = await supabase
-        .from('automation_step_logs')
-        .select('*', { count: 'exact', head: true })
-        .gte('executed_at', today.toISOString())
+        const { count: yesterdayCount } = await supabase
+          .from('deal_activities')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', yesterday.toISOString())
+          .lt('created_at', today.toISOString())
+        dealActivitiesYesterday = yesterdayCount || 0
+      } catch (e) {
+        console.warn('Failed to fetch deal activities:', e)
+      }
 
-      // Email sends today (from campaigns)
-      const { count: emailSendsToday } = await supabase
-        .from('campaign_recipients')
-        .select('*', { count: 'exact', head: true })
-        .gte('sent_at', today.toISOString())
+      // Automation logs today (non-fatal) - table is automation_logs not automation_step_logs
+      let automationLogsToday = 0
+      let automationLogsYesterday = 0
+      try {
+        const { count } = await supabase
+          .from('automation_logs')
+          .select('*', { count: 'exact', head: true })
+          .gte('sent_at', today.toISOString())
+        automationLogsToday = count || 0
 
-      const todayActivities = (dealActivitiesToday || 0) + (automationLogsToday || 0) + (emailSendsToday || 0)
+        const { count: yesterdayCount } = await supabase
+          .from('automation_logs')
+          .select('*', { count: 'exact', head: true })
+          .gte('sent_at', yesterday.toISOString())
+          .lt('sent_at', today.toISOString())
+        automationLogsYesterday = yesterdayCount || 0
+      } catch (e) {
+        console.warn('Failed to fetch automation logs:', e)
+      }
 
-      // Yesterday's activities
-      const { count: dealActivitiesYesterday } = await supabase
-        .from('deal_activities')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', yesterday.toISOString())
-        .lt('created_at', today.toISOString())
+      // Email sends today (from campaigns) - non-fatal
+      let emailSendsToday = 0
+      let emailSendsYesterday = 0
+      try {
+        const { count } = await supabase
+          .from('campaign_recipients')
+          .select('*', { count: 'exact', head: true })
+          .gte('sent_at', today.toISOString())
+        emailSendsToday = count || 0
 
-      const { count: automationLogsYesterday } = await supabase
-        .from('automation_step_logs')
-        .select('*', { count: 'exact', head: true })
-        .gte('executed_at', yesterday.toISOString())
-        .lt('executed_at', today.toISOString())
+        const { count: yesterdayCount } = await supabase
+          .from('campaign_recipients')
+          .select('*', { count: 'exact', head: true })
+          .gte('sent_at', yesterday.toISOString())
+          .lt('sent_at', today.toISOString())
+        emailSendsYesterday = yesterdayCount || 0
+      } catch (e) {
+        console.warn('Failed to fetch campaign recipients:', e)
+      }
 
-      const { count: emailSendsYesterday } = await supabase
-        .from('campaign_recipients')
-        .select('*', { count: 'exact', head: true })
-        .gte('sent_at', yesterday.toISOString())
-        .lt('sent_at', today.toISOString())
-
-      const yesterdayActivities = (dealActivitiesYesterday || 0) + (automationLogsYesterday || 0) + (emailSendsYesterday || 0)
+      const todayActivities = dealActivitiesToday + automationLogsToday + emailSendsToday
+      const yesterdayActivities = dealActivitiesYesterday + automationLogsYesterday + emailSendsYesterday
       const todayActivitiesTrend = yesterdayActivities > 0
         ? Math.round((todayActivities - yesterdayActivities) / yesterdayActivities * 100)
         : 0
@@ -180,20 +202,34 @@ export function useDashboardStats() {
       const { data: dealValues } = await supabase.from('deals').select('deal_value')
       const totalDealValue = dealValues?.reduce((sum, d) => sum + (d.deal_value || 0), 0) || 0
 
-      // Deals won
-      const { data: wonStages } = await supabase
-        .from('stages')
-        .select('id')
-        .in('stage_type', ['payment', 'completed'])
-      const wonStageIds = wonStages?.map((s) => s.id) || []
-
+      // Deals won (non-fatal - try pipeline_stages table)
       let dealsWon = 0
-      if (wonStageIds.length > 0) {
-        const { count } = await supabase
-          .from('deals')
-          .select('*', { count: 'exact', head: true })
-          .in('current_stage_id', wonStageIds)
-        dealsWon = count || 0
+      try {
+        // Try pipeline_stages table first (per migration schema)
+        const { data: wonStages, error: stagesError } = await supabase
+          .from('pipeline_stages')
+          .select('id')
+          .in('stage_type', ['payment', 'completed'])
+        
+        if (stagesError) {
+          // Fallback: count deals with won_at set
+          const { count } = await supabase
+            .from('deals')
+            .select('*', { count: 'exact', head: true })
+            .not('won_at', 'is', null)
+          dealsWon = count || 0
+        } else {
+          const wonStageIds = wonStages?.map((s) => s.id) || []
+          if (wonStageIds.length > 0) {
+            const { count } = await supabase
+              .from('deals')
+              .select('*', { count: 'exact', head: true })
+              .in('current_stage_id', wonStageIds)
+            dealsWon = count || 0
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch won deals:', e)
       }
 
       // Revenue

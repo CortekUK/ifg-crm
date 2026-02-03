@@ -39,7 +39,7 @@ export function useDeals(pipelineId: string | null) {
       // Fetch stages separately to avoid foreign key ambiguity
       const stageIds = [...new Set(deals.map(d => d.current_stage_id).filter(Boolean))]
       const { data: stagesData } = await supabase
-        .from('stages')
+        .from('pipeline_stages')
         .select('*')
         .in('id', stageIds)
 
@@ -127,7 +127,7 @@ export function useDeal(dealId: string | null) {
       let stage = null
       if (deal.current_stage_id) {
         const { data: stageData } = await supabase
-          .from('stages')
+          .from('pipeline_stages')
           .select('*')
           .eq('id', deal.current_stage_id)
           .single()
@@ -204,7 +204,7 @@ export function useMoveDeal() {
 
         if (deal?.current_stage_id) {
           const { data: stageData } = await supabase
-            .from('stages')
+            .from('pipeline_stages')
             .select('name')
             .eq('id', deal.current_stage_id)
             .single()
@@ -219,7 +219,7 @@ export function useMoveDeal() {
       let newStage = newStageName
       if (!newStage) {
         const { data: stage } = await supabase
-          .from('stages')
+          .from('pipeline_stages')
           .select('name')
           .eq('id', newStageId)
           .single()

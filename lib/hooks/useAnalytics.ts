@@ -162,41 +162,49 @@ export function useAnalytics(dateRange: string = '30d') {
         ? ((prevEmailsOpened || 0) / (prevEmailsSent || 1)) * 100 
         : 0
 
-      // SMS stats
-      const { count: smsSent } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'outbound')
-        .gte('sent_at', start.toISOString())
-        .lte('sent_at', end.toISOString())
+      // SMS stats (non-fatal - table may not exist)
+      let smsResponseRate = 0
+      let smsResponseRatePrevious = 0
+      try {
+        const { count: smsSent, error: smsSentError } = await supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'outbound')
+          .gte('sent_at', start.toISOString())
+          .lte('sent_at', end.toISOString())
 
-      const { count: smsReplies } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .gte('received_at', start.toISOString())
-        .lte('received_at', end.toISOString())
+        if (!smsSentError) {
+          const { count: smsReplies } = await supabase
+            .from('sms_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('direction', 'inbound')
+            .gte('received_at', start.toISOString())
+            .lte('received_at', end.toISOString())
 
-      const { count: prevSmsSent } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'outbound')
-        .gte('sent_at', previousStart.toISOString())
-        .lte('sent_at', previousEnd.toISOString())
+          const { count: prevSmsSent } = await supabase
+            .from('sms_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('direction', 'outbound')
+            .gte('sent_at', previousStart.toISOString())
+            .lte('sent_at', previousEnd.toISOString())
 
-      const { count: prevSmsReplies } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .gte('received_at', previousStart.toISOString())
-        .lte('received_at', previousEnd.toISOString())
+          const { count: prevSmsReplies } = await supabase
+            .from('sms_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('direction', 'inbound')
+            .gte('received_at', previousStart.toISOString())
+            .lte('received_at', previousEnd.toISOString())
 
-      const smsResponseRate = (smsSent || 0) > 0 
-        ? ((smsReplies || 0) / (smsSent || 1)) * 100 
-        : 0
-      const smsResponseRatePrevious = (prevSmsSent || 0) > 0 
-        ? ((prevSmsReplies || 0) / (prevSmsSent || 1)) * 100 
-        : 0
+          smsResponseRate = (smsSent || 0) > 0 
+            ? ((smsReplies || 0) / (smsSent || 1)) * 100 
+            : 0
+          smsResponseRatePrevious = (prevSmsSent || 0) > 0 
+            ? ((prevSmsReplies || 0) / (prevSmsSent || 1)) * 100 
+            : 0
+        }
+      } catch (e) {
+        console.warn('Failed to fetch SMS stats:', e)
+      }
 
       // Leads over time (weekly grouping)
       const { data: leadsData } = await supabase
@@ -208,19 +216,25 @@ export function useAnalytics(dateRange: string = '30d') {
 
       const leadsOverTime = groupByWeek(leadsData || [], start, end)
 
-      // Pipeline funnel
-      const { data: stagesData } = await supabase
-        .from('stages')
-        .select('id, name, position')
-        .order('position')
-
+      // Pipeline funnel (non-fatal)
       const pipelineFunnel: { stage: string; count: number }[] = []
-      for (const stage of (stagesData || []).slice(0, 7)) {
-        const { count } = await supabase
-          .from('deals')
-          .select('*', { count: 'exact', head: true })
-          .eq('stage_id', stage.id)
-        pipelineFunnel.push({ stage: stage.name, count: count || 0 })
+      try {
+        const { data: stagesData, error: stagesError } = await supabase
+          .from('pipeline_stages')
+          .select('id, name, display_order')
+          .order('display_order')
+
+        if (!stagesError && stagesData) {
+          for (const stage of stagesData.slice(0, 7)) {
+            const { count } = await supabase
+              .from('deals')
+              .select('*', { count: 'exact', head: true })
+              .eq('current_stage_id', stage.id)
+            pipelineFunnel.push({ stage: stage.name, count: count || 0 })
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch pipeline funnel:', e)
       }
 
       // Revenue by month
