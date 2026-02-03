@@ -347,10 +347,7 @@ export function ConfigureAutomationModal({
                     {selectedTemplate?.type === 'deal_creation' ? 'Pipeline Settings' : 'Trigger Settings'}
                   </h3>
 
-                  <div className={cn(
-                    'grid gap-4',
-                    selectedTemplate?.type === 'deal_creation' ? 'grid-cols-1' : 'grid-cols-2'
-                  )}>
+                  <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Pipeline *</Label>
                       <Select
