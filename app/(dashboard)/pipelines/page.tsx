@@ -176,6 +176,14 @@ export default function PipelinesPage() {
     setAddDealModalOpen(true)
   }, [])
 
+  // Handle add deal from header - use first stage as default
+  const handleAddDealFromHeader = useCallback(() => {
+    if (stages.length > 0) {
+      setSelectedStage(stages[0])
+      setAddDealModalOpen(true)
+    }
+  }, [stages])
+
   // Handle deal click
   const handleDealClick = useCallback((deal: Deal) => {
     setSelectedDeal(deal)
@@ -203,6 +211,7 @@ export default function PipelinesPage() {
         onPipelineChange={handlePipelineChange}
         onOpenSettings={() => setSettingsModalOpen(true)}
         onOpenCreate={() => setCreatePipelineModalOpen(true)}
+        onAddDeal={handleAddDealFromHeader}
         isLoading={pipelinesLoading}
         dealCounts={dealCounts}
       />

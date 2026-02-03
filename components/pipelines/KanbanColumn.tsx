@@ -156,9 +156,9 @@ export function KanbanColumn({
       {/* Add Button */}
       <div className="px-2 pt-2">
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded-lg"
+          className="w-full justify-start border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 text-slate-600 dark:text-slate-400"
           onClick={() => onAddClick(stage)}
         >
           <Plus className="h-4 w-4 mr-1.5" />

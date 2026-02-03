@@ -18,6 +18,7 @@ interface PipelinesPageHeaderProps {
   onPipelineChange: (pipelineId: string) => void
   onOpenSettings: () => void
   onOpenCreate: () => void
+  onAddDeal?: () => void
   isLoading: boolean
   dealCounts: Record<string, number>
 }
@@ -28,6 +29,7 @@ export function PipelinesPageHeader({
   onPipelineChange,
   onOpenSettings,
   onOpenCreate,
+  onAddDeal,
   isLoading,
   dealCounts,
 }: PipelinesPageHeaderProps) {
@@ -63,6 +65,19 @@ export function PipelinesPageHeader({
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Add Deal Button - Most important action */}
+            {onAddDeal && (
+              <Button
+                size="sm"
+                onClick={onAddDeal}
+                disabled={!selectedPipelineId || isLoading}
+                className="bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50 font-semibold"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add Deal
+              </Button>
+            )}
+            
             {/* Settings Button */}
             <Button
               size="sm"

@@ -138,14 +138,35 @@ export function AddDealModal({
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            {/* Deal Owner - At the top */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                Deal Owner
+              </h3>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Assign To <span className="text-red-500">*</span>
+                </Label>
+                <OwnerSelect
+                  value={selectedOwnerId}
+                  onChange={setSelectedOwnerId}
+                  placeholder="Select deal owner"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The deal owner will receive automated emails and notifications for this deal.
+                </p>
+              </div>
+            </div>
+
             {/* Contact Selection */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Contact
               </h3>
               
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Select Contact <span className="text-red-500">*</span>
                 </Label>
                 <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
@@ -237,12 +258,12 @@ export function AddDealModal({
 
             {/* Deal Details */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Deal Details
               </h3>
               
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Deal Value (£) <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
@@ -260,18 +281,7 @@ export function AddDealModal({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
-                  Deal Owner <span className="text-red-500">*</span>
-                </Label>
-                <OwnerSelect
-                  value={selectedOwnerId}
-                  onChange={setSelectedOwnerId}
-                  placeholder="Select deal owner"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Notes (optional)</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes (optional)</Label>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -283,14 +293,14 @@ export function AddDealModal({
 
             {/* Forecasting */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Forecasting (Optional)
               </h3>
               
               {/* Win Probability */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                     <TrendingUp className="h-4 w-4" />
                     Win Probability
                   </Label>
@@ -320,7 +330,7 @@ export function AddDealModal({
 
               {/* Forecasted Close Date */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                   <CalendarIcon className="h-4 w-4" />
                   Forecasted Close Date
                 </Label>
@@ -369,7 +379,7 @@ export function AddDealModal({
 
               {/* Description */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Description</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Description</Label>
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -380,7 +390,7 @@ export function AddDealModal({
             </div>
           </div>
 
-          <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+          <SheetFooter className="border-t dark:border-slate-700 px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
             <div className="flex gap-3 w-full">
               <Button type="button" variant="outline" onClick={onClose} className="flex-1">
                 Cancel
