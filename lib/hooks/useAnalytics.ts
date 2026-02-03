@@ -170,30 +170,30 @@ export function useAnalytics(dateRange: string = '30d') {
           .from('sms_messages')
           .select('*', { count: 'exact', head: true })
           .eq('direction', 'outbound')
-          .gte('sent_at', start.toISOString())
-          .lte('sent_at', end.toISOString())
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
 
         if (!smsSentError) {
           const { count: smsReplies } = await supabase
             .from('sms_messages')
             .select('*', { count: 'exact', head: true })
             .eq('direction', 'inbound')
-            .gte('received_at', start.toISOString())
-            .lte('received_at', end.toISOString())
+            .gte('created_at', start.toISOString())
+            .lte('created_at', end.toISOString())
 
           const { count: prevSmsSent } = await supabase
             .from('sms_messages')
             .select('*', { count: 'exact', head: true })
             .eq('direction', 'outbound')
-            .gte('sent_at', previousStart.toISOString())
-            .lte('sent_at', previousEnd.toISOString())
+            .gte('created_at', previousStart.toISOString())
+            .lte('created_at', previousEnd.toISOString())
 
           const { count: prevSmsReplies } = await supabase
             .from('sms_messages')
             .select('*', { count: 'exact', head: true })
             .eq('direction', 'inbound')
-            .gte('received_at', previousStart.toISOString())
-            .lte('received_at', previousEnd.toISOString())
+            .gte('created_at', previousStart.toISOString())
+            .lte('created_at', previousEnd.toISOString())
 
           smsResponseRate = (smsSent || 0) > 0 
             ? ((smsReplies || 0) / (smsSent || 1)) * 100 
