@@ -54,13 +54,18 @@ export function useEmailEditor(templateId?: string) {
 
   // Load template if editing
   useEffect(() => {
+    console.log('🚀 useEffect triggered, templateId:', templateId)
+    
     if (templateId) {
+      console.log('📥 Calling loadTemplate for ID:', templateId)
       loadTemplate(templateId)
     } else {
+      console.log('🆕 Initializing new template')
       // Initialise with default state
       const initialState: EditorState = { blocks: [], settings: defaultTemplateSettings }
       setHistory([initialState])
       setHistoryIndex(0)
+      setIsLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId])
