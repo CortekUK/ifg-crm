@@ -24,58 +24,72 @@ export function useDeals(pipelineId: string | null) {
         .select(`
           *,
           contact:contacts(id, first_name, last_name, email, phone, graduation_year),
-          stage:stages(*),
           owner:profiles(id, email, full_name, avatar_url, calendly_url),
           pipeline:pipelines(*)
         `)
         .eq('pipeline_id', pipelineId)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching deals:', error)
+        throw error
+      }
       if (!deals || deals.length === 0) return []
 
-      // Get contact IDs to fetch last contacted times
-      const contactIds = deals
-        .filter((d) => d.contact_id)
-        .map((d) => d.contact_id)
+      // Fetch stages separately to avoid foreign key ambiguity
+      const stageIds = [...new Set(deals.map(d => d.current_stage_id).filter(Boolean))]
+      const { data: stagesData } = await supabase
+        .from('stages')
+        .select('*')
+        .in('id', stageIds)
 
-      // Fetch last email sent to each contact from automation_logs
-      const { data: emailLogs } = await supabase
+      const stagesMap = new Map(stagesData?.map(s => [s.id, s]) || [])
+
+      // Build a map of deal_id -> last contacted at (non-fatal if these queries fail)
+      const lastContactedMap = new Map<string, string>()
+      const dealIds = deals.map((d) => d.id)
+
+      // Fetch last email sent from automation_logs (non-fatal)
+      const { data: emailLogs, error: logsError } = await supabase
         .from('automation_logs')
         .select('deal_id, sent_at')
         .eq('status', 'sent')
-        .in('deal_id', deals.map((d) => d.id))
+        .in('deal_id', dealIds)
         .order('sent_at', { ascending: false })
 
-      // Also check deal_activities for email activities
-      const { data: emailActivities } = await supabase
+      if (logsError) {
+        console.warn('Failed to fetch automation logs:', logsError.message)
+      } else {
+        emailLogs?.forEach((log) => {
+          if (!lastContactedMap.has(log.deal_id)) {
+            lastContactedMap.set(log.deal_id, log.sent_at)
+          }
+        })
+      }
+
+      // Fetch email activities (non-fatal)
+      const { data: emailActivities, error: activitiesError } = await supabase
         .from('deal_activities')
         .select('deal_id, created_at')
         .eq('activity_type', 'email_sent')
-        .in('deal_id', deals.map((d) => d.id))
+        .in('deal_id', dealIds)
         .order('created_at', { ascending: false })
 
-      // Build a map of deal_id -> last contacted at
-      const lastContactedMap = new Map<string, string>()
+      if (activitiesError) {
+        console.warn('Failed to fetch deal activities:', activitiesError.message)
+      } else {
+        emailActivities?.forEach((activity) => {
+          const existing = lastContactedMap.get(activity.deal_id)
+          if (!existing || new Date(activity.created_at) > new Date(existing)) {
+            lastContactedMap.set(activity.deal_id, activity.created_at)
+          }
+        })
+      }
 
-      // Process automation logs
-      emailLogs?.forEach((log) => {
-        if (!lastContactedMap.has(log.deal_id)) {
-          lastContactedMap.set(log.deal_id, log.sent_at)
-        }
-      })
-
-      // Process email activities (use whichever is more recent)
-      emailActivities?.forEach((activity) => {
-        const existing = lastContactedMap.get(activity.deal_id)
-        if (!existing || new Date(activity.created_at) > new Date(existing)) {
-          lastContactedMap.set(activity.deal_id, activity.created_at)
-        }
-      })
-
-      // Enrich deals with computed fields
+      // Enrich deals with computed fields and stage data
       return deals.map((deal) => ({
         ...deal,
+        stage: stagesMap.get(deal.current_stage_id) || null,
         time_in_stage: computeTimeInStage(deal),
         last_contacted_at: lastContactedMap.get(deal.id) || null,
       }))
@@ -97,15 +111,28 @@ export function useDeal(dealId: string | null) {
         .select(`
           *,
           contact:contacts(id, first_name, last_name, email, phone, graduation_year),
-          stage:stages(*),
           owner:profiles(id, email, full_name, avatar_url, calendly_url),
           pipeline:pipelines(*)
         `)
         .eq('id', dealId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching deal:', error)
+        throw error
+      }
       if (!deal) return null
+
+      // Fetch stage separately to avoid foreign key ambiguity
+      let stage = null
+      if (deal.current_stage_id) {
+        const { data: stageData } = await supabase
+          .from('stages')
+          .select('*')
+          .eq('id', deal.current_stage_id)
+          .single()
+        stage = stageData
+      }
 
       // Fetch last contacted time for this deal
       const { data: emailLogs } = await supabase
@@ -137,6 +164,7 @@ export function useDeal(dealId: string | null) {
 
       return {
         ...deal,
+        stage,
         time_in_stage: computeTimeInStage(deal),
         last_contacted_at: lastContactedAt,
       }

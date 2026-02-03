@@ -12,7 +12,7 @@ export function useSMSMessages(matchStatus: 'unmatched' | 'matched' | 'spam') {
     queryFn: async ({ pageParam }) => {
       const page = (pageParam as number) ?? 0
       let query = supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select(`
           *,
           contact:contacts(*),
@@ -50,21 +50,21 @@ export function useSMSMessageCounts() {
     queryFn: async () => {
       // Get unmatched count
       const { count: unmatchedCount } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .eq('match_status', 'unmatched')
 
       // Get matched count
       const { count: matchedCount } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .in('match_status', ['auto_matched', 'manually_matched'])
 
       // Get spam count
       const { count: spamCount } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .eq('match_status', 'spam')
@@ -74,14 +74,14 @@ export function useSMSMessageCounts() {
       startOfDay.setHours(0, 0, 0, 0)
 
       const { count: todayCount } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .gte('created_at', startOfDay.toISOString())
 
       // Get positive intent count
       const { count: positiveCount } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .eq('ai_intent', 'positive')
@@ -89,7 +89,7 @@ export function useSMSMessageCounts() {
 
       // Get negative intent count
       const { count: negativeCount } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .eq('ai_intent', 'negative')
@@ -122,7 +122,7 @@ export function useMatchSMSMessage() {
       matchedById: string
     }) => {
       const { error } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .update({
           contact_id: contactId,
           match_status: 'manually_matched' as SMSMatchStatus,
@@ -153,7 +153,7 @@ export function useMarkSMSAsSpam() {
       matchedById: string
     }) => {
       const { error } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .update({
           match_status: 'spam' as SMSMatchStatus,
           matched_by_id: matchedById,

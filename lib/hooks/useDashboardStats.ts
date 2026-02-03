@@ -69,7 +69,7 @@ export function useDashboardStats() {
       // =====================
       // Current unmatched SMS
       const { count: unmatchedSMS } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('match_status', 'unmatched')
         .eq('direction', 'inbound')
@@ -84,7 +84,7 @@ export function useDashboardStats() {
 
       // Unmatched SMS last month
       const { count: unmatchedSMSLastMonth } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('match_status', 'unmatched')
         .eq('direction', 'inbound')

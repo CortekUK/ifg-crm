@@ -212,8 +212,8 @@ export default function PipelinesPage() {
       {/* Stats */}
       <PipelineStats deals={filteredDeals} lastUpdated={lastUpdated} />
 
-      {/* Error State */}
-      {dealsError && (
+      {/* Error State - only show if there are no deals */}
+      {dealsError && deals.length === 0 && (
         <ErrorState
           title="Failed to load deals"
           message="We couldn't load the deals for this pipeline. Please check your connection and try again."

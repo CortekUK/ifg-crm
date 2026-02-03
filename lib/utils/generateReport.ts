@@ -183,7 +183,7 @@ async function generateResponsesReport(dateRange: { start: Date; end: Date }) {
 
   // Get SMS replies
   const { data: smsReplies } = await supabase
-    .from('sms_replies')
+    .from('sms_messages')
     .select(`
       id, body, from_number, received_at,
       contact:contacts(first_name, last_name)

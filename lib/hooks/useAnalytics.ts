@@ -164,28 +164,28 @@ export function useAnalytics(dateRange: string = '30d') {
 
       // SMS stats
       const { count: smsSent } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'outbound')
         .gte('sent_at', start.toISOString())
         .lte('sent_at', end.toISOString())
 
       const { count: smsReplies } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .gte('received_at', start.toISOString())
         .lte('received_at', end.toISOString())
 
       const { count: prevSmsSent } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'outbound')
         .gte('sent_at', previousStart.toISOString())
         .lte('sent_at', previousEnd.toISOString())
 
       const { count: prevSmsReplies } = await supabase
-        .from('sms_replies')
+        .from('sms_messages')
         .select('*', { count: 'exact', head: true })
         .eq('direction', 'inbound')
         .gte('received_at', previousStart.toISOString())
