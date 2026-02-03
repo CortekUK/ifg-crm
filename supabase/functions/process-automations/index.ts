@@ -2,6 +2,7 @@
 // This function handles automation triggers, processes the queue, and checks exit conditions
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Resend } from 'npm:resend@2.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
 
 interface ProcessingSummary {
@@ -615,9 +616,6 @@ async function processEmailStep(
     // Get the from email (in Resend test mode, must use onboarding@resend.dev)
     const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
 
-    // Generate tracking ID for this email
-    const trackingId = crypto.randomUUID()
-
     // Log step execution first (to get the log id)
     const { data: logEntry, error: logError } = await supabase
       .from('automation_logs')
@@ -636,33 +634,32 @@ async function processEmailStep(
       summary.errors.push(`Failed to create log entry: ${logError.message}`)
     }
 
-    // Call the send-email Edge Function
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // Generate tracking ID for this email
+    const trackingId = crypto.randomUUID()
 
-    const sendEmailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-      },
-      body: JSON.stringify({
-        to: contact.email,
-        from_name: fromName,
-        from_email: fromEmail,
-        reply_to: replyTo,
-        subject: subject,
-        html_body: htmlBody,
-        tracking_id: trackingId,
-        contact_id: contact.id,
-        automation_log_id: logEntry?.id,
-      }),
+    // Get Resend API key and send email directly
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendApiKey) {
+      summary.errors.push('RESEND_API_KEY not configured')
+      await logStepExecution(supabase, enrollment, step, 'failed', 'RESEND_API_KEY not configured')
+      return
+    }
+
+    const resend = new Resend(resendApiKey)
+
+    // Send email via Resend API directly
+    const { data: emailData, error: resendError } = await resend.emails.send({
+      from: `${fromName} <${fromEmail}>`,
+      to: [contact.email],
+      reply_to: replyTo,
+      subject: subject,
+      html: htmlBody,
     })
 
-    const sendResult = await sendEmailResponse.json()
-
-    if (!sendResult.success) {
-      summary.errors.push(`Failed to send email to ${contact.email}: ${sendResult.error}`)
+    if (resendError) {
+      console.error('Full Resend error:', JSON.stringify(resendError))
+      console.error('Resend error:', resendError)
+      summary.errors.push(`Failed to send email to ${contact.email}: ${resendError.message}`)
       
       // Update log entry to failed
       if (logEntry?.id) {
@@ -670,15 +667,42 @@ async function processEmailStep(
           .from('automation_logs')
           .update({
             status: 'failed',
-            error_message: sendResult.error,
+            error_message: resendError.message,
           })
           .eq('id', logEntry.id)
       }
+
+      // Log to email_sends table
+      await supabase.from('email_sends').insert({
+        tracking_id: trackingId,
+        recipient_email: contact.email,
+        recipient_contact_id: contact.id,
+        automation_log_id: logEntry?.id,
+        subject: subject,
+        status: 'failed',
+        error_message: resendError.message,
+        sent_at: new Date().toISOString(),
+      })
+
       return
     }
 
+    const messageId = emailData?.id || null
+
+    // Log successful send to email_sends table
+    await supabase.from('email_sends').insert({
+      tracking_id: trackingId,
+      recipient_email: contact.email,
+      recipient_contact_id: contact.id,
+      automation_log_id: logEntry?.id,
+      subject: subject,
+      status: 'sent',
+      resend_message_id: messageId,
+      sent_at: new Date().toISOString(),
+    })
+
     summary.emailsQueued++
-    console.log(`Sent email to ${contact.email} for enrollment ${enrollment.id}, message_id: ${sendResult.message_id}`)
+    console.log(`Sent email to ${contact.email} for enrollment ${enrollment.id}, message_id: ${messageId}`)
 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err)
