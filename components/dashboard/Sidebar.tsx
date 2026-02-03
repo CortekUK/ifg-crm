@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -37,6 +36,7 @@ import {
   ListIcon,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
+import { useSidebar } from '@/components/providers/SidebarProvider'
 
 interface SidebarProps {
   user: {
@@ -97,7 +97,7 @@ const navSections = [
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const { collapsed, toggleCollapsed } = useSidebar()
 
   const getInitials = (name: string | null | undefined, email: string) => {
     if (name) {
@@ -185,7 +185,7 @@ export function Sidebar({ user }: SidebarProps) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleCollapsed}
           className={cn(
             'w-full text-white/70 hover:text-white hover:bg-white/10',
             collapsed ? 'justify-center px-2' : 'justify-start'

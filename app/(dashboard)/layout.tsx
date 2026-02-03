@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Header } from '@/components/dashboard/Header'
+import { MainContent } from '@/components/dashboard/MainContent'
+import { SidebarProvider } from '@/components/providers/SidebarProvider'
 import { Toaster } from '@/components/ui/toaster'
 
 export default async function DashboardLayout({
@@ -31,22 +33,24 @@ export default async function DashboardLayout({
   } : null
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
-      {/* Desktop Sidebar - Hidden on mobile */}
-      <div className="hidden md:block">
-        <Sidebar user={userData} />
-      </div>
-      
-      {/* Main Content - No left padding on mobile, sidebar width padding on desktop */}
-      <div className="md:pl-64 transition-all duration-300">
-        <Header user={userData} />
-        <main className="p-4 md:p-6">
-          {children}
-        </main>
-      </div>
+    <SidebarProvider>
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
+        {/* Desktop Sidebar - Hidden on mobile */}
+        <div className="hidden md:block">
+          <Sidebar user={userData} />
+        </div>
+        
+        {/* Main Content - Responsive to sidebar width */}
+        <MainContent>
+          <Header user={userData} />
+          <main className="p-4 md:p-6">
+            {children}
+          </main>
+        </MainContent>
 
-      {/* Toast Notifications */}
-      <Toaster />
-    </div>
+        {/* Toast Notifications */}
+        <Toaster />
+      </div>
+    </SidebarProvider>
   )
 }
