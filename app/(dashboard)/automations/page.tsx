@@ -170,7 +170,7 @@ export default function AutomationsPage() {
           pipeline_id: editingAutomation.pipeline_id,
           trigger_stage_id: editingAutomation.trigger_stage_id,
           stop_on_stage_ids: editingAutomation.stop_on_stage_ids,
-          config: editingAutomation.config,
+          config: editingAutomation.config ?? null,
         } : null}
       />
     </div>

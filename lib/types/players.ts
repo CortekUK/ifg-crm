@@ -1,7 +1,10 @@
-import type { Contact } from './contacts'
+import type { Contact, ContactOwner } from './contacts'
 
 // Players are contacts with graduation_year set
 export type Player = Contact
+
+// Re-export for convenience
+export type { ContactOwner }
 
 export interface PlayerFilters {
   search?: string

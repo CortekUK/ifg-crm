@@ -1,3 +1,10 @@
+export interface ContactOwner {
+  id: string
+  full_name: string | null
+  email: string
+  calendly_url?: string | null
+}
+
 export interface Contact {
   id: string
   email: string
@@ -21,6 +28,8 @@ export interface Contact {
   sport: 'football' | 'basketball'
   subscription_status: 'active' | 'unsubscribed' | 'subscribed'
   notes: string | null
+  owner_id: string | null
+  owner?: ContactOwner | null
   created_at: string
   updated_at: string
   last_activity_at: string | null

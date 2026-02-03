@@ -809,28 +809,38 @@ export function ConfigureAutomationModal({
                         </label>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        {stages
-                          .filter((s) => s.id !== formData.trigger_stage_id)
-                          .map((stage) => (
-                            <div
-                              key={stage.id}
-                              className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50"
-                            >
-                              <Checkbox
-                                id={`stage-${stage.id}`}
-                                checked={formData.stop_on_stage_ids.includes(stage.id)}
-                                onCheckedChange={() => toggleExitStage(stage.id)}
-                              />
-                              <label
-                                htmlFor={`stage-${stage.id}`}
-                                className="text-sm cursor-pointer flex-1"
+                      {!formData.pipeline_id ? (
+                        <p className="text-sm text-muted-foreground italic">
+                          Select a pipeline first to see available exit stages
+                        </p>
+                      ) : stages.filter((s) => s.id !== formData.trigger_stage_id).length === 0 ? (
+                        <p className="text-sm text-muted-foreground italic">
+                          No other stages available in this pipeline
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          {stages
+                            .filter((s) => s.id !== formData.trigger_stage_id)
+                            .map((stage) => (
+                              <div
+                                key={stage.id}
+                                className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50"
                               >
-                                {stage.name}
-                              </label>
-                            </div>
-                          ))}
-                      </div>
+                                <Checkbox
+                                  id={`stage-${stage.id}`}
+                                  checked={formData.stop_on_stage_ids.includes(stage.id)}
+                                  onCheckedChange={() => toggleExitStage(stage.id)}
+                                />
+                                <label
+                                  htmlFor={`stage-${stage.id}`}
+                                  className="text-sm cursor-pointer flex-1"
+                                >
+                                  {stage.name}
+                                </label>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}

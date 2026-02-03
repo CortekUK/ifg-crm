@@ -13,7 +13,6 @@ import {
   Users,
   Zap,
   Plus,
-  AlertCircle,
   CheckCircle2,
 } from 'lucide-react'
 import type { AutomationStep, Automation } from '@/lib/types/automations'
@@ -149,9 +148,8 @@ export function AutomationWorkflowPreview({
                             {step.template.name}
                           </span>
                         ) : (
-                          <span className="text-red-500 font-medium inline-flex items-center">
-                            <AlertCircle className="h-3.5 w-3.5 mr-1" />
-                            No template selected
+                          <span className="text-blue-600 font-medium cursor-pointer hover:underline">
+                            Select template →
                           </span>
                         )}
                       </p>

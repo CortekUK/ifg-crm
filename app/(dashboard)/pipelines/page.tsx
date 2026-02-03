@@ -8,12 +8,14 @@ import { PipelineStats } from '@/components/pipelines/PipelineStats'
 import { KanbanBoard } from '@/components/pipelines/KanbanBoard'
 import { AddDealModal } from '@/components/pipelines/AddDealModal'
 import { DealDetailSheet } from '@/components/pipelines/DealDetailSheet'
+import { CreatePipelineModal } from '@/components/pipelines/CreatePipelineModal'
+import { PipelineSettingsModal } from '@/components/pipelines/PipelineSettingsModal'
 import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
-import type { PipelineStage, Deal } from '@/lib/types/pipelines'
+import type { PipelineStage, Deal, Pipeline } from '@/lib/types/pipelines'
 import { ErrorState } from '@/components/ui/error-state'
 
 const PIPELINE_STORAGE_KEY = 'ifg-crm-selected-pipeline'
@@ -29,6 +31,8 @@ export default function PipelinesPage() {
   const [addDealModalOpen, setAddDealModalOpen] = useState(false)
   const [selectedStage, setSelectedStage] = useState<PipelineStage | null>(null)
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
+  const [createPipelineModalOpen, setCreatePipelineModalOpen] = useState(false)
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
 
   // Fetch current user
   useEffect(() => {
@@ -85,17 +89,6 @@ export default function PipelinesPage() {
     setSelectedPipelineId(pipelineId)
     localStorage.setItem(PIPELINE_STORAGE_KEY, pipelineId)
   }, [])
-
-  // Debug logging - remove after fixing
-  if (deals.length > 0 && stages.length > 0) {
-    console.log('Debug - Stage IDs from usePipelineStages:', stages.map(s => ({ id: s.id, name: s.name })))
-    console.log('Debug - Deal stage IDs:', deals.map(d => ({ deal_id: d.id, current_stage_id: d.current_stage_id, title: d.title })))
-    const stageIdSet = new Set(stages.map(s => s.id))
-    const unmatchedDeals = deals.filter(d => !stageIdSet.has(d.current_stage_id))
-    if (unmatchedDeals.length > 0) {
-      console.warn('Debug - Deals with unmatched stage IDs:', unmatchedDeals.length)
-    }
-  }
 
   // Filter deals by search, owner, and status
   const filteredDeals = deals.filter((deal) => {
@@ -188,6 +181,9 @@ export default function PipelinesPage() {
     setSelectedDeal(deal)
   }, [])
 
+  // Get selected pipeline object
+  const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId) || null
+
   // Get last updated time from deals
   const lastUpdated = deals.length > 0
     ? deals.reduce((latest, deal) => {
@@ -205,6 +201,8 @@ export default function PipelinesPage() {
         pipelines={pipelines}
         selectedPipelineId={selectedPipelineId}
         onPipelineChange={handlePipelineChange}
+        onOpenSettings={() => setSettingsModalOpen(true)}
+        onOpenCreate={() => setCreatePipelineModalOpen(true)}
         isLoading={pipelinesLoading}
         dealCounts={dealCounts}
       />
@@ -268,6 +266,19 @@ export default function PipelinesPage() {
           userId={userId}
         />
       )}
+
+      {/* Create Pipeline Modal */}
+      <CreatePipelineModal
+        isOpen={createPipelineModalOpen}
+        onClose={() => setCreatePipelineModalOpen(false)}
+      />
+
+      {/* Pipeline Settings Modal */}
+      <PipelineSettingsModal
+        pipeline={selectedPipeline}
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+      />
     </div>
   )
 }

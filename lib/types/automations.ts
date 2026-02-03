@@ -73,7 +73,8 @@ export interface Automation {
   pipeline_id: string | null
   trigger_stage_id: string | null
   stop_on_stage_ids: string[]
-  config: AutomationConfig | null
+  config?: AutomationConfig | null
+  exit_on_reply?: boolean
   is_active: boolean
   created_at: string
   updated_at: string

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Mail,
   Phone,
@@ -25,14 +26,26 @@ import {
   Upload,
   GitBranch,
   Activity,
+  MessageCircle,
+  Pencil,
+  ArrowRight,
+  Trophy,
+  XCircle,
+  Loader2,
 } from 'lucide-react'
-import { formatDate, formatCurrency, formatDateLong } from '@/lib/utils/format'
-import { usePlayer, usePlayerDeals } from '@/lib/hooks/usePlayers'
+import { formatDate, formatCurrency, formatDateLong, formatRelativeTime, formatTimeAgo } from '@/lib/utils/format'
+import { usePlayer, usePlayerDeals, usePlayerActivities, useUpdatePlayer } from '@/lib/hooks/usePlayers'
+import { LogReplyModal } from '@/components/contacts/LogReplyModal'
+import { toast } from '@/lib/hooks/use-toast'
+import { cn } from '@/lib/utils'
+import { OwnerSelect } from '@/components/ui/owner-select'
+import type { Player } from '@/lib/types/players'
 
 interface PlayerDetailSheetProps {
   playerId: string | null
   isOpen: boolean
   onClose: () => void
+  onEdit?: (player: Player) => void
 }
 
 const getAvatarColour = (name: string) => {
@@ -41,10 +54,87 @@ const getAvatarColour = (name: string) => {
   return colours[hash % colours.length]
 }
 
-export function PlayerDetailSheet({ playerId, isOpen, onClose }: PlayerDetailSheetProps) {
+function getActivityIcon(type: string) {
+  switch (type) {
+    case 'email_sent':
+    case 'email_opened':
+      return <Mail className="h-3.5 w-3.5 text-blue-600" />
+    case 'stage_changed':
+      return <ArrowRight className="h-3.5 w-3.5 text-purple-600" />
+    case 'note_added':
+      return <FileText className="h-3.5 w-3.5 text-slate-600" />
+    case 'deal_created':
+    case 'deal_won':
+      return <Trophy className="h-3.5 w-3.5 text-green-600" />
+    case 'deal_lost':
+      return <XCircle className="h-3.5 w-3.5 text-red-600" />
+    case 'meeting_scheduled':
+    case 'meeting_completed':
+      return <Calendar className="h-3.5 w-3.5 text-blue-600" />
+    default:
+      return <Activity className="h-3.5 w-3.5 text-slate-500" />
+  }
+}
+
+function getActivityBg(type: string): string {
+  if (type.includes('email')) return 'bg-blue-50'
+  if (type.includes('stage')) return 'bg-purple-50'
+  if (type.includes('deal_won') || type.includes('deal_created')) return 'bg-green-50'
+  if (type.includes('deal_lost')) return 'bg-red-50'
+  if (type.includes('meeting')) return 'bg-blue-50'
+  return 'bg-slate-50'
+}
+
+export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerDetailSheetProps) {
   const [activeTab, setActiveTab] = useState('overview')
+  const [isLogReplyOpen, setIsLogReplyOpen] = useState(false)
+  const [isEditingOwner, setIsEditingOwner] = useState(false)
+  const [editedNotes, setEditedNotes] = useState('')
+  const [hasNotesChanged, setHasNotesChanged] = useState(false)
+  
   const { data: player, isLoading } = usePlayer(playerId)
   const { data: deals = [] } = usePlayerDeals(playerId)
+  const { data: activities = [], isLoading: activitiesLoading } = usePlayerActivities(playerId)
+  const updatePlayer = useUpdatePlayer()
+
+  useEffect(() => {
+    if (player) {
+      setEditedNotes(player.notes || '')
+      setHasNotesChanged(false)
+    }
+  }, [player])
+
+  useEffect(() => {
+    if (isOpen) setActiveTab('overview')
+  }, [isOpen])
+
+  const handleSaveNotes = async () => {
+    if (!playerId) return
+    try {
+      await updatePlayer.mutateAsync({ playerId, updates: { notes: editedNotes } })
+      setHasNotesChanged(false)
+      toast({ title: 'Notes saved' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save notes.', variant: 'destructive' })
+    }
+  }
+
+  const handleSaveOwner = async (newOwnerId: string | null) => {
+    if (!playerId) return
+    try {
+      await updatePlayer.mutateAsync({ playerId, updates: { owner_id: newOwnerId } })
+      setIsEditingOwner(false)
+      toast({ title: 'Owner updated', description: newOwnerId ? 'Player owner has been changed.' : 'Player owner has been removed.' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update owner.', variant: 'destructive' })
+    }
+  }
+
+  const getInitials = (firstName?: string, lastName?: string) => {
+    const first = firstName?.[0] || ''
+    const last = lastName?.[0] || ''
+    return (first + last).toUpperCase() || '??'
+  }
 
   if (!player && !isLoading) return null
 
@@ -91,26 +181,36 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose }: PlayerDetailShe
               </div>
 
               {/* Quick Actions */}
-              <div className="grid grid-cols-2 gap-3 mt-4">
-                <Button variant="outline" className="w-full" asChild>
+              <div className="grid grid-cols-4 gap-2 mt-4">
+                <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" asChild>
                   <a href={`mailto:${player.email}`}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email
+                    <Mail className="h-4 w-4" />
+                    <span className="text-xs">Email</span>
                   </a>
                 </Button>
-                <Button variant="outline" className="w-full" asChild={!!player.phone} disabled={!player.phone}>
+                <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" asChild={!!player.phone} disabled={!player.phone}>
                   {player.phone ? (
                     <a href={`tel:${player.phone}`}>
-                      <Phone className="h-4 w-4 mr-2" />
-                      Call
+                      <Phone className="h-4 w-4" />
+                      <span className="text-xs">Call</span>
                     </a>
                   ) : (
                     <>
-                      <Phone className="h-4 w-4 mr-2" />
-                      Call
+                      <Phone className="h-4 w-4" />
+                      <span className="text-xs">Call</span>
                     </>
                   )}
                 </Button>
+                <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" onClick={() => setIsLogReplyOpen(true)}>
+                  <MessageCircle className="h-4 w-4" />
+                  <span className="text-xs">Log Reply</span>
+                </Button>
+                {onEdit && (
+                  <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" onClick={() => onEdit(player)}>
+                    <Pencil className="h-4 w-4" />
+                    <span className="text-xs">Edit</span>
+                  </Button>
+                )}
               </div>
             </SheetHeader>
 
@@ -128,7 +228,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose }: PlayerDetailShe
                     Activity
                   </TabsTrigger>
                   <TabsTrigger value="documents" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
-                    Docs
+                    Notes
                   </TabsTrigger>
                 </TabsList>
 
@@ -225,6 +325,47 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose }: PlayerDetailShe
                     </div>
                   </div>
 
+                  {/* Assigned To */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                        Assigned To
+                      </h3>
+                      {!isEditingOwner && (
+                        <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => setIsEditingOwner(true)}>
+                          <Pencil className="h-3 w-3 mr-1" /> Change
+                        </Button>
+                      )}
+                    </div>
+                    {isEditingOwner ? (
+                      <div className="space-y-3">
+                        <OwnerSelect
+                          value={player.owner_id}
+                          onChange={handleSaveOwner}
+                          placeholder="Select owner"
+                          allowClear
+                        />
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => setIsEditingOwner(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : player.owner ? (
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-purple-100 text-purple-600 text-sm">
+                            {getInitials(player.owner.full_name?.split(' ')[0], player.owner.full_name?.split(' ')[1])}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{player.owner.full_name || player.owner.email}</p>
+                          <p className="text-xs text-slate-500">{player.owner.email}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">No owner assigned</p>
+                    )}
+                  </div>
+
                   {/* Notes */}
                   {player.notes && (
                     <div className="space-y-4">
@@ -267,22 +408,61 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose }: PlayerDetailShe
 
                 {/* Activity Tab */}
                 <TabsContent value="activity" className="px-6 py-6 mt-0">
-                  <div className="text-center py-12">
-                    <Activity className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                    <p className="text-slate-500">Activity timeline coming soon.</p>
-                  </div>
-                </TabsContent>
-
-                {/* Documents Tab */}
-                <TabsContent value="documents" className="px-6 py-6 mt-0">
-                  <div className="text-center py-12">
-                    <FileText className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                    <p className="text-slate-500 mb-4">No documents uploaded yet.</p>
-                    <Button variant="outline" disabled>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Document
+                  <div className="flex justify-end mb-4">
+                    <Button variant="outline" size="sm" onClick={() => setIsLogReplyOpen(true)} disabled={!player.email}>
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Log Reply
                     </Button>
                   </div>
+                  {activitiesLoading ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ) : activities.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Activity className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                      <p className="text-muted-foreground">No activities yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {activities.map((activity) => (
+                        <div key={activity.id} className="flex gap-3">
+                          <div className={cn('flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center', getActivityBg(activity.activity_type))}>
+                            {getActivityIcon(activity.activity_type)}
+                          </div>
+                          <div className="flex-1 pb-3 border-b last:border-0">
+                            <p className="text-sm font-medium capitalize">{activity.activity_type.replace(/_/g, ' ')}</p>
+                            {activity.description && <p className="text-sm text-muted-foreground">{activity.description}</p>}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatRelativeTime(activity.created_at)}
+                              {activity.performed_by && ` by ${activity.performed_by.full_name || activity.performed_by.email}`}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Notes Tab */}
+                <TabsContent value="documents" className="px-6 py-6 mt-0 space-y-4">
+                  <Textarea
+                    value={editedNotes}
+                    onChange={(e) => {
+                      setEditedNotes(e.target.value)
+                      setHasNotesChanged(e.target.value !== (player.notes || ''))
+                    }}
+                    placeholder="Add notes about this player..."
+                    rows={6}
+                    className="resize-none"
+                  />
+                  <Button onClick={handleSaveNotes} disabled={!hasNotesChanged || updatePlayer.isPending} className="w-full bg-blue-600 hover:bg-blue-700">
+                    {updatePlayer.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Notes'}
+                  </Button>
+                  {player.notes && (
+                    <p className="text-xs text-muted-foreground text-center">Last updated {formatRelativeTime(player.updated_at)}</p>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>
@@ -293,6 +473,16 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose }: PlayerDetailShe
                 Close
               </Button>
             </SheetFooter>
+
+            {player && (
+              <LogReplyModal
+                isOpen={isLogReplyOpen}
+                onClose={() => setIsLogReplyOpen(false)}
+                contactId={player.id}
+                contactName={`${player.first_name} ${player.last_name}`}
+                contactEmail={player.email || ''}
+              />
+            )}
           </>
         )}
       </SheetContent>

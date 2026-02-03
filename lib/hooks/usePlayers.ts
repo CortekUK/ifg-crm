@@ -55,12 +55,15 @@ export function usePlayer(playerId: string | null) {
 
       const { data, error } = await supabase
         .from('contacts')
-        .select('*')
+        .select(`
+          *,
+          owner:profiles!owner_id(id, full_name, email, calendly_url)
+        `)
         .eq('id', playerId)
         .single()
 
       if (error) throw error
-      return data
+      return data as Player
     },
     enabled: !!playerId,
   })
@@ -217,5 +220,97 @@ export function useCreatePlayer() {
       queryClient.invalidateQueries({ queryKey: ['players'] })
       queryClient.invalidateQueries({ queryKey: ['player-stats'] })
     },
+  })
+}
+
+export function useUpdatePlayer() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ playerId, updates }: { playerId: string; updates: Partial<Player> }) => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .update(updates)
+        .eq('id', playerId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['players'] })
+      queryClient.invalidateQueries({ queryKey: ['player', variables.playerId] })
+      queryClient.invalidateQueries({ queryKey: ['player-stats'] })
+    },
+  })
+}
+
+interface PlayerActivity {
+  id: string
+  activity_type: string
+  description: string | null
+  created_at: string
+  performed_by?: {
+    full_name: string | null
+    email: string
+  } | null
+}
+
+export function usePlayerActivities(playerId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<PlayerActivity[]>({
+    queryKey: ['player-activities', playerId],
+    queryFn: async () => {
+      if (!playerId) return []
+
+      // Get activities from deal_activities for deals associated with this player
+      const { data: deals } = await supabase
+        .from('deals')
+        .select('id')
+        .eq('contact_id', playerId)
+
+      if (!deals || deals.length === 0) return []
+
+      const dealIds = deals.map((d) => d.id)
+
+      const { data, error } = await supabase
+        .from('deal_activities')
+        .select(`
+          id,
+          activity_type,
+          description,
+          created_at,
+          user_id
+        `)
+        .in('deal_id', dealIds)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) throw error
+      if (!data || data.length === 0) return []
+
+      // Fetch user info separately
+      const userIds = [...new Set(data.map(a => a.user_id).filter(Boolean))]
+      let usersMap = new Map<string, { full_name: string | null; email: string }>()
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds)
+        usersMap = new Map(users?.map(u => [u.id, { full_name: u.full_name, email: u.email }]) || [])
+      }
+
+      return data.map(activity => ({
+        id: activity.id,
+        activity_type: activity.activity_type,
+        description: activity.description,
+        created_at: activity.created_at,
+        performed_by: activity.user_id ? usersMap.get(activity.user_id) || null : null,
+      }))
+    },
+    enabled: !!playerId,
   })
 }

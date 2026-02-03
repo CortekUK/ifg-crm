@@ -36,23 +36,15 @@ export function useDeals(pipelineId: string | null) {
       }
       if (!deals || deals.length === 0) return []
 
-      // Fetch stages separately to avoid foreign key ambiguity
-      // Try both pipeline_stages and stages tables as production may use either
+      // Fetch stages separately (using pipeline_stages - the correct table per FK constraint)
       const stageIds = [...new Set(deals.map(d => d.current_stage_id).filter(Boolean))]
       
-      const { data: pipelineStagesData } = await supabase
+      const { data: stagesData } = await supabase
         .from('pipeline_stages')
         .select('*')
         .in('id', stageIds)
 
-      const { data: stagesData } = await supabase
-        .from('stages')
-        .select('*')
-        .in('id', stageIds)
-
-      // Combine stages from both tables
-      const allStages = [...(pipelineStagesData || []), ...(stagesData || [])]
-      const stagesMap = new Map(allStages.map(s => [s.id, s]))
+      const stagesMap = new Map(stagesData?.map(s => [s.id, s]) || [])
 
       // Fetch owners separately to avoid foreign key ambiguity (deals has both deal_owner_id and owner_id)
       const ownerIds = [...new Set(deals.map(d => d.deal_owner_id).filter(Boolean))]
@@ -142,27 +134,15 @@ export function useDeal(dealId: string | null) {
       }
       if (!deal) return null
 
-      // Fetch stage separately - try both tables
+      // Fetch stage separately (using pipeline_stages - the correct table per FK constraint)
       let stage = null
       if (deal.current_stage_id) {
-        // Try pipeline_stages first
-        const { data: psData } = await supabase
+        const { data: stageData } = await supabase
           .from('pipeline_stages')
           .select('*')
           .eq('id', deal.current_stage_id)
           .single()
-        
-        if (psData) {
-          stage = psData
-        } else {
-          // Fallback to stages table
-          const { data: sData } = await supabase
-            .from('stages')
-            .select('*')
-            .eq('id', deal.current_stage_id)
-            .single()
-          stage = sData
-        }
+        stage = stageData
       }
 
       // Fetch owner separately to avoid foreign key ambiguity
@@ -279,7 +259,7 @@ export function useMoveDeal() {
         userId = user?.id
       }
 
-      // Update the deal's stage
+      // Update the deal's stage (only current_stage_id - trigger handles stage_id sync)
       const { error: updateError } = await supabase
         .from('deals')
         .update({
@@ -288,7 +268,10 @@ export function useMoveDeal() {
         })
         .eq('id', dealId)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Failed to move deal:', updateError)
+        throw new Error(updateError.message || 'Failed to update deal stage')
+      }
 
       // Log the activity with stage names
       const { error: activityError } = await supabase

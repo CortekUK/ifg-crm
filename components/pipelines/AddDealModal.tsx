@@ -36,6 +36,7 @@ import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
 import { useCreateDeal } from '@/lib/hooks/useCreateDeal'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
+import { OwnerSelect } from '@/components/ui/owner-select'
 import type { Contact } from '@/lib/types/contacts'
 import type { PipelineStage } from '@/lib/types/pipelines'
 
@@ -60,6 +61,7 @@ export function AddDealModal({
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
   const [dealValue, setDealValue] = useState(defaultDealValue.toString())
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(userId)
   const [notes, setNotes] = useState('')
   const [description, setDescription] = useState('')
   const [winProbability, setWinProbability] = useState<number | null>(null)
@@ -76,24 +78,25 @@ export function AddDealModal({
       setContactSearch('')
       setSelectedContact(null)
       setDealValue(defaultDealValue.toString())
+      setSelectedOwnerId(userId)
       setNotes('')
       setDescription('')
       setWinProbability(null)
       setForecastedCloseDate(undefined)
     }
-  }, [isOpen, defaultDealValue])
+  }, [isOpen, defaultDealValue, userId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedContact) return
+    if (!selectedContact || !selectedOwnerId) return
 
     try {
       await createDeal.mutateAsync({
         contactId: selectedContact.id,
         pipelineId,
         stageId: stage.id,
-        ownerId: userId,
+        ownerId: selectedOwnerId,
         dealValue: parseFloat(dealValue) || 0,
         title: `${selectedContact.first_name} ${selectedContact.last_name}`,
         notes: notes || undefined,
@@ -257,6 +260,17 @@ export function AddDealModal({
               </div>
 
               <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">
+                  Deal Owner <span className="text-red-500">*</span>
+                </Label>
+                <OwnerSelect
+                  value={selectedOwnerId}
+                  onChange={setSelectedOwnerId}
+                  placeholder="Select deal owner"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label className="text-sm font-medium text-slate-700">Notes (optional)</Label>
                 <Textarea
                   value={notes}
@@ -373,7 +387,7 @@ export function AddDealModal({
               </Button>
               <Button
                 type="submit"
-                disabled={!selectedContact || createDeal.isPending}
+                disabled={!selectedContact || !selectedOwnerId || createDeal.isPending}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {createDeal.isPending ? (

@@ -22,18 +22,51 @@ export function useAutomations() {
   return useQuery<Automation[]>({
     queryKey: ['automations'],
     queryFn: async () => {
+      // First, fetch automations with pipeline and steps
       const { data, error } = await supabase
         .from('automations')
         .select(`
           *,
           pipeline:pipelines(*),
-          trigger_stage:stages!automations_trigger_stage_id_fkey(*),
           steps:automation_steps(*, template:email_templates(*))
         `)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
-      return data || []
+      if (error) {
+        console.error('Error fetching automations:', error)
+        throw error
+      }
+
+      if (!data || data.length === 0) {
+        return []
+      }
+
+      // Fetch trigger stages separately to avoid FK issues
+      const triggerStageIds = data
+        .map((a) => a.trigger_stage_id)
+        .filter((id): id is string => !!id)
+
+      if (triggerStageIds.length > 0) {
+        const { data: stages } = await supabase
+          .from('pipeline_stages')
+          .select('*')
+          .in('id', triggerStageIds)
+
+        // Map stages to automations
+        const stageMap = new Map(stages?.map((s) => [s.id, s]) || [])
+        
+        return data.map((automation) => ({
+          ...automation,
+          trigger_stage: automation.trigger_stage_id 
+            ? stageMap.get(automation.trigger_stage_id) || null 
+            : null,
+        }))
+      }
+
+      return data.map((automation) => ({
+        ...automation,
+        trigger_stage: null,
+      }))
     },
   })
 }
@@ -51,14 +84,31 @@ export function useAutomation(automationId: string | null) {
         .select(`
           *,
           pipeline:pipelines(*),
-          trigger_stage:stages!automations_trigger_stage_id_fkey(*),
           steps:automation_steps(*, template:email_templates(*))
         `)
         .eq('id', automationId)
         .single()
 
-      if (error) throw error
-      return data
+      if (error) {
+        console.error('Error fetching automation:', error)
+        throw error
+      }
+
+      // Fetch trigger stage separately
+      let triggerStage = null
+      if (data.trigger_stage_id) {
+        const { data: stage } = await supabase
+          .from('pipeline_stages')
+          .select('*')
+          .eq('id', data.trigger_stage_id)
+          .single()
+        triggerStage = stage || null
+      }
+
+      return {
+        ...data,
+        trigger_stage: triggerStage,
+      }
     },
     enabled: !!automationId,
   })

@@ -241,7 +241,7 @@ export function ListDetailSheet({
                     </Button>
                     <Button onClick={onAddContacts} className="bg-blue-600 hover:bg-blue-700">
                       <UserPlus className="h-4 w-4 mr-2" />
-                      Add Contacts
+                      Add Players
                     </Button>
                   </div>
                 </div>
@@ -316,7 +316,7 @@ export function ListDetailSheet({
                         onClick={onAddContacts}
                       >
                         <UserPlus className="h-4 w-4 mr-2" />
-                        Add Contacts
+                        Add Players
                       </Button>
                     )}
                   </div>

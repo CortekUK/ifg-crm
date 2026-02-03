@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Sheet,
   SheetContent,
@@ -14,8 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -23,35 +20,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { useUpdatePlayer } from '@/lib/hooks/usePlayers'
 import { toast } from '@/lib/hooks/use-toast'
 import { OwnerSelect } from '@/components/ui/owner-select'
+import type { Player } from '@/lib/types/players'
 
-interface AddPlayerModalProps {
+interface EditPlayerModalProps {
+  player: Player | null
   isOpen: boolean
   onClose: () => void
 }
 
-interface Tag {
-  id: string
-  name: string
-  color: string | null
-}
-
-interface List {
-  id: string
-  name: string
-}
-
-interface Pipeline {
-  id: string
-  name: string
-}
-
 const currentYear = new Date().getFullYear()
-const graduationYears = [currentYear, currentYear + 1, currentYear + 2, currentYear + 3, currentYear + 4]
+const graduationYears = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3, currentYear + 4]
 
 const positions = [
   'Goalkeeper',
@@ -79,124 +61,81 @@ const countries = [
   'Brazil',
   'Mexico',
   'Argentina',
+  'Nigeria',
+  'Ghana',
   'Other',
 ]
 
-const sources = [
-  { value: 'website_form', label: 'Website Form' },
-  { value: 'referral', label: 'Referral' },
-  { value: 'google_ads', label: 'Google Ads' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'tournament', label: 'Tournament' },
-  { value: 'manual', label: 'Manual Entry' },
-]
-
-const initialFormData = {
-  first_name: '',
-  last_name: '',
-  email: '',
-  phone: '',
-  date_of_birth: '',
-  graduation_year: '',
-  gender: '',
-  sport: 'football',
-  position: '',
-  club_name: '',
-  gpa: '',
-  country: '',
-  state: '',
-  city: '',
-  parent_name: '',
-  parent_email: '',
-  parent_phone: '',
-  source: '',
-  notes: '',
-}
-
-export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
-  const supabase = createClient()
-  const queryClient = useQueryClient()
-
-  const [formData, setFormData] = useState(initialFormData)
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectedListId, setSelectedListId] = useState<string>('')
+export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProps) {
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    date_of_birth: '',
+    graduation_year: '',
+    gender: '',
+    sport: 'football',
+    position: '',
+    club_name: '',
+    gpa: '',
+    country: '',
+    state: '',
+    city: '',
+    parent_name: '',
+    parent_email: '',
+    parent_phone: '',
+    notes: '',
+  })
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null)
-  const [createDeal, setCreateDeal] = useState(false)
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string>('')
 
-  // Fetch tags
-  const { data: availableTags = [] } = useQuery<Tag[]>({
-    queryKey: ['tags'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('tags').select('*').order('name')
-      if (error) throw error
-      return data || []
-    },
-  })
+  const updatePlayer = useUpdatePlayer()
 
-  // Fetch lists
-  const { data: lists = [] } = useQuery<List[]>({
-    queryKey: ['lists'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('lists').select('id, name').order('name')
-      if (error) throw error
-      return data || []
-    },
-  })
-
-  // Fetch pipelines
-  const { data: pipelines = [] } = useQuery<Pipeline[]>({
-    queryKey: ['pipelines-select'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('pipelines')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('display_order')
-      if (error) throw error
-      return data || []
-    },
-  })
-
-  // Reset form when modal opens
+  // Populate form when player changes
   useEffect(() => {
-    if (isOpen) {
-      setFormData(initialFormData)
-      setSelectedTags([])
-      setSelectedListId('')
-      setSelectedOwnerId(null)
-      setCreateDeal(false)
-      setSelectedPipelineId('')
+    if (player && isOpen) {
+      setFormData({
+        first_name: player.first_name || '',
+        last_name: player.last_name || '',
+        email: player.email || '',
+        phone: player.phone || '',
+        date_of_birth: player.date_of_birth || '',
+        graduation_year: player.graduation_year?.toString() || '',
+        gender: player.gender || '',
+        sport: player.sport || 'football',
+        position: player.position || '',
+        club_name: player.club_name || '',
+        gpa: player.gpa?.toString() || '',
+        country: player.country || '',
+        state: player.state || '',
+        city: player.city || '',
+        parent_name: player.parent_name || '',
+        parent_email: player.parent_email || '',
+        parent_phone: player.parent_phone || '',
+        notes: player.notes || '',
+      })
+      setSelectedOwnerId(player.owner_id || null)
     }
-  }, [isOpen])
+  }, [player, isOpen])
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const toggleTag = (tagId: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
-    )
-  }
+  const handleSubmit = async () => {
+    if (!player || !formData.first_name || !formData.last_name || !formData.email) return
 
-  // Create player mutation
-  const createPlayerMutation = useMutation({
-    mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
-      // Create the contact (player)
-      const { data: contact, error: contactError } = await supabase
-        .from('contacts')
-        .insert({
+    try {
+      await updatePlayer.mutateAsync({
+        playerId: player.id,
+        updates: {
           first_name: formData.first_name,
           last_name: formData.last_name,
           email: formData.email,
           phone: formData.phone || null,
           date_of_birth: formData.date_of_birth || null,
           graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
-          gender: formData.gender || null,
+          gender: (formData.gender as 'male' | 'female') || null,
           sport: formData.sport as 'football' | 'basketball',
           position: formData.position || null,
           club_name: formData.club_name || null,
@@ -207,108 +146,40 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
           parent_name: formData.parent_name || null,
           parent_email: formData.parent_email || null,
           parent_phone: formData.parent_phone || null,
-          source: formData.source || 'manual',
           notes: formData.notes || null,
-          owner_id: selectedOwnerId || null,
-        })
-        .select()
-        .single()
-
-      if (contactError) throw contactError
-
-      // Add tags if selected
-      if (selectedTags.length > 0) {
-        const tagInserts = selectedTags.map((tagId) => ({
-          contact_id: contact.id,
-          tag_id: tagId,
-        }))
-        await supabase.from('contact_tags').insert(tagInserts)
-      }
-
-      // Add to list if selected
-      if (selectedListId) {
-        await supabase.from('list_contacts').insert({
-          list_id: selectedListId,
-          contact_id: contact.id,
-        })
-      }
-
-      // Create deal if requested
-      if (createDeal && selectedPipelineId) {
-        const { data: firstStage } = await supabase
-          .from('pipeline_stages')
-          .select('id')
-          .eq('pipeline_id', selectedPipelineId)
-          .order('display_order')
-          .limit(1)
-          .single()
-
-        if (firstStage) {
-          const { data: deal, error: dealError } = await supabase
-            .from('deals')
-            .insert({
-              contact_id: contact.id,
-              pipeline_id: selectedPipelineId,
-              current_stage_id: firstStage.id,
-              deal_owner_id: user.id,
-              title: `${formData.first_name} ${formData.last_name}`,
-              source: 'manual',
-            })
-            .select()
-            .single()
-
-          if (dealError) throw dealError
-
-          await supabase.from('deal_activities').insert({
-            deal_id: deal.id,
-            activity_type: 'deal_created',
-            description: 'Deal created from player form',
-            performed_by_id: user.id,
-          })
-        }
-      }
-
-      return contact
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['players'] })
-      queryClient.invalidateQueries({ queryKey: ['player-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      queryClient.invalidateQueries({ queryKey: ['deals'] })
+          owner_id: selectedOwnerId,
+        },
+      })
 
       toast({
-        title: 'Player added',
-        description: `${formData.first_name} ${formData.last_name} has been added${createDeal ? ' with a new deal' : ''}.`,
+        title: 'Player updated',
+        description: `${formData.first_name} ${formData.last_name}'s profile has been updated.`,
       })
 
       onClose()
-    },
-    onError: (error) => {
+    } catch (error) {
       toast({
-        title: 'Failed to add player',
+        title: 'Failed to update player',
         description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       })
-    },
-  })
-
-  const handleSubmit = () => {
-    if (!formData.first_name || !formData.last_name || !formData.email) return
-    createPlayerMutation.mutate()
+    }
   }
 
   const isValid = formData.first_name && formData.last_name && formData.email
-  const isLoading = createPlayerMutation.isPending
+  const isLoading = updatePlayer.isPending
+
+  if (!player) return null
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
-            Add Player
+            Edit Player
           </SheetTitle>
           <SheetDescription>
-            Add a new player to your database. Players are contacts with additional profile information.
+            Update {player.first_name} {player.last_name}'s profile information.
           </SheetDescription>
         </SheetHeader>
 
@@ -540,126 +411,30 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
               </div>
             </div>
 
-            {/* Additional Information */}
+            {/* Assigned To */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
-                Additional Information
+                Assigned To
               </h3>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Source</Label>
-                <Select value={formData.source} onValueChange={(v) => handleChange('source', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="How did they find us?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sources.map((source) => (
-                      <SelectItem key={source.value} value={source.value}>
-                        {source.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Assigned To</Label>
-                <OwnerSelect
-                  value={selectedOwnerId}
-                  onChange={setSelectedOwnerId}
-                  placeholder="Select owner (optional)"
-                  allowClear
-                />
-              </div>
-
-              {availableTags.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Tags</Label>
-                  <div className="flex flex-wrap gap-2 p-3 border rounded-md min-h-[60px]">
-                    {availableTags.map((tag) => (
-                      <Badge
-                        key={tag.id}
-                        variant={selectedTags.includes(tag.id) ? 'default' : 'outline'}
-                        className="cursor-pointer transition-colors"
-                        style={{
-                          backgroundColor: selectedTags.includes(tag.id) && tag.color ? tag.color : undefined,
-                          borderColor: tag.color || undefined,
-                        }}
-                        onClick={() => toggleTag(tag.id)}
-                      >
-                        {tag.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Notes</Label>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => handleChange('notes', e.target.value)}
-                  placeholder="Any additional notes about this player..."
-                  rows={3}
-                />
-              </div>
+              <OwnerSelect
+                value={selectedOwnerId}
+                onChange={setSelectedOwnerId}
+                placeholder="Select owner (optional)"
+                allowClear
+              />
             </div>
 
-            {/* Options */}
+            {/* Notes */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
-                Options
+                Notes
               </h3>
-
-              {lists.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Add to List</Label>
-                  <Select
-                    value={selectedListId || undefined}
-                    onValueChange={(value) => setSelectedListId(value === '__none__' ? '' : value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a list (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No list</SelectItem>
-                      {lists.map((list) => (
-                        <SelectItem key={list.id} value={list.id}>
-                          {list.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  id="createDeal"
-                  checked={createDeal}
-                  onCheckedChange={(checked) => setCreateDeal(checked === true)}
-                />
-                <Label htmlFor="createDeal" className="text-sm font-medium text-slate-700 cursor-pointer">
-                  Create a deal for this player
-                </Label>
-              </div>
-
-              {createDeal && pipelines.length > 0 && (
-                <div className="space-y-2 pl-7">
-                  <Label className="text-sm font-medium text-slate-700">Pipeline</Label>
-                  <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select pipeline" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pipelines.map((pipeline) => (
-                        <SelectItem key={pipeline.id} value={pipeline.id}>
-                          {pipeline.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => handleChange('notes', e.target.value)}
+                placeholder="Any additional notes about this player..."
+                rows={4}
+              />
             </div>
           </div>
         </div>
@@ -671,16 +446,16 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!isValid || isLoading || (createDeal && !selectedPipelineId)}
+              disabled={!isValid || isLoading}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
+                  Saving...
                 </>
               ) : (
-                'Add Player'
+                'Save Changes'
               )}
             </Button>
           </div>

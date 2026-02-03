@@ -5,7 +5,7 @@ import { Droppable } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, ChevronRight, DollarSign, Users } from 'lucide-react'
+import { Plus, ChevronRight, PoundSterling, Users } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { DealCard } from './DealCard'
@@ -148,7 +148,7 @@ export function KanbanColumn({
         </div>
         
         <div className="flex items-center gap-1 mt-1.5 text-muted-foreground">
-          <DollarSign className="h-3 w-3" />
+          <PoundSterling className="h-3 w-3" />
           <span className="text-xs font-medium">{formatCurrency(totalValue)}</span>
         </div>
       </div>

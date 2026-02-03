@@ -107,12 +107,15 @@ export function useContact(contactId: string | null) {
 
       const { data, error } = await supabase
         .from('contacts')
-        .select('*')
+        .select(`
+          *,
+          owner:profiles!owner_id(id, full_name, email, calendly_url)
+        `)
         .eq('id', contactId)
         .single()
 
       if (error) throw error
-      return data
+      return data as Contact
     },
     enabled: !!contactId,
   })

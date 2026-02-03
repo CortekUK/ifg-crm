@@ -59,6 +59,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MoreVertical, Pause, Play, MessageCircle } from 'lucide-react'
 import { LogReplyModal } from './LogReplyModal'
+import { OwnerSelect } from '@/components/ui/owner-select'
 
 interface ContactDetailSheetProps {
   contactId: string | null
@@ -120,6 +121,7 @@ export function ContactDetailSheet({
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [isAddListOpen, setIsAddListOpen] = useState(false)
   const [isLogReplyOpen, setIsLogReplyOpen] = useState(false)
+  const [isEditingOwner, setIsEditingOwner] = useState(false)
   const [editedNotes, setEditedNotes] = useState('')
   const [hasNotesChanged, setHasNotesChanged] = useState(false)
 
@@ -211,6 +213,17 @@ export function ContactDetailSheet({
       toast({ title: 'Notes saved' })
     } catch {
       toast({ title: 'Error', description: 'Failed to save notes.', variant: 'destructive' })
+    }
+  }
+
+  const handleSaveOwner = async (newOwnerId: string | null) => {
+    if (!contactId) return
+    try {
+      await updateContact.mutateAsync({ contactId, updates: { owner_id: newOwnerId } })
+      setIsEditingOwner(false)
+      toast({ title: 'Owner updated', description: newOwnerId ? 'Contact owner has been changed.' : 'Contact owner has been removed.' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update owner.', variant: 'destructive' })
     }
   }
 
@@ -418,6 +431,47 @@ export function ContactDetailSheet({
                     <span className="text-sm font-medium">{formatDate(contact.created_at)}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Assigned To */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                    Assigned To
+                  </h3>
+                  {!isEditingOwner && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => setIsEditingOwner(true)}>
+                      <Pencil className="h-3 w-3 mr-1" /> Change
+                    </Button>
+                  )}
+                </div>
+                {isEditingOwner ? (
+                  <div className="space-y-3">
+                    <OwnerSelect
+                      value={contact.owner_id}
+                      onChange={handleSaveOwner}
+                      placeholder="Select owner"
+                      allowClear
+                    />
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => setIsEditingOwner(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : contact.owner ? (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-purple-100 text-purple-600 text-sm">
+                        {getInitials(contact.owner.full_name?.split(' ')[0], contact.owner.full_name?.split(' ')[1])}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium">{contact.owner.full_name || contact.owner.email}</p>
+                      <p className="text-xs text-slate-500">{contact.owner.email}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 italic">No owner assigned</p>
+                )}
               </div>
 
               {/* Player Information */}

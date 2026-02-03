@@ -106,7 +106,7 @@ export function AddContactsToListModal({
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900">
-            Add Contacts to List
+            Add Players to List
           </DialogTitle>
           <DialogDescription>
             Search and select contacts to add to "{listName}".

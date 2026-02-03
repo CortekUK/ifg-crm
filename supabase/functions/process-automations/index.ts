@@ -388,6 +388,36 @@ async function processQueue(
         continue
       }
 
+      // ============================================
+      // CHECK DEAL STATUS - Stop if deal is won or lost
+      // ============================================
+      const { data: deal, error: dealError } = await supabase
+        .from('deals')
+        .select('status')
+        .eq('id', enrollment.deal_id)
+        .single()
+
+      if (dealError) {
+        summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError.message}`)
+        continue
+      }
+
+      if (deal?.status === 'won') {
+        // Stop enrollment - deal was won
+        await stopEnrollment(supabase, enrollment, 'Deal marked as won')
+        summary.enrollmentsStopped++
+        console.log(`Stopped enrollment ${enrollment.id} - deal was won`)
+        continue
+      }
+
+      if (deal?.status === 'lost') {
+        // Stop enrollment - deal was lost
+        await stopEnrollment(supabase, enrollment, 'Deal marked as lost')
+        summary.enrollmentsStopped++
+        console.log(`Stopped enrollment ${enrollment.id} - deal was lost`)
+        continue
+      }
+
       // Get current step details
       const { data: currentStep, error: stepError } = await supabase
         .from('automation_steps')
@@ -706,6 +736,36 @@ async function logStepExecution(
     status,
     sent_at: new Date().toISOString(),
     error_message: errorMessage || null,
+  })
+}
+
+/**
+ * Stop an enrollment with a given reason
+ */
+async function stopEnrollment(
+  supabase: ReturnType<typeof createClient>,
+  enrollment: AutomationEnrollment,
+  reason: string
+) {
+  // Update enrollment status
+  await supabase
+    .from('automation_enrollments')
+    .update({
+      status: 'stopped',
+      stopped_reason: reason,
+      next_step_at: null,
+    })
+    .eq('id', enrollment.id)
+
+  // Log the stop
+  await supabase.from('automation_logs').insert({
+    enrollment_id: enrollment.id,
+    step_id: enrollment.current_step_id,
+    deal_id: enrollment.deal_id,
+    status: 'skipped',
+    sent_at: new Date().toISOString(),
+    log_type: 'enrollment_stopped',
+    error_message: reason,
   })
 }
 

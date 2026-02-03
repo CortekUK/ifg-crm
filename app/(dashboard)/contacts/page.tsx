@@ -9,6 +9,7 @@ import { ContactFilters } from '@/components/contacts/ContactFilters'
 import { ContactsTable } from '@/components/contacts/ContactsTable'
 import { ContactsTablePagination } from '@/components/contacts/ContactsTablePagination'
 import { CreateContactModal } from '@/components/contacts/CreateContactModal'
+import { EditContactModal } from '@/components/contacts/EditContactModal'
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet'
 import { useContacts } from '@/lib/hooks/useContacts'
 import { useContactStats } from '@/lib/hooks/useContactStats'
@@ -38,6 +39,7 @@ export default function ContactsPage() {
   // Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [editingContact, setEditingContact] = useState<Contact | null>(null)
 
   // Debounce search to avoid too many API calls
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -233,6 +235,17 @@ export default function ContactsPage() {
         contactId={selectedContact?.id || null}
         isOpen={!!selectedContact}
         onClose={() => setSelectedContact(null)}
+        onEdit={(contact) => {
+          setSelectedContact(null)
+          setEditingContact(contact)
+        }}
+      />
+
+      {/* Edit Contact Modal */}
+      <EditContactModal
+        contact={editingContact}
+        isOpen={!!editingContact}
+        onClose={() => setEditingContact(null)}
       />
     </div>
   )

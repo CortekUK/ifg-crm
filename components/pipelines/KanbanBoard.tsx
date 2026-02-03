@@ -109,10 +109,20 @@ export function KanbanBoard({
   } = useColumnPreferences(pipelineId)
 
   // Group deals by stage
+  const stageIdSet = new Set(stages.map(s => s.id))
   const dealsByStage = stages.reduce<Record<string, Deal[]>>((acc, stage) => {
     acc[stage.id] = deals.filter((deal) => deal.current_stage_id === stage.id)
     return acc
   }, {})
+  
+  // Put unmatched deals in the first stage column so they're visible
+  if (stages.length > 0) {
+    const unmatchedDeals = deals.filter(d => !stageIdSet.has(d.current_stage_id))
+    if (unmatchedDeals.length > 0) {
+      const firstStageId = stages[0].id
+      dealsByStage[firstStageId] = [...(dealsByStage[firstStageId] || []), ...unmatchedDeals]
+    }
+  }
 
   if (isLoading || !prefsLoaded) {
     return <LoadingSkeleton />

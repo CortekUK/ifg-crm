@@ -8,6 +8,7 @@ import { PlayersGrid } from '@/components/players/PlayersGrid'
 import { PlayersTable } from '@/components/players/PlayersTable'
 import { PlayerDetailSheet } from '@/components/players/PlayerDetailSheet'
 import { AddPlayerModal } from '@/components/players/AddPlayerModal'
+import { EditPlayerModal } from '@/components/players/EditPlayerModal'
 import {
   usePlayers,
   usePlayerStats,
@@ -21,6 +22,7 @@ export default function PlayersPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [filters, setFilters] = useState<PlayerFiltersType>({})
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
 
   // Debounce search
@@ -111,12 +113,23 @@ export default function PlayersPage() {
         playerId={selectedPlayer?.id || null}
         isOpen={!!selectedPlayer}
         onClose={() => setSelectedPlayer(null)}
+        onEdit={(player) => {
+          setSelectedPlayer(null)
+          setEditingPlayer(player)
+        }}
       />
 
       {/* Add Player Modal */}
       <AddPlayerModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
+      />
+
+      {/* Edit Player Modal */}
+      <EditPlayerModal
+        player={editingPlayer}
+        isOpen={!!editingPlayer}
+        onClose={() => setEditingPlayer(null)}
       />
     </div>
   )

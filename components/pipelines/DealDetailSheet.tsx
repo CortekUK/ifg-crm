@@ -50,6 +50,7 @@ import { useMoveDeal } from '@/lib/hooks/useDeals'
 import { useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
+import { OwnerSelect } from '@/components/ui/owner-select'
 import type { Deal } from '@/lib/types/pipelines'
 
 interface DealDetailSheetProps {
@@ -69,6 +70,7 @@ export function DealDetailSheet({
   const [newNote, setNewNote] = useState('')
   const [isEditingProbability, setIsEditingProbability] = useState(false)
   const [isEditingDescription, setIsEditingDescription] = useState(false)
+  const [isEditingOwner, setIsEditingOwner] = useState(false)
   const [editProbability, setEditProbability] = useState<number | null>(null)
   const [editDescription, setEditDescription] = useState('')
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
@@ -86,6 +88,7 @@ export function DealDetailSheet({
       setNewNote('')
       setIsEditingProbability(false)
       setIsEditingDescription(false)
+      setIsEditingOwner(false)
       setEditProbability(deal?.win_probability ?? null)
       setEditDescription(deal?.description || '')
     }
@@ -181,6 +184,17 @@ export function DealDetailSheet({
       await updateDeal.mutateAsync({ dealId: deal.id, updates: { forecasted_close_date: date ? date.toISOString().split('T')[0] : null } })
       setIsDatePickerOpen(false)
       toast({ title: 'Forecasted close date updated', description: date ? `Set to ${formatDate(date.toISOString())}` : 'Cleared' })
+    } catch (error) {
+      toast({ title: 'Failed to update', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+    }
+  }
+
+  const handleSaveOwner = async (newOwnerId: string | null) => {
+    if (!deal || !newOwnerId) return
+    try {
+      await updateDeal.mutateAsync({ dealId: deal.id, updates: { deal_owner_id: newOwnerId } })
+      setIsEditingOwner(false)
+      toast({ title: 'Deal owner updated', description: 'The deal owner has been changed.' })
     } catch (error) {
       toast({ title: 'Failed to update', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
     }
@@ -290,6 +304,53 @@ export function DealDetailSheet({
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="px-6 py-6 space-y-6 mt-0">
+              {/* Deal Owner */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                    Deal Owner
+                  </h3>
+                  {!isEditingOwner && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => setIsEditingOwner(true)}>
+                      <Pencil className="h-3 w-3 mr-1" /> Change
+                    </Button>
+                  )}
+                </div>
+                {isEditingOwner ? (
+                  <div className="space-y-3">
+                    <OwnerSelect
+                      value={deal.deal_owner_id}
+                      onChange={handleSaveOwner}
+                      placeholder="Select deal owner"
+                    />
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => setIsEditingOwner(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : deal.owner ? (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-purple-100 text-purple-600 text-sm">
+                          {getInitials(deal.owner.full_name?.split(' ')[0], deal.owner.full_name?.split(' ')[1])}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">{deal.owner.full_name || deal.owner.email}</p>
+                        <p className="text-xs text-slate-500">{deal.owner.email}</p>
+                      </div>
+                    </div>
+                    {deal.owner.calendly_url && (
+                      <a href={deal.owner.calendly_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                        <Calendar className="h-3 w-3" /> Book a meeting <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400 italic">No owner assigned</p>
+                )}
+              </div>
+
               {/* Contact Details */}
               {deal.contact && (
                 <div className="space-y-4">
@@ -446,30 +507,6 @@ export function DealDetailSheet({
                 </div>
               </div>
 
-              {/* Deal Owner */}
-              {deal.owner && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
-                    Deal Owner
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-purple-100 text-purple-600 text-sm">
-                        {getInitials(deal.owner.full_name?.split(' ')[0], deal.owner.full_name?.split(' ')[1])}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">{deal.owner.full_name || deal.owner.email}</p>
-                      <p className="text-xs text-slate-500">{deal.owner.email}</p>
-                    </div>
-                  </div>
-                  {deal.owner.calendly_url && (
-                    <a href={deal.owner.calendly_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                      <Calendar className="h-3 w-3" /> Book a meeting <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              )}
             </TabsContent>
 
             {/* Activity Tab */}
