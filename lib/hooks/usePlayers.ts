@@ -122,15 +122,31 @@ export function usePlayerDeals(playerId: string | null) {
           title,
           deal_value,
           created_at,
+          deal_owner_id,
           pipeline:pipelines(id, name),
-          stage:stages(id, name, color),
-          owner:profiles(id, full_name)
+          stage:pipeline_stages!current_stage_id(id, name, color)
         `)
         .eq('contact_id', playerId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return (data || []) as unknown as PlayerDeal[]
+      if (!data || data.length === 0) return []
+
+      // Fetch owners separately to avoid FK ambiguity
+      const ownerIds = [...new Set(data.map(d => d.deal_owner_id).filter(Boolean))]
+      let ownersMap = new Map<string, { id: string; full_name: string }>()
+      if (ownerIds.length > 0) {
+        const { data: owners } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', ownerIds)
+        ownersMap = new Map(owners?.map(o => [o.id, { id: o.id, full_name: o.full_name || '' }]) || [])
+      }
+
+      return data.map(deal => ({
+        ...deal,
+        owner: ownersMap.get(deal.deal_owner_id) || { id: '', full_name: '' },
+      })) as unknown as PlayerDeal[]
     },
     enabled: !!playerId,
   })

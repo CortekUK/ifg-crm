@@ -86,6 +86,17 @@ export default function PipelinesPage() {
     localStorage.setItem(PIPELINE_STORAGE_KEY, pipelineId)
   }, [])
 
+  // Debug logging - remove after fixing
+  if (deals.length > 0 && stages.length > 0) {
+    console.log('Debug - Stage IDs from usePipelineStages:', stages.map(s => ({ id: s.id, name: s.name })))
+    console.log('Debug - Deal stage IDs:', deals.map(d => ({ deal_id: d.id, current_stage_id: d.current_stage_id, title: d.title })))
+    const stageIdSet = new Set(stages.map(s => s.id))
+    const unmatchedDeals = deals.filter(d => !stageIdSet.has(d.current_stage_id))
+    if (unmatchedDeals.length > 0) {
+      console.warn('Debug - Deals with unmatched stage IDs:', unmatchedDeals.length)
+    }
+  }
+
   // Filter deals by search, owner, and status
   const filteredDeals = deals.filter((deal) => {
     // Search filter

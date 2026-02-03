@@ -194,8 +194,7 @@ export function useContactDeals(contactId: string | null) {
         .select(`
           *,
           pipeline:pipelines(*),
-          stage:stages(*),
-          owner:profiles(*)
+          stage:pipeline_stages!current_stage_id(*)
         `)
         .eq('contact_id', contactId)
         .order('created_at', { ascending: false })

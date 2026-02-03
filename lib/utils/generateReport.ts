@@ -83,17 +83,27 @@ async function generatePipelineReport(dateRange: { start: Date; end: Date }) {
   const { data, error } = await supabase
     .from('deals')
     .select(`
-      id, title, value, status, created_at, updated_at,
+      id, title, value, status, created_at, updated_at, deal_owner_id,
       contact:contacts(first_name, last_name, email),
-      stage:stages(name),
-      pipeline:pipelines(name),
-      owner:profiles(full_name, email)
+      stage:pipeline_stages!current_stage_id(name),
+      pipeline:pipelines(name)
     `)
     .gte('created_at', dateRange.start.toISOString())
     .lte('created_at', dateRange.end.toISOString())
     .order('created_at', { ascending: false })
 
   if (error) throw error
+
+  // Fetch owners separately to avoid FK ambiguity
+  const ownerIds = [...new Set((data || []).map(d => d.deal_owner_id).filter(Boolean))]
+  let ownersMap = new Map<string, string>()
+  if (ownerIds.length > 0) {
+    const { data: owners } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', ownerIds)
+    ownersMap = new Map(owners?.map(o => [o.id, o.full_name || '']) || [])
+  }
 
   const flattenedData = (data || []).map((deal) => ({
     title: deal.title,
@@ -105,7 +115,7 @@ async function generatePipelineReport(dateRange: { start: Date; end: Date }) {
     contact_email: (deal.contact as any)?.email || '',
     pipeline: (deal.pipeline as any)?.name || '',
     stage: (deal.stage as any)?.name || '',
-    owner: (deal.owner as any)?.full_name || '',
+    owner: ownersMap.get(deal.deal_owner_id) || '',
     created_at: deal.created_at,
   }))
 

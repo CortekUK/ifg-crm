@@ -168,21 +168,21 @@ export function AutomationWorkflowPreview({
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Send className="h-3 w-3" />
                           <span className="font-semibold text-gray-700">
-                            {step.stats.sent}
+                            {step.stats.sent ?? 0}
                           </span>{' '}
                           sent
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Eye className="h-3 w-3" />
                           <span className="font-semibold text-gray-700">
-                            {step.stats.open_rate.toFixed(1)}%
+                            {(step.stats.open_rate ?? 0).toFixed(1)}%
                           </span>{' '}
                           opened
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <MousePointer className="h-3 w-3" />
                           <span className="font-semibold text-gray-700">
-                            {step.stats.click_rate.toFixed(1)}%
+                            {(step.stats.click_rate ?? 0).toFixed(1)}%
                           </span>{' '}
                           clicked
                         </div>

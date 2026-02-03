@@ -18,32 +18,50 @@ export function useDeals(pipelineId: string | null) {
     queryFn: async () => {
       if (!pipelineId) return []
 
-      // Fetch deals with their relationships
+      // Fetch deals with their relationships (excluding owner due to FK ambiguity)
       const { data: deals, error } = await supabase
         .from('deals')
         .select(`
           *,
           contact:contacts(id, first_name, last_name, email, phone, graduation_year),
-          owner:profiles(id, email, full_name, avatar_url, calendly_url),
           pipeline:pipelines(*)
         `)
         .eq('pipeline_id', pipelineId)
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error fetching deals:', error)
-        throw error
+        const errorMessage = error.message || error.details || JSON.stringify(error) || 'Unknown error'
+        console.error('Error fetching deals:', errorMessage)
+        throw new Error(`Failed to fetch deals: ${errorMessage}`)
       }
       if (!deals || deals.length === 0) return []
 
       // Fetch stages separately to avoid foreign key ambiguity
+      // Try both pipeline_stages and stages tables as production may use either
       const stageIds = [...new Set(deals.map(d => d.current_stage_id).filter(Boolean))]
-      const { data: stagesData } = await supabase
+      
+      const { data: pipelineStagesData } = await supabase
         .from('pipeline_stages')
         .select('*')
         .in('id', stageIds)
 
-      const stagesMap = new Map(stagesData?.map(s => [s.id, s]) || [])
+      const { data: stagesData } = await supabase
+        .from('stages')
+        .select('*')
+        .in('id', stageIds)
+
+      // Combine stages from both tables
+      const allStages = [...(pipelineStagesData || []), ...(stagesData || [])]
+      const stagesMap = new Map(allStages.map(s => [s.id, s]))
+
+      // Fetch owners separately to avoid foreign key ambiguity (deals has both deal_owner_id and owner_id)
+      const ownerIds = [...new Set(deals.map(d => d.deal_owner_id).filter(Boolean))]
+      const { data: ownersData } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, avatar_url, calendly_url')
+        .in('id', ownerIds)
+
+      const ownersMap = new Map(ownersData?.map(o => [o.id, o]) || [])
 
       // Build a map of deal_id -> last contacted at (non-fatal if these queries fail)
       const lastContactedMap = new Map<string, string>()
@@ -86,10 +104,11 @@ export function useDeals(pipelineId: string | null) {
         })
       }
 
-      // Enrich deals with computed fields and stage data
+      // Enrich deals with computed fields, stage data, and owner
       return deals.map((deal) => ({
         ...deal,
         stage: stagesMap.get(deal.current_stage_id) || null,
+        owner: ownersMap.get(deal.deal_owner_id) || null,
         time_in_stage: computeTimeInStage(deal),
         last_contacted_at: lastContactedMap.get(deal.id) || null,
       }))
@@ -111,27 +130,50 @@ export function useDeal(dealId: string | null) {
         .select(`
           *,
           contact:contacts(id, first_name, last_name, email, phone, graduation_year),
-          owner:profiles(id, email, full_name, avatar_url, calendly_url),
           pipeline:pipelines(*)
         `)
         .eq('id', dealId)
         .single()
 
       if (error) {
-        console.error('Error fetching deal:', error)
-        throw error
+        const errorMessage = error.message || error.details || JSON.stringify(error) || 'Unknown error'
+        console.error('Error fetching deal:', errorMessage)
+        throw new Error(`Failed to fetch deal: ${errorMessage}`)
       }
       if (!deal) return null
 
-      // Fetch stage separately to avoid foreign key ambiguity
+      // Fetch stage separately - try both tables
       let stage = null
       if (deal.current_stage_id) {
-        const { data: stageData } = await supabase
+        // Try pipeline_stages first
+        const { data: psData } = await supabase
           .from('pipeline_stages')
           .select('*')
           .eq('id', deal.current_stage_id)
           .single()
-        stage = stageData
+        
+        if (psData) {
+          stage = psData
+        } else {
+          // Fallback to stages table
+          const { data: sData } = await supabase
+            .from('stages')
+            .select('*')
+            .eq('id', deal.current_stage_id)
+            .single()
+          stage = sData
+        }
+      }
+
+      // Fetch owner separately to avoid foreign key ambiguity
+      let owner = null
+      if (deal.deal_owner_id) {
+        const { data: ownerData } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, avatar_url, calendly_url')
+          .eq('id', deal.deal_owner_id)
+          .single()
+        owner = ownerData
       }
 
       // Fetch last contacted time for this deal
@@ -165,6 +207,7 @@ export function useDeal(dealId: string | null) {
       return {
         ...deal,
         stage,
+        owner,
         time_in_stage: computeTimeInStage(deal),
         last_contacted_at: lastContactedAt,
       }
