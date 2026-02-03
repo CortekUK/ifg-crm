@@ -16,9 +16,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Eye, Pencil, Zap, Mail, Users, Clock } from 'lucide-react'
+import { MoreHorizontal, Eye, Pencil, Copy, Trash2, Zap, Mail, Users, Clock } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/format'
 import type { Automation } from '@/lib/types/automations'
 
@@ -28,6 +29,8 @@ interface AutomationsTableProps {
   onView: (automation: Automation) => void
   onEdit: (automation: Automation) => void
   onToggle: (automationId: string, isActive: boolean) => void
+  onDuplicate: (automationId: string) => void
+  onDelete: (automation: Automation) => void
 }
 
 export function AutomationsTable({
@@ -36,6 +39,8 @@ export function AutomationsTable({
   onView,
   onEdit,
   onToggle,
+  onDuplicate,
+  onDelete,
 }: AutomationsTableProps) {
   if (isLoading) {
     return (
@@ -238,6 +243,18 @@ export function AutomationsTable({
                       <DropdownMenuItem onClick={() => onEdit(automation)}>
                         <Pencil className="h-4 w-4 mr-2" />
                         Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDuplicate(automation.id)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => onDelete(automation)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

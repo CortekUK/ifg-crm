@@ -496,13 +496,19 @@ export function useDeleteAutomation() {
 
   return useMutation({
     mutationFn: async (automationId: string) => {
-      // Delete enrollments first (cascade should handle this, but being explicit)
+      // Delete logs first (they reference steps)
+      await supabase
+        .from('automation_logs')
+        .delete()
+        .eq('enrollment_id', automationId)
+
+      // Delete enrollments
       await supabase
         .from('automation_enrollments')
         .delete()
         .eq('automation_id', automationId)
 
-      // Delete steps (cascade should handle this too)
+      // Delete steps
       await supabase
         .from('automation_steps')
         .delete()
@@ -515,6 +521,83 @@ export function useDeleteAutomation() {
         .eq('id', automationId)
 
       if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automations'] })
+      queryClient.invalidateQueries({ queryKey: ['automation-stats'] })
+    },
+  })
+}
+
+export function useDuplicateAutomation() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (automationId: string) => {
+      // Get the original automation with steps
+      const { data: original, error: fetchError } = await supabase
+        .from('automations')
+        .select(`
+          *,
+          steps:automation_steps(*)
+        `)
+        .eq('id', automationId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      // Create the duplicate automation
+      const { data: duplicate, error: createError } = await supabase
+        .from('automations')
+        .insert({
+          name: `${original.name} (Copy)`,
+          description: original.description,
+          pipeline_id: original.pipeline_id,
+          trigger_stage_id: original.trigger_stage_id,
+          trigger_type: original.trigger_type,
+          automation_type: original.automation_type,
+          stop_on_stage_ids: original.stop_on_stage_ids,
+          config: original.config,
+          exit_on_reply: original.exit_on_reply,
+          is_active: false, // Duplicates are always paused
+        })
+        .select()
+        .single()
+
+      if (createError) throw createError
+
+      // Duplicate all the steps
+      if (original.steps && original.steps.length > 0) {
+        const duplicatedSteps = original.steps.map((step: {
+          step_order: number
+          step_type: string
+          delay_days: number
+          delay_hours: number
+          email_template_id: string | null
+          sms_content: string | null
+          target_stage_id: string | null
+          conditions: Record<string, unknown> | null
+        }) => ({
+          automation_id: duplicate.id,
+          step_order: step.step_order,
+          step_type: step.step_type,
+          delay_days: step.delay_days,
+          delay_hours: step.delay_hours,
+          email_template_id: step.email_template_id,
+          sms_content: step.sms_content,
+          target_stage_id: step.target_stage_id,
+          conditions: step.conditions,
+        }))
+
+        const { error: stepsError } = await supabase
+          .from('automation_steps')
+          .insert(duplicatedSteps)
+
+        if (stepsError) throw stepsError
+      }
+
+      return duplicate
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['automations'] })

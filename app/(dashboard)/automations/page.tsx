@@ -8,7 +8,17 @@ import { AutomationsTable } from '@/components/automations/AutomationsTable'
 import { RunHistoryTable } from '@/components/automations/RunHistoryTable'
 import { AutomationDetailSheet } from '@/components/automations/AutomationDetailSheet'
 import { ConfigureAutomationModal } from '@/components/automations/ConfigureAutomationModal'
-import { useAutomations, useAutomationLogs, useToggleAutomation, useCreateAutomation, useUpdateAutomation } from '@/lib/hooks/useAutomations'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useAutomations, useAutomationLogs, useToggleAutomation, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, useDuplicateAutomation } from '@/lib/hooks/useAutomations'
 import { useAutomationStats } from '@/lib/hooks/useAutomationStats'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Automation, AutomationFilters, AutomationType, AutomationConfig } from '@/lib/types/automations'
@@ -19,6 +29,7 @@ export default function AutomationsPage() {
   const [editingAutomation, setEditingAutomation] = useState<Automation | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [historyFilters, setHistoryFilters] = useState<AutomationFilters>({})
+  const [automationToDelete, setAutomationToDelete] = useState<Automation | null>(null)
 
   // Fetch data
   const { data: automations = [], isLoading: automationsLoading } = useAutomations()
@@ -27,6 +38,8 @@ export default function AutomationsPage() {
   const toggleAutomation = useToggleAutomation()
   const createAutomation = useCreateAutomation()
   const updateAutomation = useUpdateAutomation()
+  const deleteAutomation = useDeleteAutomation()
+  const duplicateAutomation = useDuplicateAutomation()
 
   const handleCreateClick = () => {
     setEditingAutomation(null)
@@ -47,6 +60,43 @@ export default function AutomationsPage() {
       await toggleAutomation.mutateAsync({ automationId, isActive })
     } catch (error) {
       console.error('Failed to toggle automation:', error)
+    }
+  }
+
+  const handleDuplicate = async (automationId: string) => {
+    try {
+      await duplicateAutomation.mutateAsync(automationId)
+      toast({
+        title: 'Automation duplicated',
+        description: 'A copy of the automation has been created (paused by default).',
+      })
+    } catch (error) {
+      console.error('Failed to duplicate automation:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to duplicate automation. Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!automationToDelete) return
+    
+    try {
+      await deleteAutomation.mutateAsync(automationToDelete.id)
+      toast({
+        title: 'Automation deleted',
+        description: `"${automationToDelete.name}" has been deleted.`,
+      })
+      setAutomationToDelete(null)
+    } catch (error) {
+      console.error('Failed to delete automation:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete automation. Please try again.',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -130,6 +180,8 @@ export default function AutomationsPage() {
           onView={handleView}
           onEdit={handleEdit}
           onToggle={handleToggle}
+          onDuplicate={handleDuplicate}
+          onDelete={setAutomationToDelete}
         />
       ) : (
         <RunHistoryTable
@@ -173,6 +225,28 @@ export default function AutomationsPage() {
           config: editingAutomation.config ?? null,
         } : null}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!automationToDelete} onOpenChange={() => setAutomationToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete automation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{automationToDelete?.name}&quot;? This will also remove all 
+              enrollment history and logs associated with this automation. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
