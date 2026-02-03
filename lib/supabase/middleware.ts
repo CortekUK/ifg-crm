@@ -31,8 +31,13 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Skip auth for server-to-server endpoints (they use their own auth mechanisms)
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/cron') ||
+                     request.nextUrl.pathname.startsWith('/api/webhooks')
+
   if (
     !user &&
+    !isApiRoute &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/register') &&
     !request.nextUrl.pathname.startsWith('/auth')
