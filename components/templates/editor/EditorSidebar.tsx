@@ -89,7 +89,7 @@ export function EditorSidebar({
   }
 
   return (
-    <div className="w-[300px] border-r border-slate-200 bg-slate-50 flex flex-col">
+    <div className="w-[300px] border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex flex-col">
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
           {/* Block Editing Panel - Shows when a block is selected */}

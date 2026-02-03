@@ -77,7 +77,7 @@ export function EditorHeader({
 
   return (
     <>
-      <div className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4">
+      <div className="h-14 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-between px-4">
         {/* Left: Close + Name */}
         <div className="flex items-center gap-4">
           <Button

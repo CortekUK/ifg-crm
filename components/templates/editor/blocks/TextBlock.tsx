@@ -321,7 +321,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
           suppressContentEditableWarning
           onInput={handleInput}
           className={cn(
-            'min-h-[40px] p-2 rounded focus:outline-none',
+            'min-h-[40px] p-2 rounded focus:outline-none text-gray-900',
             fontSize,
             isSelected && 'bg-gray-50'
           )}

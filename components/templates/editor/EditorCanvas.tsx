@@ -40,7 +40,7 @@ export function EditorCanvas({
 
   return (
     <div
-      className="flex-1 bg-slate-100 overflow-auto p-6"
+      className="flex-1 bg-slate-100 dark:bg-slate-900 overflow-auto p-6"
       onClick={handleCanvasClick}
     >
       <div className="max-w-[600px] mx-auto">

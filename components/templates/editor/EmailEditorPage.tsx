@@ -79,7 +79,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col bg-white">
+      <div className="h-screen flex flex-col bg-white dark:bg-slate-900">
         {/* Header Skeleton */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-4">
