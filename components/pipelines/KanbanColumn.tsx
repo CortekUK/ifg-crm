@@ -162,7 +162,7 @@ export function KanbanColumn({
           onClick={() => onAddClick(stage)}
         >
           <Plus className="h-4 w-4 mr-1.5" />
-          Add deal
+          Add Deal
         </Button>
       </div>
 
