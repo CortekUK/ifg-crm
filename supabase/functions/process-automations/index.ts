@@ -525,27 +525,34 @@ async function processEmailStep(
       return
     }
 
-    // Get deal with contact and owner info
+    // Fetch deal first (without joins - they don't work reliably)
     const { data: deal, error: dealError } = await supabase
       .from('deals')
-      .select(`
-        id,
-        title,
-        contact:contacts(id, email, first_name, last_name),
-        owner:profiles(id, email, full_name)
-      `)
+      .select('id, title, contact_id, deal_owner_id, owner_id')
       .eq('id', enrollment.deal_id)
       .single()
 
     if (dealError || !deal) {
-      summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError?.message}`)
-      await logStepExecution(supabase, enrollment, step, 'failed', 'Deal not found')
+      summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError?.message || 'Not found'}`)
+      await logStepExecution(supabase, enrollment, step, 'failed', `Deal not found: ${dealError?.message || 'No data'}`)
       return
     }
 
-    // Get contact info (handle array response from join)
-    const contactData = deal.contact
-    const contact = Array.isArray(contactData) ? contactData[0] : contactData
+    // Fetch contact separately using contact_id
+    let contact: { id: string; email: string; first_name: string; last_name: string } | null = null
+    if (deal.contact_id) {
+      const { data: contactData, error: contactError } = await supabase
+        .from('contacts')
+        .select('id, email, first_name, last_name')
+        .eq('id', deal.contact_id)
+        .single()
+
+      if (contactError) {
+        console.log(`Warning: Failed to fetch contact ${deal.contact_id}: ${contactError.message}`)
+      } else {
+        contact = contactData
+      }
+    }
     
     if (!contact?.email) {
       summary.errors.push(`Deal ${enrollment.deal_id} has no contact email`)
@@ -553,9 +560,22 @@ async function processEmailStep(
       return
     }
 
-    // Get owner info (handle array response from join)
-    const ownerData = deal.owner
-    const owner = Array.isArray(ownerData) ? ownerData[0] : ownerData
+    // Fetch owner separately - check both deal_owner_id and owner_id columns
+    let owner: { id: string; email: string; full_name: string } | null = null
+    const ownerId = deal.deal_owner_id || deal.owner_id
+    if (ownerId) {
+      const { data: ownerData, error: ownerError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', ownerId)
+        .single()
+
+      if (ownerError) {
+        console.log(`Warning: Failed to fetch owner ${ownerId}: ${ownerError.message}`)
+      } else {
+        owner = ownerData
+      }
+    }
 
     // Get email template
     const { data: template, error: templateError } = await supabase
