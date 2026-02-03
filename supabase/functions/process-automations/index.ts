@@ -612,8 +612,8 @@ async function processEmailStep(
       fromName = template.fixed_from_name
     }
 
-    // Get the from email (must be verified domain in Resend)
-    const fromEmail = Deno.env.get('FROM_EMAIL') || 'notifications@ifg-crm.com'
+    // Get the from email (in Resend test mode, must use onboarding@resend.dev)
+    const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
 
     // Generate tracking ID for this email
     const trackingId = crypto.randomUUID()

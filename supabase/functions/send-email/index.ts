@@ -140,6 +140,7 @@ Deno.serve(async (req) => {
     })
 
     if (resendError) {
+      console.error('Full Resend error:', JSON.stringify(resendError))
       console.error('Resend error:', resendError)
       
       // Log failed send to database if we have tracking info
@@ -243,46 +244,68 @@ async function logEmailSend(params: {
 
 /**
  * Fetch merge tag data for a deal
+ * Uses separate queries instead of embedded joins for reliability
  */
 async function fetchMergeDataForDeal(
   supabase: ReturnType<typeof createClient>,
   dealId: string
 ): Promise<MergeTagData> {
-  const { data: deal, error } = await supabase
+  // Fetch deal first (without joins)
+  const { data: deal, error: dealError } = await supabase
     .from('deals')
-    .select(`
-      id,
-      title,
-      value,
-      stage:stages!deals_stage_id_fkey(name),
-      pipeline:pipelines!deals_pipeline_id_fkey(name),
-      contact:contacts!deals_contact_id_fkey(
-        first_name,
-        last_name,
-        email,
-        phone
-      ),
-      owner:profiles!deals_owner_id_fkey(
-        full_name,
-        email,
-        phone,
-        calendly_url,
-        email_signature
-      )
-    `)
+    .select('id, title, value, contact_id, deal_owner_id, owner_id, current_stage_id, pipeline_id')
     .eq('id', dealId)
     .single()
 
-  if (error || !deal) {
-    console.error('Failed to fetch deal for merge tags:', error)
+  if (dealError || !deal) {
+    console.error('Failed to fetch deal for merge tags:', dealError)
     return {}
   }
 
-  // Handle potential array returns from joins
-  const contact = Array.isArray(deal.contact) ? deal.contact[0] : deal.contact
-  const owner = Array.isArray(deal.owner) ? deal.owner[0] : deal.owner
-  const stage = Array.isArray(deal.stage) ? deal.stage[0] : deal.stage
-  const pipeline = Array.isArray(deal.pipeline) ? deal.pipeline[0] : deal.pipeline
+  // Fetch contact separately
+  let contact: { first_name: string; last_name: string; email: string; phone: string } | null = null
+  if (deal.contact_id) {
+    const { data: contactData } = await supabase
+      .from('contacts')
+      .select('first_name, last_name, email, phone')
+      .eq('id', deal.contact_id)
+      .single()
+    contact = contactData
+  }
+
+  // Fetch owner separately (check both deal_owner_id and owner_id)
+  let owner: { full_name: string; email: string; phone: string; calendly_url: string; email_signature: string } | null = null
+  const ownerId = deal.deal_owner_id || deal.owner_id
+  if (ownerId) {
+    const { data: ownerData } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone, calendly_url, email_signature')
+      .eq('id', ownerId)
+      .single()
+    owner = ownerData
+  }
+
+  // Fetch stage separately (using pipeline_stages, not stages)
+  let stage: { name: string } | null = null
+  if (deal.current_stage_id) {
+    const { data: stageData } = await supabase
+      .from('pipeline_stages')
+      .select('name')
+      .eq('id', deal.current_stage_id)
+      .single()
+    stage = stageData
+  }
+
+  // Fetch pipeline separately
+  let pipeline: { name: string } | null = null
+  if (deal.pipeline_id) {
+    const { data: pipelineData } = await supabase
+      .from('pipelines')
+      .select('name')
+      .eq('id', deal.pipeline_id)
+      .single()
+    pipeline = pipelineData
+  }
 
   return {
     // Contact fields
