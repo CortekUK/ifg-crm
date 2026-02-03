@@ -356,7 +356,7 @@ async function checkAndMoveDealToZoomStage(
 
   // Find a stage named "Zoom Scheduled" or similar in the same pipeline
   const { data: zoomStage } = await supabase
-    .from('stages')
+    .from('pipeline_stages')
     .select('id, name')
     .eq('pipeline_id', deal.pipeline_id)
     .or('name.ilike.%zoom%,name.ilike.%scheduled%,name.ilike.%meeting%')
