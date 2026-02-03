@@ -24,9 +24,9 @@ interface TemplateCardProps {
 }
 
 const categoryConfig: Record<Template['category'], { label: string; className: string }> = {
-  automation: { label: 'Automation', className: 'bg-purple-100 text-purple-700' },
-  campaign: { label: 'Campaign', className: 'bg-blue-100 text-blue-700' },
-  transactional: { label: 'Transactional', className: 'bg-green-100 text-green-700' },
+  automation: { label: 'Automation', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
+  campaign: { label: 'Campaign', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
+  transactional: { label: 'Transactional', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
 }
 
 export function TemplateCard({ 

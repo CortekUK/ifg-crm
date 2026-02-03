@@ -254,7 +254,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
           <Button
             variant="ghost"
             size="icon"
-            className={cn('h-7 w-7', htmlMode && 'bg-blue-100 text-blue-600')}
+            className={cn('h-7 w-7', htmlMode && 'bg-blue-100 dark:bg-blue-900/50 text-blue-600')}
             onClick={toggleHtmlMode}
             title={htmlMode ? 'Switch to Visual Editor' : 'Edit HTML'}
           >

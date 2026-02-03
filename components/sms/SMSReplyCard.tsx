@@ -18,10 +18,10 @@ interface SMSReplyCardProps {
 }
 
 const intentConfig: Record<SMSIntent, { label: string; className: string }> = {
-  positive: { label: 'Positive', className: 'bg-green-100 text-green-700' },
-  negative: { label: 'Negative', className: 'bg-red-100 text-red-700' },
-  neutral: { label: 'Neutral', className: 'bg-gray-100 text-gray-700' },
-  unknown: { label: 'Unknown', className: 'bg-gray-100 text-gray-500' },
+  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
+  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
+  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
+  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500' },
 }
 
 export function SMSReplyCard({
@@ -57,7 +57,7 @@ export function SMSReplyCard({
           <div className="shrink-0">
             {message.contact ? (
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-blue-100 text-blue-600 text-sm">
+                <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-sm">
                   {getInitials(message.contact.first_name, message.contact.last_name)}
                 </AvatarFallback>
               </Avatar>

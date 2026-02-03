@@ -170,3 +170,22 @@
 .dark .card-gradient::before {
   background: linear-gradient(to bottom, rgba(15, 23, 42, 0.5), transparent);
 }
+
+/* Sidebar gradient - blue in light mode, dark slate in dark mode */
+.sidebar-gradient {
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+}
+
+.dark .sidebar-gradient {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+}
+
+/* Page banner gradient - blue in light mode, subtle dark in dark mode */
+.banner-gradient {
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+}
+
+.dark .banner-gradient {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

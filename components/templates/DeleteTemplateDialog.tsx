@@ -63,7 +63,7 @@ export function DeleteTemplateDialog({
                     <li>...and {usage.usedInAutomations.length - 5} more</li>
                   )}
                 </ul>
-                <p className="mt-2 text-sm text-amber-700">
+                <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
                   Deleting this template will affect these automations.
                 </p>
               </div>

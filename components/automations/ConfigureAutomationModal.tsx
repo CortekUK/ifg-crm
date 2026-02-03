@@ -684,10 +684,10 @@ export function ConfigureAutomationModal({
                                   className={cn(
                                     'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
                                     step.step_type === 'send_email'
-                                      ? 'bg-blue-100 text-blue-600'
+                                      ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
                                       : step.step_type === 'wait'
-                                      ? 'bg-gray-100 text-gray-600'
-                                      : 'bg-orange-100 text-orange-600'
+                                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-600'
+                                      : 'bg-orange-100 dark:bg-orange-900/50 text-orange-600'
                                   )}
                                 >
                                   {step.step_type === 'send_email' ? (

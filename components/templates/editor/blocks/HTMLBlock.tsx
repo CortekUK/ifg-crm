@@ -21,7 +21,7 @@ export function HTMLBlock({ content, isSelected, onUpdate }: HTMLBlockProps) {
         <div className="space-y-3 mb-3">
           <Alert variant="default" className="bg-amber-50 border-amber-200">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-xs text-amber-700">
+            <AlertDescription className="text-xs text-amber-700 dark:text-amber-300">
               Custom HTML may not render correctly in all email clients.
             </AlertDescription>
           </Alert>

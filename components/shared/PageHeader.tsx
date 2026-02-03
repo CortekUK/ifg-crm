@@ -10,7 +10,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ subtitle, actions, className }: PageHeaderProps) {
   return (
-    <div className={cn('bg-gradient-to-br from-blue-600 to-blue-900 rounded-xl p-6', className)}>
+    <div className={cn('banner-gradient rounded-xl p-6', className)}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <p className="text-white/90 text-base">{subtitle}</p>
         {actions && <div className="flex items-center gap-3">{actions}</div>}

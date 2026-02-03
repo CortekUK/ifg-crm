@@ -27,10 +27,8 @@ export function WelcomeBanner({ onNewLead }: WelcomeBannerProps) {
   const firstName = getFirstName()
 
   return (
-    <div 
-      className="rounded-lg p-6 mb-6"
-      style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)' }}
-    >
+    <div className="rounded-lg p-6 mb-6 banner-gradient">
+    
       <div className="flex items-center justify-between">
         <div className="text-base text-white">
           {isLoading ? (

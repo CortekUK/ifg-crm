@@ -24,10 +24,10 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 
 const typeConfig: Record<SearchResult['type'], { icon: typeof User; label: string; color: string }> = {
-  contact: { icon: User, label: 'Contact', color: 'bg-blue-100 text-blue-700' },
-  deal: { icon: GitBranch, label: 'Deal', color: 'bg-green-100 text-green-700' },
-  template: { icon: FileText, label: 'Template', color: 'bg-purple-100 text-purple-700' },
-  automation: { icon: Zap, label: 'Automation', color: 'bg-orange-100 text-orange-700' },
+  contact: { icon: User, label: 'Contact', color: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
+  deal: { icon: GitBranch, label: 'Deal', color: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
+  template: { icon: FileText, label: 'Template', color: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
+  automation: { icon: Zap, label: 'Automation', color: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700' },
 }
 
 export function GlobalSearch() {

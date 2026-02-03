@@ -184,7 +184,7 @@ export function DealCardPreview({ deal }: DealCardPreviewProps) {
         <>
           <Separator />
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">
+            <Badge variant="secondary" className="bg-purple-100 dark:bg-purple-900/50 text-purple-700 text-[10px]">
               <Zap className="h-2.5 w-2.5 mr-1" />
               Automation Active
             </Badge>

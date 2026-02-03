@@ -423,7 +423,7 @@ export function ProfileSettings() {
           <div className="flex items-center gap-6">
             <Avatar className="h-20 w-20">
               <AvatarImage src={profile.avatar_url || undefined} />
-              <AvatarFallback className="bg-blue-100 text-blue-600 text-xl">
+              <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xl">
                 {getInitials(profile.full_name, profile.email)}
               </AvatarFallback>
             </Avatar>

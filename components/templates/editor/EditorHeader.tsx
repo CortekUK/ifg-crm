@@ -156,7 +156,7 @@ export function EditorHeader({
               variant="outline" 
               size="sm" 
               onClick={handleDeleteClick}
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:text-red-300"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete

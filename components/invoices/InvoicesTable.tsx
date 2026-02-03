@@ -38,12 +38,12 @@ interface InvoicesTableProps {
 }
 
 const statusConfig: Record<InvoiceStatus, { label: string; className: string }> = {
-  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-700' },
-  sent: { label: 'Sent', className: 'bg-blue-100 text-blue-700' },
-  viewed: { label: 'Viewed', className: 'bg-purple-100 text-purple-700' },
-  paid: { label: 'Paid', className: 'bg-green-100 text-green-700' },
-  overdue: { label: 'Overdue', className: 'bg-red-100 text-red-700' },
-  cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-500 line-through' },
+  draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
+  sent: { label: 'Sent', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
+  viewed: { label: 'Viewed', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
+  paid: { label: 'Paid', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
+  overdue: { label: 'Overdue', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
+  cancelled: { label: 'Cancelled', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 line-through' },
 }
 
 const typeLabels: Record<InvoiceType, string> = {
@@ -198,7 +198,7 @@ export function InvoicesTable({
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                      <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
                         {getInitials(invoice.contact)}
                       </AvatarFallback>
                     </Avatar>

@@ -53,7 +53,7 @@ export function IntegrationsSettings() {
                 Send and receive SMS messages through ClickSend.
               </CardDescription>
             </div>
-            <Badge className="bg-green-100 text-green-700">
+            <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
               <CheckCircle className="h-3 w-3 mr-1" />
               Connected
             </Badge>
@@ -133,7 +133,7 @@ export function IntegrationsSettings() {
                 Send transactional and marketing emails through Resend.
               </CardDescription>
             </div>
-            <Badge className="bg-green-100 text-green-700">
+            <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
               <CheckCircle className="h-3 w-3 mr-1" />
               Connected
             </Badge>
@@ -189,7 +189,7 @@ export function IntegrationsSettings() {
                 Accept payments and manage subscriptions through Stripe.
               </CardDescription>
             </div>
-            <Badge className="bg-gray-100 text-gray-700 dark:text-gray-300 dark:text-gray-300">
+            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 dark:text-gray-300">
               <XCircle className="h-3 w-3 mr-1" />
               Not Connected
             </Badge>
@@ -227,7 +227,7 @@ export function IntegrationsSettings() {
                 Sync invoices and payments with your Xero account.
               </CardDescription>
             </div>
-            <Badge className="bg-gray-100 text-gray-700 dark:text-gray-300 dark:text-gray-300">
+            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 dark:text-gray-300">
               <XCircle className="h-3 w-3 mr-1" />
               Not Connected
             </Badge>

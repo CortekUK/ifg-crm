@@ -271,7 +271,7 @@ export function DealDetailSheet({
                   </div>
                   <div>
                     <p className="font-medium text-green-900">{upcomingCalendlyEvent.location || 'Meeting'} scheduled</p>
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-green-700 dark:text-green-300">
                       {formatDate(upcomingCalendlyEvent.start_time)} at{' '}
                       {new Date(upcomingCalendlyEvent.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -311,7 +311,7 @@ export function DealDetailSheet({
                     Deal Owner
                   </h3>
                   {!isEditingOwner && (
-                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => setIsEditingOwner(true)}>
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300" onClick={() => setIsEditingOwner(true)}>
                       <Pencil className="h-3 w-3 mr-1" /> Change
                     </Button>
                   )}
@@ -331,7 +331,7 @@ export function DealDetailSheet({
                   <>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-purple-100 text-purple-600 text-sm">
+                        <AvatarFallback className="bg-purple-100 dark:bg-purple-900/50 text-purple-600 text-sm">
                           {getInitials(deal.owner.full_name?.split(' ')[0], deal.owner.full_name?.split(' ')[1])}
                         </AvatarFallback>
                       </Avatar>
@@ -392,8 +392,8 @@ export function DealDetailSheet({
                     <span className="text-sm text-slate-500">Time in Stage</span>
                     <span className={cn(
                       'text-sm font-medium px-2 py-0.5 rounded',
-                      deal.time_in_stage !== undefined && deal.time_in_stage > 30 ? 'bg-red-100 text-red-700' :
-                      deal.time_in_stage !== undefined && deal.time_in_stage > 7 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'
+                      deal.time_in_stage !== undefined && deal.time_in_stage > 30 ? 'bg-red-100 dark:bg-red-900/50 text-red-700' :
+                      deal.time_in_stage !== undefined && deal.time_in_stage > 7 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700' : 'bg-slate-100 text-slate-700'
                     )}>
                       {deal.time_in_stage !== undefined
                         ? deal.time_in_stage < 1 ? 'Less than 1 day'
@@ -464,7 +464,7 @@ export function DealDetailSheet({
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <h3 className="text-sm font-semibold text-blue-900 uppercase">Description</h3>
                   {!isEditingDescription && (
-                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => { setEditDescription(deal.description || ''); setIsEditingDescription(true) }}>
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300" onClick={() => { setEditDescription(deal.description || ''); setIsEditingDescription(true) }}>
                       <Pencil className="h-3 w-3 mr-1" /> Edit
                     </Button>
                   )}

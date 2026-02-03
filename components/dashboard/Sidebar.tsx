@@ -114,10 +114,9 @@ export function Sidebar({ user }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen text-white flex flex-col transition-all duration-300',
+        'fixed left-0 top-0 z-40 h-screen text-white flex flex-col transition-all duration-300 sidebar-gradient',
         collapsed ? 'w-16' : 'w-64'
       )}
-      style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)' }}
     >
       {/* Logo - matches header height (h-16 = 64px) */}
       <div className={cn(

@@ -8,7 +8,7 @@ interface EmailRepliesPageHeaderProps {
 
 export function EmailRepliesPageHeader({ unmatchedCount }: EmailRepliesPageHeaderProps) {
   return (
-    <div className="bg-gradient-to-br from-blue-600 to-blue-900 rounded-xl p-6">
+    <div className="banner-gradient rounded-xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <p className="text-white/90 text-base">

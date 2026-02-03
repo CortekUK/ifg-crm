@@ -273,9 +273,9 @@ export function ContactDetailSheet({
               </SheetTitle>
               <SheetDescription className="mt-1 flex items-center gap-2">
                 {contact.subscription_status === 'active' || contact.subscription_status === 'subscribed' ? (
-                  <Badge className="bg-green-100 text-green-700 border-0">Subscribed</Badge>
+                  <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 border-0">Subscribed</Badge>
                 ) : contact.subscription_status === 'unsubscribed' ? (
-                  <Badge className="bg-red-100 text-red-700 border-0">Unsubscribed</Badge>
+                  <Badge className="bg-red-100 dark:bg-red-900/50 text-red-700 border-0">Unsubscribed</Badge>
                 ) : null}
                 {contact.graduation_year && (
                   <span className="text-muted-foreground">Class of {contact.graduation_year}</span>
@@ -330,7 +330,7 @@ export function ContactDetailSheet({
                   </div>
                   <div>
                     <p className="font-medium text-green-900">{upcomingEvent.event_name || 'Meeting scheduled'}</p>
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-green-700 dark:text-green-300">
                       {formatDate(upcomingEvent.start_time)} at{' '}
                       {new Date(upcomingEvent.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -440,7 +440,7 @@ export function ContactDetailSheet({
                     Assigned To
                   </h3>
                   {!isEditingOwner && (
-                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => setIsEditingOwner(true)}>
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300" onClick={() => setIsEditingOwner(true)}>
                       <Pencil className="h-3 w-3 mr-1" /> Change
                     </Button>
                   )}
@@ -460,7 +460,7 @@ export function ContactDetailSheet({
                 ) : contact.owner ? (
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-purple-100 text-purple-600 text-sm">
+                      <AvatarFallback className="bg-purple-100 dark:bg-purple-900/50 text-purple-600 text-sm">
                         {getInitials(contact.owner.full_name?.split(' ')[0], contact.owner.full_name?.split(' ')[1])}
                       </AvatarFallback>
                     </Avatar>
@@ -548,7 +548,7 @@ export function ContactDetailSheet({
                   </h3>
                   <Popover open={isAddListOpen} onOpenChange={setIsAddListOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700">
+                      <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300">
                         <Plus className="h-3 w-3 mr-1" />
                         Add to List
                       </Button>
@@ -723,8 +723,8 @@ export function ContactDetailSheet({
                 <div className="space-y-4">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-green-700">Total Pipeline Value</span>
-                      <span className="text-xl font-bold text-green-700">{formatCurrency(totalDealsValue)}</span>
+                      <span className="text-sm text-green-700 dark:text-green-300">Total Pipeline Value</span>
+                      <span className="text-xl font-bold text-green-700 dark:text-green-300">{formatCurrency(totalDealsValue)}</span>
                     </div>
                     <p className="text-xs text-green-600 mt-1">{deals.length} deal{deals.length !== 1 ? 's' : ''}</p>
                   </div>

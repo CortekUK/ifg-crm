@@ -153,7 +153,7 @@ export function CalendlySettings() {
                 </CardDescription>
               </div>
             </div>
-            <Badge variant={connectionStatus?.connected ? 'default' : 'secondary'} className={connectionStatus?.connected ? 'bg-green-100 text-green-700' : ''}>
+            <Badge variant={connectionStatus?.connected ? 'default' : 'secondary'} className={connectionStatus?.connected ? 'bg-green-100 dark:bg-green-900/50 text-green-700' : ''}>
               {connectionStatus?.connected ? (
                 <>
                   <Check className="h-3 w-3 mr-1" />
@@ -276,7 +276,7 @@ export function CalendlySettings() {
                 <button
                   type="button"
                   onClick={() => setShowToken(!showToken)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-gray-700"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-gray-700 dark:text-gray-300"
                 >
                   {showToken ? 'Hide' : 'Show'}
                 </button>

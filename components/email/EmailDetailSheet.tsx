@@ -21,10 +21,10 @@ interface EmailDetailSheetProps {
 }
 
 const intentConfig: Record<EmailIntent, { label: string; className: string }> = {
-  positive: { label: 'Positive', className: 'bg-green-100 text-green-700' },
-  negative: { label: 'Negative', className: 'bg-red-100 text-red-700' },
-  neutral: { label: 'Neutral', className: 'bg-gray-100 text-gray-700' },
-  unknown: { label: 'Unknown', className: 'bg-gray-100 text-gray-500' },
+  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
+  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
+  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
+  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500' },
 }
 
 export function EmailDetailSheet({
@@ -64,7 +64,7 @@ export function EmailDetailSheet({
             {/* Sender Info */}
             <div className="flex items-start gap-4">
               <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-blue-100 text-blue-600">
+                <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600">
                   {getInitials(reply.from_name, reply.from_email)}
                 </AvatarFallback>
               </Avatar>
@@ -106,7 +106,7 @@ export function EmailDetailSheet({
                 <p className="text-sm font-medium text-green-800 mb-1">
                   Matched to Contact
                 </p>
-                <p className="text-sm text-green-700">
+                <p className="text-sm text-green-700 dark:text-green-300">
                   {reply.contact.first_name} {reply.contact.last_name}
                 </p>
                 <p className="text-xs text-green-600">{reply.contact.email}</p>

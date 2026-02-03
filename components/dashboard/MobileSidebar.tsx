@@ -122,8 +122,7 @@ export function MobileSidebar({ user }: MobileSidebarProps) {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-72 p-0 text-white"
-        style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)' }}
+        className="w-72 p-0 text-white sidebar-gradient"
       >
         <SheetHeader className="px-4 py-4 border-b border-white/10">
           <SheetTitle className="text-left flex items-center gap-3">
@@ -180,7 +179,7 @@ export function MobileSidebar({ user }: MobileSidebarProps) {
         </nav>
 
         {/* User Menu */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10 bg-gradient-to-r from-blue-600 to-blue-900">
+        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10 sidebar-gradient">
           <div className="flex items-center gap-3 px-3 py-2">
             <Avatar className="h-9 w-9 shrink-0">
               <AvatarImage src={user?.avatar_url || undefined} />

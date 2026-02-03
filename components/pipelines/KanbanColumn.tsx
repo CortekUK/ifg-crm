@@ -127,8 +127,8 @@ export function KanbanColumn({
             variant="secondary" 
             className={cn(
               "text-xs font-medium tabular-nums",
-              deals.length > 10 && "bg-amber-100 text-amber-700",
-              deals.length > 20 && "bg-red-100 text-red-700"
+              deals.length > 10 && "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
+              deals.length > 20 && "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
             )}
           >
             <Users className="h-3 w-3 mr-1" />

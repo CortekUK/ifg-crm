@@ -31,9 +31,9 @@ interface UsersTableProps {
 }
 
 const roleConfig: Record<UserRole, { label: string; className: string }> = {
-  super_admin: { label: 'Super Admin', className: 'bg-purple-100 text-purple-700' },
-  admin: { label: 'Admin', className: 'bg-blue-100 text-blue-700' },
-  recruiter: { label: 'Recruiter', className: 'bg-green-100 text-green-700' },
+  super_admin: { label: 'Super Admin', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
+  admin: { label: 'Admin', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
+  recruiter: { label: 'Recruiter', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
 }
 
 export function UsersTable({
@@ -127,7 +127,7 @@ export function UsersTable({
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user.avatar_url || undefined} />
-                      <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                      <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
                         {getInitials(user.full_name, user.email)}
                       </AvatarFallback>
                     </Avatar>
@@ -171,8 +171,8 @@ export function UsersTable({
                   <Badge
                     className={
                       user.is_active
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-700'
+                        ? 'bg-green-100 dark:bg-green-900/50 text-green-700'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700'
                     }
                   >
                     {user.is_active ? 'Active' : 'Inactive'}

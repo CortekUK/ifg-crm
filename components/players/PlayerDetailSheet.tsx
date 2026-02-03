@@ -174,7 +174,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                     {player.position && player.graduation_year && <span>•</span>}
                     {player.graduation_year && <span>Class of {player.graduation_year}</span>}
                   </SheetDescription>
-                  <Badge className={player.subscription_status === 'active' ? 'bg-green-100 text-green-700 border-0 mt-2' : 'bg-slate-100 text-slate-700 border-0 mt-2'}>
+                  <Badge className={player.subscription_status === 'active' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 border-0 mt-2' : 'bg-slate-100 text-slate-700 border-0 mt-2'}>
                     {player.subscription_status === 'active' ? 'Active' : 'Unsubscribed'}
                   </Badge>
                 </div>
@@ -332,7 +332,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                         Assigned To
                       </h3>
                       {!isEditingOwner && (
-                        <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700" onClick={() => setIsEditingOwner(true)}>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300" onClick={() => setIsEditingOwner(true)}>
                           <Pencil className="h-3 w-3 mr-1" /> Change
                         </Button>
                       )}
@@ -352,7 +352,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                     ) : player.owner ? (
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-purple-100 text-purple-600 text-sm">
+                          <AvatarFallback className="bg-purple-100 dark:bg-purple-900/50 text-purple-600 text-sm">
                             {getInitials(player.owner.full_name?.split(' ')[0], player.owner.full_name?.split(' ')[1])}
                           </AvatarFallback>
                         </Avatar>

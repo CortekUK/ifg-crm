@@ -127,7 +127,7 @@ export function AddContactsToListModal({
         {/* Selection count */}
         {selectedIds.size > 0 && (
           <div className="flex items-center justify-between py-2">
-            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+            <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
               {selectedIds.size} selected
             </Badge>
             <Button
@@ -254,7 +254,7 @@ export function AddContactsToListModal({
                 >
                   <Checkbox checked={selectedIds.has(contact.id)} />
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                    <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
                       {getInitials(contact)}
                     </AvatarFallback>
                   </Avatar>

@@ -65,15 +65,15 @@ export function AutomationWorkflowPreview({
   const getStepIconColor = (stepType: AutomationStep['step_type']) => {
     switch (stepType) {
       case 'send_email':
-        return 'bg-blue-100 text-blue-600'
+        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
       case 'wait':
         return 'bg-slate-100 text-slate-600'
       case 'send_sms':
-        return 'bg-green-100 text-green-600'
+        return 'bg-green-100 dark:bg-green-900/50 text-green-600'
       case 'move_to_stage':
-        return 'bg-orange-100 text-orange-600'
+        return 'bg-orange-100 dark:bg-orange-900/50 text-orange-600'
       case 'create_deal':
-        return 'bg-purple-100 text-purple-600'
+        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600'
       default:
         return 'bg-slate-100 text-slate-600'
     }
@@ -208,7 +208,7 @@ export function AutomationWorkflowPreview({
                     </span>
                   </span>
                   {showStats && step.stats && step.stats.in_queue > 0 && (
-                    <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100">
+                    <Badge className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 hover:bg-amber-100">
                       <Users className="h-3 w-3 mr-1" />
                       {step.stats.in_queue} waiting
                     </Badge>
@@ -253,7 +253,7 @@ export function AutomationWorkflowPreview({
       {automation.stop_on_stage_ids && automation.stop_on_stage_ids.length > 0 && (
         <div className="relative">
           <div className="flex items-start gap-4 pt-1 pb-4">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-100 text-green-600 shadow-sm">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/50 text-green-600 shadow-sm">
               <CheckCircle2 className="h-4 w-4" />
             </div>
             <div className="flex-1 pt-0.5">

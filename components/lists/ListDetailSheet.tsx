@@ -279,7 +279,7 @@ export function ListDetailSheet({
                   </div>
                   {selectedContactIds.size > 0 && (
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                      <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
                         {selectedContactIds.size} selected
                       </Badge>
                       <Button
@@ -361,7 +361,7 @@ export function ListDetailSheet({
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                                  <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
                                     {getInitials(contact)}
                                   </AvatarFallback>
                                 </Avatar>

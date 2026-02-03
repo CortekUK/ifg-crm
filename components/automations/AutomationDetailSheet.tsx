@@ -149,7 +149,7 @@ export function AutomationDetailSheet({
     if (!reason) {
       return {
         label: 'Stopped',
-        className: 'bg-gray-100 text-gray-600',
+        className: 'bg-gray-100 dark:bg-gray-800 text-gray-600',
         icon: <Ban className="h-2.5 w-2.5 mr-0.5" />,
       }
     }
@@ -159,7 +159,7 @@ export function AutomationDetailSheet({
     if (reasonLower.includes('replied') || reasonLower.includes('reply')) {
       return {
         label: 'Replied',
-        className: 'bg-blue-100 text-blue-700',
+        className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700',
         icon: <MessageCircle className="h-2.5 w-2.5 mr-0.5" />,
       }
     }
@@ -167,7 +167,7 @@ export function AutomationDetailSheet({
     if (reasonLower.includes('stage') || reasonLower.includes('exit')) {
       return {
         label: 'Stage Exit',
-        className: 'bg-orange-100 text-orange-700',
+        className: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700',
         icon: <ArrowRight className="h-2.5 w-2.5 mr-0.5" />,
       }
     }
@@ -175,14 +175,14 @@ export function AutomationDetailSheet({
     if (reasonLower.includes('manual')) {
       return {
         label: 'Unenrolled',
-        className: 'bg-red-100 text-red-700',
+        className: 'bg-red-100 dark:bg-red-900/50 text-red-700',
         icon: <X className="h-2.5 w-2.5 mr-0.5" />,
       }
     }
 
     return {
       label: 'Stopped',
-      className: 'bg-gray-100 text-gray-600',
+      className: 'bg-gray-100 dark:bg-gray-800 text-gray-600',
       icon: <Ban className="h-2.5 w-2.5 mr-0.5" />,
     }
   }
@@ -258,8 +258,8 @@ export function AutomationDetailSheet({
                 <Badge
                   className={
                     automation.is_active
-                      ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                      ? 'bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-100'
                   }
                 >
                   {automation.is_active ? 'Active' : 'Paused'}
@@ -466,7 +466,7 @@ export function AutomationDetailSheet({
                               <CardContent className="p-3">
                                 <div className="flex items-center gap-3">
                                   <Avatar className="h-9 w-9">
-                                    <AvatarFallback className="bg-blue-100 text-blue-600 text-xs font-medium">
+                                    <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs font-medium">
                                       {getInitials(name)}
                                     </AvatarFallback>
                                   </Avatar>
@@ -478,7 +478,7 @@ export function AutomationDetailSheet({
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
                                     <div className="text-right">
-                                      <Badge className="text-xs bg-green-100 text-green-700 hover:bg-green-100">
+                                      <Badge className="text-xs bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100">
                                         Active
                                       </Badge>
                                       {enrollment.next_step_at && (
@@ -543,7 +543,7 @@ export function AutomationDetailSheet({
                               <CardContent className="p-3">
                                 <div className="flex items-center gap-3">
                                   <Avatar className="h-9 w-9">
-                                    <AvatarFallback className="bg-amber-100 text-amber-600 text-xs font-medium">
+                                    <AvatarFallback className="bg-amber-100 dark:bg-amber-900/50 text-amber-600 text-xs font-medium">
                                       {getInitials(name)}
                                     </AvatarFallback>
                                   </Avatar>
@@ -554,7 +554,7 @@ export function AutomationDetailSheet({
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
-                                    <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100">
+                                    <Badge className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 hover:bg-amber-100">
                                       Paused
                                     </Badge>
                                     <DropdownMenu>
@@ -613,14 +613,14 @@ export function AutomationDetailSheet({
                               className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100"
                             >
                               <Avatar className="h-7 w-7">
-                                <AvatarFallback className="bg-green-100 text-green-600 text-xs">
+                                <AvatarFallback className="bg-green-100 dark:bg-green-900/50 text-green-600 text-xs">
                                   {getInitials(name)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm text-gray-900 dark:text-white truncate">{name}</p>
                               </div>
-                              <Badge className="text-xs bg-green-100 text-green-700 hover:bg-green-100">
+                              <Badge className="text-xs bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100">
                                 Completed
                               </Badge>
                             </div>
@@ -651,7 +651,7 @@ export function AutomationDetailSheet({
                               className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100"
                             >
                               <Avatar className="h-7 w-7">
-                                <AvatarFallback className="bg-red-100 text-red-600 text-xs">
+                                <AvatarFallback className="bg-red-100 dark:bg-red-900/50 text-red-600 text-xs">
                                   {getInitials(name)}
                                 </AvatarFallback>
                               </Avatar>

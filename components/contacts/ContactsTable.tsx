@@ -174,7 +174,7 @@ export function ContactsTable({
               <TableCell>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-medium">
+                    <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 text-xs font-medium">
                       {getInitials(contact.first_name, contact.last_name)}
                     </AvatarFallback>
                   </Avatar>
@@ -204,8 +204,8 @@ export function ContactsTable({
                   variant={contact.subscription_status === 'active' ? 'default' : 'secondary'}
                   className={cn(
                     contact.subscription_status === 'active'
-                      ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                      ? 'bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-100'
                   )}
                 >
                   {contact.subscription_status === 'active' ? 'Active' : 'Unsubscribed'}

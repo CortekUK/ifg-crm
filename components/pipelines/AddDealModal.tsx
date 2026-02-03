@@ -159,7 +159,7 @@ export function AddDealModal({
                       {selectedContact ? (
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                            <AvatarFallback className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
                               {getInitials(selectedContact)}
                             </AvatarFallback>
                           </Avatar>
@@ -212,7 +212,7 @@ export function AddDealModal({
                                   )}
                                 />
                                 <Avatar className="h-8 w-8 mr-2">
-                                  <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                                  <AvatarFallback className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
                                     {getInitials(contact)}
                                   </AvatarFallback>
                                 </Avatar>

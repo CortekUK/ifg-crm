@@ -72,11 +72,11 @@ interface CampaignDetailSheetProps {
 }
 
 const statusConfig: Record<Campaign['status'], { label: string; className: string }> = {
-  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-700' },
-  scheduled: { label: 'Scheduled', className: 'bg-blue-100 text-blue-700' },
-  sending: { label: 'Sending', className: 'bg-yellow-100 text-yellow-700' },
-  sent: { label: 'Sent', className: 'bg-green-100 text-green-700' },
-  cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
+  draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
+  scheduled: { label: 'Scheduled', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
+  sending: { label: 'Sending', className: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700' },
+  sent: { label: 'Sent', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
+  cancelled: { label: 'Cancelled', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
 }
 
 export function CampaignDetailSheet({
@@ -389,7 +389,7 @@ export function CampaignDetailSheet({
                           variant="outline"
                           size="sm"
                           onClick={() => setShowCancelDialog(true)}
-                          className="text-orange-600 hover:text-orange-700"
+                          className="text-orange-600 hover:text-orange-700 dark:text-orange-300"
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           Cancel
@@ -399,7 +399,7 @@ export function CampaignDetailSheet({
                         variant="outline"
                         size="sm"
                         onClick={() => setShowDeleteDialog(true)}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-red-600 hover:text-red-700 dark:text-red-300"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
@@ -443,7 +443,7 @@ export function CampaignDetailSheet({
                         <div className="space-y-2">
                           <p className="text-xs text-muted-foreground uppercase">Using Template</p>
                           <div className="border rounded-lg p-4 bg-blue-50">
-                            <p className="font-medium text-blue-700">{campaign.template.name}</p>
+                            <p className="font-medium text-blue-700 dark:text-blue-300">{campaign.template.name}</p>
                           </div>
                         </div>
                       ) : (

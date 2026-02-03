@@ -211,7 +211,7 @@ export function AutomationsTable({
                 {/* In Queue */}
                 <TableCell className="text-right">
                   {inQueue > 0 ? (
-                    <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                    <Badge variant="secondary" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                       <Clock className="h-3 w-3 mr-1" />
                       {inQueue}
                     </Badge>
