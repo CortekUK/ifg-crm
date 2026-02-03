@@ -46,26 +46,38 @@ export function useAutomations() {
         .map((a) => a.trigger_stage_id)
         .filter((id): id is string => !!id)
 
+      // Fetch enrollment counts for all automations
+      const automationIds = data.map((a) => a.id)
+      const { data: enrollmentCounts } = await supabase
+        .from('automation_enrollments')
+        .select('automation_id')
+        .in('automation_id', automationIds)
+        .eq('status', 'active')
+
+      // Count enrollments per automation
+      const enrollmentCountMap = new Map<string, number>()
+      enrollmentCounts?.forEach((e) => {
+        const count = enrollmentCountMap.get(e.automation_id) || 0
+        enrollmentCountMap.set(e.automation_id, count + 1)
+      })
+
+      // Fetch stages if we have trigger stage IDs
+      let stageMap = new Map<string, { id: string; name: string }>()
       if (triggerStageIds.length > 0) {
         const { data: stages } = await supabase
           .from('pipeline_stages')
-          .select('*')
+          .select('id, name')
           .in('id', triggerStageIds)
 
-        // Map stages to automations
-        const stageMap = new Map(stages?.map((s) => [s.id, s]) || [])
-        
-        return data.map((automation) => ({
-          ...automation,
-          trigger_stage: automation.trigger_stage_id 
-            ? stageMap.get(automation.trigger_stage_id) || null 
-            : null,
-        }))
+        stageMap = new Map(stages?.map((s) => [s.id, s]) || [])
       }
 
       return data.map((automation) => ({
         ...automation,
-        trigger_stage: null,
+        trigger_stage: automation.trigger_stage_id 
+          ? stageMap.get(automation.trigger_stage_id) || null 
+          : null,
+        total_enrolled: enrollmentCountMap.get(automation.id) || 0,
       }))
     },
   })
