@@ -84,7 +84,7 @@ export function EditorHeader({
             variant="ghost"
             size="icon"
             onClick={handleClose}
-            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -100,20 +100,20 @@ export function EditorHeader({
                     setIsEditingName(false)
                   }
                 }}
-                className="w-64 text-lg font-semibold border-slate-300 focus-visible:ring-blue-500"
+                className="w-64 text-lg font-semibold border-slate-300 dark:border-slate-600 focus-visible:ring-blue-500"
                 autoFocus
               />
             ) : (
               <button
                 onClick={() => setIsEditingName(true)}
-                className="text-lg font-semibold text-slate-800 hover:text-blue-600 transition-colors"
+                className="text-lg font-semibold text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 {name || 'Untitled Template'}
               </button>
             )}
 
             {hasUnsavedChanges && (
-              <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+              <span className="text-xs font-medium text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/50 px-2 py-1 rounded-full">
                 Unsaved changes
               </span>
             )}
@@ -121,7 +121,7 @@ export function EditorHeader({
         </div>
 
         {/* Center: Undo/Redo */}
-        <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 rounded-lg p-1">
           <Button
             variant="ghost"
             size="sm"
@@ -129,12 +129,12 @@ export function EditorHeader({
             disabled={!canUndo}
             className={cn(
               'h-8 w-8 p-0',
-              canUndo ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200' : 'text-slate-300'
+              canUndo ? 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700' : 'text-slate-300 dark:text-slate-600'
             )}
           >
             <Undo2 className="h-4 w-4" />
           </Button>
-          <div className="w-px h-5 bg-slate-200" />
+          <div className="w-px h-5 bg-slate-200 dark:bg-slate-600" />
           <Button
             variant="ghost"
             size="sm"
@@ -142,7 +142,7 @@ export function EditorHeader({
             disabled={!canRedo}
             className={cn(
               'h-8 w-8 p-0',
-              canRedo ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200' : 'text-slate-300'
+              canRedo ? 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700' : 'text-slate-300 dark:text-slate-600'
             )}
           >
             <Redo2 className="h-4 w-4" />
@@ -156,7 +156,7 @@ export function EditorHeader({
               variant="outline" 
               size="sm" 
               onClick={handleDeleteClick}
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:text-red-300"
+              className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
@@ -166,7 +166,7 @@ export function EditorHeader({
             variant="outline" 
             size="sm" 
             onClick={onPreview}
-            className="text-slate-700 border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+            className="text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             <Eye className="h-4 w-4 mr-2" />
             Preview
@@ -176,7 +176,7 @@ export function EditorHeader({
             size="sm" 
             onClick={onSaveDraft} 
             disabled={isSaving}
-            className="text-slate-700 border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+            className="text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

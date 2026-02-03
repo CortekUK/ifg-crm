@@ -122,7 +122,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
     >
       {/* Toolbar - only show when selected */}
       {isSelected && (
-        <div className="flex items-center gap-1 mb-2 p-1 bg-gray-100 rounded-lg flex-wrap">
+        <div className="flex items-center gap-1 mb-2 p-1 bg-gray-100 dark:bg-slate-800 rounded-lg flex-wrap">
           <Button
             variant="ghost"
             size="icon"
@@ -151,7 +151,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
             <Underline className="h-3.5 w-3.5" />
           </Button>
 
-          <div className="w-px h-5 bg-gray-300 mx-1" />
+          <div className="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-1" />
 
           {/* List Buttons */}
           <Button
@@ -175,7 +175,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
             <ListOrdered className="h-3.5 w-3.5" />
           </Button>
 
-          <div className="w-px h-5 bg-gray-300 mx-1" />
+          <div className="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-1" />
 
           <Popover open={showLinkInput} onOpenChange={setShowLinkInput}>
             <PopoverTrigger asChild>
@@ -201,7 +201,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
             </PopoverContent>
           </Popover>
 
-          <div className="w-px h-5 bg-gray-300 mx-1" />
+          <div className="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-1" />
 
           <Button
             variant="ghost"
@@ -231,12 +231,12 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
             <AlignRight className="h-3.5 w-3.5" />
           </Button>
 
-          <div className="w-px h-5 bg-gray-300 mx-1" />
+          <div className="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-1" />
 
           <select
             value={textContent.fontSize}
             onChange={(e) => onUpdate({ fontSize: e.target.value as TextBlockContent['fontSize'] })}
-            className="h-7 px-2 text-xs border rounded"
+            className="h-7 px-2 text-xs border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
             disabled={htmlMode}
           >
             <option value="small">Small</option>
@@ -244,11 +244,11 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
             <option value="large">Large</option>
           </select>
 
-          <div className="w-px h-5 bg-gray-300 mx-1" />
+          <div className="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-1" />
 
           <MergeTagDropdown onInsert={insertVariable} variant="compact" />
 
-          <div className="w-px h-5 bg-gray-300 mx-1" />
+          <div className="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-1" />
 
           {/* HTML Mode Toggle */}
           <Button
@@ -267,7 +267,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
       {isSelected && !htmlMode && (
         <div className="flex items-center gap-4 mb-2 text-xs">
           <div className="flex items-center gap-2">
-            <Label className="text-xs">Padding:</Label>
+            <Label className="text-xs text-slate-700 dark:text-slate-300">Padding:</Label>
             <Input
               type="number"
               value={textContent.paddingTop}
@@ -276,10 +276,10 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
               min={0}
               max={100}
             />
-            <span className="text-gray-400">px</span>
+            <span className="text-gray-400 dark:text-gray-500">px</span>
           </div>
           <div className="flex items-center gap-2">
-            <Label className="text-xs">Background:</Label>
+            <Label className="text-xs text-slate-700 dark:text-slate-300">Background:</Label>
             <input
               type="color"
               value={textContent.backgroundColor || '#ffffff'}

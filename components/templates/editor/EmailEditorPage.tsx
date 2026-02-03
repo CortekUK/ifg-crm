@@ -95,13 +95,13 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
 
         {/* Content Skeleton */}
         <div className="flex-1 flex">
-          <div className="w-[300px] border-r p-4 space-y-4 bg-slate-50">
+          <div className="w-[300px] border-r dark:border-slate-700 p-4 space-y-4 bg-slate-50 dark:bg-slate-900">
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-32 w-full" />
           </div>
-          <div className="flex-1 p-6 bg-slate-100">
+          <div className="flex-1 p-6 bg-slate-100 dark:bg-slate-900">
             <div className="max-w-[600px] mx-auto">
               <Skeleton className="h-12 w-full mb-4" />
               <Skeleton className="h-64 w-full" />

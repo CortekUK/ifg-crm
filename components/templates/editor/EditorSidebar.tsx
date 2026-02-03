@@ -89,15 +89,15 @@ export function EditorSidebar({
   }
 
   return (
-    <div className="w-[300px] border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex flex-col">
+    <div className="w-[300px] border-r border-slate-200 dark:border-slate-700 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex flex-col">
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
           {/* Block Editing Panel - Shows when a block is selected */}
           {selectedBlock && (
-            <div className="pb-4 border-b border-slate-200">
+            <div className="pb-4 border-b border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-2 mb-4">
                 <Edit3 className="h-4 w-4 text-blue-600" />
-                <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase">
                   Edit {selectedBlock.type} Block
                 </h3>
               </div>
@@ -105,7 +105,7 @@ export function EditorSidebar({
               {selectedBlock.type === 'text' && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Content</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Content</Label>
                     <Textarea
                       value={(selectedBlock.content as { html?: string }).html || ''}
                       onChange={(e) => onUpdateBlock(selectedBlock.id, { html: e.target.value })}
@@ -115,7 +115,7 @@ export function EditorSidebar({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Alignment</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Alignment</Label>
                     <div className="flex gap-1">
                       {(['left', 'center', 'right'] as const).map((align) => (
                         <Button
@@ -136,7 +136,7 @@ export function EditorSidebar({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Insert Variable</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Insert Variable</Label>
                     <div className="flex flex-wrap gap-1">
                       {templateVariables.slice(0, 4).map((v) => (
                         <Button
@@ -157,7 +157,7 @@ export function EditorSidebar({
               {selectedBlock.type === 'button' && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Button Text</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Button Text</Label>
                     <Input
                       value={(selectedBlock.content as { text?: string }).text || ''}
                       onChange={(e) => onUpdateBlock(selectedBlock.id, { text: e.target.value })}
@@ -166,7 +166,7 @@ export function EditorSidebar({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Button URL</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Button URL</Label>
                     <Input
                       value={(selectedBlock.content as { url?: string }).url || ''}
                       onChange={(e) => onUpdateBlock(selectedBlock.id, { url: e.target.value })}
@@ -175,7 +175,7 @@ export function EditorSidebar({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Background Colour</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Background Colour</Label>
                     <div className="flex gap-2">
                       <Input
                         type="color"
@@ -196,7 +196,7 @@ export function EditorSidebar({
               {selectedBlock.type === 'image' && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Image URL</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Image URL</Label>
                     <Input
                       value={(selectedBlock.content as { src?: string }).src || ''}
                       onChange={(e) => onUpdateBlock(selectedBlock.id, { src: e.target.value })}
@@ -205,7 +205,7 @@ export function EditorSidebar({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Alt Text</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Alt Text</Label>
                     <Input
                       value={(selectedBlock.content as { alt?: string }).alt || ''}
                       onChange={(e) => onUpdateBlock(selectedBlock.id, { alt: e.target.value })}
@@ -214,7 +214,7 @@ export function EditorSidebar({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Link URL (optional)</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Link URL (optional)</Label>
                     <Input
                       value={(selectedBlock.content as { linkUrl?: string }).linkUrl || ''}
                       onChange={(e) => onUpdateBlock(selectedBlock.id, { linkUrl: e.target.value })}
@@ -228,7 +228,7 @@ export function EditorSidebar({
               {selectedBlock.type === 'spacer' && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Height (px)</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Height (px)</Label>
                     <Input
                       type="number"
                       min="10"
@@ -244,7 +244,7 @@ export function EditorSidebar({
               {selectedBlock.type === 'divider' && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Style</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Style</Label>
                     <Select
                       value={(selectedBlock.content as { style?: string }).style || 'solid'}
                       onValueChange={(v) => onUpdateBlock(selectedBlock.id, { style: v })}
@@ -260,7 +260,7 @@ export function EditorSidebar({
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Colour</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Colour</Label>
                     <div className="flex gap-2">
                       <Input
                         type="color"
@@ -282,14 +282,14 @@ export function EditorSidebar({
 
           {/* Settings Section */}
           <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-slate-100 transition-colors">
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-semibold text-blue-900 uppercase">Settings</span>
+                <span className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase">Settings</span>
               </div>
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 text-slate-500 transition-transform',
+                  'h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform',
                   settingsOpen && 'rotate-180'
                 )}
               />
@@ -297,7 +297,7 @@ export function EditorSidebar({
             <CollapsibleContent className="pt-3 space-y-4">
               {/* Template Name */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-600">Template Name</Label>
+                <Label className="text-xs text-slate-600 dark:text-slate-400">Template Name</Label>
                 <Input
                   value={settings.name}
                   onChange={(e) => onUpdateSettings({ name: e.target.value })}
@@ -309,7 +309,7 @@ export function EditorSidebar({
               {/* Subject Line */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs text-slate-600">Subject Line</Label>
+                  <Label className="text-xs text-slate-600 dark:text-slate-400">Subject Line</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="ghost" size="sm" className="h-6 text-xs px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
@@ -323,9 +323,9 @@ export function EditorSidebar({
                           <button
                             key={v.value}
                             onClick={() => insertVariable('subject', v.value)}
-                            className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-blue-50 transition-colors"
+                            className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                           >
-                            <div className="font-medium text-slate-700">{v.label}</div>
+                            <div className="font-medium text-slate-700 dark:text-slate-300">{v.label}</div>
                             <div className="text-xs text-slate-500">{v.value}</div>
                           </button>
                         ))}
@@ -344,7 +344,7 @@ export function EditorSidebar({
               {/* Preheader */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs text-slate-600">Preheader</Label>
+                  <Label className="text-xs text-slate-600 dark:text-slate-400">Preheader</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="ghost" size="sm" className="h-6 text-xs px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
@@ -358,9 +358,9 @@ export function EditorSidebar({
                           <button
                             key={v.value}
                             onClick={() => insertVariable('preheader', v.value)}
-                            className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-blue-50 transition-colors"
+                            className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                           >
-                            <div className="font-medium text-slate-700">{v.label}</div>
+                            <div className="font-medium text-slate-700 dark:text-slate-300">{v.label}</div>
                             <div className="text-xs text-slate-500">{v.value}</div>
                           </button>
                         ))}
@@ -378,7 +378,7 @@ export function EditorSidebar({
 
               {/* From Name Type */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-600">From Name</Label>
+                <Label className="text-xs text-slate-600 dark:text-slate-400">From Name</Label>
                 <Select
                   value={settings.fromNameType}
                   onValueChange={(v) => onUpdateSettings({ fromNameType: v as 'deal_owner' | 'fixed' })}
@@ -397,7 +397,7 @@ export function EditorSidebar({
               {settings.fromNameType === 'fixed' && (
                 <>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Fixed From Name</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Fixed From Name</Label>
                     <Input
                       value={settings.fixedFromName}
                       onChange={(e) => onUpdateSettings({ fixedFromName: e.target.value })}
@@ -406,7 +406,7 @@ export function EditorSidebar({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-600">Fixed From Email</Label>
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Fixed From Email</Label>
                     <Input
                       value={settings.fixedFromEmail}
                       onChange={(e) => onUpdateSettings({ fixedFromEmail: e.target.value })}
@@ -419,7 +419,7 @@ export function EditorSidebar({
 
               {/* Category */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-600">Category</Label>
+                <Label className="text-xs text-slate-600 dark:text-slate-400">Category</Label>
                 <Select
                   value={settings.category}
                   onValueChange={(v) =>
@@ -441,14 +441,14 @@ export function EditorSidebar({
 
           {/* Blocks Section */}
           <Collapsible open={blocksOpen} onOpenChange={setBlocksOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-slate-100 transition-colors">
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <div className="flex items-center gap-2">
                 <LayoutGrid className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-semibold text-blue-900 uppercase">Blocks</span>
+                <span className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase">Blocks</span>
               </div>
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 text-slate-500 transition-transform',
+                  'h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform',
                   blocksOpen && 'rotate-180'
                 )}
               />
@@ -459,14 +459,14 @@ export function EditorSidebar({
                   <button
                     key={item.type}
                     onClick={() => onAddBlock(item.type)}
-                    className="flex flex-col items-center justify-center p-4 rounded-lg border border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group"
+                    className="flex flex-col items-center justify-center p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all cursor-pointer group"
                   >
-                    <item.icon className="h-5 w-5 text-slate-500 group-hover:text-blue-600 transition-colors" />
-                    <span className="text-xs text-slate-600 mt-2 group-hover:text-blue-700 font-medium">{item.label}</span>
+                    <item.icon className="h-5 w-5 text-slate-500 dark:text-slate-400 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+                    <span className="text-xs text-slate-600 dark:text-slate-400 mt-2 group-hover:text-blue-700 dark:group-hover:text-blue-300 font-medium">{item.label}</span>
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-slate-500 mt-3 text-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 text-center">
                 Click to add to canvas
               </p>
             </CollapsibleContent>
@@ -474,14 +474,14 @@ export function EditorSidebar({
 
           {/* Saved Modules Section */}
           <Collapsible open={modulesOpen} onOpenChange={setModulesOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-slate-100 transition-colors">
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <div className="flex items-center gap-2">
                 <Bookmark className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-semibold text-blue-900 uppercase">Saved Modules</span>
+                <span className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase">Saved Modules</span>
               </div>
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 text-slate-500 transition-transform',
+                  'h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform',
                   modulesOpen && 'rotate-180'
                 )}
               />
@@ -491,7 +491,7 @@ export function EditorSidebar({
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
                   <Bookmark className="h-6 w-6 text-slate-400" />
                 </div>
-                <p className="font-medium text-slate-600">Save frequently used blocks</p>
+                <p className="font-medium text-slate-600 dark:text-slate-400">Save frequently used blocks</p>
                 <p className="text-xs mt-1">Coming soon</p>
               </div>
             </CollapsibleContent>
