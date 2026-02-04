@@ -40,8 +40,9 @@ export function PipelinesPageHeader({
           Track deals through your recruitment stages.
         </p>
 
-        {/* Pipeline Selector with Settings and Add buttons */}
+        {/* Pipeline Selector with buttons */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {/* Pipeline Selector */}
           <div className="w-full sm:w-64">
             {isLoading ? (
               <Skeleton className="h-10 w-full bg-white/20" />
@@ -65,40 +66,44 @@ export function PipelinesPageHeader({
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Add Deal Button - Most important action */}
-            {onAddDeal && (
-              <Button
-                size="sm"
-                onClick={onAddDeal}
-                disabled={!selectedPipelineId || isLoading}
-                className="bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50 font-semibold"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Deal
-              </Button>
-            )}
-            
-            {/* Settings Button */}
+            {/* Settings Button - Secondary action */}
             <Button
               size="sm"
+              variant="outline"
               onClick={onOpenSettings}
               disabled={!selectedPipelineId || isLoading}
-              className="bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20 disabled:opacity-50"
             >
               <Settings className="h-4 w-4 mr-1.5" />
               Settings
             </Button>
             
-            {/* Add Pipeline Button */}
-            <Button
-              size="sm"
-              onClick={onOpenCreate}
-              disabled={isLoading}
-              className="bg-white text-blue-600 hover:bg-blue-50"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Pipeline
-            </Button>
+            {/* Add Actions - Primary actions grouped together */}
+            <div className="flex items-center gap-2">
+              {/* Add Deal Button */}
+              {onAddDeal && (
+                <Button
+                  size="sm"
+                  onClick={onAddDeal}
+                  disabled={!selectedPipelineId || isLoading}
+                  className="bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50 font-semibold"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Deal
+                </Button>
+              )}
+              
+              {/* Add Pipeline Button */}
+              <Button
+                size="sm"
+                onClick={onOpenCreate}
+                disabled={isLoading}
+                className="bg-white text-blue-600 hover:bg-blue-50"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add Pipeline
+              </Button>
+            </div>
           </div>
         </div>
       </div>
