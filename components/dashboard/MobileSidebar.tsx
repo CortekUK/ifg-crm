@@ -51,8 +51,7 @@ const navSections = [
       { href: '/contacts', label: 'Contacts', icon: Users },
       { href: '/players', label: 'Players', icon: UserCheck },
       { href: '/pipelines', label: 'Pipelines', icon: GitBranch },
-      { href: '/sms-replies', label: 'SMS Replies', icon: MessageSquare },
-      { href: '/email-replies', label: 'Email Replies', icon: Mail },
+      { href: '/replies', label: 'Replies', icon: MessageSquare },
     ],
   },
   {
