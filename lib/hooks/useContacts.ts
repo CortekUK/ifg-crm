@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Contact, UseContactsParams } from '@/lib/types/contacts'
+import type { Contact, ContactTag, UseContactsParams } from '@/lib/types/contacts'
 
 export function useContacts(params?: UseContactsParams) {
   const supabase = createClient()
@@ -406,5 +406,214 @@ export function useContactAutomations(contactId: string | null) {
       }))
     },
     enabled: !!contactId,
+  })
+}
+
+// ============================================
+// Contact Tags
+// ============================================
+
+export function useContactTags(contactId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<ContactTag[]>({
+    queryKey: ['contact-tags', contactId],
+    queryFn: async () => {
+      if (!contactId) return []
+
+      const { data, error } = await supabase
+        .from('contact_tags')
+        .select(`
+          tag:tags(id, name, color, category)
+        `)
+        .eq('contact_id', contactId)
+
+      if (error) throw error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data?.map((d: any) => d.tag).filter(Boolean) || []) as ContactTag[]
+    },
+    enabled: !!contactId,
+  })
+}
+
+export function useTags() {
+  const supabase = createClient()
+
+  return useQuery<ContactTag[]>({
+    queryKey: ['tags'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tags')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    },
+  })
+}
+
+export function useAddTagToContact() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ contactId, tagId }: { contactId: string; tagId: string }) => {
+      const { error } = await supabase
+        .from('contact_tags')
+        .insert({ contact_id: contactId, tag_id: tagId })
+
+      if (error) throw error
+    },
+    onSuccess: (_, { contactId }) => {
+      queryClient.invalidateQueries({ queryKey: ['contact-tags', contactId] })
+    },
+  })
+}
+
+export function useRemoveTagFromContact() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ contactId, tagId }: { contactId: string; tagId: string }) => {
+      const { error } = await supabase
+        .from('contact_tags')
+        .delete()
+        .eq('contact_id', contactId)
+        .eq('tag_id', tagId)
+
+      if (error) throw error
+    },
+    onSuccess: (_, { contactId }) => {
+      queryClient.invalidateQueries({ queryKey: ['contact-tags', contactId] })
+    },
+  })
+}
+
+// ============================================
+// Contact Invoices
+// ============================================
+
+export interface ContactInvoice {
+  id: string
+  invoice_number: string
+  amount: number
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+  type: 'deposit' | 'instalment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
+  description: string | null
+  due_date: string | null
+  paid_at: string | null
+  created_at: string
+}
+
+export function useContactInvoices(contactId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<ContactInvoice[]>({
+    queryKey: ['contact-invoices', contactId],
+    queryFn: async () => {
+      if (!contactId) return []
+
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!contactId,
+  })
+}
+
+// ============================================
+// Contact Notes (Timestamped Log)
+// ============================================
+
+export interface ContactNote {
+  id: string
+  contact_id: string
+  content: string
+  created_by_id: string | null
+  created_at: string
+  created_by?: {
+    id: string
+    full_name: string | null
+    email: string
+  } | null
+}
+
+export function useContactNotes(contactId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<ContactNote[]>({
+    queryKey: ['contact-notes', contactId],
+    queryFn: async () => {
+      if (!contactId) return []
+
+      const { data, error } = await supabase
+        .from('contact_notes')
+        .select(`
+          *,
+          created_by:profiles(id, full_name, email)
+        `)
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!contactId,
+  })
+}
+
+export function useAddContactNote() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ contactId, content }: { contactId: string; content: string }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      const { data, error } = await supabase
+        .from('contact_notes')
+        .insert({
+          contact_id: contactId,
+          content,
+          created_by_id: user?.id || null,
+        })
+        .select(`
+          *,
+          created_by:profiles(id, full_name, email)
+        `)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, { contactId }) => {
+      queryClient.invalidateQueries({ queryKey: ['contact-notes', contactId] })
+    },
+  })
+}
+
+export function useDeleteContactNote() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ noteId, contactId }: { noteId: string; contactId: string }) => {
+      const { error } = await supabase
+        .from('contact_notes')
+        .delete()
+        .eq('id', noteId)
+
+      if (error) throw error
+    },
+    onSuccess: (_, { contactId }) => {
+      queryClient.invalidateQueries({ queryKey: ['contact-notes', contactId] })
+    },
   })
 }

@@ -5,6 +5,13 @@ export interface ContactOwner {
   calendly_url?: string | null
 }
 
+export interface ContactTag {
+  id: string
+  name: string
+  color: string
+  category: 'tournament' | 'skill' | 'priority' | 'other' | null
+}
+
 export interface Contact {
   id: string
   email: string
@@ -27,9 +34,12 @@ export interface Contact {
   source_detail: string | null
   sport: 'football' | 'basketball'
   subscription_status: 'subscribed' | 'unsubscribed'
+  email_subscribed: boolean
+  sms_subscribed: boolean
   notes: string | null
   owner_id: string | null
   owner?: ContactOwner | null
+  tags?: ContactTag[]
   created_at: string
   updated_at: string
   last_activity_at: string | null

@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown, Mail, MessageSquare } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import type { Contact } from '@/lib/types/contacts'
 import { cn } from '@/lib/utils'
@@ -214,16 +214,30 @@ export function ContactsTable({
                 {formatDate(contact.created_at)}
               </TableCell>
               <TableCell>
-                <Badge
-                  variant={contact.subscription_status === 'subscribed' ? 'default' : 'secondary'}
-                  className={cn(
-                    contact.subscription_status === 'subscribed'
-                      ? 'bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-100'
-                  )}
-                >
-                  {contact.subscription_status === 'subscribed' ? 'Subscribed' : 'Unsubscribed'}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className={cn(
+                      "p-1 rounded",
+                      contact.email_subscribed !== false
+                        ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400"
+                        : "bg-red-100 dark:bg-red-900/40 text-red-500 dark:text-red-400"
+                    )}
+                    title={contact.email_subscribed !== false ? "Email subscribed" : "Email unsubscribed"}
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                  </div>
+                  <div
+                    className={cn(
+                      "p-1 rounded",
+                      contact.sms_subscribed !== false
+                        ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400"
+                        : "bg-red-100 dark:bg-red-900/40 text-red-500 dark:text-red-400"
+                    )}
+                    title={contact.sms_subscribed !== false ? "SMS subscribed" : "SMS unsubscribed"}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </div>
+                </div>
               </TableCell>
             </TableRow>
           ))}
