@@ -92,37 +92,98 @@ export default function RepliesPage() {
 
       {/* Main Tabs - Email vs SMS */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'email' | 'sms')}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="email" className="gap-2">
-            <Mail className="h-4 w-4" />
-            Email Replies
-            {emailCounts && emailCounts.unmatched > 0 && (
-              <span className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                {emailCounts.unmatched}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="sms" className="gap-2">
-            <MessageSquare className="h-4 w-4" />
-            SMS Replies
-            {smsCounts && smsCounts.unmatched > 0 && (
-              <span className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                {smsCounts.unmatched}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Email Tab Trigger as Card */}
+          <button
+            onClick={() => setActiveTab('email')}
+            className={`
+              relative overflow-hidden rounded-xl border-2 p-6 text-left transition-all
+              ${activeTab === 'email' 
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-300 dark:hover:border-blue-600'
+              }
+            `}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-lg ${activeTab === 'email' ? 'bg-blue-500 text-white' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'}`}>
+                  <Mail className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Email Replies</h3>
+                  <p className="text-sm text-muted-foreground">Review inbound email responses</p>
+                </div>
+              </div>
+              {emailCounts && emailCounts.unmatched > 0 && (
+                <div className="bg-red-500 text-white text-sm font-semibold px-3 py-1 rounded-full">
+                  {emailCounts.unmatched}
+                </div>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Today</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{emailCounts?.today || 0}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Positive</p>
+                <p className="font-semibold text-green-600 dark:text-green-400">{emailCounts?.positive || 0}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Negative</p>
+                <p className="font-semibold text-red-600 dark:text-red-400">{emailCounts?.negative || 0}</p>
+              </div>
+            </div>
+          </button>
+
+          {/* SMS Tab Trigger as Card */}
+          <button
+            onClick={() => setActiveTab('sms')}
+            className={`
+              relative overflow-hidden rounded-xl border-2 p-6 text-left transition-all
+              ${activeTab === 'sms' 
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-300 dark:hover:border-blue-600'
+              }
+            `}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-lg ${activeTab === 'sms' ? 'bg-blue-500 text-white' : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400'}`}>
+                  <MessageSquare className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-white">SMS Replies</h3>
+                  <p className="text-sm text-muted-foreground">Review inbound text messages</p>
+                </div>
+              </div>
+              {smsCounts && smsCounts.unmatched > 0 && (
+                <div className="bg-red-500 text-white text-sm font-semibold px-3 py-1 rounded-full">
+                  {smsCounts.unmatched}
+                </div>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Today</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{smsCounts?.today || 0}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Positive</p>
+                <p className="font-semibold text-green-600 dark:text-green-400">{smsCounts?.positive || 0}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Negative</p>
+                <p className="font-semibold text-red-600 dark:text-red-400">{smsCounts?.negative || 0}</p>
+              </div>
+            </div>
+          </button>
+        </div>
 
         {/* Email Tab */}
-        <TabsContent value="email" className="space-y-6 mt-6">
-          <EmailReplyStats
-            today={emailCounts?.today || 0}
-            positive={emailCounts?.positive || 0}
-            negative={emailCounts?.negative || 0}
-            needsReview={emailReplies.filter((r) => !r.ai_intent || r.ai_intent === 'unknown').length}
-            isLoading={emailRepliesQuery.isLoading}
-          />
-
+        <TabsContent value="email" className="space-y-6 mt-0">
           <EmailReplyTabs activeTab={emailTab} onTabChange={setEmailTab} counts={emailCounts || { unmatched: 0, matched: 0, spam: 0 }} />
 
           <EmailReplyList
@@ -157,15 +218,7 @@ export default function RepliesPage() {
         </TabsContent>
 
         {/* SMS Tab */}
-        <TabsContent value="sms" className="space-y-6 mt-6">
-          <SMSReplyStats
-            today={smsCounts?.today || 0}
-            positive={smsCounts?.positive || 0}
-            negative={smsCounts?.negative || 0}
-            needsReview={smsMessages.filter((m) => !m.ai_intent || m.ai_intent === 'unknown').length}
-            isLoading={smsMessagesQuery.isLoading}
-          />
-
+        <TabsContent value="sms" className="space-y-6 mt-0">
           <SMSReplyTabs activeTab={smsTab} onTabChange={setSmsTab} counts={smsCounts || { unmatched: 0, matched: 0, spam: 0 }} />
 
           <SMSReplyList
