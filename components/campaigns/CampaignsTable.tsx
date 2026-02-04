@@ -36,7 +36,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2 } from 'lucide-react'
+import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2, Send } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
 import { formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useDeleteCampaign, useDuplicateCampaign, useCancelCampaign } from '@/lib/hooks/useCampaigns'
@@ -53,10 +54,10 @@ interface CampaignsTableProps {
   onEditCampaign: (campaign: Campaign) => void
 }
 
-const statusConfig: Record<Campaign['status'], { label: string; className: string }> = {
+const statusConfig: Record<Campaign['status'], { label: string; className: string; icon?: React.ReactNode }> = {
   draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' },
   scheduled: { label: 'Scheduled', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900' },
-  sending: { label: 'Sending', className: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900 animate-pulse' },
+  sending: { label: 'Sending', className: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900', icon: <Loader2 className="h-3 w-3 animate-spin mr-1" /> },
   sent: { label: 'Sent', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900' },
   cancelled: { label: 'Cancelled', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900' },
 }
@@ -299,12 +300,28 @@ export function CampaignsTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={cn('font-normal', status.className)}>
-                      {status.label}
-                    </Badge>
+                    <div className="space-y-1">
+                      <Badge className={cn('font-normal inline-flex items-center', status.className)}>
+                        {status.icon}
+                        {status.label}
+                      </Badge>
+                      {campaign.status === 'sending' && campaign.total_recipients && campaign.total_recipients > 0 && (
+                        <div className="space-y-1">
+                          <Progress
+                            value={(campaign.processed_recipients || 0) / campaign.total_recipients * 100}
+                            className="h-1.5 w-20"
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {formatNumber(campaign.processed_recipients || 0)}/{formatNumber(campaign.total_recipients)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {formatNumber(recipients)}
+                    {campaign.status === 'sending' || campaign.status === 'sent'
+                      ? formatNumber(campaign.total_recipients || recipients)
+                      : formatNumber(recipients)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{openRate}</TableCell>
                   <TableCell className="text-muted-foreground">{clickRate}</TableCell>
@@ -327,7 +344,7 @@ export function CampaignsTable({
                           <Eye className="h-4 w-4 mr-2" />
                           View
                         </DropdownMenuItem>
-                        {campaign.status === 'draft' && (
+                        {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
                           <DropdownMenuItem onClick={() => onEditCampaign(campaign)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit

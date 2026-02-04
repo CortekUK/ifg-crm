@@ -390,6 +390,22 @@ async function processQueue(
       }
 
       // ============================================
+      // LOCK: Set next_step_at to NULL to prevent duplicate processing
+      // Uses optimistic locking - only updates if next_step_at hasn't changed
+      // ============================================
+      const { data: lockResult, error: lockError } = await supabase
+        .from('automation_enrollments')
+        .update({ next_step_at: null })
+        .eq('id', enrollment.id)
+        .not('next_step_at', 'is', null) // Only if not already being processed
+        .select('id')
+
+      if (lockError || !lockResult || lockResult.length === 0) {
+        console.log(`Enrollment ${enrollment.id} already being processed, skipping`)
+        continue
+      }
+
+      // ============================================
       // CHECK DEAL STATUS - Stop if deal is won or lost
       // ============================================
       const { data: deal, error: dealError } = await supabase
@@ -520,6 +536,35 @@ async function processEmailStep(
   summary: ProcessingSummary
 ) {
   try {
+    // Get the enrollment's enrolled_at timestamp to check for logs from THIS enrollment cycle
+    const { data: enrollmentData } = await supabase
+      .from('automation_enrollments')
+      .select('enrolled_at')
+      .eq('id', enrollment.id)
+      .single()
+
+    const enrolledAt = enrollmentData?.enrolled_at
+
+    // Check if email was already sent for this enrollment + step IN THIS CYCLE
+    // (logs from before the current enrolled_at are from previous cycles and should be ignored)
+    let logQuery = supabase
+      .from('automation_logs')
+      .select('id')
+      .eq('enrollment_id', enrollment.id)
+      .eq('step_id', step.id)
+      .eq('status', 'sent')
+
+    if (enrolledAt) {
+      logQuery = logQuery.gte('sent_at', enrolledAt)
+    }
+
+    const { data: existingLog } = await logQuery.limit(1)
+
+    if (existingLog && existingLog.length > 0) {
+      console.log(`Email already sent for enrollment ${enrollment.id} step ${step.id} in this cycle, skipping`)
+      return
+    }
+
     if (!step.email_template_id) {
       summary.errors.push(`Email step ${step.id} has no template`)
       await logStepExecution(supabase, enrollment, step, 'failed', 'No email template configured')

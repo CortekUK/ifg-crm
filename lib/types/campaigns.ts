@@ -38,6 +38,11 @@ export interface Campaign {
   created_at: string
   updated_at: string
   recipient_list_ids: string[] | null
+  // Progress tracking fields
+  total_recipients?: number
+  processed_recipients?: number
+  last_processed_at?: string | null
+  error_message?: string | null
   template?: EmailTemplate | null
   from_user?: {
     id: string

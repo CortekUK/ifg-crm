@@ -7,6 +7,12 @@ export function useCampaigns(filters?: CampaignFilters) {
 
   return useQuery<Campaign[]>({
     queryKey: ['campaigns', filters],
+    // Poll every 3 seconds when any campaign is in "sending" status
+    refetchInterval: (query) => {
+      const data = query.state.data
+      const hasSending = data?.some((c) => c.status === 'sending')
+      return hasSending ? 3000 : false
+    },
     queryFn: async () => {
       let query = supabase
         .from('campaigns')
@@ -91,6 +97,11 @@ export function useCampaign(campaignId: string | null) {
 
   return useQuery<Campaign | null>({
     queryKey: ['campaign', campaignId],
+    // Poll every 3 seconds when campaign is in "sending" status
+    refetchInterval: (query) => {
+      const data = query.state.data
+      return data?.status === 'sending' ? 3000 : false
+    },
     queryFn: async () => {
       if (!campaignId) return null
 
@@ -314,36 +325,69 @@ export function useCancelCampaign() {
   })
 }
 
-export function useCampaignStats(campaignId: string | null) {
+export function useCampaignStats(campaignId: string | null, isSending?: boolean) {
   const supabase = createClient()
 
   return useQuery({
     queryKey: ['campaign-stats', campaignId],
+    // Poll every 3 seconds while campaign is sending
+    refetchInterval: isSending ? 3000 : false,
     queryFn: async () => {
       if (!campaignId) return null
 
-      // Get stats from email_sends table
+      // Get stats from email_sends table (tracks ALL sends including resends)
       const { data: sends, error } = await supabase
         .from('email_sends')
-        .select('status, opened_at, clicked_at')
+        .select('id, status, delivered_at, opened_at, clicked_at, bounced_at, recipient_contact_id')
         .eq('campaign_id', campaignId)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching campaign stats:', error)
+        throw error
+      }
 
-      const total = sends?.length || 0
-      const delivered = sends?.filter(s => s.status === 'delivered' || s.status === 'opened' || s.status === 'clicked').length || 0
-      const opened = sends?.filter(s => s.opened_at !== null).length || 0
-      const clicked = sends?.filter(s => s.clicked_at !== null).length || 0
-      const bounced = sends?.filter(s => s.status === 'bounced').length || 0
-      const unsubscribed = sends?.filter(s => s.status === 'unsubscribed').length || 0
+      if (!sends || sends.length === 0) {
+        return {
+          total: 0,
+          sent: 0,
+          delivered: 0,
+          opened: 0,
+          clicked: 0,
+          bounced: 0,
+          failed: 0,
+          uniqueRecipients: 0,
+          deliveredRate: 0,
+          openRate: 0,
+          clickRate: 0,
+          bounceRate: 0,
+        }
+      }
+
+      const total = sends.length
+      // Count emails that were successfully sent
+      const sent = sends.filter(s => ['sent', 'delivered', 'opened', 'clicked'].includes(s.status)).length
+      // Count delivered (sent = delivered for Resend, or explicit delivered_at)
+      const delivered = sends.filter(s =>
+        s.delivered_at !== null ||
+        ['sent', 'delivered', 'opened', 'clicked'].includes(s.status)
+      ).length
+      const opened = sends.filter(s => s.opened_at !== null || s.status === 'opened' || s.status === 'clicked').length
+      const clicked = sends.filter(s => s.clicked_at !== null || s.status === 'clicked').length
+      const bounced = sends.filter(s => s.bounced_at !== null || s.status === 'bounced').length
+      const failed = sends.filter(s => s.status === 'failed').length
+
+      // Get unique recipients count
+      const uniqueRecipients = new Set(sends.map(s => s.recipient_contact_id).filter(Boolean)).size
 
       return {
         total,
+        sent,
         delivered,
         opened,
         clicked,
         bounced,
-        unsubscribed,
+        failed,
+        uniqueRecipients,
         deliveredRate: total > 0 ? (delivered / total) * 100 : 0,
         openRate: delivered > 0 ? (opened / delivered) * 100 : 0,
         clickRate: delivered > 0 ? (clicked / delivered) * 100 : 0,
@@ -354,29 +398,46 @@ export function useCampaignStats(campaignId: string | null) {
   })
 }
 
-export function useCampaignRecipients(campaignId: string | null) {
+export function useCampaignRecipients(campaignId: string | null, isSending?: boolean) {
   const supabase = createClient()
 
   return useQuery({
     queryKey: ['campaign-recipients', campaignId],
+    // Poll every 3 seconds while campaign is sending
+    refetchInterval: isSending ? 3000 : false,
     queryFn: async () => {
       if (!campaignId) return []
 
-      const { data, error } = await supabase
+      // Query email_sends table for full send history (includes all resends)
+      const { data: sends, error } = await supabase
         .from('email_sends')
-        .select(`
-          id,
-          status,
-          sent_at,
-          opened_at,
-          clicked_at,
-          contact:contacts(id, first_name, last_name, email)
-        `)
+        .select('*')
         .eq('campaign_id', campaignId)
         .order('sent_at', { ascending: false })
 
       if (error) throw error
-      return data || []
+      if (!sends || sends.length === 0) return []
+
+      // Fetch contact info for recipients
+      const contactIds = [...new Set(sends.map(s => s.recipient_contact_id).filter(Boolean))]
+      let contactsMap = new Map<string, { id: string; first_name: string; last_name: string; email: string }>()
+
+      if (contactIds.length > 0) {
+        const { data: contacts } = await supabase
+          .from('contacts')
+          .select('id, first_name, last_name, email')
+          .in('id', contactIds)
+
+        contacts?.forEach(c => {
+          contactsMap.set(c.id, c)
+        })
+      }
+
+      // Combine sends with contact info
+      return sends.map(send => ({
+        ...send,
+        contact: send.recipient_contact_id ? contactsMap.get(send.recipient_contact_id) : null
+      }))
     },
     enabled: !!campaignId,
   })
@@ -472,6 +533,112 @@ export function useEmailTemplates() {
 
       if (error) throw error
       return data || []
+    },
+  })
+}
+
+export function useSendCampaign() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (campaignId: string) => {
+      const response = await fetch(`/api/campaigns/${campaignId}/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to send campaign')
+      }
+
+      return response.json()
+    },
+    onSuccess: (_, campaignId) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign', campaignId] })
+    },
+  })
+}
+
+export function useBatchDeleteCampaigns() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (campaignIds: string[]) => {
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .in('id', campaignIds)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+    },
+  })
+}
+
+export function useResendCampaign() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (campaignId: string) => {
+      // Reset all campaign_recipients to pending status
+      const { error: resetError } = await supabase
+        .from('campaign_recipients')
+        .update({
+          status: 'pending',
+          sent_at: null,
+          delivered_at: null,
+          opened_at: null,
+          clicked_at: null,
+          error_message: null,
+          resend_message_id: null,
+        })
+        .eq('campaign_id', campaignId)
+
+      if (resetError) throw resetError
+
+      // Get total recipients count
+      const { count } = await supabase
+        .from('campaign_recipients')
+        .select('*', { count: 'exact', head: true })
+        .eq('campaign_id', campaignId)
+
+      // Set campaign to "sending" status immediately for UI feedback
+      const { error: updateError } = await supabase
+        .from('campaigns')
+        .update({
+          status: 'sending',
+          scheduled_at: new Date().toISOString(),
+          sent_at: null,
+          total_recipients: count || 0,
+          processed_recipients: 0,
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', campaignId)
+
+      if (updateError) throw updateError
+
+      // Trigger processing via API (don't await - let it run in background)
+      fetch(`/api/campaigns/${campaignId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(err => console.error('Failed to trigger send:', err))
+
+      return { success: true, campaignId }
+    },
+    onSuccess: (_, campaignId) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['campaign', campaignId] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-recipients', campaignId] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-stats', campaignId] })
     },
   })
 }

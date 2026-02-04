@@ -37,6 +37,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -60,6 +61,7 @@ import {
   useCampaignLists,
   useEmailTemplates,
   useCalculateRecipients,
+  useSendCampaign,
 } from '@/lib/hooks/useCampaigns'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Campaign, CreateCampaignInput } from '@/lib/types/campaigns'
@@ -123,11 +125,15 @@ export function CreateCampaignModal({
   // Preview modal
   const [showPreview, setShowPreview] = useState(false)
 
+  // Send confirmation dialog
+  const [showSendConfirmation, setShowSendConfirmation] = useState(false)
+
   const { data: lists = [] } = useCampaignLists()
   const { data: templates = [] } = useEmailTemplates()
   const { data: recipientData, isLoading: recipientCountLoading } = useCalculateRecipients(selectedLists)
   const createCampaign = useCreateCampaign()
   const updateCampaign = useUpdateCampaign()
+  const sendCampaign = useSendCampaign()
 
   const isEditing = !!editCampaign
 
@@ -208,8 +214,14 @@ export function CreateCampaignModal({
     }
   }
 
-  const handleSubmit = async (saveAsDraft: boolean) => {
+  const handleSubmit = async (saveAsDraft: boolean, sendNow: boolean = false) => {
     if (!name.trim()) return
+
+    // For "Send Now" without scheduling, show confirmation first
+    if (sendNow && !isScheduled && !showSendConfirmation) {
+      setShowSendConfirmation(true)
+      return
+    }
 
     try {
       let scheduledAt: string | undefined
@@ -251,26 +263,52 @@ export function CreateCampaignModal({
           id: editCampaign.id,
           ...campaignData,
         })
-        toast({
-          title: 'Campaign updated',
-          description: `"${name.trim()}" has been updated.`,
-        })
+
+        // If sending now (not scheduled), trigger the send for existing campaign
+        if (sendNow && !isScheduled) {
+          await sendCampaign.mutateAsync(editCampaign.id)
+          toast({
+            title: 'Campaign sending',
+            description: `"${name.trim()}" is now being sent to ${formatNumber(recipientData?.count || 0)} recipients.`,
+          })
+        } else {
+          toast({
+            title: saveAsDraft ? 'Draft saved' : isScheduled ? 'Campaign scheduled' : 'Campaign updated',
+            description: saveAsDraft
+              ? `"${name.trim()}" saved as draft.`
+              : isScheduled
+                ? `"${name.trim()}" scheduled for ${formatDate(scheduledDate!)}.`
+                : `"${name.trim()}" has been updated.`,
+          })
+        }
       } else {
-        await createCampaign.mutateAsync(campaignData)
-        toast({
-          title: saveAsDraft ? 'Draft saved' : isScheduled ? 'Campaign scheduled' : 'Campaign created',
-          description: saveAsDraft
-            ? `"${name.trim()}" saved as draft.`
-            : isScheduled
-              ? `"${name.trim()}" scheduled for ${formatDate(scheduledDate!)}.`
-              : `"${name.trim()}" created successfully.`,
-        })
+        // Create the campaign first
+        const newCampaign = await createCampaign.mutateAsync(campaignData)
+
+        // If sending now (not scheduled), trigger the send
+        if (sendNow && !isScheduled && newCampaign?.id) {
+          await sendCampaign.mutateAsync(newCampaign.id)
+          toast({
+            title: 'Campaign sending',
+            description: `"${name.trim()}" is now being sent to ${formatNumber(recipientData?.count || 0)} recipients.`,
+          })
+        } else {
+          toast({
+            title: saveAsDraft ? 'Draft saved' : isScheduled ? 'Campaign scheduled' : 'Campaign created',
+            description: saveAsDraft
+              ? `"${name.trim()}" saved as draft.`
+              : isScheduled
+                ? `"${name.trim()}" scheduled for ${formatDate(scheduledDate!)}.`
+                : `"${name.trim()}" created successfully.`,
+          })
+        }
       }
 
+      setShowSendConfirmation(false)
       onClose()
     } catch (error) {
       toast({
-        title: isEditing ? 'Failed to update campaign' : 'Failed to create campaign',
+        title: isEditing ? 'Failed to update campaign' : 'Failed to send campaign',
         description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       })
@@ -280,7 +318,7 @@ export function CreateCampaignModal({
   const smsSegments = Math.ceil(smsContent.length / 160)
   const isValid = name.trim().length > 0
   const hasNoRecipients = selectedLists.length === 0
-  const isPending = createCampaign.isPending || updateCampaign.isPending
+  const isPending = createCampaign.isPending || updateCampaign.isPending || sendCampaign.isPending
 
   // Get preview content
   const getPreviewContent = () => {
@@ -352,6 +390,15 @@ export function CreateCampaignModal({
                       SMS
                     </Button>
                   </div>
+                  {type === 'sms' && (
+                    <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <AlertDescription className="text-amber-800 dark:text-amber-200">
+                        SMS campaigns are coming soon. The ClickSend integration is being set up separately.
+                        You can save this campaign as a draft for now.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               </div>
 
@@ -389,7 +436,7 @@ export function CreateCampaignModal({
                         <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start">
+                    <PopoverContent className="w-[400px] p-0" align="start" sideOffset={4}>
                       <div className="p-2 border-b">
                         <div className="relative">
                           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -401,35 +448,37 @@ export function CreateCampaignModal({
                           />
                         </div>
                       </div>
-                      <div className="max-h-60 overflow-y-auto p-1">
-                        {filteredLists.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No lists found
-                          </p>
-                        ) : (
-                          filteredLists.map((list) => {
-                            const isSelected = selectedLists.includes(list.id)
-                            return (
-                              <div
-                                key={list.id}
-                                className={cn(
-                                  'flex items-center justify-between p-2 rounded-md cursor-pointer',
-                                  isSelected ? 'bg-blue-50' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                                )}
-                                onClick={() => handleListToggle(list.id)}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Checkbox checked={isSelected} />
-                                  <span className="text-sm font-medium">{list.name}</span>
+                      <ScrollArea className="h-[240px]">
+                        <div className="p-1">
+                          {filteredLists.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No lists found
+                            </p>
+                          ) : (
+                            filteredLists.map((list) => {
+                              const isSelected = selectedLists.includes(list.id)
+                              return (
+                                <div
+                                  key={list.id}
+                                  className={cn(
+                                    'flex items-center justify-between p-2 rounded-md cursor-pointer',
+                                    isSelected ? 'bg-blue-50 dark:bg-blue-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                  )}
+                                  onClick={() => handleListToggle(list.id)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={isSelected} />
+                                    <span className="text-sm font-medium">{list.name}</span>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatNumber(list.contact_count || 0)} contacts
+                                  </span>
                                 </div>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatNumber(list.contact_count || 0)} contacts
-                                </span>
-                              </div>
-                            )
-                          })
-                        )}
-                      </div>
+                              )
+                            })
+                          )}
+                        </div>
+                      </ScrollArea>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -757,7 +806,7 @@ export function CreateCampaignModal({
             </div>
           </div>
 
-          <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+          <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-900 shrink-0">
             <div className="flex gap-3 w-full">
               <Button
                 variant="outline"
@@ -767,22 +816,41 @@ export function CreateCampaignModal({
               >
                 Save as Draft
               </Button>
-              <Button
-                onClick={() => handleSubmit(false)}
-                disabled={!isValid || isPending}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isEditing ? 'Updating...' : 'Creating...'}
-                  </>
-                ) : isScheduled ? (
-                  'Schedule'
-                ) : (
-                  'Send Now'
-                )}
-              </Button>
+              {type === 'email' ? (
+                <Button
+                  onClick={() => handleSubmit(false, !isScheduled)}
+                  disabled={!isValid || isPending || hasNoRecipients}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {sendCampaign.isPending ? 'Sending...' : isEditing ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : isScheduled ? (
+                    'Schedule'
+                  ) : (
+                    'Send Now'
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => handleSubmit(false)}
+                  disabled={!isValid || isPending}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isEditing ? 'Updating...' : 'Saving...'}
+                    </>
+                  ) : isScheduled ? (
+                    'Schedule'
+                  ) : (
+                    'Save Campaign'
+                  )}
+                </Button>
+              )}
             </div>
           </SheetFooter>
         </SheetContent>
@@ -799,7 +867,7 @@ export function CreateCampaignModal({
           </DialogHeader>
           <div className="space-y-4">
             <div className="border rounded-lg overflow-hidden">
-              <div className="bg-slate-100 p-3 border-b">
+              <div className="bg-slate-100 dark:bg-slate-800 p-3 border-b">
                 <p className="text-sm">
                   <strong>From:</strong> {fromName || 'Your Name'} &lt;{fromEmail || 'email@example.com'}&gt;
                 </p>
@@ -810,15 +878,31 @@ export function CreateCampaignModal({
                   <p className="text-xs text-muted-foreground mt-1">{previewText}</p>
                 )}
               </div>
-              <div className="p-4 bg-white min-h-[200px]">
+              <div className="p-4 bg-white dark:bg-slate-900 min-h-[200px] max-h-[400px] overflow-y-auto">
                 {emailContentMode === 'template' && templateId ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    <Mail className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>Template content will be rendered when sent</p>
-                    <p className="text-sm">
-                      Template: {templates.find((t) => t.id === templateId)?.name}
-                    </p>
-                  </div>
+                  (() => {
+                    const template = templates.find((t) => t.id === templateId)
+                    if (!template?.body_html) {
+                      return (
+                        <p className="text-muted-foreground text-center py-8">
+                          Template has no content
+                        </p>
+                      )
+                    }
+                    // Replace merge tags with sample data for preview
+                    const previewHtml = template.body_html
+                      .replace(/\{\{first_name\}\}/g, 'John')
+                      .replace(/\{\{last_name\}\}/g, 'Doe')
+                      .replace(/\{\{email\}\}/g, 'john.doe@example.com')
+                      .replace(/\{\{programme\}\}/g, 'US Soccer')
+                      .replace(/\{\{calendly_link\}\}/g, 'https://calendly.com/example')
+                    return (
+                      <div
+                        className="prose prose-sm max-w-none dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: previewHtml }}
+                      />
+                    )
+                  })()
                 ) : emailBodyText ? (
                   <div className="whitespace-pre-wrap text-sm">
                     {emailBodyText
@@ -836,6 +920,66 @@ export function CreateCampaignModal({
             <p className="text-xs text-muted-foreground">
               * Merge tags shown with sample data (John Doe)
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Confirmation Dialog */}
+      <Dialog open={showSendConfirmation} onOpenChange={setShowSendConfirmation}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Campaign Now?</DialogTitle>
+            <DialogDescription>
+              You&apos;re about to send this campaign to {formatNumber(recipientData?.count || 0)} recipients.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Campaign</span>
+                <span className="font-medium">{name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Subject</span>
+                <span className="font-medium truncate max-w-[200px]">{emailSubject || '(No subject)'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Recipients</span>
+                <span className="font-medium">{formatNumber(recipientData?.count || 0)} contacts</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Lists</span>
+                <span className="font-medium">{selectedLists.length} selected</span>
+              </div>
+            </div>
+            {recipientData?.hasDuplicates && (
+              <p className="text-xs text-muted-foreground">
+                Note: Duplicate contacts across lists have been removed.
+              </p>
+            )}
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowSendConfirmation(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleSubmit(false, true)}
+              disabled={isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Yes, Send Now'
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

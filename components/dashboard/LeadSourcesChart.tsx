@@ -10,10 +10,16 @@ const sourceColours: Record<string, string> = {
   'google_ads': '#3b82f6',
   'instagram': '#ec4899',
   'email': '#10b981',
+  'email_reply': '#10b981',
   'referral': '#f59e0b',
   'facebook': '#6366f1',
   'website': '#8b5cf6',
+  'website_form': '#8b5cf6',
   'manual': '#6b7280',
+  'Manual Entry': '#6b7280',
+  'csv_import': '#f97316',
+  'sms_reply': '#14b8a6',
+  'tournament': '#eab308',
   'other': '#94a3b8',
 }
 
@@ -21,10 +27,16 @@ const sourceLabels: Record<string, string> = {
   'google_ads': 'Google Ads',
   'instagram': 'Instagram',
   'email': 'Email',
+  'email_reply': 'Email Reply',
   'referral': 'Referral',
   'facebook': 'Facebook',
   'website': 'Website',
+  'website_form': 'Website Form',
   'manual': 'Manual Entry',
+  'Manual Entry': 'Manual Entry',
+  'csv_import': 'CSV Import',
+  'sms_reply': 'SMS Reply',
+  'tournament': 'Tournament',
   'other': 'Other',
 }
 
@@ -75,7 +87,7 @@ export function LeadSourcesChart() {
   return (
     <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       {/* Subtle gradient overlay from top */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 dark:from-slate-800/50 to-transparent pointer-events-none" />
       
       <CardHeader className="relative z-10 pb-3">
         <div className="flex items-center gap-2">
@@ -128,7 +140,7 @@ export function LeadSourcesChart() {
                     {source.count} ({source.percentage}%)
                   </span>
                 </div>
-                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{

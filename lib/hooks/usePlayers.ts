@@ -236,7 +236,24 @@ export function useUpdatePlayer() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase update error:', JSON.stringify(error, null, 2))
+        // Provide specific error messages for unique constraint violations
+        const errorCode = String(error.code || '')
+        const errorMessage = String(error.message || '')
+
+        if (
+          errorCode === '23505' ||
+          errorCode === '409' ||
+          errorMessage.toLowerCase().includes('duplicate') ||
+          errorMessage.toLowerCase().includes('unique') ||
+          errorMessage.toLowerCase().includes('already exists') ||
+          errorMessage.toLowerCase().includes('violates unique constraint')
+        ) {
+          throw new Error('This email address is already in use by another player')
+        }
+        throw new Error(errorMessage || 'Failed to update player')
+      }
       return data
     },
     onSuccess: (_, variables) => {

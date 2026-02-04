@@ -14,7 +14,7 @@ import type { UserRole } from '@/lib/types/users'
 export interface UsersFiltersState {
   search: string
   role: UserRole | 'all'
-  status: 'all' | 'active' | 'inactive'
+  status: 'all' | 'active' | 'inactive' | 'pending'
 }
 
 interface UsersFiltersProps {
@@ -58,7 +58,7 @@ export function UsersFilters({ filters, onFiltersChange }: UsersFiltersProps) {
       <Select
         value={filters.status}
         onValueChange={(value) =>
-          onFiltersChange({ ...filters, status: value as 'all' | 'active' | 'inactive' })
+          onFiltersChange({ ...filters, status: value as 'all' | 'active' | 'inactive' | 'pending' })
         }
       >
         <SelectTrigger className="w-[140px]">
@@ -68,6 +68,7 @@ export function UsersFilters({ filters, onFiltersChange }: UsersFiltersProps) {
           <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="active">Active</SelectItem>
           <SelectItem value="inactive">Inactive</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
         </SelectContent>
       </Select>
     </div>

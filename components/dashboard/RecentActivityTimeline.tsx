@@ -75,7 +75,7 @@ export function RecentActivityTimeline() {
   return (
     <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       {/* Subtle gradient overlay from top */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 dark:from-slate-800/50 to-transparent pointer-events-none" />
       
       <CardHeader className="relative z-10 pb-3">
         <div className="flex items-center gap-2">
@@ -125,15 +125,27 @@ export function RecentActivityTimeline() {
                 ? `${activity.deal.contact.first_name} ${activity.deal.contact.last_name}`
                 : activity.deal?.title || 'Unknown'
 
+              // Build a more descriptive label that includes the player name
+              let displayLabel = config.label
+              let displayDescription = activity.description || ''
+
+              if (activity.activity_type === 'stage_changed' && contactName !== 'Unknown') {
+                displayLabel = contactName
+                // Keep the description as the stage change info
+              } else if (activity.activity_type === 'deal_created' && contactName !== 'Unknown') {
+                displayLabel = `${contactName} added`
+                displayDescription = ''
+              }
+
               return (
                 <div key={activity.id} className="flex items-start gap-3">
                   <div className={`p-2 rounded-full ${config.bgColour} shrink-0`}>
                     <Icon className={`h-4 w-4 ${config.iconColour}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{config.label}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{displayLabel}</p>
                     <p className="text-sm text-muted-foreground truncate">
-                      {activity.description || contactName}
+                      {displayDescription || (activity.activity_type !== 'stage_changed' && activity.activity_type !== 'deal_created' ? contactName : activity.description)}
                     </p>
                   </div>
                   <p className="text-xs text-muted-foreground whitespace-nowrap shrink-0">

@@ -151,7 +151,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
           parent_name: formData.parent_name || null,
           parent_email: formData.parent_email || null,
           parent_phone: formData.parent_phone || null,
-          source: (formData.source as 'manual' | 'website_form' | 'sms_reply' | 'email_reply' | 'csv_import') || null,
+          source: (formData.source || null) as Contact['source'],
           notes: formData.notes || null,
           subscription_status: formData.subscription_status as 'subscribed' | 'unsubscribed',
           owner_id: selectedOwnerId,
@@ -165,9 +165,19 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
       onClose()
     } catch (error) {
+      console.error('Contact update error:', error)
+      let errorMessage = 'An error occurred'
+      if (error instanceof Error) {
+        // Check for unique constraint violation on email
+        if (error.message.includes('duplicate') || error.message.includes('unique') || error.message.includes('23505')) {
+          errorMessage = 'This email address is already in use by another contact'
+        } else {
+          errorMessage = error.message
+        }
+      }
       toast({
         title: 'Failed to update contact',
-        description: error instanceof Error ? error.message : 'An error occurred',
+        description: errorMessage,
         variant: 'destructive',
       })
     }

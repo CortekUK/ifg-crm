@@ -174,7 +174,30 @@ export function useUpdateContact() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase update error:', JSON.stringify(error, null, 2))
+        // Provide more specific error messages for unique constraint violations
+        // 23505 is PostgreSQL unique violation, 409 is HTTP Conflict
+        const errorCode = String(error.code || '')
+        const errorMessage = String(error.message || '')
+        const errorDetails = String(error.details || '')
+        const errorHint = String(error.hint || '')
+
+        // Check for unique constraint violation (duplicate email)
+        if (
+          errorCode === '23505' ||
+          errorCode === '409' ||
+          errorMessage.toLowerCase().includes('duplicate') ||
+          errorMessage.toLowerCase().includes('unique') ||
+          errorMessage.toLowerCase().includes('already exists') ||
+          errorMessage.toLowerCase().includes('violates unique constraint') ||
+          errorDetails.toLowerCase().includes('already exists') ||
+          errorHint.toLowerCase().includes('unique')
+        ) {
+          throw new Error('This email address is already in use by another contact')
+        }
+        throw new Error(errorMessage || 'Failed to update contact')
+      }
       return data
     },
     onSuccess: () => {

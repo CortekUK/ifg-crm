@@ -84,4 +84,5 @@ export interface Deal {
   // Computed fields
   time_in_stage?: number // days in current stage
   last_contacted_at?: string | null // when last email was sent
+  has_active_automation?: boolean // whether deal has an active automation enrollment
 }

@@ -193,12 +193,12 @@ export function PlayersTable({
                 <TableCell>
                   <Badge
                     className={
-                      player.subscription_status === 'active'
+                      player.subscription_status === 'subscribed'
                         ? 'bg-green-100 dark:bg-green-900/50 text-green-700'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-700'
                     }
                   >
-                    {player.subscription_status === 'active' ? 'Active' : 'Unsubscribed'}
+                    {player.subscription_status === 'subscribed' ? 'Subscribed' : 'Unsubscribed'}
                   </Badge>
                 </TableCell>
 

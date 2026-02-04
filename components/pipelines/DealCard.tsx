@@ -90,18 +90,31 @@ export function DealCard({ deal, index, onClick }: DealCardProps) {
 
   return (
     <Draggable draggableId={deal.id} index={index}>
-      {(provided, snapshot) => (
+      {(provided, snapshot) => {
+        // Custom style for smooth drop animation
+        const style = {
+          ...provided.draggableProps.style,
+          // Add transition only when not actively dragging (for smooth drop)
+          transition: snapshot.isDropAnimating
+            ? 'all 0.25s cubic-bezier(0.2, 0, 0, 1)'
+            : provided.draggableProps.style?.transition,
+        }
+
+        return (
         <HoverCard openDelay={500} closeDelay={100}>
           <HoverCardTrigger asChild>
             <div
               ref={provided.innerRef}
               {...provided.draggableProps}
               {...provided.dragHandleProps}
+              style={style}
               onClick={onClick}
               className={cn(
-                'group relative bg-card rounded-lg border p-3 mb-2 cursor-pointer transition-all duration-200',
+                'group relative bg-card rounded-lg border p-3 mb-2 cursor-pointer',
                 'hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5',
-                snapshot.isDragging && 'shadow-xl border-primary/50 scale-[1.02] rotate-1 z-50'
+                'transition-[shadow,border-color] duration-200',
+                snapshot.isDragging && 'shadow-xl border-primary/50 z-50',
+                snapshot.isDropAnimating && 'shadow-md'
               )}
             >
               {/* Status Indicator Bar */}
@@ -212,16 +225,17 @@ export function DealCard({ deal, index, onClick }: DealCardProps) {
             </div>
           </HoverCardTrigger>
           
-          <HoverCardContent 
-            side="right" 
-            align="start" 
+          <HoverCardContent
+            side="right"
+            align="start"
             className="w-80 p-4"
             sideOffset={8}
           >
             <DealCardPreview deal={deal} />
           </HoverCardContent>
         </HoverCard>
-      )}
+        )
+      }}
     </Draggable>
   )
 }

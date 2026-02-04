@@ -51,16 +51,19 @@ import {
   Loader2,
   CheckCircle,
 } from 'lucide-react'
-import { formatDate, formatDateLong, formatNumber } from '@/lib/utils/format'
+import { formatDate, formatDateTime, formatDateLong, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import {
   useCampaign,
-  useCampaignStats,
   useCampaignRecipients,
   useDeleteCampaign,
   useDuplicateCampaign,
   useCancelCampaign,
+  useSendCampaign,
+  useResendCampaign,
+  useCalculateRecipients,
 } from '@/lib/hooks/useCampaigns'
+import { Progress } from '@/components/ui/progress'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Campaign } from '@/lib/types/campaigns'
 
@@ -87,14 +90,46 @@ export function CampaignDetailSheet({
 }: CampaignDetailSheetProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [showSendDialog, setShowSendDialog] = useState(false)
+  const [showResendDialog, setShowResendDialog] = useState(false)
 
   const { data: campaign, isLoading } = useCampaign(campaignId)
-  const { data: stats, isLoading: statsLoading } = useCampaignStats(campaignId)
-  const { data: recipients = [], isLoading: recipientsLoading } = useCampaignRecipients(campaignId)
+  const isSending = campaign?.status === 'sending'
+  const { data: recipients = [], isLoading: recipientsLoading } = useCampaignRecipients(campaignId, isSending)
+  const { data: recipientData } = useCalculateRecipients(campaign?.recipient_list_ids || [])
+
+  // Calculate stats from recipients data for reliability
+  const stats = recipients.length > 0 ? {
+    total: recipients.length,
+    sent: recipients.filter(r => ['sent', 'delivered', 'opened', 'clicked'].includes(r.status)).length,
+    // Delivered = sent successfully (not bounced or failed)
+    delivered: recipients.filter(r =>
+      ['sent', 'delivered', 'opened', 'clicked'].includes(r.status)
+    ).length,
+    // Opened = has opened_at timestamp or status indicates opened
+    opened: recipients.filter(r => !!r.opened_at || r.status === 'opened' || r.status === 'clicked').length,
+    // Clicked = has clicked_at timestamp or status indicates clicked
+    clicked: recipients.filter(r => !!r.clicked_at || r.status === 'clicked').length,
+    // Bounced = status is explicitly 'bounced'
+    bounced: recipients.filter(r => r.status === 'bounced').length,
+    // Failed = status is explicitly 'failed'
+    failed: recipients.filter(r => r.status === 'failed').length,
+    uniqueRecipients: new Set(recipients.map(r => r.recipient_contact_id).filter(Boolean)).size,
+  } : null
+
+  const statsWithRates = stats ? {
+    ...stats,
+    deliveredRate: stats.total > 0 ? (stats.delivered / stats.total) * 100 : 0,
+    openRate: stats.delivered > 0 ? (stats.opened / stats.delivered) * 100 : 0,
+    clickRate: stats.delivered > 0 ? (stats.clicked / stats.delivered) * 100 : 0,
+    bounceRate: stats.total > 0 ? (stats.bounced / stats.total) * 100 : 0,
+  } : null
 
   const deleteCampaign = useDeleteCampaign()
   const duplicateCampaign = useDuplicateCampaign()
   const cancelCampaign = useCancelCampaign()
+  const sendCampaign = useSendCampaign()
+  const resendCampaign = useResendCampaign()
 
   const handleDelete = async () => {
     if (!campaignId) return
@@ -150,6 +185,42 @@ export function CampaignDetailSheet({
     }
   }
 
+  const handleSend = async () => {
+    if (!campaignId) return
+    try {
+      await sendCampaign.mutateAsync(campaignId)
+      toast({
+        title: 'Campaign sending',
+        description: `Campaign is now being sent to ${formatNumber(recipientData?.count || 0)} recipients.`,
+      })
+      setShowSendDialog(false)
+    } catch (error) {
+      toast({
+        title: 'Failed to send',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleResend = async () => {
+    if (!campaignId) return
+    try {
+      await resendCampaign.mutateAsync(campaignId)
+      toast({
+        title: 'Campaign resending',
+        description: `Campaign is being resent to all recipients.`,
+      })
+      setShowResendDialog(false)
+    } catch (error) {
+      toast({
+        title: 'Failed to resend',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
   if (!campaignId) return null
 
   return (
@@ -180,18 +251,18 @@ export function CampaignDetailSheet({
               <Skeleton className="h-48 w-full" />
             </div>
           ) : campaign ? (
-            <Tabs defaultValue="details" className="flex-1 flex flex-col overflow-hidden">
+            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
               <div className="px-6 pt-4 shrink-0">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="details">Details</TabsTrigger>
                   <TabsTrigger value="content">Content</TabsTrigger>
                   <TabsTrigger value="recipients">
-                    Recipients {recipients.length > 0 && `(${recipients.length})`}
+                    Sends {recipients.length > 0 && `(${recipients.length})`}
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-              <ScrollArea className="flex-1">
+              <div className="flex-1 overflow-y-auto">
                 <TabsContent value="details" className="px-6 py-4 space-y-6 mt-0">
                   {/* Campaign Info */}
                   <div className="space-y-4">
@@ -286,82 +357,154 @@ export function CampaignDetailSheet({
                     </div>
                   )}
 
-                  {/* Stats (only for sent campaigns) */}
-                  {campaign.status === 'sent' && (
+                  {/* Sending Progress */}
+                  {campaign.status === 'sending' && (
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                        Sending Progress
+                      </h3>
+                      <Card className="bg-yellow-50 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Loader2 className="h-4 w-4 text-yellow-600 dark:text-yellow-400 animate-spin" />
+                            <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Campaign is sending...</span>
+                          </div>
+                          <Progress
+                            value={campaign.total_recipients ? (campaign.processed_recipients || 0) / campaign.total_recipients * 100 : 0}
+                            className="h-2 mb-2"
+                          />
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-yellow-800 dark:text-yellow-200">
+                              {formatNumber(campaign.processed_recipients || 0)} of {formatNumber(campaign.total_recipients || 0)} sent
+                            </span>
+                            <span className="text-yellow-600 dark:text-yellow-400">
+                              {campaign.total_recipients ? Math.round((campaign.processed_recipients || 0) / campaign.total_recipients * 100) : 0}%
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Stats (for sent campaigns or campaigns with send history) */}
+                  {(campaign.status === 'sent' || campaign.status === 'sending' || recipients.length > 0) && (
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Performance
                       </h3>
-                      {statsLoading ? (
+                      {recipientsLoading ? (
                         <div className="grid grid-cols-2 gap-4">
                           {[1, 2, 3, 4].map((i) => (
                             <Skeleton key={i} className="h-20" />
                           ))}
                         </div>
-                      ) : stats ? (
-                        <div className="grid grid-cols-2 gap-4">
-                          <Card>
+                      ) : statsWithRates && statsWithRates.total > 0 ? (
+                        <>
+                          {/* Summary row */}
+                          <Card className="bg-slate-50 dark:bg-slate-800/50">
                             <CardContent className="p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Send className="h-4 w-4 text-blue-600" />
-                                <span className="text-sm text-muted-foreground">Delivered</span>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Total Emails Sent</p>
+                                  <p className="text-3xl font-bold">{formatNumber(statsWithRates.total)}</p>
+                                </div>
+                                {statsWithRates.uniqueRecipients > 0 && statsWithRates.uniqueRecipients !== statsWithRates.total && (
+                                  <div className="text-right">
+                                    <p className="text-sm text-muted-foreground">Unique Recipients</p>
+                                    <p className="text-xl font-semibold">{formatNumber(statsWithRates.uniqueRecipients)}</p>
+                                  </div>
+                                )}
                               </div>
-                              <p className="text-2xl font-bold">{formatNumber(stats.delivered)}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {stats.deliveredRate.toFixed(1)}% of {formatNumber(stats.total)}
-                              </p>
                             </CardContent>
                           </Card>
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Eye className="h-4 w-4 text-green-600" />
-                                <span className="text-sm text-muted-foreground">Opened</span>
-                              </div>
-                              <p className="text-2xl font-bold">{formatNumber(stats.opened)}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {stats.openRate.toFixed(1)}% open rate
-                              </p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <MousePointer className="h-4 w-4 text-purple-600" />
-                                <span className="text-sm text-muted-foreground">Clicked</span>
-                              </div>
-                              <p className="text-2xl font-bold">{formatNumber(stats.clicked)}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {stats.clickRate.toFixed(1)}% click rate
-                              </p>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <AlertTriangle className="h-4 w-4 text-red-600" />
-                                <span className="text-sm text-muted-foreground">Bounced</span>
-                              </div>
-                              <p className="text-2xl font-bold">{formatNumber(stats.bounced)}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {stats.bounceRate.toFixed(1)}% bounce rate
-                              </p>
-                            </CardContent>
-                          </Card>
-                        </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Send className="h-4 w-4 text-blue-600" />
+                                  <span className="text-sm text-muted-foreground">Delivered</span>
+                                </div>
+                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.delivered)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {statsWithRates.deliveredRate.toFixed(1)}% delivery rate
+                                </p>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Eye className="h-4 w-4 text-green-600" />
+                                  <span className="text-sm text-muted-foreground">Opened</span>
+                                </div>
+                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.opened)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {statsWithRates.openRate.toFixed(1)}% open rate
+                                </p>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <MousePointer className="h-4 w-4 text-purple-600" />
+                                  <span className="text-sm text-muted-foreground">Clicked</span>
+                                </div>
+                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.clicked)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {statsWithRates.clickRate.toFixed(1)}% click rate
+                                </p>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                                  <span className="text-sm text-muted-foreground">Bounced</span>
+                                </div>
+                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.bounced)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {statsWithRates.bounceRate.toFixed(1)}% bounce rate
+                                </p>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </>
                       ) : (
-                        <p className="text-sm text-muted-foreground">No stats available</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No performance data available yet
+                        </p>
                       )}
                     </div>
                   )}
 
                   {/* Actions */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Actions
                     </h3>
                     <div className="flex flex-wrap gap-2">
-                      {campaign.status === 'draft' && onEdit && (
+                      {(campaign.status === 'draft' || campaign.status === 'scheduled') && campaign.type === 'email' && (
+                        <Button
+                          size="sm"
+                          onClick={() => setShowSendDialog(true)}
+                          disabled={!campaign.recipient_list_ids?.length}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Now
+                        </Button>
+                      )}
+                      {campaign.status === 'sent' && campaign.type === 'email' && (
+                        <Button
+                          size="sm"
+                          onClick={() => setShowResendDialog(true)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Again
+                        </Button>
+                      )}
+                      {(campaign.status === 'draft' || campaign.status === 'scheduled') && onEdit && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -389,7 +532,7 @@ export function CampaignDetailSheet({
                           variant="outline"
                           size="sm"
                           onClick={() => setShowCancelDialog(true)}
-                          className="text-orange-600 hover:text-orange-700 dark:text-orange-300"
+                          className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           Cancel
@@ -399,7 +542,7 @@ export function CampaignDetailSheet({
                         variant="outline"
                         size="sm"
                         onClick={() => setShowDeleteDialog(true)}
-                        className="text-red-600 hover:text-red-700 dark:text-red-300"
+                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
@@ -429,20 +572,20 @@ export function CampaignDetailSheet({
                       )}
                       <Separator />
                       {campaign.body_html ? (
-                        <div className="border rounded-lg p-4 bg-white dark:bg-slate-900 dark:bg-slate-900">
+                        <div className="border rounded-lg p-4 bg-white dark:bg-slate-900">
                           <div
-                            className="prose prose-sm max-w-none"
+                            className="prose prose-sm max-w-none dark:prose-invert"
                             dangerouslySetInnerHTML={{ __html: campaign.body_html }}
                           />
                         </div>
                       ) : campaign.body_text ? (
-                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 dark:bg-slate-800">
+                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
                           <p className="whitespace-pre-wrap text-sm">{campaign.body_text}</p>
                         </div>
                       ) : campaign.template ? (
                         <div className="space-y-2">
                           <p className="text-xs text-muted-foreground uppercase">Using Template</p>
-                          <div className="border rounded-lg p-4 bg-blue-50">
+                          <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
                             <p className="font-medium text-blue-700 dark:text-blue-300">{campaign.template.name}</p>
                           </div>
                         </div>
@@ -453,7 +596,7 @@ export function CampaignDetailSheet({
                   ) : (
                     <div className="space-y-4">
                       {campaign.sms_content ? (
-                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 dark:bg-slate-800">
+                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
                           <p className="whitespace-pre-wrap">{campaign.sms_content}</p>
                           <p className="text-xs text-muted-foreground mt-2">
                             {campaign.sms_content.length} characters •{' '}
@@ -468,9 +611,16 @@ export function CampaignDetailSheet({
                 </TabsContent>
 
                 <TabsContent value="recipients" className="px-6 py-4 space-y-6 mt-0">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                    Recipients
-                  </h3>
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase">
+                      Send History
+                    </h3>
+                    {recipients.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {recipients.length} total send{recipients.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
 
                   {recipientsLoading ? (
                     <div className="space-y-2">
@@ -482,69 +632,106 @@ export function CampaignDetailSheet({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Contact</TableHead>
+                          <TableHead>Recipient</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Sent At</TableHead>
                           <TableHead>Opened</TableHead>
                           <TableHead>Clicked</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {recipients.map((recipient) => (
-                          <TableRow key={recipient.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">
-                                  {recipient.contact?.[0]?.first_name} {recipient.contact?.[0]?.last_name}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {recipient.contact?.[0]?.email}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  recipient.status === 'delivered' && 'bg-green-50 text-green-700',
-                                  recipient.status === 'bounced' && 'bg-red-50 text-red-700',
-                                  recipient.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700'
+                        {recipients.map((send) => {
+                          // Handle contact being either object or array
+                          const contact = Array.isArray(send.contact)
+                            ? send.contact[0]
+                            : send.contact
+                          const contactName = contact
+                            ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
+                            : ''
+                          const contactEmail = send.recipient_email || contact?.email || ''
+
+                          return (
+                            <TableRow key={send.id}>
+                              <TableCell>
+                                <div>
+                                  {contactName && (
+                                    <p className="font-medium">{contactName}</p>
+                                  )}
+                                  <p className={cn(
+                                    "text-xs",
+                                    contactName ? "text-muted-foreground" : "font-medium"
+                                  )}>
+                                    {contactEmail}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    (send.status === 'sent' || send.status === 'delivered') && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200',
+                                    send.status === 'opened' && 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200',
+                                    send.status === 'clicked' && 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200',
+                                    send.status === 'bounced' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200',
+                                    send.status === 'failed' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200',
+                                    send.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200'
+                                  )}
+                                >
+                                  {send.status === 'sent' ? 'Delivered' : send.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {send.sent_at ? (
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                    {formatDateTime(send.sent_at)}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
                                 )}
-                              >
-                                {recipient.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {recipient.opened_at ? (
-                                <CheckCircle className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {recipient.clicked_at ? (
-                                <CheckCircle className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                              </TableCell>
+                              <TableCell>
+                                {send.opened_at ? (
+                                  <div className="flex items-center gap-1">
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatDate(send.opened_at)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {send.clicked_at ? (
+                                  <div className="flex items-center gap-1">
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatDate(send.clicked_at)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   ) : campaign.status === 'sent' ? (
                     <p className="text-muted-foreground text-center py-8">
-                      No recipient data available
+                      No send history available
                     </p>
                   ) : (
                     <div className="text-center py-8">
                       <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                       <p className="text-muted-foreground">
-                        Recipients will appear here after the campaign is sent
+                        Send history will appear here after the campaign is sent
                       </p>
                     </div>
                   )}
                 </TabsContent>
-              </ScrollArea>
+              </div>
             </Tabs>
           ) : null}
         </SheetContent>
@@ -602,6 +789,84 @@ export function CampaignDetailSheet({
                 </>
               ) : (
                 'Cancel Campaign'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Send Confirmation Dialog */}
+      <AlertDialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Campaign Now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;re about to send &quot;{campaign?.name}&quot; to {formatNumber(recipientData?.count || 0)} recipients.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg border p-4 space-y-2 bg-slate-50 dark:bg-slate-800">
+              {campaign?.subject && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Subject</span>
+                  <span className="font-medium truncate max-w-[200px]">{campaign.subject}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Recipients</span>
+                <span className="font-medium">{formatNumber(recipientData?.count || 0)} contacts</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Lists</span>
+                <span className="font-medium">{campaign?.recipient_list_ids?.length || 0} selected</span>
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSend}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={sendCampaign.isPending}
+            >
+              {sendCampaign.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Yes, Send Now'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Resend Confirmation Dialog */}
+      <AlertDialog open={showResendDialog} onOpenChange={setShowResendDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resend Campaign?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will resend &quot;{campaign?.name}&quot; to all {formatNumber(campaign?.total_recipients || recipients.length)} recipients again.
+              Recipients who already received the email will receive it again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResend}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={resendCampaign.isPending}
+            >
+              {resendCampaign.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Resending...
+                </>
+              ) : (
+                'Yes, Resend'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

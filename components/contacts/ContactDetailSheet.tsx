@@ -272,7 +272,7 @@ export function ContactDetailSheet({
                 {contact.first_name} {contact.last_name}
               </SheetTitle>
               <SheetDescription className="mt-1 flex items-center gap-2">
-                {contact.subscription_status === 'active' || contact.subscription_status === 'subscribed' ? (
+                {contact.subscription_status === 'subscribed' ? (
                   <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 border-0">Subscribed</Badge>
                 ) : contact.subscription_status === 'unsubscribed' ? (
                   <Badge className="bg-red-100 dark:bg-red-900/50 text-red-700 border-0">Unsubscribed</Badge>

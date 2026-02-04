@@ -174,8 +174,8 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                     {player.position && player.graduation_year && <span>•</span>}
                     {player.graduation_year && <span>Class of {player.graduation_year}</span>}
                   </SheetDescription>
-                  <Badge className={player.subscription_status === 'active' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 border-0 mt-2' : 'bg-slate-100 text-slate-700 border-0 mt-2'}>
-                    {player.subscription_status === 'active' ? 'Active' : 'Unsubscribed'}
+                  <Badge className={player.subscription_status === 'subscribed' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 border-0 mt-2' : 'bg-slate-100 text-slate-700 border-0 mt-2'}>
+                    {player.subscription_status === 'subscribed' ? 'Subscribed' : 'Unsubscribed'}
                   </Badge>
                 </div>
               </div>

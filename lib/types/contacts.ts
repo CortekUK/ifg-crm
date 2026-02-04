@@ -23,10 +23,10 @@ export interface Contact {
   parent_name: string | null
   parent_email: string | null
   parent_phone: string | null
-  source: 'website_form' | 'sms_reply' | 'email_reply' | 'manual' | 'csv_import' | null
+  source: 'website_form' | 'sms_reply' | 'email_reply' | 'manual' | 'csv_import' | 'referral' | 'google_ads' | 'instagram' | 'facebook' | 'email_campaign' | 'event' | null
   source_detail: string | null
   sport: 'football' | 'basketball'
-  subscription_status: 'active' | 'unsubscribed' | 'subscribed'
+  subscription_status: 'subscribed' | 'unsubscribed'
   notes: string | null
   owner_id: string | null
   owner?: ContactOwner | null

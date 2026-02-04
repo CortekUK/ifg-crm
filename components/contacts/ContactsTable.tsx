@@ -201,14 +201,14 @@ export function ContactsTable({
               </TableCell>
               <TableCell>
                 <Badge
-                  variant={contact.subscription_status === 'active' ? 'default' : 'secondary'}
+                  variant={contact.subscription_status === 'subscribed' ? 'default' : 'secondary'}
                   className={cn(
-                    contact.subscription_status === 'active'
+                    contact.subscription_status === 'subscribed'
                       ? 'bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-100'
                   )}
                 >
-                  {contact.subscription_status === 'active' ? 'Active' : 'Unsubscribed'}
+                  {contact.subscription_status === 'subscribed' ? 'Subscribed' : 'Unsubscribed'}
                 </Badge>
               </TableCell>
             </TableRow>

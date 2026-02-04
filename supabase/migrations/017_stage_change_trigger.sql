@@ -15,8 +15,13 @@ DECLARE
   stop_stage_ids UUID[];
   next_step_time TIMESTAMPTZ;
 BEGIN
-  -- Only fire when current_stage_id actually changes
-  IF NEW.current_stage_id IS NULL OR NEW.current_stage_id = OLD.current_stage_id THEN
+  -- Only fire when current_stage_id is set (INSERT) or actually changes (UPDATE)
+  IF NEW.current_stage_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- For UPDATE, skip if stage hasn't changed
+  IF TG_OP = 'UPDATE' AND NEW.current_stage_id = OLD.current_stage_id THEN
     RETURN NEW;
   END IF;
 
@@ -145,8 +150,9 @@ DROP TRIGGER IF EXISTS on_deal_stage_change ON deals;
 -- ============================================
 -- CREATE THE TRIGGER
 -- ============================================
+-- Fire on both INSERT (new deals) and UPDATE (stage changes)
 CREATE TRIGGER on_deal_stage_change
-  AFTER UPDATE OF current_stage_id ON deals
+  AFTER INSERT OR UPDATE OF current_stage_id ON deals
   FOR EACH ROW
   EXECUTE FUNCTION handle_deal_stage_change();
 
@@ -158,5 +164,5 @@ COMMENT ON FUNCTION handle_deal_stage_change() IS
 and stops enrollments when deals move to exit stages. This provides real-time automation triggering 
 instead of relying solely on polling.';
 
-COMMENT ON TRIGGER on_deal_stage_change ON deals IS 
-'Fires after a deal''s current_stage_id is updated to check for automation triggers and exit conditions.';
+COMMENT ON TRIGGER on_deal_stage_change ON deals IS
+'Fires after a deal is created or its current_stage_id is updated to check for automation triggers and exit conditions.';

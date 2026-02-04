@@ -6,28 +6,34 @@ import { UsersFilters, UsersFiltersState } from '@/components/users/UsersFilters
 import { UsersTable } from '@/components/users/UsersTable'
 import { InviteUserModal } from '@/components/users/InviteUserModal'
 import { EditUserModal } from '@/components/users/EditUserModal'
-import { useUsers, useUpdateUser } from '@/lib/hooks/useUsers'
+import { DeleteUserModal } from '@/components/users/DeleteUserModal'
+import { useUsersAndInvites, useUpdateUser, useDeleteUser } from '@/lib/hooks/useUsers'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
-import type { User } from '@/lib/types/users'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from '@/lib/hooks/use-toast'
+import type { User, UserOrInvite } from '@/lib/types/users'
 
 export default function UsersPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [deletingUser, setDeletingUser] = useState<User | null>(null)
   const [filters, setFilters] = useState<UsersFiltersState>({
     search: '',
     role: 'all',
     status: 'all',
   })
 
-  const { data: users = [], isLoading } = useUsers()
+  const { data: usersAndInvites = [], isLoading, refetch } = useUsersAndInvites()
   const updateUser = useUpdateUser()
+  const deleteUser = useDeleteUser()
+  const supabase = createClient()
 
   // Debounce search
   const debouncedSearch = useDebouncedValue(filters.search, 300)
 
   // Filter users based on search, role, and status
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    return usersAndInvites.filter((user) => {
       // Search filter
       if (debouncedSearch) {
         const searchLower = debouncedSearch.toLowerCase()
@@ -41,13 +47,14 @@ export default function UsersPage() {
         return false
       }
 
-      // Status filter
-      if (filters.status === 'active' && !user.is_active) return false
-      if (filters.status === 'inactive' && user.is_active) return false
+      // Status filter - pending invites shown with all statuses or 'pending'
+      if (filters.status === 'active' && (user.is_invite || !user.is_active)) return false
+      if (filters.status === 'inactive' && (user.is_invite || user.is_active)) return false
+      if (filters.status === 'pending' && !user.is_invite) return false
 
       return true
     })
-  }, [users, debouncedSearch, filters.role, filters.status])
+  }, [usersAndInvites, debouncedSearch, filters.role, filters.status])
 
   const handleEdit = (user: User) => {
     setEditingUser(user)
@@ -67,6 +74,57 @@ export default function UsersPage() {
     }
   }
 
+  const handleCancelInvite = async (invite: UserOrInvite) => {
+    if (!invite.is_invite) return
+    if (confirm(`Are you sure you want to cancel the invitation for ${invite.email}?`)) {
+      try {
+        const { error } = await supabase
+          .from('user_invites')
+          .delete()
+          .eq('id', invite.id)
+
+        if (error) throw error
+
+        toast({
+          title: 'Invitation cancelled',
+          description: `The invitation for ${invite.email} has been cancelled.`,
+        })
+        refetch()
+      } catch (error) {
+        console.error('Failed to cancel invite:', error)
+        toast({
+          title: 'Failed to cancel invitation',
+          description: 'An error occurred while cancelling the invitation.',
+          variant: 'destructive',
+        })
+      }
+    }
+  }
+
+  const handleDelete = (user: User) => {
+    setDeletingUser(user)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deletingUser) return
+
+    try {
+      await deleteUser.mutateAsync(deletingUser.id)
+      toast({
+        title: 'User deleted',
+        description: `${deletingUser.full_name || deletingUser.email} has been permanently deleted.`,
+      })
+      setDeletingUser(null)
+    } catch (error) {
+      console.error('Failed to delete user:', error)
+      toast({
+        title: 'Failed to delete user',
+        description: error instanceof Error ? error.message : 'An error occurred while deleting the user.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -81,6 +139,8 @@ export default function UsersPage() {
         isLoading={isLoading}
         onEdit={handleEdit}
         onDeactivate={handleDeactivate}
+        onDelete={handleDelete}
+        onCancelInvite={handleCancelInvite}
       />
 
       {/* Invite User Modal */}
@@ -94,6 +154,15 @@ export default function UsersPage() {
         user={editingUser}
         isOpen={!!editingUser}
         onClose={() => setEditingUser(null)}
+      />
+
+      {/* Delete User Confirmation Modal */}
+      <DeleteUserModal
+        user={deletingUser}
+        isOpen={!!deletingUser}
+        isDeleting={deleteUser.isPending}
+        onClose={() => setDeletingUser(null)}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   )

@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Loader2, Send } from 'lucide-react'
 import { useInviteUser } from '@/lib/hooks/useUsers'
+import { toast } from '@/lib/hooks/use-toast'
 
 interface InviteUserModalProps {
   isOpen: boolean
@@ -67,9 +68,19 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         calendlyUrl: formData.calendlyUrl || undefined,
       })
 
+      toast({
+        title: 'Invitation sent',
+        description: `An invitation has been sent to ${formData.email}`,
+      })
+
       onClose()
     } catch (error) {
       console.error('Failed to invite user:', error)
+      toast({
+        title: 'Failed to send invitation',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        variant: 'destructive',
+      })
     }
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DropResult } from '@hello-pangea/dnd'
 import { PipelinesPageHeader } from '@/components/pipelines/PipelinesPageHeader'
 import { PipelineFilters } from '@/components/pipelines/PipelineFilters'
@@ -10,9 +10,12 @@ import { AddDealModal } from '@/components/pipelines/AddDealModal'
 import { DealDetailSheet } from '@/components/pipelines/DealDetailSheet'
 import { CreatePipelineModal } from '@/components/pipelines/CreatePipelineModal'
 import { PipelineSettingsModal } from '@/components/pipelines/PipelineSettingsModal'
+import { ResetAutomationModal } from '@/components/pipelines/ResetAutomationModal'
+import { StopAutomationModal } from '@/components/pipelines/StopAutomationModal'
 import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
+import { useResetEnrollments, type ResettableEnrollment } from '@/lib/hooks/useAutomationEnrollments'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage, Deal, Pipeline } from '@/lib/types/pipelines'
@@ -33,6 +36,26 @@ export default function PipelinesPage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const [createPipelineModalOpen, setCreatePipelineModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+
+  // Reset automation modal state
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [pendingMove, setPendingMove] = useState<{
+    dealId: string
+    newStageId: string
+    oldStageName?: string
+    newStageName?: string
+    enrollments: ResettableEnrollment[]
+  } | null>(null)
+
+  // Stop automation modal state
+  const [stopModalOpen, setStopModalOpen] = useState(false)
+  const [pendingStopMove, setPendingStopMove] = useState<{
+    dealId: string
+    newStageId: string
+    oldStageName?: string
+    newStageName?: string
+    enrollments: { id: string; automation_id: string; automation_name: string }[]
+  } | null>(null)
 
   // Fetch current user
   useEffect(() => {
@@ -62,6 +85,9 @@ export default function PipelinesPage() {
 
   // Mutation for moving deals
   const moveDeal = useMoveDeal()
+
+  // Mutation for resetting automation enrollments
+  const resetEnrollments = useResetEnrollments()
 
   // Load selected pipeline from localStorage on mount
   useEffect(() => {
@@ -119,6 +145,40 @@ export default function PipelinesPage() {
     return true
   })
 
+  // Execute the move deal mutation
+  const executeMoveDeals = useCallback(
+    (dealId: string, newStageId: string, oldStageName?: string, newStageName?: string) => {
+      if (!selectedPipelineId) return
+
+      moveDeal.mutate(
+        {
+          dealId,
+          newStageId,
+          pipelineId: selectedPipelineId,
+          oldStageName,
+          newStageName,
+          performedById: userId || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast({
+              title: 'Deal moved',
+              description: `Moved to ${newStageName || 'new stage'}`,
+            })
+          },
+          onError: (error) => {
+            toast({
+              title: 'Failed to move deal',
+              description: error instanceof Error ? error.message : 'An error occurred',
+              variant: 'destructive',
+            })
+          },
+        }
+      )
+    },
+    [moveDeal, selectedPipelineId, userId]
+  )
+
   // Handle drag end
   const handleDragEnd = useCallback(
     async (result: DropResult) => {
@@ -140,35 +200,195 @@ export default function PipelinesPage() {
         const oldStage = stages.find((s) => s.id === source.droppableId)
         const newStage = stages.find((s) => s.id === destination.droppableId)
 
-        moveDeal.mutate(
-          {
+        // Check for resettable enrollments
+        const supabase = createClient()
+
+        // Find automations that trigger on the target stage
+        const { data: automations } = await supabase
+          .from('automations')
+          .select('id, name')
+          .eq('trigger_stage_id', destination.droppableId)
+          .eq('pipeline_id', selectedPipelineId)
+          .eq('is_active', true)
+
+        if (automations && automations.length > 0) {
+          const automationIds = automations.map(a => a.id)
+          const automationMap = new Map(automations.map(a => [a.id, a.name]))
+
+          // Check for ANY existing enrollments (active, stopped, or completed)
+          const { data: enrollments } = await supabase
+            .from('automation_enrollments')
+            .select('id, automation_id, status, enrolled_at, current_step_id')
+            .eq('deal_id', draggableId)
+            .in('automation_id', automationIds)
+
+          if (enrollments && enrollments.length > 0) {
+            // Show the reset modal for any existing enrollment
+            const resettableEnrollments: ResettableEnrollment[] = enrollments.map(e => ({
+              id: e.id,
+              automation_id: e.automation_id,
+              automation_name: automationMap.get(e.automation_id) || 'Unknown Automation',
+              status: e.status as 'stopped' | 'completed',
+              enrolled_at: e.enrolled_at,
+            }))
+
+            setPendingMove({
+              dealId: draggableId,
+              newStageId: destination.droppableId,
+              oldStageName: oldStage?.name,
+              newStageName: newStage?.name,
+              enrollments: resettableEnrollments,
+            })
+            setResetModalOpen(true)
+            return
+          }
+        }
+
+        // No trigger stage automations to restart, but check if deal has active automations
+        // that might need to be stopped (moving AWAY from where automation is running)
+        const { data: activeEnrollments } = await supabase
+          .from('automation_enrollments')
+          .select(`
+            id,
+            automation_id,
+            automations(name)
+          `)
+          .eq('deal_id', draggableId)
+          .eq('status', 'active')
+
+        if (activeEnrollments && activeEnrollments.length > 0) {
+          // Deal has active automations - ask if user wants to stop them
+          const enrollmentsWithNames = activeEnrollments.map(e => ({
+            id: e.id,
+            automation_id: e.automation_id,
+            automation_name: (e.automations as { name: string } | { name: string }[] | null)
+              ? (Array.isArray(e.automations) ? e.automations[0]?.name : (e.automations as { name: string })?.name) || 'Unknown Automation'
+              : 'Unknown Automation',
+          }))
+
+          setPendingStopMove({
             dealId: draggableId,
             newStageId: destination.droppableId,
-            pipelineId: selectedPipelineId,
             oldStageName: oldStage?.name,
             newStageName: newStage?.name,
-            performedById: userId || undefined,
-          },
-          {
-            onSuccess: () => {
-              toast({
-                title: 'Deal moved',
-                description: `Moved to ${newStage?.name || 'new stage'}`,
-              })
-            },
-            onError: (error) => {
-              toast({
-                title: 'Failed to move deal',
-                description: error instanceof Error ? error.message : 'An error occurred',
-                variant: 'destructive',
-              })
-            },
-          }
-        )
+            enrollments: enrollmentsWithNames,
+          })
+          setStopModalOpen(true)
+          return
+        }
+
+        // No automations to worry about, proceed with move
+        executeMoveDeals(draggableId, destination.droppableId, oldStage?.name, newStage?.name)
       }
     },
-    [moveDeal, selectedPipelineId, stages, userId]
+    [executeMoveDeals, selectedPipelineId, stages]
   )
+
+  // Handle reset modal - restart automation
+  const handleResetAndMove = useCallback(async () => {
+    if (!pendingMove) return
+
+    const supabase = createClient()
+
+    // First, stop all existing enrollments so the trigger can re-enroll
+    await supabase
+      .from('automation_enrollments')
+      .update({
+        status: 'stopped',
+        stopped_reason: 'Reset for re-enrollment',
+        next_step_at: null,
+      })
+      .in('id', pendingMove.enrollments.map(e => e.id))
+
+    // Now move the deal - the trigger will re-enroll from step 1
+    executeMoveDeals(
+      pendingMove.dealId,
+      pendingMove.newStageId,
+      pendingMove.oldStageName,
+      pendingMove.newStageName
+    )
+
+    toast({
+      title: 'Automation restarted',
+      description: 'The automation sequence will restart from the beginning',
+    })
+
+    setResetModalOpen(false)
+    setPendingMove(null)
+  }, [pendingMove, executeMoveDeals])
+
+  // Handle reset modal - move without restarting
+  const handleMoveWithoutReset = useCallback(() => {
+    if (!pendingMove) return
+
+    // Mark enrollments as 'active' so they won't be re-enrolled by the trigger
+    // This keeps the current progress
+    const supabase = createClient()
+    supabase
+      .from('automation_enrollments')
+      .update({ status: 'active' })
+      .in('id', pendingMove.enrollments.map(e => e.id))
+      .then(() => {
+        executeMoveDeals(
+          pendingMove.dealId,
+          pendingMove.newStageId,
+          pendingMove.oldStageName,
+          pendingMove.newStageName
+        )
+      })
+
+    setResetModalOpen(false)
+    setPendingMove(null)
+  }, [pendingMove, executeMoveDeals])
+
+  // Handle stop modal - stop automations and move
+  const handleStopAndMove = useCallback(async () => {
+    if (!pendingStopMove) return
+
+    const supabase = createClient()
+
+    // Stop all active enrollments
+    await supabase
+      .from('automation_enrollments')
+      .update({
+        status: 'stopped',
+        stopped_reason: 'Manually stopped when moving deal',
+        next_step_at: null,
+      })
+      .in('id', pendingStopMove.enrollments.map(e => e.id))
+
+    // Now move the deal
+    executeMoveDeals(
+      pendingStopMove.dealId,
+      pendingStopMove.newStageId,
+      pendingStopMove.oldStageName,
+      pendingStopMove.newStageName
+    )
+
+    toast({
+      title: 'Automation stopped',
+      description: 'The automation sequence has been stopped',
+    })
+
+    setStopModalOpen(false)
+    setPendingStopMove(null)
+  }, [pendingStopMove, executeMoveDeals])
+
+  // Handle stop modal - keep running and move
+  const handleKeepRunningAndMove = useCallback(() => {
+    if (!pendingStopMove) return
+
+    // Just move the deal, don't stop the automation
+    executeMoveDeals(
+      pendingStopMove.dealId,
+      pendingStopMove.newStageId,
+      pendingStopMove.oldStageName,
+      pendingStopMove.newStageName
+    )
+
+    setStopModalOpen(false)
+    setPendingStopMove(null)
+  }, [pendingStopMove, executeMoveDeals])
 
   // Handle add click from column
   const handleAddClick = useCallback((stage: PipelineStage) => {
@@ -288,6 +508,37 @@ export default function PipelinesPage() {
         isOpen={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
       />
+
+      {/* Reset Automation Modal */}
+      {pendingMove && (
+        <ResetAutomationModal
+          isOpen={resetModalOpen}
+          onClose={() => {
+            setResetModalOpen(false)
+            setPendingMove(null)
+          }}
+          onConfirmReset={handleResetAndMove}
+          onConfirmKeep={handleMoveWithoutReset}
+          enrollments={pendingMove.enrollments}
+          targetStageName={pendingMove.newStageName || 'new stage'}
+          isResetting={resetEnrollments.isPending}
+        />
+      )}
+
+      {/* Stop Automation Modal */}
+      {pendingStopMove && (
+        <StopAutomationModal
+          isOpen={stopModalOpen}
+          onClose={() => {
+            setStopModalOpen(false)
+            setPendingStopMove(null)
+          }}
+          onConfirmStop={handleStopAndMove}
+          onConfirmKeepRunning={handleKeepRunningAndMove}
+          enrollments={pendingStopMove.enrollments}
+          targetStageName={pendingStopMove.newStageName || 'new stage'}
+        />
+      )}
     </div>
   )
 }

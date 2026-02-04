@@ -174,7 +174,8 @@ export function KanbanColumn({
               ref={provided.innerRef}
               {...provided.droppableProps}
               className={cn(
-                'min-h-[200px] pt-2 transition-all duration-200 rounded-lg',
+                'min-h-[200px] pt-2 rounded-lg',
+                'transition-[background-color,box-shadow] duration-300 ease-out',
                 snapshot.isDraggingOver && 'bg-primary/5 ring-2 ring-dashed ring-primary/30'
               )}
             >

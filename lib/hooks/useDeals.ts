@@ -96,6 +96,20 @@ export function useDeals(pipelineId: string | null) {
         })
       }
 
+      // Fetch active automation enrollments for these deals (non-fatal)
+      const activeEnrollmentsSet = new Set<string>()
+      const { data: enrollments, error: enrollmentsError } = await supabase
+        .from('automation_enrollments')
+        .select('deal_id')
+        .in('deal_id', dealIds)
+        .eq('status', 'active')
+
+      if (enrollmentsError) {
+        console.warn('Failed to fetch automation enrollments:', enrollmentsError.message)
+      } else {
+        enrollments?.forEach((e) => activeEnrollmentsSet.add(e.deal_id))
+      }
+
       // Enrich deals with computed fields, stage data, and owner
       return deals.map((deal) => ({
         ...deal,
@@ -103,6 +117,7 @@ export function useDeals(pipelineId: string | null) {
         owner: ownersMap.get(deal.deal_owner_id) || null,
         time_in_stage: computeTimeInStage(deal),
         last_contacted_at: lastContactedMap.get(deal.id) || null,
+        has_active_automation: activeEnrollmentsSet.has(deal.id),
       }))
     },
     enabled: !!pipelineId,

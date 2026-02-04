@@ -19,15 +19,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Pencil, UserX, ExternalLink, Users } from 'lucide-react'
+import { MoreHorizontal, Pencil, UserX, ExternalLink, Users, Clock, RotateCw, Trash2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
-import type { User, UserRole } from '@/lib/types/users'
+import type { User, UserRole, UserOrInvite } from '@/lib/types/users'
 
 interface UsersTableProps {
-  users: User[]
+  users: UserOrInvite[]
   isLoading: boolean
   onEdit: (user: User) => void
   onDeactivate: (user: User) => void
+  onDelete: (user: User) => void
+  onResendInvite?: (invite: UserOrInvite) => void
+  onCancelInvite?: (invite: UserOrInvite) => void
 }
 
 const roleConfig: Record<UserRole, { label: string; className: string }> = {
@@ -41,6 +44,9 @@ export function UsersTable({
   isLoading,
   onEdit,
   onDeactivate,
+  onDelete,
+  onResendInvite,
+  onCancelInvite,
 }: UsersTableProps) {
   const getInitials = (name: string | null, email: string) => {
     if (name) {
@@ -119,19 +125,28 @@ export function UsersTable({
         <TableBody>
           {users.map((user) => {
             const role = roleConfig[user.role]
+            const isPendingInvite = user.is_invite
 
             return (
-              <TableRow key={user.id}>
+              <TableRow key={user.id} className={isPendingInvite ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}>
                 {/* User */}
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user.avatar_url || undefined} />
-                      <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
+                      <AvatarFallback className={isPendingInvite ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 text-xs' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs'}>
                         {getInitials(user.full_name, user.email)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">{user.full_name || 'Unnamed User'}</span>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{user.full_name || 'Unnamed User'}</span>
+                      {isPendingInvite && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Invitation pending
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
 
@@ -168,20 +183,29 @@ export function UsersTable({
 
                 {/* Status */}
                 <TableCell>
-                  <Badge
-                    className={
-                      user.is_active
-                        ? 'bg-green-100 dark:bg-green-900/50 text-green-700'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700'
-                    }
-                  >
-                    {user.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
+                  {isPendingInvite ? (
+                    <Badge className="bg-amber-100 dark:bg-amber-900/50 text-amber-700">
+                      Pending
+                    </Badge>
+                  ) : (
+                    <Badge
+                      className={
+                        user.is_active
+                          ? 'bg-green-100 dark:bg-green-900/50 text-green-700'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700'
+                      }
+                    >
+                      {user.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  )}
                 </TableCell>
 
                 {/* Last Login */}
                 <TableCell className="text-sm text-muted-foreground">
-                  {user.last_login_at ? formatDate(user.last_login_at) : 'Never'}
+                  {isPendingInvite
+                    ? `Invited ${formatDate(user.created_at)}`
+                    : user.last_login_at ? formatDate(user.last_login_at) : 'Never'
+                  }
                 </TableCell>
 
                 {/* Actions */}
@@ -193,18 +217,50 @@ export function UsersTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEdit(user)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => onDeactivate(user)}
-                        className={user.is_active ? 'text-red-600' : ''}
-                      >
-                        <UserX className="h-4 w-4 mr-2" />
-                        {user.is_active ? 'Deactivate' : 'Activate'}
-                      </DropdownMenuItem>
+                      {isPendingInvite ? (
+                        <>
+                          {onResendInvite && (
+                            <DropdownMenuItem onClick={() => onResendInvite(user)}>
+                              <RotateCw className="h-4 w-4 mr-2" />
+                              Resend Invite
+                            </DropdownMenuItem>
+                          )}
+                          {onCancelInvite && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => onCancelInvite(user)}
+                                className="text-red-600"
+                              >
+                                <UserX className="h-4 w-4 mr-2" />
+                                Cancel Invite
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <DropdownMenuItem onClick={() => onEdit(user as unknown as User)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => onDeactivate(user as unknown as User)}
+                            className={user.is_active ? 'text-red-600' : ''}
+                          >
+                            <UserX className="h-4 w-4 mr-2" />
+                            {user.is_active ? 'Deactivate' : 'Activate'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => onDelete(user as unknown as User)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

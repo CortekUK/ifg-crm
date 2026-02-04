@@ -180,7 +180,7 @@ export function DealCardPreview({ deal }: DealCardPreviewProps) {
       )}
 
       {/* Automation Status */}
-      {deal.stage?.triggers_automation && (
+      {deal.has_active_automation && (
         <>
           <Separator />
           <div className="flex items-center gap-2">

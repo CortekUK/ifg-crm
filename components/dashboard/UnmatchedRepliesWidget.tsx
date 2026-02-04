@@ -9,11 +9,14 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from 'date-fns'
 import { MessageSquare, Mail, ArrowRight, User } from 'lucide-react'
 
+type AIIntent = 'positive' | 'negative' | 'neutral' | 'unknown'
+
 interface SMSMessage {
   id: string
   phone_number: string
   content: string
   created_at: string
+  ai_intent: AIIntent | null
 }
 
 interface EmailReply {
@@ -23,6 +26,14 @@ interface EmailReply {
   subject: string
   body_preview: string
   created_at: string
+  ai_intent: AIIntent | null
+}
+
+const intentConfig: Record<AIIntent, { label: string; className: string }> = {
+  positive: { label: 'Positive', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  negative: { label: 'Negative', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  neutral: { label: 'Neutral', className: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' },
+  unknown: { label: 'Unknown', className: 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400' },
 }
 
 interface UnmatchedRepliesWidgetProps {
@@ -38,7 +49,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
       if (type === 'sms') {
         const { data: messages, error: msgError } = await supabase
           .from('sms_messages')
-          .select('id, phone_number, content, created_at')
+          .select('id, phone_number, content, created_at, ai_intent')
           .eq('match_status', 'unmatched')
           .eq('direction', 'inbound')
           .order('created_at', { ascending: false })
@@ -63,7 +74,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
       } else {
         const { data: emails, error: emailError } = await supabase
           .from('email_replies')
-          .select('id, from_email, from_name, subject, body_preview, created_at')
+          .select('id, from_email, from_name, subject, body_preview, created_at, ai_intent')
           .eq('match_status', 'unmatched')
           .order('created_at', { ascending: false })
           .limit(3)
