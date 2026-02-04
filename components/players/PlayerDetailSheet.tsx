@@ -32,13 +32,29 @@ import {
   Trophy,
   XCircle,
   Loader2,
+  MailX,
+  MessageSquareOff,
+  Tag,
+  X,
+  Plus,
+  Search,
+  Clock,
+  PoundSterling,
+  Trash2,
 } from 'lucide-react'
 import { formatDate, formatCurrency, formatDateLong, formatRelativeTime, formatTimeAgo } from '@/lib/utils/format'
 import { usePlayer, usePlayerDeals, usePlayerActivities, useUpdatePlayer } from '@/lib/hooks/usePlayers'
+import { useContactTags, useTags, useAddTagToContact, useRemoveTagFromContact, useContactInvoices, useContactNotes, useAddContactNote, useDeleteContactNote } from '@/lib/hooks/useContacts'
 import { LogReplyModal } from '@/components/contacts/LogReplyModal'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { OwnerSelect } from '@/components/ui/owner-select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Input } from '@/components/ui/input'
 import type { Player } from '@/lib/types/players'
 
 interface PlayerDetailSheetProps {
@@ -89,33 +105,78 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
   const [activeTab, setActiveTab] = useState('overview')
   const [isLogReplyOpen, setIsLogReplyOpen] = useState(false)
   const [isEditingOwner, setIsEditingOwner] = useState(false)
-  const [editedNotes, setEditedNotes] = useState('')
-  const [hasNotesChanged, setHasNotesChanged] = useState(false)
-  
+  const [isAddTagOpen, setIsAddTagOpen] = useState(false)
+  const [tagSearchQuery, setTagSearchQuery] = useState('')
+  const [newNoteContent, setNewNoteContent] = useState('')
+
   const { data: player, isLoading } = usePlayer(playerId)
   const { data: deals = [] } = usePlayerDeals(playerId)
   const { data: activities = [], isLoading: activitiesLoading } = usePlayerActivities(playerId)
+  const { data: tags = [], isLoading: tagsLoading } = useContactTags(playerId)
+  const { data: allTags = [] } = useTags()
+  const { data: invoices = [], isLoading: invoicesLoading } = useContactInvoices(playerId)
+  const { data: notes = [], isLoading: notesLoading } = useContactNotes(playerId)
   const updatePlayer = useUpdatePlayer()
+  const addTagToContact = useAddTagToContact()
+  const removeTagFromContact = useRemoveTagFromContact()
+  const addNote = useAddContactNote()
+  const deleteNote = useDeleteContactNote()
 
   useEffect(() => {
-    if (player) {
-      setEditedNotes(player.notes || '')
-      setHasNotesChanged(false)
+    if (isOpen) {
+      setActiveTab('overview')
+      setNewNoteContent('')
     }
-  }, [player])
-
-  useEffect(() => {
-    if (isOpen) setActiveTab('overview')
   }, [isOpen])
 
-  const handleSaveNotes = async () => {
+  const contactTagIds = new Set(tags.map((t) => t.id))
+  const availableTags = allTags.filter(
+    (tag) => !contactTagIds.has(tag.id) && tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
+  )
+
+  const totalInvoicesPaid = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0)
+  const totalInvoicesOutstanding = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((sum, i) => sum + i.amount, 0)
+
+  const handleAddTag = async (tagId: string, tagName: string) => {
     if (!playerId) return
     try {
-      await updatePlayer.mutateAsync({ playerId, updates: { notes: editedNotes } })
-      setHasNotesChanged(false)
-      toast({ title: 'Notes saved' })
+      await addTagToContact.mutateAsync({ contactId: playerId, tagId })
+      toast({ title: 'Tag added', description: `Added "${tagName}" tag.` })
+      setIsAddTagOpen(false)
+      setTagSearchQuery('')
     } catch {
-      toast({ title: 'Error', description: 'Failed to save notes.', variant: 'destructive' })
+      toast({ title: 'Error', description: 'Failed to add tag.', variant: 'destructive' })
+    }
+  }
+
+  const handleRemoveTag = async (tagId: string, tagName: string) => {
+    if (!playerId) return
+    try {
+      await removeTagFromContact.mutateAsync({ contactId: playerId, tagId })
+      toast({ title: 'Tag removed', description: `Removed "${tagName}" tag.` })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to remove tag.', variant: 'destructive' })
+    }
+  }
+
+  const handleAddNote = async () => {
+    if (!playerId || !newNoteContent.trim()) return
+    try {
+      await addNote.mutateAsync({ contactId: playerId, content: newNoteContent.trim() })
+      setNewNoteContent('')
+      toast({ title: 'Note added' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add note.', variant: 'destructive' })
+    }
+  }
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!playerId) return
+    try {
+      await deleteNote.mutateAsync({ noteId, contactId: playerId })
+      toast({ title: 'Note deleted' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete note.', variant: 'destructive' })
     }
   }
 
@@ -170,13 +231,33 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                     {fullName}
                   </SheetTitle>
                   <SheetDescription className="mt-1 flex items-center gap-2 flex-wrap">
-                    {player.position && <span>{player.position}</span>}
-                    {player.position && player.graduation_year && <span>•</span>}
-                    {player.graduation_year && <span>Class of {player.graduation_year}</span>}
+                    <div className="flex items-center gap-1">
+                      <div
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                          player.email_subscribed !== false
+                            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
+                            : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+                        )}
+                      >
+                        {player.email_subscribed !== false ? <Mail className="h-3 w-3" /> : <MailX className="h-3 w-3" />}
+                        Email
+                      </div>
+                      <div
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                          player.sms_subscribed !== false
+                            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
+                            : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+                        )}
+                      >
+                        {player.sms_subscribed !== false ? <MessageCircle className="h-3 w-3" /> : <MessageSquareOff className="h-3 w-3" />}
+                        SMS
+                      </div>
+                    </div>
+                    {player.position && <span className="text-muted-foreground">{player.position}</span>}
+                    {player.graduation_year && <span className="text-muted-foreground">Class of {player.graduation_year}</span>}
                   </SheetDescription>
-                  <Badge className={player.subscription_status === 'subscribed' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 border-0 mt-2' : 'bg-slate-100 text-slate-700 border-0 mt-2'}>
-                    {player.subscription_status === 'subscribed' ? 'Subscribed' : 'Unsubscribed'}
-                  </Badge>
                 </div>
               </div>
 
@@ -227,7 +308,10 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
                     Activity
                   </TabsTrigger>
-                  <TabsTrigger value="documents" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
+                  <TabsTrigger value="invoices" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
+                    Invoices
+                  </TabsTrigger>
+                  <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm">
                     Notes
                   </TabsTrigger>
                 </TabsList>
@@ -236,7 +320,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                 <TabsContent value="overview" className="px-6 py-6 space-y-6 mt-0">
                   {/* Contact Information */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Contact Information
                     </h3>
                     <div className="space-y-3">
@@ -270,7 +354,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   {/* Parent/Guardian */}
                   {(player.parent_name || player.parent_email || player.parent_phone) && (
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Parent/Guardian
                       </h3>
                       <div className="space-y-3">
@@ -300,7 +384,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
 
                   {/* Academic & Club */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Academic & Club
                     </h3>
                     <div className="space-y-3">
@@ -328,7 +412,7 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   {/* Assigned To */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                         Assigned To
                       </h3>
                       {!isEditingOwner && (
@@ -366,15 +450,86 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                     )}
                   </div>
 
-                  {/* Notes */}
-                  {player.notes && (
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                        Notes
+                  {/* Tags */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                        Tags
                       </h3>
-                      <p className="text-sm text-slate-600 whitespace-pre-wrap">{player.notes}</p>
+                      <Popover open={isAddTagOpen} onOpenChange={setIsAddTagOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Tag
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-2" align="end">
+                          <div className="space-y-2">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Search tags..."
+                                value={tagSearchQuery}
+                                onChange={(e) => setTagSearchQuery(e.target.value)}
+                                className="h-8 pl-7 text-sm"
+                              />
+                            </div>
+                            <div className="max-h-40 overflow-y-auto">
+                              {availableTags.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center py-3">
+                                  {tagSearchQuery ? 'No tags found' : 'All tags applied'}
+                                </p>
+                              ) : (
+                                availableTags.slice(0, 8).map((tag) => (
+                                  <button
+                                    key={tag.id}
+                                    onClick={() => handleAddTag(tag.id, tag.name)}
+                                    disabled={addTagToContact.isPending}
+                                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 flex items-center gap-2"
+                                  >
+                                    <div
+                                      className="w-2.5 h-2.5 rounded-full"
+                                      style={{ backgroundColor: tag.color }}
+                                    />
+                                    {tag.name}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
-                  )}
+                    {tagsLoading ? (
+                      <Skeleton className="h-8 w-full" />
+                    ) : tags.length === 0 ? (
+                      <p className="text-sm text-slate-500">No tags applied</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {tags.map((tag) => (
+                          <Badge
+                            key={tag.id}
+                            variant="secondary"
+                            className="pr-1"
+                            style={{
+                              backgroundColor: `${tag.color}20`,
+                              color: tag.color,
+                              borderColor: tag.color,
+                            }}
+                          >
+                            <Tag className="h-3 w-3 mr-1" />
+                            {tag.name}
+                            <button
+                              onClick={() => handleRemoveTag(tag.id, tag.name)}
+                              className="ml-1 p-0.5 rounded-full hover:bg-slate-300/50"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
 
                 {/* Deals Tab */}
@@ -445,24 +600,181 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                   )}
                 </TabsContent>
 
-                {/* Notes Tab */}
-                <TabsContent value="documents" className="px-6 py-6 mt-0 space-y-4">
-                  <Textarea
-                    value={editedNotes}
-                    onChange={(e) => {
-                      setEditedNotes(e.target.value)
-                      setHasNotesChanged(e.target.value !== (player.notes || ''))
-                    }}
-                    placeholder="Add notes about this player..."
-                    rows={6}
-                    className="resize-none"
-                  />
-                  <Button onClick={handleSaveNotes} disabled={!hasNotesChanged || updatePlayer.isPending} className="w-full bg-blue-600 hover:bg-blue-700">
-                    {updatePlayer.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Notes'}
-                  </Button>
-                  {player.notes && (
-                    <p className="text-xs text-muted-foreground text-center">Last updated {formatRelativeTime(player.updated_at)}</p>
+                {/* Invoices Tab */}
+                <TabsContent value="invoices" className="px-6 py-6 mt-0">
+                  {invoicesLoading ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  ) : invoices.length === 0 ? (
+                    <div className="text-center py-12">
+                      <PoundSterling className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                      <p className="text-muted-foreground">No invoices yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Invoice Summary */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                          <p className="text-xs text-green-600 dark:text-green-400 font-medium">Paid</p>
+                          <p className="text-lg font-bold text-green-700 dark:text-green-300">{formatCurrency(totalInvoicesPaid)}</p>
+                        </div>
+                        <div className={cn(
+                          "border rounded-lg p-3",
+                          totalInvoicesOutstanding > 0
+                            ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
+                            : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                        )}>
+                          <p className={cn(
+                            "text-xs font-medium",
+                            totalInvoicesOutstanding > 0 ? "text-orange-600 dark:text-orange-400" : "text-slate-600 dark:text-slate-400"
+                          )}>Outstanding</p>
+                          <p className={cn(
+                            "text-lg font-bold",
+                            totalInvoicesOutstanding > 0 ? "text-orange-700 dark:text-orange-300" : "text-slate-700 dark:text-slate-300"
+                          )}>{formatCurrency(totalInvoicesOutstanding)}</p>
+                        </div>
+                      </div>
+
+                      {/* Invoice List */}
+                      <div className="space-y-2">
+                        {invoices.map((invoice) => {
+                          const statusConfig = {
+                            draft: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-300' },
+                            sent: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
+                            paid: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-600 dark:text-green-400' },
+                            overdue: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-600 dark:text-red-400' },
+                            cancelled: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-500' },
+                          }[invoice.status] || { bg: 'bg-slate-100', text: 'text-slate-600' }
+
+                          return (
+                            <div
+                              key={invoice.id}
+                              className="p-4 rounded-lg border bg-white dark:bg-slate-900 dark:border-slate-700"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm">{invoice.invoice_number}</p>
+                                    <Badge className={cn("text-[10px]", statusConfig.bg, statusConfig.text)}>
+                                      {invoice.status}
+                                    </Badge>
+                                  </div>
+                                  {invoice.description && (
+                                    <p className="text-sm text-muted-foreground mt-1">{invoice.description}</p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {invoice.type.replace(/_/g, ' ')}
+                                    {invoice.due_date && ` • Due ${formatDate(invoice.due_date)}`}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className={cn(
+                                    "font-semibold",
+                                    invoice.status === 'paid' ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'
+                                  )}>
+                                    {formatCurrency(invoice.amount)}
+                                  </p>
+                                  {invoice.paid_at && (
+                                    <p className="text-xs text-green-600 dark:text-green-400">
+                                      Paid {formatDate(invoice.paid_at)}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   )}
+                </TabsContent>
+
+                {/* Notes Tab */}
+                <TabsContent value="notes" className="px-6 py-6 mt-0 space-y-4">
+                  {/* Add Note Input */}
+                  <div className="space-y-3">
+                    <Textarea
+                      value={newNoteContent}
+                      onChange={(e) => setNewNoteContent(e.target.value)}
+                      placeholder="Add a note..."
+                      rows={3}
+                      className="resize-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault()
+                          handleAddNote()
+                        }
+                      }}
+                    />
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">Press Cmd+Enter to save</p>
+                      <Button
+                        onClick={handleAddNote}
+                        disabled={!newNoteContent.trim() || addNote.isPending}
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {addNote.isPending ? (
+                          <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Adding...</>
+                        ) : (
+                          <><Plus className="mr-1 h-3 w-3" /> Add Note</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Notes List */}
+                  <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                    {notesLoading ? (
+                      <div className="space-y-3">
+                        <Skeleton className="h-16 w-full" />
+                        <Skeleton className="h-16 w-full" />
+                      </div>
+                    ) : notes.length === 0 ? (
+                      <div className="text-center py-8">
+                        <FileText className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                        <p className="text-muted-foreground">No notes yet</p>
+                        <p className="text-xs text-muted-foreground mt-1">Add a note above to get started</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {notes.map((note) => (
+                          <div
+                            key={note.id}
+                            className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 group"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap flex-1">
+                                {note.content}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-600"
+                                onClick={() => handleDeleteNote(note.id)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>
+                                {formatDate(note.created_at)} at {new Date(note.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {note.created_by && (
+                                <>
+                                  <span>•</span>
+                                  <span>{note.created_by.full_name || note.created_by.email}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>
