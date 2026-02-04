@@ -234,7 +234,7 @@ export function DealDetailSheet({
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-2 mt-4">
             <div className="space-y-1">
-              <Label className="text-xs text-slate-500">Move to Stage</Label>
+              <Label className="text-xs text-slate-500 dark:text-slate-400">Move to Stage</Label>
               <Select value={deal.current_stage_id} onValueChange={handleStageChange} disabled={moveDeal.isPending}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
@@ -307,7 +307,7 @@ export function DealDetailSheet({
               {/* Deal Owner */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                     Deal Owner
                   </h3>
                   {!isEditingOwner && (
@@ -347,20 +347,20 @@ export function DealDetailSheet({
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-slate-400 italic">No owner assigned</p>
+                  <p className="text-sm text-slate-400 dark:text-slate-500 italic">No owner assigned</p>
                 )}
               </div>
 
               {/* Contact Details */}
               {deal.contact && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Contact Details
                   </h3>
                   <div className="space-y-3">
                     {deal.contact.email && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Email</span>
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Email</span>
                         <a href={`mailto:${deal.contact.email}`} className="text-sm font-medium text-blue-600 hover:underline">
                           {deal.contact.email}
                         </a>
@@ -368,13 +368,13 @@ export function DealDetailSheet({
                     )}
                     {deal.contact.phone && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Phone</span>
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Phone</span>
                         <span className="text-sm font-medium">{deal.contact.phone}</span>
                       </div>
                     )}
                     {deal.contact.graduation_year && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Graduation</span>
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Graduation</span>
                         <span className="text-sm font-medium">Class of {deal.contact.graduation_year}</span>
                       </div>
                     )}
@@ -384,12 +384,12 @@ export function DealDetailSheet({
 
               {/* Status */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Status
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">Time in Stage</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Time in Stage</span>
                     <span className={cn(
                       'text-sm font-medium px-2 py-0.5 rounded',
                       deal.time_in_stage !== undefined && deal.time_in_stage > 30 ? 'bg-red-100 dark:bg-red-900/50 text-red-700' :
@@ -404,7 +404,7 @@ export function DealDetailSheet({
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">Last Contacted</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Last Contacted</span>
                     <span className={cn("text-sm font-medium", deal.last_contacted_at ? 'text-green-600' : 'text-orange-600')}>
                       {deal.last_contacted_at ? formatTimeAgo(deal.last_contacted_at) : 'Never contacted'}
                     </span>
@@ -414,12 +414,12 @@ export function DealDetailSheet({
 
               {/* Deal Forecast */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Deal Forecast
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">Win Probability</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Win Probability</span>
                     {isEditingProbability ? (
                       <div className="flex items-center gap-2">
                         <Input type="number" min={0} max={100} value={editProbability ?? ''} onChange={(e) => setEditProbability(e.target.value ? parseInt(e.target.value) : null)} className="w-16 h-7 text-sm" placeholder="0-100" />
@@ -429,7 +429,7 @@ export function DealDetailSheet({
                       </div>
                     ) : (
                       <button onClick={() => { setEditProbability(deal.win_probability ?? null); setIsEditingProbability(true) }} className="flex items-center gap-1 text-sm font-medium hover:text-blue-600">
-                        {deal.win_probability !== null && deal.win_probability !== undefined ? <span>{deal.win_probability}%</span> : <span className="text-slate-400 italic">Not set</span>}
+                        {deal.win_probability !== null && deal.win_probability !== undefined ? <span>{deal.win_probability}%</span> : <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}
                         <Pencil className="h-3 w-3 opacity-50" />
                       </button>
                     )}
@@ -438,11 +438,11 @@ export function DealDetailSheet({
                     <Progress value={deal.win_probability} className="h-2" />
                   )}
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">Forecasted Close</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Forecasted Close</span>
                     <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                       <PopoverTrigger asChild>
                         <button className="flex items-center gap-1 text-sm font-medium hover:text-blue-600">
-                          {deal.forecasted_close_date ? formatDate(deal.forecasted_close_date) : <span className="text-slate-400 italic">Not set</span>}
+                          {deal.forecasted_close_date ? formatDate(deal.forecasted_close_date) : <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}
                           <Pencil className="h-3 w-3 opacity-50" />
                         </button>
                       </PopoverTrigger>
@@ -462,7 +462,7 @@ export function DealDetailSheet({
               {/* Description */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase">Description</h3>
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">Description</h3>
                   {!isEditingDescription && (
                     <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300" onClick={() => { setEditDescription(deal.description || ''); setIsEditingDescription(true) }}>
                       <Pencil className="h-3 w-3 mr-1" /> Edit
@@ -480,28 +480,28 @@ export function DealDetailSheet({
                     </div>
                   </div>
                 ) : deal.description ? (
-                  <p className="text-sm text-slate-600 whitespace-pre-wrap">{deal.description}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{deal.description}</p>
                 ) : (
-                  <p className="text-sm text-slate-400 italic">No description added yet.</p>
+                  <p className="text-sm text-slate-400 dark:text-slate-500 italic">No description added yet.</p>
                 )}
               </div>
 
               {/* Deal Information */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Deal Information
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">Value</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Value</span>
                     <span className="text-sm font-medium">{formatCurrency(deal.deal_value || 0)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">Source</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Source</span>
                     <span className="text-sm font-medium capitalize">{deal.source?.replace(/_/g, ' ') || 'Unknown'}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">Created</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Created</span>
                     <span className="text-sm font-medium">{formatDate(deal.created_at)}</span>
                   </div>
                 </div>
