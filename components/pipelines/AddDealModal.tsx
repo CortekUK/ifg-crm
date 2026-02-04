@@ -29,12 +29,15 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Calendar } from '@/components/ui/calendar'
 import { Slider } from '@/components/ui/slider'
-import { Check, ChevronsUpDown, Loader2, PoundSterling, CalendarIcon, TrendingUp } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2, PoundSterling, CalendarIcon, TrendingUp, Users, RefreshCw } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
 import { useCreateDeal } from '@/lib/hooks/useCreateDeal'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { useUsers } from '@/lib/hooks/useUsers'
+import { useManualRoundRobin } from '@/lib/hooks/useManualRoundRobin'
 import { toast } from '@/lib/hooks/use-toast'
 import { OwnerSelect } from '@/components/ui/owner-select'
 import type { Contact } from '@/lib/types/contacts'
@@ -62,6 +65,7 @@ export function AddDealModal({
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
   const [dealValue, setDealValue] = useState(defaultDealValue.toString())
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(userId)
+  const [useRoundRobin, setUseRoundRobin] = useState(false)
   const [notes, setNotes] = useState('')
   const [description, setDescription] = useState('')
   const [winProbability, setWinProbability] = useState<number | null>(null)
@@ -70,7 +74,14 @@ export function AddDealModal({
 
   const debouncedSearch = useDebouncedValue(contactSearch, 300)
   const { data: contacts = [], isLoading: isSearching } = useSearchContacts(debouncedSearch)
+  const { data: users = [] } = useUsers()
   const createDeal = useCreateDeal()
+  const manualRoundRobin = useManualRoundRobin()
+
+  // Get active recruiters/admins for round-robin
+  const recruiters = users.filter(
+    (u) => (u.role === 'recruiter' || u.role === 'admin') && u.is_active !== false
+  )
 
   // Reset form when modal opens
   useEffect(() => {
@@ -79,6 +90,7 @@ export function AddDealModal({
       setSelectedContact(null)
       setDealValue(defaultDealValue.toString())
       setSelectedOwnerId(userId)
+      setUseRoundRobin(false)
       setNotes('')
       setDescription('')
       setWinProbability(null)
@@ -89,14 +101,38 @@ export function AddDealModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedContact || !selectedOwnerId) return
+    if (!selectedContact) return
+
+    // For round-robin, we need at least one recruiter
+    if (useRoundRobin && recruiters.length === 0) {
+      toast({
+        title: 'No recruiters available',
+        description: 'Round-robin requires at least one active recruiter.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // For manual assignment, we need a selected owner
+    if (!useRoundRobin && !selectedOwnerId) return
 
     try {
+      let ownerId = selectedOwnerId
+
+      // If using round-robin, get the next user
+      if (useRoundRobin) {
+        const recruiterIds = recruiters.map((r) => r.id)
+        ownerId = await manualRoundRobin.mutateAsync({
+          pipelineId,
+          userIds: recruiterIds,
+        })
+      }
+
       await createDeal.mutateAsync({
         contactId: selectedContact.id,
         pipelineId,
         stageId: stage.id,
-        ownerId: selectedOwnerId,
+        ownerId: ownerId!,
         dealValue: parseFloat(dealValue) || 0,
         title: `${selectedContact.first_name} ${selectedContact.last_name}`,
         notes: notes || undefined,
@@ -143,20 +179,72 @@ export function AddDealModal({
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Deal Owner
               </h3>
-              
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Assign To <span className="text-red-500">*</span>
-                </Label>
-                <OwnerSelect
-                  value={selectedOwnerId}
-                  onChange={setSelectedOwnerId}
-                  placeholder="Select deal owner"
+
+              {/* Round-robin toggle */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                    <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <Label htmlFor="round-robin-toggle" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                      Auto-assign via round-robin
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Automatically assign to recruiters in rotation
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="round-robin-toggle"
+                  checked={useRoundRobin}
+                  onCheckedChange={setUseRoundRobin}
                 />
-                <p className="text-xs text-muted-foreground">
-                  The deal owner will receive automated emails and notifications for this deal.
-                </p>
               </div>
+
+              {useRoundRobin ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <Users className="h-4 w-4" />
+                    <span>{recruiters.length} recruiter{recruiters.length !== 1 ? 's' : ''} in rotation</span>
+                  </div>
+                  {recruiters.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {recruiters.map((recruiter) => (
+                        <div
+                          key={recruiter.id}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                        >
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-xs bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300">
+                              {recruiter.full_name?.charAt(0) || recruiter.email.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{recruiter.full_name || recruiter.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-amber-600 dark:text-amber-400">
+                      No active recruiters found. Please add recruiters to use round-robin.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Assign To <span className="text-red-500">*</span>
+                  </Label>
+                  <OwnerSelect
+                    value={selectedOwnerId}
+                    onChange={setSelectedOwnerId}
+                    placeholder="Select deal owner"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The deal owner will receive automated emails and notifications for this deal.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Contact Selection */}
@@ -397,10 +485,16 @@ export function AddDealModal({
               </Button>
               <Button
                 type="submit"
-                disabled={!selectedContact || !selectedOwnerId || createDeal.isPending}
+                disabled={
+                  !selectedContact ||
+                  (!useRoundRobin && !selectedOwnerId) ||
+                  (useRoundRobin && recruiters.length === 0) ||
+                  createDeal.isPending ||
+                  manualRoundRobin.isPending
+                }
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {createDeal.isPending ? (
+                {createDeal.isPending || manualRoundRobin.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...
