@@ -104,7 +104,7 @@ export default function RepliesPage() {
               }
             `}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className={`p-2.5 rounded-lg ${activeTab === 'email' ? 'bg-blue-500 text-white' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'}`}>
                   <Mail className="h-5 w-5" />
@@ -115,24 +115,34 @@ export default function RepliesPage() {
                 </div>
               </div>
               {emailCounts && emailCounts.unmatched > 0 && (
-                <div className="bg-red-500 text-white text-sm font-semibold px-3 py-1 rounded-full">
-                  {emailCounts.unmatched}
+                <div className="bg-red-500 text-white text-sm font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                  <span className="text-xs uppercase tracking-wide">Unmatched</span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded">{emailCounts.unmatched}</span>
                 </div>
               )}
             </div>
             
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs">Today</p>
-                <p className="font-semibold text-gray-900 dark:text-white">{emailCounts?.today || 0}</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                <Mail className="h-5 w-5 text-blue-500" />
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Today</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{emailCounts?.today || 0}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Positive</p>
-                <p className="font-semibold text-green-600 dark:text-green-400">{emailCounts?.positive || 0}</p>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
+                <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">✓</div>
+                <div>
+                  <p className="text-xs text-green-700 dark:text-green-400 font-medium uppercase tracking-wide">Positive</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{emailCounts?.positive || 0}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Negative</p>
-                <p className="font-semibold text-red-600 dark:text-red-400">{emailCounts?.negative || 0}</p>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/30">
+                <div className="h-5 w-5 rounded-full bg-red-500 flex items-center justify-center text-white text-xs">✗</div>
+                <div>
+                  <p className="text-xs text-red-700 dark:text-red-400 font-medium uppercase tracking-wide">Negative</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{emailCounts?.negative || 0}</p>
+                </div>
               </div>
             </div>
           </button>
@@ -143,14 +153,14 @@ export default function RepliesPage() {
             className={`
               relative overflow-hidden rounded-xl border-2 p-6 text-left transition-all
               ${activeTab === 'sms' 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
-                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-300 dark:hover:border-blue-600'
+                ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30' 
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-purple-300 dark:hover:border-purple-600'
               }
             `}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-lg ${activeTab === 'sms' ? 'bg-blue-500 text-white' : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400'}`}>
+                <div className={`p-2.5 rounded-lg ${activeTab === 'sms' ? 'bg-purple-500 text-white' : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400'}`}>
                   <MessageSquare className="h-5 w-5" />
                 </div>
                 <div>
@@ -159,24 +169,34 @@ export default function RepliesPage() {
                 </div>
               </div>
               {smsCounts && smsCounts.unmatched > 0 && (
-                <div className="bg-red-500 text-white text-sm font-semibold px-3 py-1 rounded-full">
-                  {smsCounts.unmatched}
+                <div className="bg-red-500 text-white text-sm font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                  <span className="text-xs uppercase tracking-wide">Unmatched</span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded">{smsCounts.unmatched}</span>
                 </div>
               )}
             </div>
             
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs">Today</p>
-                <p className="font-semibold text-gray-900 dark:text-white">{smsCounts?.today || 0}</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                <MessageSquare className="h-5 w-5 text-purple-500" />
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Today</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{smsCounts?.today || 0}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Positive</p>
-                <p className="font-semibold text-green-600 dark:text-green-400">{smsCounts?.positive || 0}</p>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
+                <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">✓</div>
+                <div>
+                  <p className="text-xs text-green-700 dark:text-green-400 font-medium uppercase tracking-wide">Positive</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{smsCounts?.positive || 0}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Negative</p>
-                <p className="font-semibold text-red-600 dark:text-red-400">{smsCounts?.negative || 0}</p>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/30">
+                <div className="h-5 w-5 rounded-full bg-red-500 flex items-center justify-center text-white text-xs">✗</div>
+                <div>
+                  <p className="text-xs text-red-700 dark:text-red-400 font-medium uppercase tracking-wide">Negative</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{smsCounts?.negative || 0}</p>
+                </div>
               </div>
             </div>
           </button>
