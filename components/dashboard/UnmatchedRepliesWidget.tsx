@@ -181,77 +181,95 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
           <div className="space-y-3">
             {type === 'sms' ? (
               // SMS Messages
-              (data.messages as SMSMessage[]).map((message) => (
-                <div
-                  key={message.id}
-                  className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="p-1.5 rounded-full bg-slate-100">
-                        <User className="h-3 w-3 text-slate-500" />
+              (data.messages as SMSMessage[]).map((message) => {
+                const intent = message.ai_intent || 'unknown'
+                const intentStyle = intentConfig[intent]
+                return (
+                  <div
+                    key={message.id}
+                    className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                          <User className="h-3 w-3 text-slate-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
+                              Unknown number
+                            </p>
+                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${intentStyle.className}`}>
+                              {intentStyle.label}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {message.phone_number}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
-                          Unknown number
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {message.phone_number}
-                        </p>
-                      </div>
+                      <Link href={linkHref}>
+                        <Button variant="outline" size="sm" className="text-xs h-7 shrink-0">
+                          Match
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href={linkHref}>
-                      <Button variant="outline" size="sm" className="text-xs h-7 shrink-0">
-                        Match
-                      </Button>
-                    </Link>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {message.content}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {message.content}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                  </p>
-                </div>
-              ))
+                )
+              })
             ) : (
               // Email Replies
-              (data.messages as EmailReply[]).map((email) => (
-                <div
-                  key={email.id}
-                  className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="p-1.5 rounded-full bg-slate-100">
-                        <User className="h-3 w-3 text-slate-500" />
+              (data.messages as EmailReply[]).map((email) => {
+                const intent = email.ai_intent || 'unknown'
+                const intentStyle = intentConfig[intent]
+                return (
+                  <div
+                    key={email.id}
+                    className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                          <User className="h-3 w-3 text-slate-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
+                              {email.from_name || 'Unknown'}
+                            </p>
+                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${intentStyle.className}`}>
+                              {intentStyle.label}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {email.from_email}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
-                          {email.from_name || 'Unknown'}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {email.from_email}
-                        </p>
-                      </div>
+                      <Link href={linkHref}>
+                        <Button variant="outline" size="sm" className="text-xs h-7 shrink-0">
+                          Match
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href={linkHref}>
-                      <Button variant="outline" size="sm" className="text-xs h-7 shrink-0">
-                        Match
-                      </Button>
-                    </Link>
+                    <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
+                      {email.subject}
+                    </p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {email.body_preview}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formatDistanceToNow(new Date(email.created_at), { addSuffix: true })}
+                    </p>
                   </div>
-                  <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
-                    {email.subject}
-                  </p>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {email.body_preview}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {formatDistanceToNow(new Date(email.created_at), { addSuffix: true })}
-                  </p>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         )}

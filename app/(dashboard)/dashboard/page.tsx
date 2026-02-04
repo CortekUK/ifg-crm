@@ -8,6 +8,9 @@ import { UnmatchedRepliesWidget } from '@/components/dashboard/UnmatchedRepliesW
 import { FollowUpsWidget } from '@/components/dashboard/FollowUpsWidget'
 import { LeadSourcesChart } from '@/components/dashboard/LeadSourcesChart'
 import { ProgrammeInterestChart } from '@/components/dashboard/ProgrammeInterestChart'
+import { DealsByStageChart } from '@/components/dashboard/DealsByStageChart'
+import { CallsBookedCard } from '@/components/dashboard/CallsBookedCard'
+import { RevenueSummaryCard } from '@/components/dashboard/RevenueSummaryCard'
 import { RecentActivityTimeline } from '@/components/dashboard/RecentActivityTimeline'
 import { CreateContactModal } from '@/components/contacts/CreateContactModal'
 import { formatNumber } from '@/lib/utils/format'
@@ -96,14 +99,23 @@ export default function DashboardPage() {
         <FollowUpsWidget type="email" />
       </div>
 
+      {/* Secondary Stats: Calls Booked & Revenue */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <CallsBookedCard />
+        <RevenueSummaryCard />
+      </div>
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <LeadSourcesChart />
+        <DealsByStageChart />
         <ProgrammeInterestChart />
       </div>
 
-      {/* Recent Activity Timeline */}
-      <RecentActivityTimeline />
+      {/* Lead Sources & Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <LeadSourcesChart />
+        <RecentActivityTimeline />
+      </div>
 
       {/* Create Contact Modal */}
       <CreateContactModal

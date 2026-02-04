@@ -103,17 +103,17 @@ export function RevenueSummaryCard() {
                 <span className="text-3xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(data?.depositsThisMonth || 0)}
                 </span>
-                {data?.trend !== 0 && (
+                {data?.trend !== undefined && data.trend !== 0 && (
                   <div className={cn(
                     "flex items-center gap-0.5 text-sm font-medium",
-                    data?.trend && data.trend > 0 ? "text-green-600" : "text-red-500"
+                    data.trend > 0 ? "text-green-600" : "text-red-500"
                   )}>
-                    {data?.trend && data.trend > 0 ? (
+                    {data.trend > 0 ? (
                       <TrendingUp className="h-3.5 w-3.5" />
                     ) : (
                       <TrendingDown className="h-3.5 w-3.5" />
                     )}
-                    <span>{data?.trend > 0 ? '+' : ''}{data?.trend}%</span>
+                    <span>{data.trend > 0 ? '+' : ''}{data.trend}%</span>
                   </div>
                 )}
               </div>

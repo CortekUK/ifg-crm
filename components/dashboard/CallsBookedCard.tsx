@@ -104,17 +104,17 @@ export function CallsBookedCard() {
               <span className="text-sm text-muted-foreground">
                 {data?.thisMonth} this month
               </span>
-              {data?.trend !== 0 && (
+              {data?.trend !== undefined && data.trend !== 0 && (
                 <div className={cn(
                   "flex items-center gap-1 text-sm font-medium",
-                  data?.trend && data.trend > 0 ? "text-green-600" : "text-red-500"
+                  data.trend > 0 ? "text-green-600" : "text-red-500"
                 )}>
-                  {data?.trend && data.trend > 0 ? (
+                  {data.trend > 0 ? (
                     <TrendingUp className="h-3.5 w-3.5" />
                   ) : (
                     <TrendingDown className="h-3.5 w-3.5" />
                   )}
-                  <span>{data?.trend > 0 ? '+' : ''}{data?.trend}%</span>
+                  <span>{data.trend > 0 ? '+' : ''}{data.trend}%</span>
                 </div>
               )}
             </div>
