@@ -36,13 +36,18 @@ const DEFAULT_STAGES: Array<{
   color: string
   display_order: number
 }> = [
-  { name: 'New Lead', stage_type: 'lead', color: '#3b82f6', display_order: 0 },
-  { name: 'Contacted', stage_type: 'contact', color: '#06b6d4', display_order: 1 },
-  { name: 'Meeting Scheduled', stage_type: 'meeting', color: '#8b5cf6', display_order: 2 },
-  { name: 'Documents', stage_type: 'documents', color: '#f97316', display_order: 3 },
-  { name: 'Offer Made', stage_type: 'offer', color: '#22c55e', display_order: 4 },
-  { name: 'Won', stage_type: 'completed', color: '#10b981', display_order: 5 },
-  { name: 'Lost', stage_type: 'lost', color: '#ef4444', display_order: 6 },
+  { name: 'Initial Lead', stage_type: 'lead', color: '#3b82f6', display_order: 0 },
+  { name: 'Initial Contact', stage_type: 'contact', color: '#06b6d4', display_order: 1 },
+  { name: 'Zoom Scheduled', stage_type: 'meeting', color: '#8b5cf6', display_order: 2 },
+  { name: 'Follow Up', stage_type: 'follow_up', color: '#f59e0b', display_order: 3 },
+  { name: 'Application', stage_type: 'applied', color: '#ec4899', display_order: 4 },
+  { name: 'Documents Received', stage_type: 'documents', color: '#f97316', display_order: 5 },
+  { name: 'Interview', stage_type: 'meeting', color: '#6366f1', display_order: 6 },
+  { name: 'Conditional Offer', stage_type: 'offer', color: '#22c55e', display_order: 7 },
+  { name: 'Invoice Sent', stage_type: 'payment', color: '#84cc16', display_order: 8 },
+  { name: 'Deposit Paid', stage_type: 'payment', color: '#10b981', display_order: 9 },
+  { name: 'Arrival', stage_type: 'completed', color: '#059669', display_order: 10 },
+  { name: 'Lost', stage_type: 'lost', color: '#ef4444', display_order: 11 },
 ]
 
 export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
@@ -115,12 +120,12 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
             {/* Pipeline Details */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Pipeline Details
               </h3>
-              
+
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Pipeline Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -132,7 +137,7 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Sport <span className="text-red-500">*</span>
                 </Label>
                 <Select value={sport} onValueChange={(v) => setSport(v as 'football' | 'basketball')}>
@@ -147,7 +152,7 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Programme (Optional)
                 </Label>
                 <Select value={programmeId || 'none'} onValueChange={(v) => setProgrammeId(v === 'none' ? '' : v)}>
@@ -171,25 +176,25 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
 
             {/* Initial Stages */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Initial Stages
               </h3>
-              
+
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   id="useDefaultStages"
                   checked={useDefaultStages}
                   onChange={(e) => setUseDefaultStages(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 rounded border-gray-300 dark:border-slate-600"
                 />
-                <Label htmlFor="useDefaultStages" className="text-sm font-medium text-slate-700 cursor-pointer">
+                <Label htmlFor="useDefaultStages" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                   Create with default stages
                 </Label>
               </div>
 
               {useDefaultStages && (
-                <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-2">
                   <p className="text-xs text-muted-foreground mb-3">
                     The following stages will be created:
                   </p>
@@ -200,7 +205,7 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
                           className="w-3 h-3 rounded-full shrink-0"
                           style={{ backgroundColor: stage.color }}
                         />
-                        <span className="text-sm">{stage.name}</span>
+                        <span className="text-sm text-slate-900 dark:text-white">{stage.name}</span>
                         <span className="text-xs text-muted-foreground">({stage.stage_type})</span>
                       </div>
                     ))}
@@ -216,7 +221,7 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
             </div>
           </div>
 
-          <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+          <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
             <div className="flex gap-3 w-full">
               <Button type="button" variant="outline" onClick={onClose} className="flex-1">
                 Cancel

@@ -312,7 +312,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
             <TabsContent value="details" className="flex-1 overflow-y-auto px-6 py-6 space-y-6 mt-0">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Pipeline Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -323,7 +323,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Sport</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sport</Label>
                   <Select value={sport} onValueChange={(v) => setSport(v as 'football' | 'basketball')}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select sport" />
@@ -336,7 +336,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Programme</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Programme</Label>
                   <Select value={programmeId || 'none'} onValueChange={(v) => setProgrammeId(v === 'none' ? '' : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Link to a programme" />
@@ -354,7 +354,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
 
                 <div className="flex items-center justify-between py-2">
                   <div>
-                    <Label className="text-sm font-medium text-slate-700">Active</Label>
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Active</Label>
                     <p className="text-xs text-muted-foreground">
                       Inactive pipelines are hidden from the selector
                     </p>
@@ -403,7 +403,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                     {sortedStages.map((stage, index) => (
                       <div
                         key={stage.id}
-                        className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg"
+                        className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                       >
                         <div className="flex flex-col gap-1">
                           <Button
@@ -500,7 +500,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                         ) : (
                           <>
                             <div className="flex-1">
-                              <p className="text-sm font-medium">{stage.name}</p>
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">{stage.name}</p>
                               <p className="text-xs text-muted-foreground">{stage.stage_type}</p>
                             </div>
                             <Button
@@ -527,8 +527,8 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
 
                   {/* Add Stage Form */}
                   {isAddingStage ? (
-                    <div className="p-4 border rounded-lg space-y-3">
-                      <h4 className="text-sm font-semibold">Add New Stage</h4>
+                    <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Add New Stage</h4>
                       <Input
                         value={newStageName}
                         onChange={(e) => setNewStageName(e.target.value)}
