@@ -59,9 +59,23 @@ export function ContactsTable({
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
   }
 
+  const sourceLabels: Record<string, string> = {
+    'website_form': 'Website Form',
+    'csv_import': 'CSV Import',
+    'sms_reply': 'SMS Reply',
+    'email_reply': 'Email Reply',
+    'manual': 'Manual',
+    'Manual Entry': 'Manual',
+    'referral': 'Referral',
+    'tournament': 'Tournament',
+    'google_ads': 'Google Ads',
+    'facebook': 'Facebook',
+    'instagram': 'Instagram',
+  }
+
   const formatSource = (source: string | null) => {
     if (!source) return '-'
-    return source
+    return sourceLabels[source] || source
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
