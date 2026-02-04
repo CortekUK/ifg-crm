@@ -44,7 +44,8 @@ import {
 } from 'lucide-react'
 import { formatDate, formatCurrency, formatDateLong, formatRelativeTime, formatTimeAgo } from '@/lib/utils/format'
 import { usePlayer, usePlayerDeals, usePlayerActivities, useUpdatePlayer } from '@/lib/hooks/usePlayers'
-import { useContactTags, useTags, useAddTagToContact, useRemoveTagFromContact, useContactInvoices, useContactNotes, useAddContactNote, useDeleteContactNote } from '@/lib/hooks/useContacts'
+import { useContactTags, useTags, useAddTagToContact, useRemoveTagFromContact, useContactInvoices, useContactNotes, useAddContactNote, useDeleteContactNote, useContactLists } from '@/lib/hooks/useContacts'
+import { useLists, useAddContactsToList, useRemoveContactFromList } from '@/lib/hooks/useLists'
 import { LogReplyModal } from '@/components/contacts/LogReplyModal'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils'
@@ -105,6 +106,8 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
   const [activeTab, setActiveTab] = useState('overview')
   const [isLogReplyOpen, setIsLogReplyOpen] = useState(false)
   const [isEditingOwner, setIsEditingOwner] = useState(false)
+  const [isAddListOpen, setIsAddListOpen] = useState(false)
+  const [listSearchQuery, setListSearchQuery] = useState('')
   const [isAddTagOpen, setIsAddTagOpen] = useState(false)
   const [tagSearchQuery, setTagSearchQuery] = useState('')
   const [newNoteContent, setNewNoteContent] = useState('')
@@ -112,11 +115,15 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
   const { data: player, isLoading } = usePlayer(playerId)
   const { data: deals = [] } = usePlayerDeals(playerId)
   const { data: activities = [], isLoading: activitiesLoading } = usePlayerActivities(playerId)
+  const { data: lists = [], isLoading: listsLoading } = useContactLists(playerId)
+  const { data: allLists = [] } = useLists()
   const { data: tags = [], isLoading: tagsLoading } = useContactTags(playerId)
   const { data: allTags = [] } = useTags()
   const { data: invoices = [], isLoading: invoicesLoading } = useContactInvoices(playerId)
   const { data: notes = [], isLoading: notesLoading } = useContactNotes(playerId)
   const updatePlayer = useUpdatePlayer()
+  const addToList = useAddContactsToList()
+  const removeFromList = useRemoveContactFromList()
   const addTagToContact = useAddTagToContact()
   const removeTagFromContact = useRemoveTagFromContact()
   const addNote = useAddContactNote()
@@ -129,6 +136,11 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
     }
   }, [isOpen])
 
+  const contactListIds = new Set(lists.map((l) => l.id))
+  const availableLists = allLists.filter(
+    (list) => !contactListIds.has(list.id) && list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
+  )
+
   const contactTagIds = new Set(tags.map((t) => t.id))
   const availableTags = allTags.filter(
     (tag) => !contactTagIds.has(tag.id) && tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
@@ -136,6 +148,28 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
 
   const totalInvoicesPaid = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0)
   const totalInvoicesOutstanding = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((sum, i) => sum + i.amount, 0)
+
+  const handleAddToList = async (listId: string, listName: string) => {
+    if (!playerId) return
+    try {
+      await addToList.mutateAsync({ listId, contactIds: [playerId] })
+      toast({ title: 'Added to list', description: `Player added to "${listName}".` })
+      setIsAddListOpen(false)
+      setListSearchQuery('')
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add player to list.', variant: 'destructive' })
+    }
+  }
+
+  const handleRemoveFromList = async (listId: string, listName: string) => {
+    if (!playerId) return
+    try {
+      await removeFromList.mutateAsync({ listId, contactId: playerId })
+      toast({ title: 'Removed from list', description: `Player removed from "${listName}".` })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to remove player from list.', variant: 'destructive' })
+    }
+  }
 
   const handleAddTag = async (tagId: string, tagName: string) => {
     if (!playerId) return
@@ -447,6 +481,73 @@ export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerD
                       </div>
                     ) : (
                       <p className="text-sm text-slate-400 italic">No owner assigned</p>
+                    )}
+                  </div>
+
+                  {/* Lists */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                        Lists
+                      </h3>
+                      <Popover open={isAddListOpen} onOpenChange={setIsAddListOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add to List
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-2" align="end">
+                          <div className="space-y-2">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Search lists..."
+                                value={listSearchQuery}
+                                onChange={(e) => setListSearchQuery(e.target.value)}
+                                className="h-8 pl-7 text-sm"
+                              />
+                            </div>
+                            <div className="max-h-40 overflow-y-auto">
+                              {availableLists.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center py-3">
+                                  {listSearchQuery ? 'No lists found' : 'In all lists'}
+                                </p>
+                              ) : (
+                                availableLists.slice(0, 8).map((list) => (
+                                  <button
+                                    key={list.id}
+                                    onClick={() => handleAddToList(list.id, list.name)}
+                                    disabled={addToList.isPending}
+                                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                                  >
+                                    {list.name}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {listsLoading ? (
+                      <Skeleton className="h-8 w-full" />
+                    ) : lists.length === 0 ? (
+                      <p className="text-sm text-slate-500">Not in any lists</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {lists.map((list) => (
+                          <Badge key={list.id} variant="secondary" className="pr-1">
+                            {list.name}
+                            <button
+                              onClick={() => handleRemoveFromList(list.id, list.name)}
+                              className="ml-1 p-0.5 rounded-full hover:bg-slate-300/50"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
 
