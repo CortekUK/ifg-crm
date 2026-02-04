@@ -187,12 +187,12 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
           <div className="space-y-6 py-6">
             {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Basic Information
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     First Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -202,7 +202,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Last Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -214,7 +214,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Email <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -227,7 +227,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Phone</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone</Label>
                   <Input
                     value={formData.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
@@ -235,7 +235,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Date of Birth</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Date of Birth</Label>
                   <Input
                     type="date"
                     value={formData.date_of_birth}
@@ -247,12 +247,12 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
             {/* Player Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Player Information
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Graduation Year</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Graduation Year</Label>
                   <Select
                     value={formData.graduation_year}
                     onValueChange={(v) => handleChange('graduation_year', v)}
@@ -270,7 +270,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Gender</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Gender</Label>
                   <Select value={formData.gender} onValueChange={(v) => handleChange('gender', v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
@@ -285,7 +285,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Sport</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sport</Label>
                   <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select sport" />
@@ -297,7 +297,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Position</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Position</Label>
                   <Select value={formData.position} onValueChange={(v) => handleChange('position', v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select position" />
@@ -315,7 +315,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Club Name</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Club Name</Label>
                   <Input
                     value={formData.club_name}
                     onChange={(e) => handleChange('club_name', e.target.value)}
@@ -323,7 +323,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">GPA</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">GPA</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -339,11 +339,11 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
             {/* Location */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Location
               </h3>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Country</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Country</Label>
                 <Select value={formData.country} onValueChange={(v) => handleChange('country', v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select country" />
@@ -359,7 +359,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">State/Region</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">State/Region</Label>
                   <Input
                     value={formData.state}
                     onChange={(e) => handleChange('state', e.target.value)}
@@ -367,7 +367,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">City</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">City</Label>
                   <Input
                     value={formData.city}
                     onChange={(e) => handleChange('city', e.target.value)}
@@ -379,11 +379,11 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
             {/* Parent/Guardian Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Parent/Guardian Information
               </h3>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Parent/Guardian Name</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Parent/Guardian Name</Label>
                 <Input
                   value={formData.parent_name}
                   onChange={(e) => handleChange('parent_name', e.target.value)}
@@ -392,7 +392,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Parent Email</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Parent Email</Label>
                   <Input
                     type="email"
                     value={formData.parent_email}
@@ -401,7 +401,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Parent Phone</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Parent Phone</Label>
                   <Input
                     value={formData.parent_phone}
                     onChange={(e) => handleChange('parent_phone', e.target.value)}
@@ -413,7 +413,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
             {/* Assigned To */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Assigned To
               </h3>
               <OwnerSelect
@@ -426,7 +426,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
 
             {/* Notes */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Notes
               </h3>
               <Textarea
@@ -439,7 +439,7 @@ export function EditPlayerModal({ player, isOpen, onClose }: EditPlayerModalProp
           </div>
         </div>
 
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
           <div className="flex gap-3 w-full">
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel
