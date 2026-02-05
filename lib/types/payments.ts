@@ -17,6 +17,14 @@ export interface Payment {
   invoice?: {
     id: string
     invoice_number: string
+    deal?: {
+      id: string
+      pipeline_id: string
+      pipeline?: {
+        id: string
+        name: string
+      }
+    } | null
   } | null
   contact?: {
     id: string
@@ -34,6 +42,7 @@ export interface PaymentFilters {
   search: string
   paymentMethod: string
   status: string
+  pipelineId?: string
   dateFrom: Date | null
   dateTo: Date | null
 }
@@ -43,4 +52,16 @@ export interface PaymentStats {
   pending: number
   failedCount: number
   avgTransaction: number
+}
+
+export interface CreatePaymentInput {
+  invoice_id?: string | null
+  contact_id: string
+  amount: number
+  currency?: string
+  payment_method: PaymentMethod
+  reference?: string | null
+  notes?: string | null
+  recorded_by_id: string
+  payment_date?: string
 }

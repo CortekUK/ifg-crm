@@ -9,6 +9,9 @@ import {
   Calendar,
   Zap,
   MessageSquare,
+  Clock,
+  Coins,
+  TrendingUp,
 } from 'lucide-react'
 import { ReportCard } from './ReportCard'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -77,6 +80,30 @@ const reports = [
     description: 'All inbound messages with intent analysis.',
     format: 'CSV',
     lastGenerated: '27/01/2026',
+  },
+  {
+    id: 'invoice-ageing',
+    icon: Clock,
+    name: 'Invoice Ageing Report',
+    description: 'Unpaid invoices grouped by age (0-30, 30-60, 60-90, 90+ days).',
+    format: 'CSV/PDF',
+    lastGenerated: undefined,
+  },
+  {
+    id: 'sms-campaign-costs',
+    icon: Coins,
+    name: 'SMS Campaign Costs',
+    description: 'SMS campaign cost tracking and breakdown by campaign.',
+    format: 'CSV',
+    lastGenerated: undefined,
+  },
+  {
+    id: 'deposit-conversion',
+    icon: TrendingUp,
+    name: 'Deposit Conversion Rate',
+    description: 'Track deposit-to-enrolment conversion rates by programme.',
+    format: 'CSV/PDF',
+    lastGenerated: undefined,
   },
 ]
 

@@ -1,4 +1,4 @@
-export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html'
+export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature'
 
 export interface EditorBlock {
   id: string
@@ -7,7 +7,7 @@ export interface EditorBlock {
   content: Record<string, any>
 }
 
-export type BlockContent = 
+export type BlockContent =
   | TextBlockContent
   | ImageBlockContent
   | ButtonBlockContent
@@ -16,11 +16,14 @@ export type BlockContent =
   | VideoBlockContent
   | SocialBlockContent
   | HTMLBlockContent
+  | ColumnsBlockContent
+  | ConditionalBlockContent
+  | RecruiterSignatureBlockContent
 
 export interface TextBlockContent {
   html: string
   alignment: 'left' | 'center' | 'right'
-  fontSize: 'small' | 'normal' | 'large'
+  fontSize: 'small' | 'normal' | 'large' | 'xlarge'
   paddingTop: number
   paddingBottom: number
   backgroundColor?: string
@@ -31,7 +34,9 @@ export interface ImageBlockContent {
   alt: string
   linkUrl?: string
   alignment: 'left' | 'center' | 'right'
-  width: number | 'full'
+  width: string // '100', '75', '50', '25', 'auto'
+  paddingTop: number
+  paddingBottom: number
 }
 
 export interface ButtonBlockContent {
@@ -40,16 +45,19 @@ export interface ButtonBlockContent {
   backgroundColor: string
   textColor: string
   borderRadius: number
-  width: 'auto' | 'full'
+  width: 'auto' | 'full' | '50' | '75'
   alignment: 'left' | 'center' | 'right'
   paddingTop: number
   paddingBottom: number
+  paddingX?: number
+  paddingY?: number
 }
 
 export interface DividerBlockContent {
   style: 'solid' | 'dashed' | 'dotted'
   color: string
   thickness: number
+  width: string // '100', '75', '50', '25'
   paddingTop: number
   paddingBottom: number
 }
@@ -79,6 +87,40 @@ export interface SocialBlockContent {
 
 export interface HTMLBlockContent {
   code: string
+}
+
+export interface ColumnsBlockContent {
+  columns: 2 | 3
+  columnWidths: number[] // percentages, e.g., [50, 50] or [33, 33, 34]
+  gap: number // px
+  leftBlocks: EditorBlock[]
+  rightBlocks: EditorBlock[]
+  centerBlocks?: EditorBlock[] // only for 3-column
+  paddingTop: number
+  paddingBottom: number
+}
+
+export interface ConditionalBlockContent {
+  conditionField: 'deal_owner_email' | 'deal_owner_name' | 'deal_pipeline'
+  conditionOperator: 'equals' | 'not_equals' | 'contains'
+  conditionValue: string
+  children: EditorBlock[]
+  paddingTop: number
+  paddingBottom: number
+}
+
+export interface RecruiterSignatureBlockContent {
+  showPhoto: boolean
+  showName: boolean
+  showTitle: boolean
+  showEmail: boolean
+  showPhone: boolean
+  showCalendly: boolean
+  layout: 'stacked' | 'inline' // stacked = vertical, inline = photo left + details right
+  alignment: 'left' | 'center' | 'right'
+  photoSize: 'small' | 'medium' | 'large' // 40px, 60px, 80px
+  paddingTop: number
+  paddingBottom: number
 }
 
 export interface TemplateSettings {
@@ -130,7 +172,9 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
     src: '',
     alt: '',
     alignment: 'center',
-    width: 'full',
+    width: '100',
+    paddingTop: 10,
+    paddingBottom: 10,
   } as ImageBlockContent,
   button: {
     text: 'Click Here',
@@ -142,11 +186,14 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
     alignment: 'center',
     paddingTop: 10,
     paddingBottom: 10,
+    paddingX: 24,
+    paddingY: 12,
   } as ButtonBlockContent,
   divider: {
     style: 'solid',
     color: '#e5e7eb',
     thickness: 1,
+    width: '100',
     paddingTop: 10,
     paddingBottom: 10,
   } as DividerBlockContent,
@@ -172,6 +219,36 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
   html: {
     code: '<!-- Custom HTML here -->',
   } as HTMLBlockContent,
+  columns: {
+    columns: 2,
+    columnWidths: [50, 50],
+    gap: 20,
+    leftBlocks: [],
+    rightBlocks: [],
+    paddingTop: 10,
+    paddingBottom: 10,
+  } as ColumnsBlockContent,
+  conditional: {
+    conditionField: 'deal_owner_email',
+    conditionOperator: 'equals',
+    conditionValue: '',
+    children: [],
+    paddingTop: 0,
+    paddingBottom: 0,
+  } as ConditionalBlockContent,
+  recruiter_signature: {
+    showPhoto: true,
+    showName: true,
+    showTitle: true,
+    showEmail: true,
+    showPhone: true,
+    showCalendly: true,
+    layout: 'inline',
+    alignment: 'left',
+    photoSize: 'medium',
+    paddingTop: 20,
+    paddingBottom: 10,
+  } as RecruiterSignatureBlockContent,
 }
 
 export const templateVariables = [
@@ -186,11 +263,14 @@ export const templateVariables = [
   { label: 'Deal Value', value: '{{deal_value}}', description: 'Monetary value of the deal', category: 'deal' },
   { label: 'Deal Stage', value: '{{deal_stage}}', description: 'Current stage of the deal', category: 'deal' },
   { label: 'Deal Pipeline', value: '{{deal_pipeline}}', description: 'Pipeline the deal belongs to', category: 'deal' },
+  { label: 'Programme Name', value: '{{programme_name}}', description: 'Name of the programme', category: 'deal' },
   
   // Deal owner fields
   { label: 'Owner Name', value: '{{deal_owner_name}}', description: 'Full name of the deal owner', category: 'owner' },
+  { label: 'Owner Title', value: '{{deal_owner_title}}', description: 'Job title of the deal owner', category: 'owner' },
   { label: 'Owner Email', value: '{{deal_owner_email}}', description: 'Email address of the deal owner', category: 'owner' },
   { label: 'Owner Phone', value: '{{deal_owner_phone}}', description: 'Phone number of the deal owner', category: 'owner' },
+  { label: 'Owner Photo', value: '{{deal_owner_photo}}', description: 'Profile photo URL of the deal owner', category: 'owner' },
   { label: 'Calendly Link', value: '{{deal_owner_calendly}}', description: 'Calendly scheduling link', category: 'owner' },
   { label: 'Email Signature', value: '{{deal_owner_signature}}', description: 'Email signature of the deal owner', category: 'owner' },
 ]

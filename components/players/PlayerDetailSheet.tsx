@@ -94,12 +94,12 @@ function getActivityIcon(type: string) {
 }
 
 function getActivityBg(type: string): string {
-  if (type.includes('email')) return 'bg-blue-50'
-  if (type.includes('stage')) return 'bg-purple-50'
-  if (type.includes('deal_won') || type.includes('deal_created')) return 'bg-green-50'
-  if (type.includes('deal_lost')) return 'bg-red-50'
-  if (type.includes('meeting')) return 'bg-blue-50'
-  return 'bg-slate-50'
+  if (type.includes('email')) return 'bg-blue-50 dark:bg-blue-900/20'
+  if (type.includes('stage')) return 'bg-purple-50 dark:bg-purple-900/20'
+  if (type.includes('deal_won') || type.includes('deal_created')) return 'bg-green-50 dark:bg-green-900/20'
+  if (type.includes('deal_lost')) return 'bg-red-50 dark:bg-red-900/20'
+  if (type.includes('meeting')) return 'bg-blue-50 dark:bg-blue-900/20'
+  return 'bg-slate-50 dark:bg-slate-800/50'
 }
 
 export function PlayerDetailSheet({ playerId, isOpen, onClose, onEdit }: PlayerDetailSheetProps) {

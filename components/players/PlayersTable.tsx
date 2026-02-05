@@ -54,7 +54,7 @@ export function PlayersTable({
 }: PlayersTableProps) {
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -93,8 +93,8 @@ export function PlayersTable({
 
   if (players.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
-        <Users className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No players found</h3>
         <p className="text-muted-foreground">
           Try adjusting your filters or add a new player.
@@ -104,7 +104,7 @@ export function PlayersTable({
   }
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>
@@ -194,8 +194,8 @@ export function PlayersTable({
                   <Badge
                     className={
                       player.subscription_status === 'subscribed'
-                        ? 'bg-green-100 dark:bg-green-900/50 text-green-700'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700'
+                        ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
                     }
                   >
                     {player.subscription_status === 'subscribed' ? 'Subscribed' : 'Unsubscribed'}

@@ -18,37 +18,31 @@ interface StatsCardProps {
 
 const colourConfig = {
   blue: {
-    gradient: 'from-blue-50/60 dark:from-blue-950/60',
     border: 'border-l-blue-400',
     iconBg: 'bg-blue-100 dark:bg-blue-900/50',
     iconColour: 'text-blue-600 dark:text-blue-400',
   },
   orange: {
-    gradient: 'from-orange-50/60 dark:from-orange-950/60',
     border: 'border-l-orange-400',
     iconBg: 'bg-orange-100 dark:bg-orange-900/50',
     iconColour: 'text-orange-600 dark:text-orange-400',
   },
   green: {
-    gradient: 'from-green-50/60 dark:from-green-950/60',
     border: 'border-l-green-400',
     iconBg: 'bg-green-100 dark:bg-green-900/50',
     iconColour: 'text-green-600 dark:text-green-400',
   },
   purple: {
-    gradient: 'from-purple-50/60 dark:from-purple-950/60',
     border: 'border-l-purple-400',
     iconBg: 'bg-purple-100 dark:bg-purple-900/50',
     iconColour: 'text-purple-600 dark:text-purple-400',
   },
   red: {
-    gradient: 'from-red-50/60 dark:from-red-950/60',
     border: 'border-l-red-400',
     iconBg: 'bg-red-100 dark:bg-red-900/50',
     iconColour: 'text-red-600 dark:text-red-400',
   },
   teal: {
-    gradient: 'from-teal-50/60 dark:from-teal-950/60',
     border: 'border-l-teal-400',
     iconBg: 'bg-teal-100 dark:bg-teal-900/50',
     iconColour: 'text-teal-600 dark:text-teal-400',
@@ -72,14 +66,10 @@ export function StatsCard({
   if (isLoading) {
     return (
       <Card className={cn(
-        'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4',
+        'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4',
         config.border
       )}>
-        <div className={cn(
-          'absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent pointer-events-none',
-          config.gradient
-        )} />
-        <CardContent className="relative z-10 p-5">
+        <CardContent className="p-5">
           <div className="flex items-start justify-between mb-3">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-10 w-10 rounded-full" />
@@ -93,14 +83,10 @@ export function StatsCard({
 
   return (
     <Card className={cn(
-      'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow transition-shadow border-l-4',
+      'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow transition-shadow border-l-4',
       config.border
     )}>
-      <div className={cn(
-        'absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent pointer-events-none',
-        config.gradient
-      )} />
-      <CardContent className="relative z-10 p-5">
+      <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-100 uppercase">
             {title}
@@ -109,9 +95,9 @@ export function StatsCard({
             <Icon className={cn('h-5 w-5', config.iconColour)} />
           </div>
         </div>
-        
+
         <p className="text-3xl font-bold text-gray-900 dark:text-white">{value}</p>
-        
+
         {trend !== undefined && trendLabel && (
           <div className="flex items-center gap-1.5 text-sm mt-2">
             {isPositive && <TrendingUp className="h-4 w-4 text-green-500" />}
@@ -130,7 +116,7 @@ export function StatsCard({
             <span className="text-gray-400">{trendLabel}</span>
           </div>
         )}
-        
+
         {subtitle && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{subtitle}</p>
         )}

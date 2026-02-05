@@ -130,12 +130,12 @@ export function CreateTemplateModal({
           <div className="space-y-6 py-6">
             {/* Template Details */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Template Details
               </h3>
               
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Template Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -146,7 +146,7 @@ export function CreateTemplateModal({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Type</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</Label>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -170,7 +170,7 @@ export function CreateTemplateModal({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Category</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Category</Label>
                 <Select value={category} onValueChange={(v) => setCategory(v as Template['category'])}>
                   <SelectTrigger>
                     <SelectValue />
@@ -187,12 +187,12 @@ export function CreateTemplateModal({
             {/* Email Content */}
             {type === 'email' && (
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Email Content
                 </h3>
                 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Subject Line <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -203,7 +203,7 @@ export function CreateTemplateModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">From Name Type</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Name Type</Label>
                   <Select
                     value={fromNameType}
                     onValueChange={(v) => setFromNameType(v as 'deal_owner' | 'fixed')}
@@ -221,7 +221,7 @@ export function CreateTemplateModal({
                 {fromNameType === 'fixed' && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">From Name</Label>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Name</Label>
                       <Input
                         value={fixedFromName}
                         onChange={(e) => setFixedFromName(e.target.value)}
@@ -229,7 +229,7 @@ export function CreateTemplateModal({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">From Email</Label>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Email</Label>
                       <Input
                         type="email"
                         value={fixedFromEmail}
@@ -241,7 +241,7 @@ export function CreateTemplateModal({
                 )}
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Email Content</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Content</Label>
                   <Button variant="outline" className="w-full" disabled>
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Edit Content (coming soon)
@@ -256,13 +256,13 @@ export function CreateTemplateModal({
             {/* SMS Content */}
             {type === 'sms' && (
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   SMS Content
                 </h3>
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-700">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       Message Content <span className="text-red-500">*</span>
                     </Label>
                     <span
@@ -283,7 +283,7 @@ export function CreateTemplateModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Insert Variable</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Insert Variable</Label>
                   <div className="flex flex-wrap gap-2">
                     {variableButtons.map((variable) => (
                       <Badge
@@ -302,7 +302,7 @@ export function CreateTemplateModal({
           </div>
         </div>
 
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
           <div className="flex gap-3 w-full">
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel

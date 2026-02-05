@@ -246,18 +246,8 @@ export function ListDetailSheet({
                   </div>
                 </div>
                 <div className="flex items-center gap-3 mt-3">
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                  <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                     {totalContacts.toLocaleString()} contacts
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={
-                      list.is_dynamic
-                        ? 'bg-purple-50 text-purple-700 border-purple-200'
-                        : 'bg-blue-50 text-blue-700 border-blue-200'
-                    }
-                  >
-                    {list.is_dynamic ? 'Dynamic List' : 'Static List'}
                   </Badge>
                 </div>
               </SheetHeader>
@@ -351,7 +341,7 @@ export function ListDetailSheet({
                         const isSelected = selectedContactIds.has(contact.id)
 
                         return (
-                          <TableRow key={item.contact_id} className={isSelected ? 'bg-blue-50' : ''}>
+                          <TableRow key={item.contact_id} className={isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
                             <TableCell>
                               <Checkbox
                                 checked={isSelected}

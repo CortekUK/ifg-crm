@@ -17,6 +17,10 @@ interface SMSReplyListProps {
   hasNextPage?: boolean
   onLoadMore?: () => void
   isLoadingMore?: boolean
+  // Bulk selection props
+  selectable?: boolean
+  selectedIds?: Set<string>
+  onSelectChange?: (message: SMSMessage, selected: boolean) => void
 }
 
 export function SMSReplyList({
@@ -30,6 +34,9 @@ export function SMSReplyList({
   hasNextPage,
   onLoadMore,
   isLoadingMore,
+  selectable = false,
+  selectedIds,
+  onSelectChange,
 }: SMSReplyListProps) {
   if (isLoading) {
     return (
@@ -77,6 +84,9 @@ export function SMSReplyList({
           onViewContact={onViewContact}
           onMarkSpam={onMarkSpam}
           onViewFull={onViewFull}
+          selectable={selectable}
+          selected={selectedIds?.has(message.id)}
+          onSelectChange={onSelectChange}
         />
       ))}
       

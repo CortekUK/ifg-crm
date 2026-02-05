@@ -9,8 +9,9 @@ import { useAnalytics } from '@/lib/hooks/useAnalytics'
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState('30d')
+  const [pipelineId, setPipelineId] = useState<string | null>(null)
 
-  const { data, isLoading, error, refetch, isFetching } = useAnalytics(dateRange)
+  const { data, isLoading, error, refetch, isFetching } = useAnalytics(dateRange, pipelineId)
 
   return (
     <div className="space-y-6">
@@ -18,6 +19,8 @@ export default function AnalyticsPage() {
       <AnalyticsPageHeader
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
+        pipelineId={pipelineId}
+        onPipelineChange={setPipelineId}
       />
 
       {/* Error State */}
@@ -40,6 +43,8 @@ export default function AnalyticsPage() {
         data={data ? {
           leadsOverTime: data.leadsOverTime,
           pipelineFunnel: data.pipelineFunnel,
+          stageConversionRates: data.stageConversionRates,
+          avgTimePerStage: data.avgTimePerStage,
           revenueByMonth: data.revenueByMonth,
           leadsBySource: data.leadsBySource,
           topRecruiters: data.topRecruiters,

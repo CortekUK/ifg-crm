@@ -85,16 +85,13 @@ export function LeadSourcesChart() {
   const maxCount = data?.sources?.[0]?.count || 1
 
   return (
-    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-      {/* Subtle gradient overlay from top */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 dark:from-slate-800/50 to-transparent pointer-events-none" />
-      
-      <CardHeader className="relative z-10 pb-3">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-blue-100">
-            <TrendingUp className="h-4 w-4 text-blue-600" />
+          <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+            <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <CardTitle className="font-oswald text-sm font-medium text-blue-900 uppercase">
+          <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
             LEAD SOURCES BREAKDOWN
           </CardTitle>
         </div>
@@ -102,7 +99,7 @@ export function LeadSourcesChart() {
           Where your leads are coming from
         </p>
       </CardHeader>
-      <CardContent className="relative z-10 pt-0">
+      <CardContent className="pt-0">
         {isLoading ? (
           <div className="space-y-4">
             {[...Array(4)].map((_, i) => (

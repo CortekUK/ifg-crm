@@ -351,12 +351,12 @@ export function CreateCampaignModal({
             <div className="space-y-6 py-6">
               {/* Campaign Details */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Campaign Details
                 </h3>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Campaign Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -367,7 +367,7 @@ export function CreateCampaignModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Type</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</Label>
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -404,7 +404,7 @@ export function CreateCampaignModal({
 
               {/* Recipients */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Recipients
                 </h3>
 
@@ -420,7 +420,7 @@ export function CreateCampaignModal({
 
                 {/* List Selection Dropdown */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Select Lists</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Select Lists</Label>
                   <Popover open={isListDropdownOpen} onOpenChange={setIsListDropdownOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -492,7 +492,7 @@ export function CreateCampaignModal({
                         <Badge
                           key={listId}
                           variant="secondary"
-                          className="bg-blue-50 text-blue-700 border border-blue-200 pr-1"
+                          className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 pr-1"
                         >
                           {list.name}
                           <span className="text-blue-500 ml-1">
@@ -513,12 +513,12 @@ export function CreateCampaignModal({
 
                 {/* Total Recipients Card */}
                 {selectedLists.length > 0 && (
-                  <Card className="bg-slate-50 border-slate-200">
+                  <Card className="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Users className="h-5 w-5 text-blue-600" />
-                          <span className="text-sm font-medium text-slate-700">Total Recipients</span>
+                          <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Recipients</span>
                         </div>
                         <div className="text-right">
                           {recipientCountLoading ? (
@@ -528,10 +528,10 @@ export function CreateCampaignModal({
                             </div>
                           ) : (
                             <div>
-                              <span className="text-lg font-bold text-blue-600">
+                              <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
                                 {formatNumber(recipientData?.count || 0)}
                               </span>
-                              <span className="text-sm text-slate-600 ml-1">contacts</span>
+                              <span className="text-sm text-slate-600 dark:text-slate-400 ml-1">contacts</span>
                             </div>
                           )}
                         </div>
@@ -549,13 +549,13 @@ export function CreateCampaignModal({
               {/* Email Content */}
               {type === 'email' && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Email Settings
                   </h3>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">From Name</Label>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Name</Label>
                       <Input
                         value={fromName}
                         onChange={(e) => setFromName(e.target.value)}
@@ -563,7 +563,7 @@ export function CreateCampaignModal({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">From Email</Label>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Email</Label>
                       <Input
                         type="email"
                         value={fromEmail}
@@ -574,7 +574,7 @@ export function CreateCampaignModal({
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">Reply-To Email</Label>
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Reply-To Email</Label>
                     <Input
                       type="email"
                       value={replyTo}
@@ -585,7 +585,7 @@ export function CreateCampaignModal({
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         Subject Line <span className="text-red-500">*</span>
                       </Label>
                       <Popover>
@@ -618,7 +618,7 @@ export function CreateCampaignModal({
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">Preview Text</Label>
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Preview Text</Label>
                     <Input
                       value={previewText}
                       onChange={(e) => setPreviewText(e.target.value)}
@@ -630,7 +630,7 @@ export function CreateCampaignModal({
                   </div>
 
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Email Content
                     </h3>
 
@@ -645,7 +645,7 @@ export function CreateCampaignModal({
 
                       <TabsContent value="template" className="space-y-4 mt-4">
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">Template</Label>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Template</Label>
                           <Select value={templateId} onValueChange={setTemplateId}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select a template" />
@@ -664,7 +664,7 @@ export function CreateCampaignModal({
                       <TabsContent value="compose" className="space-y-4 mt-4">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium text-slate-700">Email Body</Label>
+                            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Body</Label>
                             <div className="flex gap-1">
                               {EMAIL_MERGE_TAGS.map((item) => (
                                 <Button
@@ -711,13 +711,13 @@ export function CreateCampaignModal({
               {/* SMS Content */}
               {type === 'sms' && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     SMS Content
                   </h3>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         Message <span className="text-red-500">*</span>
                       </Label>
                       <span className="text-xs text-slate-500">
@@ -734,7 +734,7 @@ export function CreateCampaignModal({
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">Insert Variable</Label>
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Insert Variable</Label>
                     <div className="flex flex-wrap gap-2">
                       {SMS_MERGE_TAGS.map((item) => (
                         <Button
@@ -754,19 +754,19 @@ export function CreateCampaignModal({
 
               {/* Schedule */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Schedule
                 </h3>
 
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-slate-700">Schedule for later</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Schedule for later</Label>
                   <Switch checked={isScheduled} onCheckedChange={setIsScheduled} />
                 </div>
 
                 {isScheduled && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">Date</Label>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -793,7 +793,7 @@ export function CreateCampaignModal({
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">Time</Label>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Time</Label>
                       <Input
                         type="time"
                         value={scheduledTime}

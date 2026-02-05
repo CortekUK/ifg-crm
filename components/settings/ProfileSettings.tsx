@@ -18,15 +18,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Save, Calendar, Phone, FileSignature, Eye, Loader2, Upload, Key, AlertTriangle } from 'lucide-react'
+import { Save, Calendar, Phone, FileSignature, Eye, Loader2, Upload, Key, AlertTriangle, Video, Briefcase } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface ProfileData {
   full_name: string
   email: string
+  title: string
   phone: string
   calendly_url: string
+  zoom_url: string
   email_signature: string
   avatar_url: string
 }
@@ -62,8 +64,10 @@ export function ProfileSettings() {
   const [profile, setProfile] = useState<ProfileData>({
     full_name: '',
     email: '',
+    title: '',
     phone: '',
     calendly_url: '',
+    zoom_url: '',
     email_signature: '',
     avatar_url: '',
   })
@@ -77,10 +81,12 @@ export function ProfileSettings() {
   // Track unsaved changes
   useEffect(() => {
     if (originalProfile) {
-      const hasChanges = 
+      const hasChanges =
         profile.full_name !== originalProfile.full_name ||
+        profile.title !== originalProfile.title ||
         profile.phone !== originalProfile.phone ||
         profile.calendly_url !== originalProfile.calendly_url ||
+        profile.zoom_url !== originalProfile.zoom_url ||
         profile.email_signature !== originalProfile.email_signature
       setHasUnsavedChanges(hasChanges)
     }
@@ -114,7 +120,7 @@ export function ProfileSettings() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, email, phone, calendly_url, email_signature, avatar_url')
+        .select('full_name, email, title, phone, calendly_url, zoom_url, email_signature, avatar_url')
         .eq('id', user.id)
         .single()
 
@@ -123,8 +129,10 @@ export function ProfileSettings() {
       const profileData = {
         full_name: data.full_name || '',
         email: data.email || user.email || '',
+        title: data.title || '',
         phone: data.phone || '',
         calendly_url: data.calendly_url || '',
+        zoom_url: data.zoom_url || '',
         email_signature: data.email_signature || '',
         avatar_url: data.avatar_url || '',
       }
@@ -344,8 +352,10 @@ export function ProfileSettings() {
         .from('profiles')
         .update({
           full_name: profile.full_name,
+          title: profile.title || null,
           phone: profile.phone || null,
           calendly_url: profile.calendly_url || null,
+          zoom_url: profile.zoom_url || null,
           email_signature: profile.email_signature || null,
         })
         .eq('id', user.id)
@@ -483,7 +493,7 @@ export function ProfileSettings() {
                 id="email"
                 value={profile.email}
                 disabled
-                className="bg-gray-50"
+                className="bg-gray-50 dark:bg-slate-800"
               />
               <p className="text-xs text-muted-foreground">
                 Your login email (cannot be changed)
@@ -492,6 +502,22 @@ export function ProfileSettings() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="title" className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Job Title
+              </Label>
+              <Input
+                id="title"
+                value={profile.title}
+                onChange={(e) => handleChange('title', e.target.value)}
+                placeholder="e.g. Senior Recruiter"
+              />
+              <p className="text-xs text-muted-foreground">
+                Available as {'{{deal_owner_title}}'} in templates
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="phone" className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -507,7 +533,9 @@ export function ProfileSettings() {
                 Available as {'{{deal_owner_phone}}'} in templates
               </p>
             </div>
+          </div>
 
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="calendly_url" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
@@ -527,6 +555,22 @@ export function ProfileSettings() {
                   Your Calendly booking link. Available as {'{{deal_owner_calendly}}'} in templates.
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="zoom_url" className="flex items-center gap-2">
+                <Video className="h-4 w-4" />
+                Zoom Link
+              </Label>
+              <Input
+                id="zoom_url"
+                value={profile.zoom_url}
+                onChange={(e) => handleChange('zoom_url', e.target.value)}
+                placeholder="https://zoom.us/j/your-meeting-id"
+              />
+              <p className="text-xs text-muted-foreground">
+                Your Zoom meeting link. Available as {'{{deal_owner_zoom}}'} in templates.
+              </p>
             </div>
           </div>
         </CardContent>

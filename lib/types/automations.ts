@@ -1,8 +1,27 @@
 import type { Pipeline, PipelineStage } from './pipelines'
 import type { Template } from './templates'
 
-export type AutomationType = 'deal_creation' | 'initial_contact' | 'follow_up' | 'custom'
-export type TriggerType = 'form_submission' | 'enters_stage' | 'stage_change'
+export type AutomationType =
+  | 'deal_creation'
+  | 'initial_contact'
+  | 'follow_up'
+  | 'application_received'
+  | 'interview_reminder'
+  | 'post_interview'
+  | 'deposit_invoice'
+  | 'payment_overdue'
+  | 'welcome_sequence'
+  | 'pre_departure'
+  | 'custom'
+
+export type TriggerType =
+  | 'form_submission'
+  | 'enters_stage'
+  | 'stage_change'
+  | 'invoice_created'
+  | 'invoice_overdue'
+  | 'payment_received'
+  | 'time_before_date'
 
 export interface AutomationStepStats {
   sent: number
@@ -18,7 +37,7 @@ export interface AutomationStep {
   id: string
   automation_id: string
   step_order: number
-  step_type: 'send_email' | 'wait' | 'send_sms' | 'move_to_stage' | 'create_deal'
+  step_type: 'send_email' | 'wait' | 'send_sms' | 'move_to_stage' | 'create_deal' | 'notify' | 'create_portal_account'
   delay_days: number
   delay_hours: number
   email_template_id: string | null
@@ -31,6 +50,8 @@ export interface AutomationStep {
   stats?: AutomationStepStats
   // Joined data (when fetched with automation)
   automation?: Automation | null
+  // For notify steps
+  notify_type?: 'parent' | 'deal_owner' | 'admin'
 }
 
 export interface FieldMappings {
@@ -62,6 +83,19 @@ export interface AutomationConfig {
   exit_on_reply?: boolean
   // Final action
   final_stage_id?: string
+  // For time-based triggers (pre-departure)
+  days_before?: number
+  date_field?: 'programme_start_date' | 'interview_date' | 'arrival_date'
+  // For payment-related automations
+  stop_on_payment?: boolean
+  // For single-email automations
+  single_template_id?: string
+  // For notifications
+  notify_parent?: boolean
+  notify_deal_owner?: boolean
+  notify_admin?: boolean
+  // For welcome sequence
+  create_portal_account?: boolean
 }
 
 export interface Automation {
@@ -162,7 +196,14 @@ export interface AutomationTemplate {
     exit_stages: boolean
     round_robin: boolean
     final_stage: boolean
+    notify_parent?: boolean
+    stop_on_payment?: boolean
+    create_portal_account?: boolean
+    days_before_date?: boolean
   }
+  // UI metadata
+  icon?: 'email' | 'form' | 'invoice' | 'calendar' | 'welcome' | 'plane'
+  badge?: string
 }
 
 export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
@@ -225,6 +266,142 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       exit_stages: true,
       round_robin: false,
       final_stage: true
+    }
+  },
+  {
+    id: 'application_received',
+    name: 'Application Received',
+    description: 'Send confirmation email when a deal moves to Application stage, with optional parent notification',
+    type: 'application_received',
+    trigger_type: 'enters_stage',
+    default_steps: [
+      { step_type: 'send_email', description: 'Send application confirmation to player' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: false,
+      exit_stages: false,
+      round_robin: false,
+      final_stage: false,
+      notify_parent: true
+    }
+  },
+  {
+    id: 'interview_reminder',
+    name: 'Interview Reminder',
+    description: 'Send reminder email 24 hours before scheduled interview',
+    type: 'interview_reminder',
+    trigger_type: 'enters_stage',
+    default_steps: [
+      { step_type: 'wait', delay_hours: 0, description: 'Wait until 24h before interview' },
+      { step_type: 'send_email', description: 'Send interview reminder with meeting link' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: false,
+      exit_stages: true,
+      round_robin: false,
+      final_stage: false
+    }
+  },
+  {
+    id: 'post_interview',
+    name: 'Post-Interview Follow-Up',
+    description: 'Send thank-you email after interview with next steps',
+    type: 'post_interview',
+    trigger_type: 'stage_change',
+    default_steps: [
+      { step_type: 'send_email', description: 'Send post-interview thank you and next steps' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: false,
+      exit_stages: false,
+      round_robin: false,
+      final_stage: false
+    }
+  },
+  {
+    id: 'deposit_invoice',
+    name: 'Deposit Invoice & Reminder',
+    description: 'Send deposit invoice with payment link, then follow-up reminders until paid',
+    type: 'deposit_invoice',
+    trigger_type: 'enters_stage',
+    default_steps: [
+      { step_type: 'send_email', description: 'Send deposit invoice with payment link' },
+      { step_type: 'wait', delay_days: 3, description: 'Wait 3 days' },
+      { step_type: 'send_email', description: 'Send reminder 1 (friendly)' },
+      { step_type: 'wait', delay_days: 5, description: 'Wait 5 days' },
+      { step_type: 'send_email', description: 'Send reminder 2 (more urgent)' },
+      { step_type: 'wait', delay_days: 7, description: 'Wait 7 days' },
+      { step_type: 'send_email', description: 'Send final reminder' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: true,
+      exit_stages: true,
+      round_robin: false,
+      final_stage: false,
+      stop_on_payment: true
+    }
+  },
+  {
+    id: 'payment_overdue',
+    name: 'Payment Overdue Escalation',
+    description: 'Escalating reminder sequence when invoice is past due date',
+    type: 'payment_overdue',
+    trigger_type: 'invoice_overdue',
+    default_steps: [
+      { step_type: 'send_email', description: 'Send overdue notice' },
+      { step_type: 'wait', delay_days: 3, description: 'Wait 3 days' },
+      { step_type: 'send_email', description: 'Send urgent overdue reminder' },
+      { step_type: 'wait', delay_days: 5, description: 'Wait 5 days' },
+      { step_type: 'send_email', description: 'Send final overdue warning' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: true,
+      exit_stages: false,
+      round_robin: false,
+      final_stage: false
+    }
+  },
+  {
+    id: 'welcome_sequence',
+    name: 'Welcome Sequence',
+    description: 'Send welcome pack and create player portal account when deposit is paid',
+    type: 'welcome_sequence',
+    trigger_type: 'enters_stage',
+    default_steps: [
+      { step_type: 'send_email', description: 'Send welcome pack with programme details' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: false,
+      exit_stages: false,
+      round_robin: false,
+      final_stage: false,
+      create_portal_account: true
+    }
+  },
+  {
+    id: 'pre_departure',
+    name: 'Pre-Departure Sequence',
+    description: 'Send preparation reminders at 30, 14, and 7 days before programme start',
+    type: 'pre_departure',
+    trigger_type: 'time_before_date',
+    default_steps: [
+      { step_type: 'send_email', delay_days: 30, description: 'Send 30-day preparation checklist' },
+      { step_type: 'send_email', delay_days: 14, description: 'Send 14-day travel and accommodation details' },
+      { step_type: 'send_email', delay_days: 7, description: 'Send 7-day final arrival instructions' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: true,
+      exit_stages: false,
+      round_robin: false,
+      final_stage: false,
+      days_before_date: true
     }
   }
 ]

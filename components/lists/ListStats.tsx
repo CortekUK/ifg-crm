@@ -28,10 +28,10 @@ const colourConfig = {
     iconColour: 'text-green-600 dark:text-green-400',
   },
   amber: {
-    gradient: 'from-amber-50/60',
+    gradient: 'from-amber-50/60 dark:from-amber-950/60',
     border: 'border-l-amber-400',
-    iconBg: 'bg-amber-100',
-    iconColour: 'text-amber-600',
+    iconBg: 'bg-amber-100 dark:bg-amber-900/50',
+    iconColour: 'text-amber-600 dark:text-amber-400',
   },
 }
 
@@ -109,7 +109,7 @@ export function ListStats({
             )} />
             <CardContent className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
-                <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-100 uppercase">
+                <p className="font-oswald text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                   {stat.label}
                 </p>
                 <div className={cn('p-2.5 rounded-full', config.iconBg)}>

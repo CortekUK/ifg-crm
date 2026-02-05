@@ -1,6 +1,7 @@
 export { SettingsPageHeader } from './SettingsPageHeader'
 export { SettingsNav } from './SettingsNav'
 export { GeneralSettings } from './GeneralSettings'
+export { PipelineManagementSettings } from './PipelineManagementSettings'
 export { IntegrationsSettings } from './IntegrationsSettings'
 export { EmailSettingsSection } from './EmailSettingsSection'
 export { SMSSettingsSection } from './SMSSettingsSection'

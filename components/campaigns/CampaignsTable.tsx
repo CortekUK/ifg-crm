@@ -135,7 +135,7 @@ export function CampaignsTable({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -172,8 +172,8 @@ export function CampaignsTable({
 
   if (campaigns.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
-        <Mail className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No campaigns yet</h3>
         <p className="text-muted-foreground">
           Create your first campaign to start reaching out to players.
@@ -184,7 +184,7 @@ export function CampaignsTable({
 
   return (
     <>
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -243,11 +243,16 @@ export function CampaignsTable({
                           className="w-10 h-10 rounded object-cover"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
+                        <div className={cn(
+                          "w-10 h-10 rounded flex items-center justify-center",
+                          campaign.type === 'email'
+                            ? "bg-blue-100 dark:bg-blue-900/30"
+                            : "bg-purple-100 dark:bg-purple-900/30"
+                        )}>
                           {campaign.type === 'email' ? (
-                            <Mail className="h-5 w-5 text-gray-400" />
+                            <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                           ) : (
-                            <MessageSquare className="h-5 w-5 text-gray-400" />
+                            <MessageSquare className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                           )}
                         </div>
                       )}

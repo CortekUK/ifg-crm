@@ -62,7 +62,7 @@ export function UsersTable({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -97,8 +97,8 @@ export function UsersTable({
 
   if (users.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
-        <Users className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No users yet</h3>
         <p className="text-muted-foreground">
           Invite your first team member to get started.
@@ -108,7 +108,7 @@ export function UsersTable({
   }
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>
@@ -140,6 +140,9 @@ export function UsersTable({
                     </Avatar>
                     <div className="flex flex-col">
                       <span className="font-medium">{user.full_name || 'Unnamed User'}</span>
+                      {user.title && !isPendingInvite && (
+                        <span className="text-xs text-muted-foreground">{user.title}</span>
+                      )}
                       {isPendingInvite && (
                         <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                           <Clock className="h-3 w-3" />

@@ -51,6 +51,7 @@ export interface InvoiceFilters {
   search?: string
   status?: InvoiceStatus | 'all'
   type?: InvoiceType | 'all'
+  pipelineId?: string
   dateFrom?: string
   dateTo?: string
 }

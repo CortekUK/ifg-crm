@@ -32,6 +32,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
     hasUnsavedChanges,
     setSelectedBlockId,
     addBlock,
+    addBlockFromModule,
     updateBlock,
     deleteBlock,
     duplicateBlock,
@@ -143,6 +144,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
           settings={settings}
           onUpdateSettings={updateSettings}
           onAddBlock={addBlock}
+          onAddBlockFromModule={addBlockFromModule}
           selectedBlock={selectedBlock}
           onUpdateBlock={updateBlock}
         />

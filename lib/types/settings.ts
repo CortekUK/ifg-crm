@@ -1,6 +1,7 @@
 export type SettingsSection =
   | 'profile'
   | 'general'
+  | 'pipelines'
   | 'integrations'
   | 'calendly'
   | 'email'

@@ -81,7 +81,12 @@ export function ImageBlock({ content, isSelected, onUpdate }: ImageBlockProps) {
   }
 
   return (
-    <div className="py-2">
+    <div
+      style={{
+        paddingTop: `${imageContent.paddingTop ?? 10}px`,
+        paddingBottom: `${imageContent.paddingBottom ?? 10}px`,
+      }}
+    >
       {/* Settings panel when selected */}
       {isSelected && (
         <div className="space-y-3 mb-3 p-3 bg-gray-50 rounded-lg">
@@ -185,19 +190,41 @@ export function ImageBlock({ content, isSelected, onUpdate }: ImageBlockProps) {
             <div className="flex items-center gap-2">
               <Label className="text-xs">Width:</Label>
               <select
-                value={imageContent.width === 'full' ? 'full' : imageContent.width?.toString() || 'full'}
-                onChange={(e) =>
-                  onUpdate({
-                    width: e.target.value === 'full' ? 'full' : parseInt(e.target.value),
-                  })
-                }
+                value={imageContent.width?.toString() || '100'}
+                onChange={(e) => onUpdate({ width: e.target.value })}
                 className="h-7 px-2 text-xs border rounded"
               >
-                <option value="full">Full width</option>
-                <option value="400">400px</option>
-                <option value="300">300px</option>
-                <option value="200">200px</option>
+                <option value="100">Full width (100%)</option>
+                <option value="75">75%</option>
+                <option value="50">50%</option>
+                <option value="25">25%</option>
+                <option value="auto">Auto (original)</option>
               </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Padding top:</Label>
+              <Input
+                type="number"
+                value={imageContent.paddingTop ?? 10}
+                onChange={(e) => onUpdate({ paddingTop: parseInt(e.target.value) || 0 })}
+                className="h-6 w-14 text-xs"
+                min={0}
+                max={100}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Padding bottom:</Label>
+              <Input
+                type="number"
+                value={imageContent.paddingBottom ?? 10}
+                onChange={(e) => onUpdate({ paddingBottom: parseInt(e.target.value) || 0 })}
+                className="h-6 w-14 text-xs"
+                min={0}
+                max={100}
+              />
             </div>
           </div>
         </div>
@@ -210,7 +237,7 @@ export function ImageBlock({ content, isSelected, onUpdate }: ImageBlockProps) {
             src={imageContent.src}
             alt={imageContent.alt}
             style={{
-              width: imageContent.width === 'full' ? '100%' : `${imageContent.width}px`,
+              width: imageContent.width === 'auto' ? 'auto' : `${imageContent.width}%`,
               maxWidth: '100%',
               height: 'auto',
               display: 'inline-block',

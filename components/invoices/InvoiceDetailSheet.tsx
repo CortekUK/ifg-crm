@@ -19,7 +19,14 @@ import {
   Download,
   Mail,
   Phone,
+  Copy,
+  Pencil,
+  Ban,
+  Link,
+  CreditCard,
+  ExternalLink,
 } from 'lucide-react'
+import { toast } from '@/lib/hooks/use-toast'
 import { formatCurrency, formatDateLong } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
@@ -61,6 +68,26 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
   const handleMarkPaid = async () => {
     if (!invoiceId) return
     await updateStatus.mutateAsync({ invoiceId, status: 'paid' })
+  }
+
+  const handleVoid = async () => {
+    if (!invoiceId) return
+    await updateStatus.mutateAsync({ invoiceId, status: 'cancelled' })
+    toast({
+      title: 'Invoice cancelled',
+      description: 'The invoice has been marked as cancelled.',
+    })
+  }
+
+  const handleCopyPaymentLink = () => {
+    if (!invoice) return
+    // Generate Stripe payment link (in production this would be the actual Stripe checkout URL)
+    const paymentLink = `${window.location.origin}/pay/${invoice.id}`
+    navigator.clipboard.writeText(paymentLink)
+    toast({
+      title: 'Payment link copied',
+      description: 'The payment link has been copied to your clipboard.',
+    })
   }
 
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -121,7 +148,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
               {/* Contact Information */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Contact Information
                 </h3>
                 <div className="space-y-3">
@@ -150,7 +177,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
 
               {/* Invoice Details */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Invoice Details
                 </h3>
                 <div className="space-y-3">
@@ -174,7 +201,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
               {/* Linked Deal */}
               {invoice.deal && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Linked Deal
                   </h3>
                   <div className="space-y-3">
@@ -194,7 +221,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
 
               {/* Description */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Description
                 </h3>
                 <p className="text-sm text-slate-600">{invoice.description}</p>
@@ -203,7 +230,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
               {/* Notes */}
               {invoice.notes && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Notes
                   </h3>
                   <p className="text-sm text-slate-600">{invoice.notes}</p>
@@ -212,7 +239,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
 
               {/* Payment History */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Payment History
                 </h3>
                 {invoice.paid_at ? (
@@ -234,39 +261,57 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
 
             {/* Footer Actions */}
             <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
-              <div className="flex flex-wrap gap-2 w-full">
-                {invoice.status === 'draft' && (
-                  <Button onClick={handleSend} disabled={updateStatus.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700">
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Invoice
-                  </Button>
-                )}
+              <div className="space-y-3 w-full">
+                {/* Primary Actions */}
+                <div className="flex flex-wrap gap-2">
+                  {invoice.status === 'draft' && (
+                    <>
+                      <Button onClick={handleSend} disabled={updateStatus.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                        <Send className="h-4 w-4 mr-2" />
+                        Send Invoice
+                      </Button>
+                      <Button variant="outline" onClick={handleVoid} disabled={updateStatus.isPending}>
+                        <Ban className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    </>
+                  )}
 
-                {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-                  <>
-                    <Button variant="outline" onClick={handleSend} disabled={updateStatus.isPending} className="flex-1">
-                      <Bell className="h-4 w-4 mr-2" />
-                      Send Reminder
+                  {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                    <>
+                      <Button variant="outline" onClick={handleSend} disabled={updateStatus.isPending} className="flex-1">
+                        <Bell className="h-4 w-4 mr-2" />
+                        Send Reminder
+                      </Button>
+                      <Button onClick={handleMarkPaid} disabled={updateStatus.isPending} className="flex-1 bg-green-600 hover:bg-green-700">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Record Payment
+                      </Button>
+                    </>
+                  )}
+
+                  {invoice.status === 'paid' && (
+                    <Button variant="outline" className="flex-1">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
                     </Button>
-                    <Button onClick={handleMarkPaid} disabled={updateStatus.isPending} className="flex-1 bg-green-600 hover:bg-green-700">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Mark Paid
+                  )}
+                </div>
+
+                {/* Secondary Actions */}
+                {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" size="sm" onClick={handleCopyPaymentLink}>
+                      <Link className="h-4 w-4 mr-2" />
+                      Copy Payment Link
                     </Button>
-                  </>
-                )}
-
-                {invoice.status === 'paid' && (
-                  <Button variant="outline" disabled className="flex-1">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
-                )}
-
-                {invoice.status !== 'paid' && invoice.status !== 'draft' && (
-                  <Button variant="outline" disabled className="flex-1">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
+                    {invoice.status !== 'draft' && (
+                      <Button variant="ghost" size="sm" onClick={handleVoid} disabled={updateStatus.isPending} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                        <Ban className="h-4 w-4 mr-2" />
+                        Void Invoice
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             </SheetFooter>

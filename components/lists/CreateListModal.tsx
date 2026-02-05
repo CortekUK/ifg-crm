@@ -13,13 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 import { useCreateList, useUpdateList } from '@/lib/hooks/useLists'
 import { toast } from '@/lib/hooks/use-toast'
@@ -38,7 +31,6 @@ export function CreateListModal({
 }: CreateListModalProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [listType, setListType] = useState<'static' | 'dynamic'>('static')
 
   const createList = useCreateList()
   const updateList = useUpdateList()
@@ -52,11 +44,9 @@ export function CreateListModal({
       if (editingList) {
         setName(editingList.name)
         setDescription(editingList.description || '')
-        setListType(editingList.is_dynamic ? 'dynamic' : 'static')
       } else {
         setName('')
         setDescription('')
-        setListType('static')
       }
     }
   }, [isOpen, editingList])
@@ -72,7 +62,6 @@ export function CreateListModal({
           id: editingList.id,
           name: name.trim(),
           description: description.trim() || undefined,
-          is_dynamic: listType === 'dynamic',
         })
         toast({
           title: 'List updated',
@@ -82,7 +71,6 @@ export function CreateListModal({
         await createList.mutateAsync({
           name: name.trim(),
           description: description.trim() || undefined,
-          is_dynamic: listType === 'dynamic',
         })
         toast({
           title: 'List created',
@@ -115,7 +103,7 @@ export function CreateListModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
               List Name <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -128,7 +116,7 @@ export function CreateListModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="description" className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Description (optional)
             </Label>
             <Textarea
@@ -140,35 +128,6 @@ export function CreateListModal({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="type" className="text-sm font-medium text-slate-700">
-              List Type
-            </Label>
-            <Select value={listType} onValueChange={(value: 'static' | 'dynamic') => setListType(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select list type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="static">
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Static</span>
-                    <span className="text-xs text-muted-foreground">Manually add/remove contacts</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="dynamic">
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Dynamic</span>
-                    <span className="text-xs text-muted-foreground">Auto-updates based on rules</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {listType === 'static' 
-                ? 'Contacts are added and removed manually.' 
-                : 'Contacts are automatically added based on filter rules (coming soon).'}
-            </p>
-          </div>
 
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={onClose}>

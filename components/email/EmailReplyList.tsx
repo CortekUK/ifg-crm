@@ -17,6 +17,10 @@ interface EmailReplyListProps {
   hasNextPage?: boolean
   onLoadMore?: () => void
   isLoadingMore?: boolean
+  // Bulk selection props
+  selectable?: boolean
+  selectedIds?: Set<string>
+  onSelectChange?: (reply: EmailReply, selected: boolean) => void
 }
 
 export function EmailReplyList({
@@ -30,6 +34,9 @@ export function EmailReplyList({
   hasNextPage,
   onLoadMore,
   isLoadingMore,
+  selectable = false,
+  selectedIds,
+  onSelectChange,
 }: EmailReplyListProps) {
   if (isLoading) {
     return (
@@ -78,6 +85,9 @@ export function EmailReplyList({
           onViewContact={onViewContact}
           onMarkSpam={onMarkSpam}
           onViewFull={onViewFull}
+          selectable={selectable}
+          selected={selectedIds?.has(reply.id)}
+          onSelectChange={onSelectChange}
         />
       ))}
       

@@ -4,7 +4,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Mail, Trash2, ExternalLink, UserPlus, Eye } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Trash2, ExternalLink, UserPlus, Eye } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
@@ -15,13 +16,17 @@ interface EmailReplyCardProps {
   onViewContact: (contactId: string) => void
   onMarkSpam: (reply: EmailReply) => void
   onViewFull: (reply: EmailReply) => void
+  selectable?: boolean
+  selected?: boolean
+  onSelectChange?: (reply: EmailReply, selected: boolean) => void
 }
 
 const intentConfig: Record<EmailIntent, { label: string; className: string }> = {
-  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
-  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
-  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500' },
+  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
+  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
+  question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' },
 }
 
 export function EmailReplyCard({
@@ -30,6 +35,9 @@ export function EmailReplyCard({
   onViewContact,
   onMarkSpam,
   onViewFull,
+  selectable = false,
+  selected = false,
+  onSelectChange,
 }: EmailReplyCardProps) {
   const isMatched = reply.match_status === 'auto_matched' || reply.match_status === 'manually_matched'
   const isSpam = reply.match_status === 'spam'
@@ -51,9 +59,24 @@ export function EmailReplyCard({
   const displayName = reply.from_name || reply.from_email
 
   return (
-    <Card className={cn('hover:shadow-md transition-shadow', isSpam && 'opacity-60')}>
+    <Card className={cn(
+      'hover:shadow-md transition-shadow',
+      isSpam && 'opacity-60',
+      selected && 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20'
+    )}>
       <CardContent className="p-4">
         <div className="flex gap-4">
+          {/* Checkbox for selection */}
+          {selectable && !isSpam && (
+            <div className="shrink-0 flex items-start pt-1">
+              <Checkbox
+                checked={selected}
+                onCheckedChange={(checked) => onSelectChange?.(reply, !!checked)}
+                aria-label={`Select reply from ${displayName}`}
+              />
+            </div>
+          )}
+
           {/* Avatar */}
           <div className="shrink-0">
             <Avatar className="h-10 w-10">
@@ -75,7 +98,7 @@ export function EmailReplyCard({
                   </span>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground shrink-0">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">
                 {formatRelativeTime(reply.created_at)}
               </span>
             </div>
@@ -86,7 +109,7 @@ export function EmailReplyCard({
             </p>
 
             {/* Body Preview */}
-            <p className={cn('text-sm text-gray-600 mb-3 line-clamp-2', isSpam && 'line-through')}>
+            <p className={cn('text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2', isSpam && 'line-through')}>
               {reply.body_preview || reply.body_full?.slice(0, 200) || '(No content)'}
             </p>
 
@@ -101,7 +124,7 @@ export function EmailReplyCard({
                   </Badge>
                 )}
                 {!isMatched && !isSpam && (
-                  <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                  <Badge variant="outline" className="text-xs bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700">
                     Unmatched
                   </Badge>
                 )}

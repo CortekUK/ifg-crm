@@ -144,6 +144,42 @@ export function AutomationDetailSheet({
   const completedEnrollments = enrollments.filter((e) => e.status === 'completed')
   const stoppedEnrollments = enrollments.filter((e) => e.status === 'stopped')
 
+  // Helper to get current step info for an enrollment
+  const getCurrentStepInfo = (currentStepId: string | null) => {
+    if (!currentStepId || !automation?.steps) return null
+    const step = automation.steps.find(s => s.id === currentStepId)
+    if (!step) return null
+
+    // Find the step position among all steps
+    const sortedSteps = [...automation.steps].sort((a, b) => a.step_order - b.step_order)
+    const stepIndex = sortedSteps.findIndex(s => s.id === currentStepId)
+
+    // Count email steps for labeling
+    const emailSteps = sortedSteps.filter(s => s.step_type === 'send_email')
+    const emailIndex = emailSteps.findIndex(s => s.id === currentStepId)
+
+    if (step.step_type === 'send_email') {
+      return {
+        label: `Email ${emailIndex + 1}`,
+        description: step.template?.name || 'Email step'
+      }
+    } else if (step.step_type === 'wait') {
+      return {
+        label: `Wait step`,
+        description: step.delay_days ? `${step.delay_days}d delay` : `${step.delay_hours}h delay`
+      }
+    } else if (step.step_type === 'move_to_stage') {
+      return {
+        label: 'Move stage',
+        description: 'Moving to next stage'
+      }
+    }
+    return {
+      label: `Step ${stepIndex + 1}`,
+      description: step.step_type.replace(/_/g, ' ')
+    }
+  }
+
   // Helper to get badge for stopped reason
   const getStoppedReasonBadge = (reason: string | null) => {
     if (!reason) {
@@ -292,7 +328,7 @@ export function AutomationDetailSheet({
                 <TabsContent value="stats" className="mt-0 px-6 py-6 space-y-6 data-[state=inactive]:hidden">
                   {/* Quick Stats */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Overview
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
@@ -372,7 +408,7 @@ export function AutomationDetailSheet({
 
                   {/* Per-Step Stats */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Step Performance
                     </h3>
                     {automation.steps
@@ -423,7 +459,7 @@ export function AutomationDetailSheet({
                   {/* Active Enrollments */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                         Currently Active ({activeEnrollments.length})
                       </h3>
                       <Button
@@ -460,6 +496,7 @@ export function AutomationDetailSheet({
                           const name = contact
                             ? `${contact.first_name} ${contact.last_name}`
                             : deal?.title || 'Unknown'
+                          const stepInfo = getCurrentStepInfo(enrollment.current_step_id)
 
                           return (
                             <Card key={enrollment.id} className="border-slate-200 dark:border-slate-700">
@@ -478,9 +515,16 @@ export function AutomationDetailSheet({
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
                                     <div className="text-right">
-                                      <Badge className="text-xs bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100">
-                                        Active
-                                      </Badge>
+                                      {stepInfo ? (
+                                        <Badge variant="outline" className="text-xs mb-1">
+                                          <GitBranch className="h-2.5 w-2.5 mr-1" />
+                                          {stepInfo.label}
+                                        </Badge>
+                                      ) : (
+                                        <Badge className="text-xs bg-green-100 dark:bg-green-900/50 text-green-700 hover:bg-green-100">
+                                          Active
+                                        </Badge>
+                                      )}
                                       {enrollment.next_step_at && (
                                         <p className="text-xs text-muted-foreground mt-1">
                                           Next: {formatDateTime(enrollment.next_step_at)}
@@ -591,7 +635,7 @@ export function AutomationDetailSheet({
 
                   {/* Recently Completed */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Recently Completed ({completedEnrollments.length})
                     </h3>
                     {completedEnrollments.length === 0 ? (

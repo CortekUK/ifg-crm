@@ -5,8 +5,11 @@ import { PaymentsPageHeader } from '@/components/payments/PaymentsPageHeader'
 import { PaymentStats } from '@/components/payments/PaymentStats'
 import { PaymentFilters } from '@/components/payments/PaymentFilters'
 import { PaymentsTable } from '@/components/payments/PaymentsTable'
+import { PaymentDetailSheet } from '@/components/payments/PaymentDetailSheet'
+import { RecordPaymentModal } from '@/components/payments/RecordPaymentModal'
 import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet'
 import { usePayments, usePaymentStats } from '@/lib/hooks/usePayments'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import type { PaymentFilters as Filters, Payment } from '@/lib/types/payments'
 
 export default function PaymentsPage() {
@@ -18,9 +21,12 @@ export default function PaymentsPage() {
     dateTo: null,
   })
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [recordPaymentOpen, setRecordPaymentOpen] = useState(false)
 
   const { data: payments = [], isLoading: paymentsLoading } = usePayments()
   const { data: stats, isLoading: statsLoading } = usePaymentStats()
+  const { data: currentUser } = useCurrentUser()
 
   // Filter payments
   const filteredPayments = useMemo(() => {
@@ -48,6 +54,14 @@ export default function PaymentsPage() {
         return false
       }
 
+      // Pipeline filter
+      if (filters.pipelineId) {
+        const paymentPipelineId = payment.invoice?.deal?.pipeline_id
+        if (paymentPipelineId !== filters.pipelineId) {
+          return false
+        }
+      }
+
       // Date filters
       const paymentDate = new Date(payment.created_at)
       if (filters.dateFrom && paymentDate < filters.dateFrom) {
@@ -66,7 +80,7 @@ export default function PaymentsPage() {
   }
 
   const handleViewPayment = (payment: Payment) => {
-    console.log('View payment:', payment)
+    setSelectedPayment(payment)
   }
 
   const handleRefundPayment = (payment: Payment) => {
@@ -82,7 +96,10 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PaymentsPageHeader onExport={handleExport} />
+      <PaymentsPageHeader
+        onExport={handleExport}
+        onRecordPayment={() => setRecordPaymentOpen(true)}
+      />
 
       {/* Stats Cards */}
       <PaymentStats
@@ -105,12 +122,32 @@ export default function PaymentsPage() {
         onViewInvoice={handleViewInvoice}
       />
 
+      {/* Payment Detail Sheet */}
+      <PaymentDetailSheet
+        payment={selectedPayment}
+        isOpen={!!selectedPayment}
+        onClose={() => setSelectedPayment(null)}
+        onViewInvoice={(invoiceId) => {
+          setSelectedPayment(null)
+          setSelectedInvoiceId(invoiceId)
+        }}
+      />
+
       {/* Invoice Detail Sheet */}
       <InvoiceDetailSheet
         invoiceId={selectedInvoiceId}
         isOpen={!!selectedInvoiceId}
         onClose={() => setSelectedInvoiceId(null)}
       />
+
+      {/* Record Payment Modal */}
+      {currentUser?.id && (
+        <RecordPaymentModal
+          isOpen={recordPaymentOpen}
+          onClose={() => setRecordPaymentOpen(false)}
+          userId={currentUser.id}
+        />
+      )}
     </div>
   )
 }

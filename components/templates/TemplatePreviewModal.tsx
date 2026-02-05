@@ -81,15 +81,15 @@ export function TemplatePreviewModal({
             </DialogTitle>
             <div className="flex items-center gap-4">
               {/* View Mode Toggle */}
-              <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+              <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
                     'h-8 w-8 p-0',
-                    viewMode === 'desktop' 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'text-slate-600 hover:bg-slate-200'
+                    viewMode === 'desktop'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                   )}
                   onClick={() => setViewMode('desktop')}
                 >
@@ -100,9 +100,9 @@ export function TemplatePreviewModal({
                   size="sm"
                   className={cn(
                     'h-8 w-8 p-0',
-                    viewMode === 'mobile' 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'text-slate-600 hover:bg-slate-200'
+                    viewMode === 'mobile'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                   )}
                   onClick={() => setViewMode('mobile')}
                 >
@@ -128,7 +128,7 @@ export function TemplatePreviewModal({
         </DialogHeader>
 
         {/* Preview Content */}
-        <div className="flex-1 overflow-auto p-6 bg-slate-100">
+        <div className="flex-1 overflow-auto p-6 bg-slate-100 dark:bg-slate-900">
           <div
             className={cn(
               'mx-auto bg-white rounded-lg shadow-lg overflow-hidden transition-all',

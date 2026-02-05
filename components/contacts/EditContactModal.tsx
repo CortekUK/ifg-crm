@@ -204,12 +204,12 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
           <div className="space-y-6 py-6">
             {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Basic Information
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     First Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -219,7 +219,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Last Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -231,7 +231,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Email <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -244,7 +244,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Phone</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone</Label>
                   <Input
                     value={formData.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
@@ -252,7 +252,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Date of Birth</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Date of Birth</Label>
                   <Input
                     type="date"
                     value={formData.date_of_birth}
@@ -262,7 +262,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Subscription Status</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Subscription Status</Label>
                 <Select value={formData.subscription_status} onValueChange={(v) => handleChange('subscription_status', v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -277,12 +277,12 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
             {/* Player Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Player Information
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Graduation Year</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Graduation Year</Label>
                   <Select
                     value={formData.graduation_year}
                     onValueChange={(v) => handleChange('graduation_year', v)}
@@ -300,7 +300,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Gender</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Gender</Label>
                   <Select value={formData.gender} onValueChange={(v) => handleChange('gender', v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
@@ -315,7 +315,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Sport</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sport</Label>
                   <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select sport" />
@@ -327,7 +327,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Position</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Position</Label>
                   <Input
                     value={formData.position}
                     onChange={(e) => handleChange('position', e.target.value)}
@@ -338,7 +338,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Club Name</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Club Name</Label>
                   <Input
                     value={formData.club_name}
                     onChange={(e) => handleChange('club_name', e.target.value)}
@@ -346,7 +346,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">GPA</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">GPA</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -362,11 +362,11 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
             {/* Location */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Location
               </h3>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Country</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Country</Label>
                 <Select value={formData.country} onValueChange={(v) => handleChange('country', v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select country" />
@@ -382,7 +382,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">State/Region</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">State/Region</Label>
                   <Input
                     value={formData.state}
                     onChange={(e) => handleChange('state', e.target.value)}
@@ -390,7 +390,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">City</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">City</Label>
                   <Input
                     value={formData.city}
                     onChange={(e) => handleChange('city', e.target.value)}
@@ -402,11 +402,11 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
             {/* Parent/Guardian Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Parent/Guardian Information
               </h3>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Parent/Guardian Name</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Parent/Guardian Name</Label>
                 <Input
                   value={formData.parent_name}
                   onChange={(e) => handleChange('parent_name', e.target.value)}
@@ -415,7 +415,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Parent Email</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Parent Email</Label>
                   <Input
                     type="email"
                     value={formData.parent_email}
@@ -424,7 +424,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Parent Phone</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Parent Phone</Label>
                   <Input
                     value={formData.parent_phone}
                     onChange={(e) => handleChange('parent_phone', e.target.value)}
@@ -436,11 +436,11 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
 
             {/* Additional Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Additional Information
               </h3>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Source</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Source</Label>
                 <Select value={formData.source} onValueChange={(v) => handleChange('source', v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="How did they find us?" />
@@ -456,7 +456,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Assigned To</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Assigned To</Label>
                 <OwnerSelect
                   value={selectedOwnerId}
                   onChange={setSelectedOwnerId}
@@ -466,7 +466,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Notes</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</Label>
                 <Textarea
                   value={formData.notes}
                   onChange={(e) => handleChange('notes', e.target.value)}
@@ -478,7 +478,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
           </div>
         </div>
 
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
           <div className="flex gap-3 w-full">
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel

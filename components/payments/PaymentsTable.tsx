@@ -48,13 +48,13 @@ const methodConfig: Record<string, { label: string; icon: React.ElementType }> =
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  successful: { label: 'Successful', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  pending: { label: 'Pending', className: 'bg-amber-100 dark:bg-amber-900/50 text-amber-700' },
-  failed: { label: 'Failed', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
+  successful: { label: 'Successful', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  pending: { label: 'Pending', className: 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300' },
+  failed: { label: 'Failed', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
 }
 
 const defaultMethod = { label: 'Other', icon: CircleDot }
-const defaultStatus = { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' }
+const defaultStatus = { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' }
 
 export function PaymentsTable({
   payments,
@@ -86,7 +86,7 @@ export function PaymentsTable({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -121,8 +121,8 @@ export function PaymentsTable({
 
   if (payments.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
-        <Receipt className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No payments yet</h3>
         <p className="text-muted-foreground">
           Payments will appear here once recorded.
@@ -132,7 +132,7 @@ export function PaymentsTable({
   }
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>

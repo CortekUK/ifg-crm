@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { email, fullName, role, sport, calendlyUrl } = body
+    const { email, fullName, role, title, sport, phone, calendlyUrl, zoomUrl, pipelineIds } = body
 
     if (!email || !fullName) {
       return NextResponse.json({ error: 'Email and name are required' }, { status: 400 })
@@ -89,8 +89,12 @@ export async function POST(request: NextRequest) {
         email,
         full_name: fullName,
         role: role || 'recruiter',
+        title: title || null,
         sport: sport || 'football',
+        phone: phone || null,
         calendly_url: calendlyUrl || null,
+        zoom_url: zoomUrl || null,
+        pipeline_ids: pipelineIds || null,
         invited_by: user.id,
         status: 'pending',
       })
@@ -109,8 +113,12 @@ export async function POST(request: NextRequest) {
         data: {
           full_name: fullName,
           role: role || 'recruiter',
+          title: title || null,
           sport: sport || 'football',
+          phone: phone || null,
           calendly_url: calendlyUrl || null,
+          zoom_url: zoomUrl || null,
+          pipeline_assignments: pipelineIds || null,
         },
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
       })

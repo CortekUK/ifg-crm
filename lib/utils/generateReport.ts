@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 
-export type ReportType = 
+export type ReportType =
   | 'contacts'
   | 'pipeline'
   | 'revenue'
@@ -9,6 +9,9 @@ export type ReportType =
   | 'monthly'
   | 'automation'
   | 'responses'
+  | 'invoice-ageing'
+  | 'sms-costs'
+  | 'deposit-conversion'
 
 export interface ReportOptions {
   type: ReportType
@@ -332,6 +335,195 @@ async function generateRecruiterReport(dateRange: { start: Date; end: Date }) {
   return convertToCSV(recruiterData, columns)
 }
 
+// Generate Invoice Ageing Report
+async function generateInvoiceAgeingReport(dateRange: { start: Date; end: Date }) {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('invoices')
+    .select(`
+      id, invoice_number, amount, status, due_date, created_at,
+      contact:contacts(first_name, last_name, email)
+    `)
+    .in('status', ['sent', 'viewed', 'overdue'])
+    .order('due_date', { ascending: true })
+
+  if (error) throw error
+
+  const today = new Date()
+
+  const ageingData = (data || []).map((invoice) => {
+    const dueDate = new Date(invoice.due_date)
+    const daysPastDue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    let ageBracket: string
+    if (daysPastDue <= 0) {
+      ageBracket = 'Current (Not Due)'
+    } else if (daysPastDue <= 30) {
+      ageBracket = '0-30 Days'
+    } else if (daysPastDue <= 60) {
+      ageBracket = '30-60 Days'
+    } else if (daysPastDue <= 90) {
+      ageBracket = '60-90 Days'
+    } else {
+      ageBracket = '90+ Days'
+    }
+
+    return {
+      invoice_number: invoice.invoice_number,
+      amount: invoice.amount,
+      contact_name: invoice.contact
+        ? `${(invoice.contact as any).first_name || ''} ${(invoice.contact as any).last_name || ''}`.trim()
+        : '',
+      contact_email: (invoice.contact as any)?.email || '',
+      due_date: invoice.due_date,
+      days_past_due: Math.max(0, daysPastDue),
+      age_bracket: ageBracket,
+      status: invoice.status,
+    }
+  })
+
+  const columns = [
+    { key: 'invoice_number', label: 'Invoice #' },
+    { key: 'contact_name', label: 'Contact' },
+    { key: 'contact_email', label: 'Email' },
+    { key: 'amount', label: 'Amount (£)' },
+    { key: 'due_date', label: 'Due Date' },
+    { key: 'days_past_due', label: 'Days Past Due' },
+    { key: 'age_bracket', label: 'Age Bracket' },
+    { key: 'status', label: 'Status' },
+  ]
+
+  return convertToCSV(ageingData, columns)
+}
+
+// Generate SMS Campaign Costs Report
+async function generateSMSCostsReport(dateRange: { start: Date; end: Date }) {
+  const supabase = createClient()
+
+  // Get SMS messages with campaign info
+  const { data, error } = await supabase
+    .from('sms_messages')
+    .select(`
+      id, body, status, direction, segment_count, created_at,
+      campaign:campaigns(name)
+    `)
+    .eq('direction', 'outbound')
+    .gte('created_at', dateRange.start.toISOString())
+    .lte('created_at', dateRange.end.toISOString())
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  // SMS cost per segment (UK typical rate)
+  const COST_PER_SEGMENT = 0.04 // £0.04 per segment
+
+  const smsData = (data || []).map((sms) => ({
+    campaign_name: (sms.campaign as any)?.name || 'Direct Message',
+    message_preview: sms.body?.substring(0, 50) + (sms.body && sms.body.length > 50 ? '...' : ''),
+    status: sms.status,
+    segments: sms.segment_count || 1,
+    cost: ((sms.segment_count || 1) * COST_PER_SEGMENT).toFixed(2),
+    sent_at: sms.created_at,
+  }))
+
+  // Calculate totals by campaign
+  const campaignTotals = new Map<string, { messages: number; segments: number; cost: number }>()
+  smsData.forEach((sms) => {
+    const existing = campaignTotals.get(sms.campaign_name) || { messages: 0, segments: 0, cost: 0 }
+    existing.messages++
+    existing.segments += sms.segments
+    existing.cost += parseFloat(sms.cost)
+    campaignTotals.set(sms.campaign_name, existing)
+  })
+
+  // Add summary rows
+  const summaryData = Array.from(campaignTotals.entries()).map(([name, totals]) => ({
+    campaign_name: name,
+    message_preview: `TOTAL: ${totals.messages} messages`,
+    status: '-',
+    segments: totals.segments,
+    cost: totals.cost.toFixed(2),
+    sent_at: '-',
+  }))
+
+  const columns = [
+    { key: 'campaign_name', label: 'Campaign' },
+    { key: 'message_preview', label: 'Message Preview' },
+    { key: 'status', label: 'Status' },
+    { key: 'segments', label: 'Segments' },
+    { key: 'cost', label: 'Cost (£)' },
+    { key: 'sent_at', label: 'Sent At' },
+  ]
+
+  // Return summary first, then details
+  return convertToCSV([...summaryData, ...smsData], columns)
+}
+
+// Generate Deposit Conversion Rate Report
+async function generateDepositConversionReport(dateRange: { start: Date; end: Date }) {
+  const supabase = createClient()
+
+  // Get pipelines
+  const { data: pipelines } = await supabase.from('pipelines').select('id, name')
+
+  if (!pipelines) return ''
+
+  const conversionData = await Promise.all(
+    pipelines.map(async (pipeline) => {
+      // Get deposit invoices for this pipeline
+      const { data: deposits } = await supabase
+        .from('invoices')
+        .select(`
+          id, status,
+          deal:deals!inner(pipeline_id)
+        `)
+        .eq('type', 'deposit')
+        .eq('deal.pipeline_id', pipeline.id)
+        .gte('created_at', dateRange.start.toISOString())
+        .lte('created_at', dateRange.end.toISOString())
+
+      const totalDeposits = deposits?.length || 0
+      const paidDeposits = deposits?.filter((d) => d.status === 'paid').length || 0
+
+      // Get enrolments (deals marked as won) for this pipeline
+      const { count: enrolments } = await supabase
+        .from('deals')
+        .select('*', { count: 'exact', head: true })
+        .eq('pipeline_id', pipeline.id)
+        .eq('status', 'won')
+        .gte('updated_at', dateRange.start.toISOString())
+        .lte('updated_at', dateRange.end.toISOString())
+
+      const depositToPaidRate = totalDeposits > 0 ? ((paidDeposits / totalDeposits) * 100).toFixed(1) : '0.0'
+      const paidToEnrolmentRate = paidDeposits > 0 ? (((enrolments || 0) / paidDeposits) * 100).toFixed(1) : '0.0'
+      const overallConversionRate = totalDeposits > 0 ? (((enrolments || 0) / totalDeposits) * 100).toFixed(1) : '0.0'
+
+      return {
+        programme: pipeline.name,
+        deposits_sent: totalDeposits,
+        deposits_paid: paidDeposits,
+        deposit_to_paid_rate: depositToPaidRate + '%',
+        enrolments: enrolments || 0,
+        paid_to_enrolment_rate: paidToEnrolmentRate + '%',
+        overall_conversion_rate: overallConversionRate + '%',
+      }
+    })
+  )
+
+  const columns = [
+    { key: 'programme', label: 'Programme' },
+    { key: 'deposits_sent', label: 'Deposits Sent' },
+    { key: 'deposits_paid', label: 'Deposits Paid' },
+    { key: 'deposit_to_paid_rate', label: 'Deposit Payment Rate' },
+    { key: 'enrolments', label: 'Enrolments' },
+    { key: 'paid_to_enrolment_rate', label: 'Paid → Enrolment Rate' },
+    { key: 'overall_conversion_rate', label: 'Overall Conversion' },
+  ]
+
+  return convertToCSV(conversionData, columns)
+}
+
 // Main export function
 export async function generateReport(options: ReportOptions): Promise<void> {
   let csvContent: string
@@ -354,6 +546,15 @@ export async function generateReport(options: ReportOptions): Promise<void> {
       break
     case 'recruiter':
       csvContent = await generateRecruiterReport(options.dateRange)
+      break
+    case 'invoice-ageing':
+      csvContent = await generateInvoiceAgeingReport(options.dateRange)
+      break
+    case 'sms-costs':
+      csvContent = await generateSMSCostsReport(options.dateRange)
+      break
+    case 'deposit-conversion':
+      csvContent = await generateDepositConversionReport(options.dateRange)
       break
     default:
       throw new Error(`Report type "${options.type}" not implemented`)

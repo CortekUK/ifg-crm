@@ -11,6 +11,10 @@ import {
   TrendingDown,
   Mail,
   MessageSquare,
+  Video,
+  AlertCircle,
+  Wallet,
+  BadgePoundSterling,
 } from 'lucide-react'
 import type { AnalyticsData } from '@/lib/hooks/useAnalytics'
 
@@ -20,7 +24,7 @@ interface KPI {
   change: number
   changeLabel: string
   icon: React.ElementType
-  colour: 'blue' | 'green' | 'emerald' | 'purple' | 'orange' | 'teal'
+  colour: 'blue' | 'green' | 'emerald' | 'purple' | 'orange' | 'teal' | 'indigo' | 'rose' | 'amber' | 'cyan'
 }
 
 interface AnalyticsKPIsProps {
@@ -30,40 +34,64 @@ interface AnalyticsKPIsProps {
 
 const colourConfig = {
   blue: {
-    gradient: 'from-blue-50/60',
+    gradient: 'from-blue-50/60 dark:from-blue-950/40',
     border: 'border-l-blue-400',
-    iconBg: 'bg-blue-100',
-    iconColour: 'text-blue-600',
+    iconBg: 'bg-blue-100 dark:bg-blue-900/50',
+    iconColour: 'text-blue-600 dark:text-blue-400',
   },
   green: {
-    gradient: 'from-green-50/60',
+    gradient: 'from-green-50/60 dark:from-green-950/40',
     border: 'border-l-green-400',
-    iconBg: 'bg-green-100',
-    iconColour: 'text-green-600',
+    iconBg: 'bg-green-100 dark:bg-green-900/50',
+    iconColour: 'text-green-600 dark:text-green-400',
   },
   emerald: {
-    gradient: 'from-emerald-50/60',
+    gradient: 'from-emerald-50/60 dark:from-emerald-950/40',
     border: 'border-l-emerald-400',
-    iconBg: 'bg-emerald-100',
-    iconColour: 'text-emerald-600',
+    iconBg: 'bg-emerald-100 dark:bg-emerald-900/50',
+    iconColour: 'text-emerald-600 dark:text-emerald-400',
   },
   purple: {
-    gradient: 'from-purple-50/60',
+    gradient: 'from-purple-50/60 dark:from-purple-950/40',
     border: 'border-l-purple-400',
-    iconBg: 'bg-purple-100',
-    iconColour: 'text-purple-600',
+    iconBg: 'bg-purple-100 dark:bg-purple-900/50',
+    iconColour: 'text-purple-600 dark:text-purple-400',
   },
   orange: {
-    gradient: 'from-orange-50/60',
+    gradient: 'from-orange-50/60 dark:from-orange-950/40',
     border: 'border-l-orange-400',
-    iconBg: 'bg-orange-100',
-    iconColour: 'text-orange-600',
+    iconBg: 'bg-orange-100 dark:bg-orange-900/50',
+    iconColour: 'text-orange-600 dark:text-orange-400',
   },
   teal: {
-    gradient: 'from-teal-50/60',
+    gradient: 'from-teal-50/60 dark:from-teal-950/40',
     border: 'border-l-teal-400',
-    iconBg: 'bg-teal-100',
-    iconColour: 'text-teal-600',
+    iconBg: 'bg-teal-100 dark:bg-teal-900/50',
+    iconColour: 'text-teal-600 dark:text-teal-400',
+  },
+  indigo: {
+    gradient: 'from-indigo-50/60 dark:from-indigo-950/40',
+    border: 'border-l-indigo-400',
+    iconBg: 'bg-indigo-100 dark:bg-indigo-900/50',
+    iconColour: 'text-indigo-600 dark:text-indigo-400',
+  },
+  rose: {
+    gradient: 'from-rose-50/60 dark:from-rose-950/40',
+    border: 'border-l-rose-400',
+    iconBg: 'bg-rose-100 dark:bg-rose-900/50',
+    iconColour: 'text-rose-600 dark:text-rose-400',
+  },
+  amber: {
+    gradient: 'from-amber-50/60 dark:from-amber-950/40',
+    border: 'border-l-amber-400',
+    iconBg: 'bg-amber-100 dark:bg-amber-900/50',
+    iconColour: 'text-amber-600 dark:text-amber-400',
+  },
+  cyan: {
+    gradient: 'from-cyan-50/60 dark:from-cyan-950/40',
+    border: 'border-l-cyan-400',
+    iconBg: 'bg-cyan-100 dark:bg-cyan-900/50',
+    iconColour: 'text-cyan-600 dark:text-cyan-400',
   },
 }
 
@@ -131,6 +159,38 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
       icon: MessageSquare,
       colour: 'teal',
     },
+    {
+      title: 'Calls Booked',
+      value: data?.callsBooked?.toString() || '0',
+      change: data ? calculateChange(data.callsBooked, data.callsBookedPrevious) : 0,
+      changeLabel: 'vs last period',
+      icon: Video,
+      colour: 'indigo',
+    },
+    {
+      title: 'Unmatched Replies',
+      value: data?.unmatchedReplies?.toString() || '0',
+      change: data ? calculateChange(data.unmatchedReplies, data.unmatchedRepliesPrevious) : 0,
+      changeLabel: 'vs last period',
+      icon: AlertCircle,
+      colour: 'rose',
+    },
+    {
+      title: 'Outstanding Balance',
+      value: formatCurrency(data?.outstandingBalance || 0),
+      change: data ? calculateChange(data.outstandingBalance, data.outstandingBalancePrevious) : 0,
+      changeLabel: 'vs last period',
+      icon: Wallet,
+      colour: 'amber',
+    },
+    {
+      title: 'Deposits This Month',
+      value: formatCurrency(data?.depositsThisMonth || 0),
+      change: data ? calculateChange(data.depositsThisMonth, data.depositsLastMonth) : 0,
+      changeLabel: 'vs last month',
+      icon: BadgePoundSterling,
+      colour: 'cyan',
+    },
   ]
 
   if (isLoading) {
@@ -140,7 +200,7 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
           const config = colourConfig[kpi.colour]
           return (
             <Card key={i} className={cn(
-              'relative overflow-hidden bg-white border border-slate-200 shadow-sm border-l-4',
+              'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4',
               config.border
             )}>
               <div className={cn(
@@ -171,7 +231,7 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
 
         return (
           <Card key={kpi.title} className={cn(
-            'relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow transition-shadow border-l-4',
+            'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow transition-shadow border-l-4',
             config.border
           )}>
             <div className={cn(
@@ -180,7 +240,7 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
             )} />
             <CardContent className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
-                <p className="font-oswald text-xs font-medium text-blue-900 uppercase">
+                <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-300 uppercase">
                   {kpi.title}
                 </p>
                 <div className={cn('p-2.5 rounded-full', config.iconBg)}>
@@ -196,11 +256,11 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
                 )}
                 <span className={cn(
                   'font-medium',
-                  isPositive ? 'text-green-600' : 'text-red-600'
+                  isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                 )}>
-                  {isPositive ? '+' : ''}{kpi.change}%
+                  {isPositive ? '+' : ''}{kpi.change.toFixed(1)}%
                 </span>
-                <span className="text-gray-400">{kpi.changeLabel}</span>
+                <span className="text-gray-400 dark:text-gray-500">{kpi.changeLabel}</span>
               </div>
             </CardContent>
           </Card>

@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CheckCircle, XCircle, Eye, EyeOff, Copy, Plus } from 'lucide-react'
+import { CheckCircle, XCircle, Eye, EyeOff, Copy, Plus, Globe, FileText, AlertCircle } from 'lucide-react'
 
 export function IntegrationsSettings() {
   const [showClickSendKey, setShowClickSendKey] = useState(false)
@@ -227,7 +227,7 @@ export function IntegrationsSettings() {
                 Sync invoices and payments with your Xero account.
               </CardDescription>
             </div>
-            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 dark:text-gray-300">
+            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
               <XCircle className="h-3 w-3 mr-1" />
               Not Connected
             </Badge>
@@ -235,6 +235,106 @@ export function IntegrationsSettings() {
         </CardHeader>
         <CardContent>
           <Button>Connect with Xero</Button>
+        </CardContent>
+      </Card>
+
+      {/* Form Webhooks */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Form Webhooks
+              </CardTitle>
+              <CardDescription>
+                Connect website forms (WordPress/Ninja Forms) to automatically create contacts and deals.
+              </CardDescription>
+            </div>
+            <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Active
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Webhook URL</Label>
+            <div className="flex gap-2">
+              <Input
+                value="https://jiuxsintslqryrvgevmc.supabase.co/functions/v1/form-webhook"
+                readOnly
+                className="font-mono text-sm"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => copyToClipboard('https://jiuxsintslqryrvgevmc.supabase.co/functions/v1/form-webhook')}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add this URL to your Ninja Forms webhook action.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex gap-3">
+              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="font-medium mb-1">Required form fields:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-blue-700 dark:text-blue-300 text-xs">
+                  <li><code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">first_name</code> - Contact&apos;s first name</li>
+                  <li><code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">last_name</code> - Contact&apos;s last name</li>
+                  <li><code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">email</code> - Contact&apos;s email address</li>
+                  <li><code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">pipeline_id</code> - Target pipeline ID (hidden field)</li>
+                </ul>
+                <p className="mt-2 text-xs">Optional: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">phone</code>, <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">country</code>, <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">graduation_year</code></p>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Form-to-Pipeline Mapping
+              </Label>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Add Form
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Form Name</TableHead>
+                  <TableHead>Target Pipeline</TableHead>
+                  <TableHead>Submissions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>UCLan Enquiry Form</TableCell>
+                  <TableCell>UCLan 2026</TableCell>
+                  <TableCell className="text-muted-foreground">1,247</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Gap Year Interest Form</TableCell>
+                  <TableCell>UK Gap Year 2026</TableCell>
+                  <TableCell className="text-muted-foreground">892</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Summer Residency Form</TableCell>
+                  <TableCell>Summer Residency 2026</TableCell>
+                  <TableCell className="text-muted-foreground">456</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

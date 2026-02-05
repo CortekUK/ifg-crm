@@ -35,15 +35,18 @@ interface InvoicesTableProps {
   onSend: (invoice: Invoice) => void
   onMarkPaid: (invoice: Invoice) => void
   onDelete: (invoice: Invoice) => void
+  onBulkSend?: (ids: string[]) => void
+  onBulkMarkPaid?: (ids: string[]) => void
+  onBulkDelete?: (ids: string[]) => void
 }
 
 const statusConfig: Record<InvoiceStatus, { label: string; className: string }> = {
-  draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
-  sent: { label: 'Sent', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
-  viewed: { label: 'Viewed', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
-  paid: { label: 'Paid', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  overdue: { label: 'Overdue', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
-  cancelled: { label: 'Cancelled', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 line-through' },
+  draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
+  sent: { label: 'Sent', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' },
+  viewed: { label: 'Viewed', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  paid: { label: 'Paid', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  overdue: { label: 'Overdue', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
+  cancelled: { label: 'Cancelled', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 line-through' },
 }
 
 const typeLabels: Record<InvoiceType, string> = {
@@ -64,6 +67,9 @@ export function InvoicesTable({
   onSend,
   onMarkPaid,
   onDelete,
+  onBulkSend,
+  onBulkMarkPaid,
+  onBulkDelete,
 }: InvoicesTableProps) {
   const getInitials = (contact?: Invoice['contact']) => {
     if (!contact) return '??'
@@ -94,7 +100,7 @@ export function InvoicesTable({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -135,8 +141,8 @@ export function InvoicesTable({
 
   if (invoices.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
-        <Receipt className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No invoices yet</h3>
         <p className="text-muted-foreground">
           Create your first invoice to start tracking payments.
@@ -145,9 +151,69 @@ export function InvoicesTable({
     )
   }
 
+  // Get selected invoices for bulk actions
+  const selectedInvoices = invoices.filter((inv) => selectedIds.includes(inv.id))
+  const canBulkSend = selectedInvoices.some((inv) => inv.status === 'draft')
+  const canBulkMarkPaid = selectedInvoices.some(
+    (inv) => inv.status !== 'paid' && inv.status !== 'cancelled'
+  )
+
   return (
-    <div className="border rounded-lg">
-      <Table>
+    <div className="space-y-2">
+      {/* Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+            {selectedIds.length} invoice{selectedIds.length !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex items-center gap-2">
+            {canBulkSend && onBulkSend && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onBulkSend(selectedIds)}
+                className="h-8"
+              >
+                <Send className="h-3.5 w-3.5 mr-1.5" />
+                Send Selected
+              </Button>
+            )}
+            {canBulkMarkPaid && onBulkMarkPaid && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onBulkMarkPaid(selectedIds)}
+                className="h-8"
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                Mark Paid
+              </Button>
+            )}
+            {onBulkDelete && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onBulkDelete(selectedIds)}
+                className="h-8 text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Delete
+              </Button>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onSelectChange([])}
+            className="h-8 ml-auto"
+          >
+            Clear Selection
+          </Button>
+        </div>
+      )}
+
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-[40px]">
@@ -299,6 +365,7 @@ export function InvoicesTable({
           })}
         </TableBody>
       </Table>
+      </div>
     </div>
   )
 }

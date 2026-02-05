@@ -110,7 +110,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
     onUpdate({ html: value })
   }
 
-  const fontSize = textContent.fontSize === 'small' ? 'text-sm' : textContent.fontSize === 'large' ? 'text-lg' : 'text-base'
+  const fontSize = textContent.fontSize === 'small' ? 'text-sm' : textContent.fontSize === 'large' ? 'text-lg' : textContent.fontSize === 'xlarge' ? 'text-2xl' : 'text-base'
 
   return (
     <div
@@ -242,6 +242,7 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
             <option value="small">Small</option>
             <option value="normal">Normal</option>
             <option value="large">Large</option>
+            <option value="xlarge">X-Large</option>
           </select>
 
           <div className="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-1" />

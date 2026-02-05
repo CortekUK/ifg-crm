@@ -21,16 +21,27 @@ import {
 import { Loader2, FileText, AlertCircle } from 'lucide-react'
 import { useToast } from '@/lib/hooks/use-toast'
 import { generateReport, ReportType } from '@/lib/utils/generateReport'
+import { usePipelines } from '@/lib/hooks/usePipelines'
+import { useUsers } from '@/lib/hooks/useUsers'
 
-const reportInfo: Record<string, { name: string; formats: string[]; reportType: ReportType | null }> = {
+const reportInfo: Record<string, {
+  name: string
+  formats: string[]
+  reportType: ReportType | null
+  supportsPipelineFilter?: boolean
+  supportsRecruiterFilter?: boolean
+}> = {
   'contacts-export': { name: 'Contacts Export', formats: ['csv'], reportType: 'contacts' },
-  'pipeline-report': { name: 'Pipeline Report', formats: ['csv'], reportType: 'pipeline' },
-  'revenue-report': { name: 'Revenue Report', formats: ['csv'], reportType: 'revenue' },
+  'pipeline-report': { name: 'Pipeline Report', formats: ['csv'], reportType: 'pipeline', supportsPipelineFilter: true, supportsRecruiterFilter: true },
+  'revenue-report': { name: 'Revenue Report', formats: ['csv'], reportType: 'revenue', supportsPipelineFilter: true },
   'campaign-performance': { name: 'Campaign Performance', formats: ['csv'], reportType: 'campaign' },
-  'recruiter-performance': { name: 'Recruiter Performance', formats: ['csv'], reportType: 'recruiter' },
-  'monthly-summary': { name: 'Monthly Summary', formats: ['csv'], reportType: 'monthly' },
-  'automation-report': { name: 'Automation Report', formats: ['csv'], reportType: 'automation' },
+  'recruiter-performance': { name: 'Recruiter Performance', formats: ['csv'], reportType: 'recruiter', supportsRecruiterFilter: true },
+  'monthly-summary': { name: 'Monthly Summary', formats: ['csv'], reportType: 'monthly', supportsPipelineFilter: true },
+  'automation-report': { name: 'Automation Report', formats: ['csv'], reportType: 'automation', supportsPipelineFilter: true },
   'sms-email-responses': { name: 'SMS/Email Responses', formats: ['csv'], reportType: 'responses' },
+  'invoice-ageing': { name: 'Invoice Ageing Report', formats: ['csv'], reportType: 'invoice-ageing', supportsPipelineFilter: true },
+  'sms-campaign-costs': { name: 'SMS Campaign Costs', formats: ['csv'], reportType: 'sms-costs' },
+  'deposit-conversion': { name: 'Deposit Conversion Rate', formats: ['csv'], reportType: 'deposit-conversion', supportsPipelineFilter: true },
 }
 
 interface GenerateReportModalProps {
@@ -47,10 +58,14 @@ export function GenerateReportModal({
   const [format, setFormat] = useState('csv')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [pipelineId, setPipelineId] = useState<string | null>(null)
+  const [recruiterId, setRecruiterId] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const { toast } = useToast()
+  const { data: pipelines = [] } = usePipelines()
+  const { data: users = [] } = useUsers()
 
   const report = reportId ? reportInfo[reportId] : null
 
@@ -61,6 +76,8 @@ export function GenerateReportModal({
       const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
       setDateFrom(thirtyDaysAgo.toISOString().split('T')[0])
       setDateTo(today.toISOString().split('T')[0])
+      setPipelineId(null)
+      setRecruiterId(null)
       setError(null)
     }
   }, [isOpen])
@@ -165,6 +182,52 @@ export function GenerateReportModal({
               />
             </div>
           </div>
+
+          {/* Pipeline Filter */}
+          {report.supportsPipelineFilter && (
+            <div className="space-y-2">
+              <Label>Programme (optional)</Label>
+              <Select
+                value={pipelineId || '__all__'}
+                onValueChange={(v) => setPipelineId(v === '__all__' ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Programmes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Programmes</SelectItem>
+                  {pipelines.map((pipeline) => (
+                    <SelectItem key={pipeline.id} value={pipeline.id}>
+                      {pipeline.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Recruiter Filter */}
+          {report.supportsRecruiterFilter && (
+            <div className="space-y-2">
+              <Label>Recruiter (optional)</Label>
+              <Select
+                value={recruiterId || '__all__'}
+                onValueChange={(v) => setRecruiterId(v === '__all__' ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Recruiters" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Recruiters</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Format</Label>

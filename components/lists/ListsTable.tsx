@@ -39,14 +39,13 @@ export function ListsTable({
 }: ListsTableProps) {
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Contacts</TableHead>
-              <TableHead>Type</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -57,7 +56,6 @@ export function ListsTable({
                 <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-8 w-8" /></TableCell>
               </TableRow>
@@ -70,8 +68,8 @@ export function ListsTable({
 
   if (lists.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
-        <ListIcon className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <ListIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No lists yet</h3>
         <p className="text-muted-foreground">
           Create your first list to organise your contacts.
@@ -81,14 +79,13 @@ export function ListsTable({
   }
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Description</TableHead>
             <TableHead className="text-right">Contacts</TableHead>
-            <TableHead>Type</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
@@ -117,22 +114,8 @@ export function ListsTable({
 
               {/* Contacts Count */}
               <TableCell className="text-right">
-                <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   {list.contact_count?.toLocaleString() || 0}
-                </Badge>
-              </TableCell>
-
-              {/* Type */}
-              <TableCell>
-                <Badge
-                  variant="outline"
-                  className={
-                    list.is_dynamic
-                      ? 'bg-purple-50 text-purple-700 border-purple-200'
-                      : 'bg-blue-50 text-blue-700 border-blue-200'
-                  }
-                >
-                  {list.is_dynamic ? 'Dynamic' : 'Static'}
                 </Badge>
               </TableCell>
 

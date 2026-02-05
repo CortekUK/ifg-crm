@@ -109,19 +109,18 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
   // Show error state
   if (error) {
     return (
-      <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
-        <CardHeader className="relative z-10 pb-3">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+        <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-slate-100">
-              <Icon className="h-4 w-4 text-slate-600" />
+            <div className="p-2 rounded-full bg-slate-100 dark:bg-slate-800">
+              <Icon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
             </div>
-            <CardTitle className="font-oswald text-sm font-medium text-blue-900 uppercase">
+            <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
               {title}
             </CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="relative z-10 pt-0">
+        <CardContent className="pt-0">
           <p className="text-sm text-red-500">Failed to load data</p>
         </CardContent>
       </Card>
@@ -129,17 +128,14 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
   }
 
   return (
-    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-      {/* Subtle gradient overlay from top */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
-      
-      <CardHeader className="relative z-10 pb-3">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-orange-100">
-              <Icon className="h-4 w-4 text-orange-600" />
+            <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
+              <Icon className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             </div>
-            <CardTitle className="font-oswald text-sm font-medium text-blue-900 uppercase">
+            <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
               {title}
             </CardTitle>
             {data && data.count > 0 && (
@@ -157,7 +153,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
         </div>
         <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
       </CardHeader>
-      <CardContent className="relative z-10 pt-0">
+      <CardContent className="pt-0">
         {isLoading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (

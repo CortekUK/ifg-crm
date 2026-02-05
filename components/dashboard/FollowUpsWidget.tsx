@@ -59,15 +59,14 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
 
   if (isLoading) {
     return (
-      <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
-        <CardHeader className="relative z-10 pb-3">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+        <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Skeleton className="h-8 w-8 rounded-full" />
             <Skeleton className="h-4 w-40" />
           </div>
         </CardHeader>
-        <CardContent className="relative z-10">
+        <CardContent>
           <Skeleton className="h-4 w-full mb-4" />
           <Skeleton className="h-9 w-40" />
         </CardContent>
@@ -77,19 +76,18 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
 
   if (error) {
     return (
-      <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
-        <CardHeader className="relative z-10 pb-3">
+      <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+        <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-slate-100">
-              <Icon className="h-4 w-4 text-slate-600" />
+            <div className="p-2 rounded-full bg-slate-100 dark:bg-slate-800">
+              <Icon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
             </div>
-            <CardTitle className="font-oswald text-sm font-medium text-blue-900 uppercase">
+            <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
               {title}
             </CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="relative z-10 pt-0">
+        <CardContent className="pt-0">
           <p className="text-sm text-red-500">Failed to load data</p>
         </CardContent>
       </Card>
@@ -97,16 +95,13 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
   }
 
   return (
-    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-      {/* Subtle gradient overlay from top */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
-      
-      <CardHeader className="relative z-10 pb-3">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-amber-100">
-            <Icon className="h-4 w-4 text-amber-600" />
+          <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
+            <Icon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           </div>
-          <CardTitle className="font-oswald text-sm font-medium text-blue-900 uppercase">
+          <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
             {title}
           </CardTitle>
           {count !== undefined && count > 0 && (
@@ -116,7 +111,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
           )}
         </div>
       </CardHeader>
-      <CardContent className="relative z-10 pt-0">
+      <CardContent className="pt-0">
         <p className="text-sm text-muted-foreground mb-4">{subtitle}</p>
         <Link href={linkHref}>
           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs">

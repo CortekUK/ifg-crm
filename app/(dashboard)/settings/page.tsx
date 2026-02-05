@@ -6,6 +6,7 @@ import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { SettingsNav } from '@/components/settings/SettingsNav'
 import { ProfileSettings } from '@/components/settings/ProfileSettings'
 import { GeneralSettings } from '@/components/settings/GeneralSettings'
+import { PipelineManagementSettings } from '@/components/settings/PipelineManagementSettings'
 import { IntegrationsSettings } from '@/components/settings/IntegrationsSettings'
 import { CalendlySettings } from '@/components/settings/CalendlySettings'
 import { EmailSettingsSection } from '@/components/settings/EmailSettingsSection'
@@ -23,6 +24,8 @@ export default function SettingsPage() {
         return <ProfileSettings />
       case 'general':
         return <GeneralSettings />
+      case 'pipelines':
+        return <PipelineManagementSettings />
       case 'integrations':
         return <IntegrationsSettings />
       case 'calendly':

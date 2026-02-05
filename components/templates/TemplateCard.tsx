@@ -24,9 +24,9 @@ interface TemplateCardProps {
 }
 
 const categoryConfig: Record<Template['category'], { label: string; className: string }> = {
-  automation: { label: 'Automation', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
-  campaign: { label: 'Campaign', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
-  transactional: { label: 'Transactional', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
+  automation: { label: 'Automation', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  campaign: { label: 'Campaign', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' },
+  transactional: { label: 'Transactional', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
 }
 
 export function TemplateCard({ 
@@ -41,11 +41,11 @@ export function TemplateCard({
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow group">
       {/* Preview Thumbnail */}
-      <div 
-        className="h-40 bg-gray-100 flex items-center justify-center border-b relative cursor-pointer"
+      <div
+        className="h-40 bg-gray-100 dark:bg-slate-800 flex items-center justify-center border-b dark:border-slate-700 relative cursor-pointer"
         onClick={() => onPreview(template)}
       >
-        <Mail className="h-12 w-12 text-gray-300" />
+        <Mail className="h-12 w-12 text-gray-300 dark:text-slate-600" />
         {/* Hover overlay with preview button */}
         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <Button variant="secondary" size="sm">

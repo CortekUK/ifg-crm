@@ -19,7 +19,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Eye, Pencil, Copy, Trash2, Zap, Mail, Users, Clock } from 'lucide-react'
+import {
+  MoreHorizontal,
+  Eye,
+  Pencil,
+  Copy,
+  Trash2,
+  Zap,
+  Mail,
+  Users,
+  Clock,
+  FileCheck,
+  Video,
+  Receipt,
+  AlertTriangle,
+  PartyPopper,
+  Plane
+} from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/format'
 import type { Automation } from '@/lib/types/automations'
 
@@ -80,7 +96,7 @@ export function AutomationsTable({
   if (automations.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
-        <Zap className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+        <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No automations yet</h3>
         <p className="text-muted-foreground">
           Create your first automation to streamline your follow-ups.
@@ -109,7 +125,7 @@ export function AutomationsTable({
       return (
         <>
           Deal enters{' '}
-          <span className="font-medium text-gray-700 dark:text-gray-300 dark:text-gray-300">
+          <span className="font-medium text-gray-700 dark:text-gray-300">
             {automation.trigger_stage?.name || 'Unknown'}
           </span>
         </>
@@ -119,11 +135,27 @@ export function AutomationsTable({
       return (
         <>
           Deal moves to{' '}
-          <span className="font-medium text-gray-700 dark:text-gray-300 dark:text-gray-300">
+          <span className="font-medium text-gray-700 dark:text-gray-300">
             {automation.trigger_stage?.name || 'Unknown'}
           </span>
         </>
       )
+    }
+    if (automation.trigger_type === 'invoice_created') {
+      return 'Invoice created'
+    }
+    if (automation.trigger_type === 'invoice_overdue') {
+      return 'Invoice overdue'
+    }
+    if (automation.trigger_type === 'payment_received') {
+      return 'Payment received'
+    }
+    if (automation.trigger_type === 'time_before_date') {
+      const daysText = automation.config?.days_before
+        ? `${automation.config.days_before} days before`
+        : 'Before'
+      const dateField = automation.config?.date_field?.replace(/_/g, ' ') || 'date'
+      return `${daysText} ${dateField}`
     }
     return 'No trigger set'
   }
@@ -139,8 +171,46 @@ export function AutomationsTable({
       case 'initial_contact':
       case 'follow_up':
         return <Mail className="h-4 w-4" />
+      case 'application_received':
+        return <FileCheck className="h-4 w-4" />
+      case 'interview_reminder':
+      case 'post_interview':
+        return <Video className="h-4 w-4" />
+      case 'deposit_invoice':
+        return <Receipt className="h-4 w-4" />
+      case 'payment_overdue':
+        return <AlertTriangle className="h-4 w-4" />
+      case 'welcome_sequence':
+        return <PartyPopper className="h-4 w-4" />
+      case 'pre_departure':
+        return <Plane className="h-4 w-4" />
       default:
         return <Zap className="h-4 w-4" />
+    }
+  }
+
+  const getTypeIconColor = (type: string | undefined) => {
+    switch (type) {
+      case 'deal_creation':
+        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600'
+      case 'initial_contact':
+      case 'follow_up':
+        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
+      case 'application_received':
+        return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600'
+      case 'interview_reminder':
+      case 'post_interview':
+        return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600'
+      case 'deposit_invoice':
+        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600'
+      case 'payment_overdue':
+        return 'bg-red-100 dark:bg-red-900/50 text-red-600'
+      case 'welcome_sequence':
+        return 'bg-green-100 dark:bg-green-900/50 text-green-600'
+      case 'pre_departure':
+        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600'
+      default:
+        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
     }
   }
 
@@ -168,7 +238,7 @@ export function AutomationsTable({
                 {/* Workflow */}
                 <TableCell>
                   <div className="flex items-start gap-3">
-                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-600 mt-0.5">
+                    <div className={`p-1.5 rounded mt-0.5 ${getTypeIconColor(automation.automation_type)}`}>
                       {getTypeIcon(automation.automation_type)}
                     </div>
                     <div>

@@ -145,7 +145,7 @@ export function CampaignStats({ campaigns, isLoading }: CampaignStatsProps) {
             )} />
             <CardContent className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
-                <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-100 uppercase">
+                <p className="font-oswald text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                   {stat.label}
                 </p>
                 <div className={cn('p-2.5 rounded-full', config.iconBg)}>

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Phone, Trash2, ExternalLink, UserPlus, Eye } from 'lucide-react'
 import { formatRelativeTime, formatPhoneNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -15,13 +16,17 @@ interface SMSReplyCardProps {
   onViewContact: (contactId: string) => void
   onMarkSpam: (message: SMSMessage) => void
   onViewFull: (message: SMSMessage) => void
+  selectable?: boolean
+  selected?: boolean
+  onSelectChange?: (message: SMSMessage, selected: boolean) => void
 }
 
 const intentConfig: Record<SMSIntent, { label: string; className: string }> = {
-  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
-  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
-  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500' },
+  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
+  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
+  question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' },
 }
 
 export function SMSReplyCard({
@@ -30,6 +35,9 @@ export function SMSReplyCard({
   onViewContact,
   onMarkSpam,
   onViewFull,
+  selectable = false,
+  selected = false,
+  onSelectChange,
 }: SMSReplyCardProps) {
   const isMatched = message.match_status === 'auto_matched' || message.match_status === 'manually_matched'
   const isSpam = message.match_status === 'spam'
@@ -50,9 +58,24 @@ export function SMSReplyCard({
     : formatPhoneNumber(message.phone_number)
 
   return (
-    <Card className={cn('hover:shadow-md transition-shadow', isSpam && 'opacity-60')}>
+    <Card className={cn(
+      'hover:shadow-md transition-shadow',
+      isSpam && 'opacity-60',
+      selected && 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20'
+    )}>
       <CardContent className="p-4">
         <div className="flex gap-4">
+          {/* Checkbox for selection */}
+          {selectable && !isSpam && (
+            <div className="shrink-0 flex items-start pt-1">
+              <Checkbox
+                checked={selected}
+                onCheckedChange={(checked) => onSelectChange?.(message, !!checked)}
+                aria-label={`Select message from ${displayName}`}
+              />
+            </div>
+          )}
+
           {/* Avatar / Phone Icon */}
           <div className="shrink-0">
             {message.contact ? (
@@ -62,8 +85,8 @@ export function SMSReplyCard({
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                <Phone className="h-5 w-5 text-gray-500" />
+              <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <Phone className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </div>
             )}
           </div>
@@ -80,13 +103,13 @@ export function SMSReplyCard({
                   </Badge>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground shrink-0">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">
                 {formatRelativeTime(message.created_at)}
               </span>
             </div>
 
             {/* Message Content */}
-            <p className={cn('text-sm text-gray-600 mb-3', isSpam && 'line-through')}>
+            <p className={cn('text-sm text-gray-600 dark:text-gray-400 mb-3', isSpam && 'line-through')}>
               {message.content}
             </p>
 
@@ -101,7 +124,7 @@ export function SMSReplyCard({
                   </span>
                 )}
                 {!isMatched && !isSpam && (
-                  <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                  <Badge variant="outline" className="text-xs bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700">
                     Unmatched
                   </Badge>
                 )}

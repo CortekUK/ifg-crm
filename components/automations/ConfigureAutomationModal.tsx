@@ -36,6 +36,16 @@ import {
   ChevronRight,
   FileText,
   Link,
+  FileCheck,
+  Video,
+  MessageSquare,
+  Receipt,
+  AlertTriangle,
+  PartyPopper,
+  Plane,
+  Bell,
+  CreditCard,
+  UserPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePipelines } from '@/lib/hooks/usePipelines'
@@ -182,8 +192,49 @@ export function ConfigureAutomationModal({
         return <Mail className="h-5 w-5" />
       case 'follow_up':
         return <ArrowRight className="h-5 w-5" />
+      case 'application_received':
+        return <FileCheck className="h-5 w-5" />
+      case 'interview_reminder':
+        return <Video className="h-5 w-5" />
+      case 'post_interview':
+        return <MessageSquare className="h-5 w-5" />
+      case 'deposit_invoice':
+        return <Receipt className="h-5 w-5" />
+      case 'payment_overdue':
+        return <AlertTriangle className="h-5 w-5" />
+      case 'welcome_sequence':
+        return <PartyPopper className="h-5 w-5" />
+      case 'pre_departure':
+        return <Plane className="h-5 w-5" />
       default:
         return <Zap className="h-5 w-5" />
+    }
+  }
+
+  const getTemplateColor = (type: AutomationType) => {
+    switch (type) {
+      case 'deal_creation':
+        return 'bg-green-100 dark:bg-green-900/50 text-green-600'
+      case 'initial_contact':
+        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
+      case 'follow_up':
+        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600'
+      case 'application_received':
+        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600'
+      case 'interview_reminder':
+        return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600'
+      case 'post_interview':
+        return 'bg-teal-100 dark:bg-teal-900/50 text-teal-600'
+      case 'deposit_invoice':
+        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600'
+      case 'payment_overdue':
+        return 'bg-red-100 dark:bg-red-900/50 text-red-600'
+      case 'welcome_sequence':
+        return 'bg-pink-100 dark:bg-pink-900/50 text-pink-600'
+      case 'pre_departure':
+        return 'bg-sky-100 dark:bg-sky-900/50 text-sky-600'
+      default:
+        return 'bg-gray-100 dark:bg-gray-800 text-gray-600'
     }
   }
 
@@ -246,57 +297,80 @@ export function ConfigureAutomationModal({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-3 py-4">
-              {AUTOMATION_TEMPLATES.map((template) => (
-                <Card
-                  key={template.id}
-                  className={cn(
-                    'cursor-pointer transition-all hover:border-blue-300 hover:shadow-md',
-                    selectedTemplate?.id === template.id && 'border-blue-500 bg-blue-50/50'
-                  )}
-                  onClick={() => handleTemplateSelect(template)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-600">
-                        {getTemplateIcon(template.type)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-gray-900 dark:text-white">{template.name}</h3>
-                          <ChevronRight className="h-4 w-4 text-gray-400" />
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="grid gap-3 py-4">
+                {AUTOMATION_TEMPLATES.map((template) => (
+                  <Card
+                    key={template.id}
+                    className="cursor-pointer transition-all hover:border-blue-300 hover:shadow-md dark:hover:border-blue-600"
+                    onClick={() => handleTemplateSelect(template)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className={cn('p-2 rounded-lg', getTemplateColor(template.type))}>
+                          {getTemplateIcon(template.type)}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {template.description}
-                        </p>
-                        <div className="flex gap-2 mt-2">
-                          {template.default_steps
-                            .filter((s) => s.step_type === 'send_email')
-                            .length > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Mail className="h-3 w-3 mr-1" />
-                              {template.default_steps.filter((s) => s.step_type === 'send_email').length} emails
-                            </Badge>
-                          )}
-                          {template.configurable.round_robin && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Users className="h-3 w-3 mr-1" />
-                              Round-robin
-                            </Badge>
-                          )}
-                          {template.configurable.exit_stages && (
-                            <Badge variant="secondary" className="text-xs">
-                              <GitBranch className="h-3 w-3 mr-1" />
-                              Exit conditions
-                            </Badge>
-                          )}
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{template.name}</h3>
+                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {template.description}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {template.default_steps
+                              .filter((s) => s.step_type === 'send_email')
+                              .length > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Mail className="h-3 w-3 mr-1" />
+                                {template.default_steps.filter((s) => s.step_type === 'send_email').length} email{template.default_steps.filter((s) => s.step_type === 'send_email').length !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                            {template.configurable.round_robin && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Users className="h-3 w-3 mr-1" />
+                                Round-robin
+                              </Badge>
+                            )}
+                            {template.configurable.exit_stages && (
+                              <Badge variant="secondary" className="text-xs">
+                                <GitBranch className="h-3 w-3 mr-1" />
+                                Exit conditions
+                              </Badge>
+                            )}
+                            {template.configurable.stop_on_payment && (
+                              <Badge variant="secondary" className="text-xs">
+                                <CreditCard className="h-3 w-3 mr-1" />
+                                Stops on payment
+                              </Badge>
+                            )}
+                            {template.configurable.notify_parent && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Bell className="h-3 w-3 mr-1" />
+                                Parent notification
+                              </Badge>
+                            )}
+                            {template.configurable.create_portal_account && (
+                              <Badge variant="secondary" className="text-xs">
+                                <UserPlus className="h-3 w-3 mr-1" />
+                                Portal account
+                              </Badge>
+                            )}
+                            {template.trigger_type === 'time_before_date' && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Time-based
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
           </>
         ) : (
           <>
@@ -343,7 +417,7 @@ export function ConfigureAutomationModal({
 
                 {/* Pipeline & Trigger */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                     {selectedTemplate?.type === 'deal_creation' ? 'Pipeline Settings' : 'Trigger Settings'}
                   </h3>
 
@@ -449,7 +523,7 @@ export function ConfigureAutomationModal({
                   <>
                     <Separator />
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
                         <FileText className="h-4 w-4" />
                         Form Integration
                       </h3>
@@ -589,25 +663,32 @@ export function ConfigureAutomationModal({
                         </div>
                       </div>
 
-                      <Card className="bg-blue-50/50 border-blue-200">
-                        <CardContent className="p-3">
-                          <div className="flex items-start gap-2">
-                            <Link className="h-4 w-4 text-blue-600 mt-0.5" />
-                            <div className="text-sm">
-                              <p className="font-medium text-blue-900">Webhook URL</p>
-                              <code className="text-xs text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-                                {typeof window !== 'undefined' 
-                                  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/form-webhook`
-                                  : 'https://[your-project].supabase.co/functions/v1/form-webhook'
-                                }
-                              </code>
-                              <p className="text-xs text-blue-600 mt-1">
-                                Configure your form to POST to this URL
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Link className="h-4 w-4" />
+                          Webhook URL
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            value={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/form-webhook`}
+                            className="text-xs font-mono bg-slate-50 dark:bg-slate-800"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/form-webhook`)
+                            }}
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Configure your form to POST to this URL
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}
@@ -617,7 +698,7 @@ export function ConfigureAutomationModal({
                   <>
                     <Separator />
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
                         <Users className="h-4 w-4" />
                         Deal Owner Assignment
                       </h3>
@@ -658,7 +739,7 @@ export function ConfigureAutomationModal({
                   <>
                     <Separator />
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                         Workflow Steps
                       </h3>
 
@@ -783,7 +864,7 @@ export function ConfigureAutomationModal({
                   <>
                     <Separator />
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                         Exit Conditions
                       </h3>
                       <p className="text-sm text-muted-foreground">
@@ -841,12 +922,150 @@ export function ConfigureAutomationModal({
                     </div>
                   </>
                 )}
+
+                {/* Parent Notification (for application_received) */}
+                {selectedTemplate?.configurable.notify_parent && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
+                        <Bell className="h-4 w-4" />
+                        Notifications
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="notify-parent"
+                          checked={formData.config.notify_parent}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, notify_parent: !!checked },
+                            }))
+                          }
+                        />
+                        <label htmlFor="notify-parent" className="text-sm cursor-pointer">
+                          Also send notification to parent/guardian (if email on file)
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        A separate notification email will be sent to the parent&apos;s email address if available on the contact record
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Stop on Payment (for deposit_invoice) */}
+                {selectedTemplate?.configurable.stop_on_payment && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" />
+                        Payment Trigger
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="stop-on-payment"
+                          checked={formData.config.stop_on_payment ?? true}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, stop_on_payment: !!checked },
+                            }))
+                          }
+                        />
+                        <label htmlFor="stop-on-payment" className="text-sm cursor-pointer">
+                          Stop reminders when payment is received
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Automation will automatically stop when a Stripe payment is received for this contact&apos;s invoice
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Create Portal Account (for welcome_sequence) */}
+                {selectedTemplate?.configurable.create_portal_account && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
+                        <UserPlus className="h-4 w-4" />
+                        Player Portal
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="create-portal-account"
+                          checked={formData.config.create_portal_account ?? true}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, create_portal_account: !!checked },
+                            }))
+                          }
+                        />
+                        <label htmlFor="create-portal-account" className="text-sm cursor-pointer">
+                          Create player portal account and send login credentials
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        A portal account will be created for the player and login details will be included in the welcome email
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Time-based configuration (for pre_departure) */}
+                {selectedTemplate?.configurable.days_before_date && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Schedule Settings
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Emails will be sent relative to the programme start date
+                      </p>
+                      <div className="space-y-2">
+                        <Label>Date Field</Label>
+                        <Select
+                          value={formData.config.date_field || 'programme_start_date'}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: {
+                                ...prev.config,
+                                date_field: value as 'programme_start_date' | 'interview_date' | 'arrival_date'
+                              },
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="programme_start_date">Programme Start Date</SelectItem>
+                            <SelectItem value="arrival_date">Arrival Date</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Emails will be scheduled based on this date from the pipeline/programme settings
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </ScrollArea>
 
             <DialogFooter className="gap-2">
               {!editingAutomation && (
-                <Button variant="outline" onClick={() => setStep('select_template')}>
+                <Button variant="outline" onClick={() => {
+                  setStep('select_template')
+                  setSelectedTemplate(null)
+                }}>
                   Back
                 </Button>
               )}

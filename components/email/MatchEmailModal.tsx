@@ -43,10 +43,11 @@ interface MatchEmailModalProps {
 }
 
 const intentConfig: Record<EmailIntent, { label: string; className: string }> = {
-  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
-  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
-  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500' },
+  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
+  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
+  question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' },
 }
 
 export function MatchEmailModal({
@@ -155,10 +156,10 @@ export function MatchEmailModal({
           <div className="space-y-6 py-2">
             {/* Email Preview */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Email Preview
               </h3>
-              <Card className="bg-slate-50">
+              <Card className="bg-slate-50 dark:bg-slate-800">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full">
@@ -181,7 +182,7 @@ export function MatchEmailModal({
                       <p className="text-sm font-medium mb-1">
                         {reply.subject || '(No subject)'}
                       </p>
-                      <p className="text-sm text-gray-600 line-clamp-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                         {reply.body_preview || reply.body_full?.slice(0, 150)}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
@@ -200,12 +201,12 @@ export function MatchEmailModal({
 
             {/* Search & Select Contact */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Select Contact
               </h3>
-              
+
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Search Contacts</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Search Contacts</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -236,7 +237,7 @@ export function MatchEmailModal({
                         className={cn(
                           'w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors',
                           selectedContactId === contact.id
-                            ? 'bg-blue-50 border border-blue-200'
+                            ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700'
                             : 'hover:bg-gray-50 dark:hover:bg-slate-800'
                         )}
                       >
@@ -271,24 +272,24 @@ export function MatchEmailModal({
 
             {/* Options */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Options
               </h3>
-              
+
               <div className="flex items-center gap-3">
                 <Checkbox
                   id="createDeal"
                   checked={createDeal}
                   onCheckedChange={(checked) => setCreateDeal(checked as boolean)}
                 />
-                <Label htmlFor="createDeal" className="text-sm font-medium text-slate-700 cursor-pointer">
+                <Label htmlFor="createDeal" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                   Create a deal for this contact
                 </Label>
               </div>
 
               {createDeal && (
                 <div className="space-y-2 pl-7">
-                  <Label className="text-sm font-medium text-slate-700">Pipeline</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Pipeline</Label>
                   <Select
                     value={selectedPipelineId || ''}
                     onValueChange={setSelectedPipelineId}

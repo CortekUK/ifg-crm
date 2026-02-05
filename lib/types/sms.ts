@@ -3,7 +3,7 @@ import type { Pipeline } from './pipelines'
 import type { Profile } from './pipelines'
 
 export type SMSDirection = 'inbound' | 'outbound'
-export type SMSIntent = 'positive' | 'negative' | 'neutral' | 'unknown'
+export type SMSIntent = 'positive' | 'negative' | 'neutral' | 'question' | 'unknown'
 export type SMSMatchStatus = 'auto_matched' | 'manually_matched' | 'unmatched' | 'spam'
 export type SMSFollowUpStatus = 'open' | 'in_progress' | 'completed'
 
@@ -36,4 +36,5 @@ export interface SMSMessageCounts {
   today: number
   positive: number
   negative: number
+  question: number
 }

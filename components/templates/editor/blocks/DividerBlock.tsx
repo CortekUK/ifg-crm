@@ -48,7 +48,9 @@ export function DividerBlock({ content, isSelected, onUpdate }: DividerBlockProp
                 className="h-7 w-10 rounded cursor-pointer"
               />
             </div>
+          </div>
 
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Label className="text-xs">Thickness:</Label>
               <select
@@ -61,6 +63,20 @@ export function DividerBlock({ content, isSelected, onUpdate }: DividerBlockProp
                 <option value="3">3px</option>
                 <option value="4">4px</option>
                 <option value="5">5px</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Width:</Label>
+              <select
+                value={(dividerContent as unknown as { width?: string }).width || '100'}
+                onChange={(e) => onUpdate({ width: e.target.value })}
+                className="h-7 px-2 text-xs border rounded"
+              >
+                <option value="100">Full (100%)</option>
+                <option value="75">75%</option>
+                <option value="50">50%</option>
+                <option value="25">25%</option>
               </select>
             </div>
           </div>
@@ -93,13 +109,16 @@ export function DividerBlock({ content, isSelected, onUpdate }: DividerBlockProp
       )}
 
       {/* Divider Preview */}
-      <hr
-        style={{
-          border: 'none',
-          borderTop: `${dividerContent.thickness}px ${dividerContent.style} ${dividerContent.color}`,
-          margin: 0,
-        }}
-      />
+      <div style={{ textAlign: 'center' }}>
+        <hr
+          style={{
+            border: 'none',
+            borderTop: `${dividerContent.thickness}px ${dividerContent.style} ${dividerContent.color}`,
+            margin: '0 auto',
+            width: `${(dividerContent as unknown as { width?: string }).width || '100'}%`,
+          }}
+        />
+      </div>
     </div>
   )
 }

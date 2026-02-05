@@ -6,13 +6,17 @@ import { InvoiceStats } from '@/components/invoices/InvoiceStats'
 import { InvoiceFilters } from '@/components/invoices/InvoiceFilters'
 import { InvoicesTable } from '@/components/invoices/InvoicesTable'
 import { CreateInvoiceModal } from '@/components/invoices/CreateInvoiceModal'
+import { CreatePaymentPlanModal } from '@/components/invoices/CreatePaymentPlanModal'
 import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet'
 import {
   useInvoices,
   useInvoiceStats,
   useUpdateInvoiceStatus,
   useDeleteInvoice,
+  useBulkUpdateInvoiceStatus,
+  useBulkDeleteInvoices,
 } from '@/lib/hooks/useInvoices'
+import { toast } from '@/lib/hooks/use-toast'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { createClient } from '@/lib/supabase/client'
 import type { InvoiceFilters as InvoiceFiltersType, Invoice } from '@/lib/types/invoices'
@@ -22,6 +26,7 @@ export default function InvoicesPage() {
   const [filters, setFilters] = useState<InvoiceFiltersType>({})
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [paymentPlanModalOpen, setPaymentPlanModalOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
   // Debounce search
@@ -47,6 +52,8 @@ export default function InvoicesPage() {
   const { data: stats, isLoading: statsLoading } = useInvoiceStats()
   const updateStatus = useUpdateInvoiceStatus()
   const deleteInvoice = useDeleteInvoice()
+  const bulkUpdateStatus = useBulkUpdateInvoiceStatus()
+  const bulkDeleteInvoices = useBulkDeleteInvoices()
 
   const handleView = (invoice: Invoice) => {
     setSelectedInvoice(invoice)
@@ -78,10 +85,94 @@ export default function InvoicesPage() {
     }
   }
 
+  const handleBulkSend = async (ids: string[]) => {
+    // Filter to only draft invoices
+    const draftIds = invoices
+      .filter((inv) => ids.includes(inv.id) && inv.status === 'draft')
+      .map((inv) => inv.id)
+
+    if (draftIds.length === 0) {
+      toast({
+        title: 'No draft invoices selected',
+        description: 'Only draft invoices can be sent.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      await bulkUpdateStatus.mutateAsync({ invoiceIds: draftIds, status: 'sent' })
+      setSelectedIds([])
+      toast({
+        title: 'Invoices sent',
+        description: `${draftIds.length} invoice(s) sent successfully.`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to send invoices',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleBulkMarkPaid = async (ids: string[]) => {
+    // Filter to only unpaid/uncancelled invoices
+    const unpaidIds = invoices
+      .filter((inv) => ids.includes(inv.id) && inv.status !== 'paid' && inv.status !== 'cancelled')
+      .map((inv) => inv.id)
+
+    if (unpaidIds.length === 0) {
+      toast({
+        title: 'No unpaid invoices selected',
+        description: 'Only unpaid invoices can be marked as paid.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      await bulkUpdateStatus.mutateAsync({ invoiceIds: unpaidIds, status: 'paid' })
+      setSelectedIds([])
+      toast({
+        title: 'Invoices marked as paid',
+        description: `${unpaidIds.length} invoice(s) marked as paid.`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to update invoices',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleBulkDelete = async (ids: string[]) => {
+    if (!confirm(`Are you sure you want to delete ${ids.length} invoice(s)?`)) return
+
+    try {
+      await bulkDeleteInvoices.mutateAsync(ids)
+      setSelectedIds([])
+      toast({
+        title: 'Invoices deleted',
+        description: `${ids.length} invoice(s) deleted successfully.`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to delete invoices',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <InvoicesPageHeader onCreateClick={() => setCreateModalOpen(true)} />
+      <InvoicesPageHeader
+        onCreateClick={() => setCreateModalOpen(true)}
+        onCreatePaymentPlan={() => setPaymentPlanModalOpen(true)}
+      />
 
       {/* Stats */}
       <InvoiceStats
@@ -105,6 +196,9 @@ export default function InvoicesPage() {
         onSend={handleSend}
         onMarkPaid={handleMarkPaid}
         onDelete={handleDelete}
+        onBulkSend={handleBulkSend}
+        onBulkMarkPaid={handleBulkMarkPaid}
+        onBulkDelete={handleBulkDelete}
       />
 
       {/* Create Invoice Modal */}
@@ -112,6 +206,15 @@ export default function InvoicesPage() {
         <CreateInvoiceModal
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
+          userId={userId}
+        />
+      )}
+
+      {/* Create Payment Plan Modal */}
+      {userId && (
+        <CreatePaymentPlanModal
+          isOpen={paymentPlanModalOpen}
+          onClose={() => setPaymentPlanModalOpen(false)}
           userId={userId}
         />
       )}

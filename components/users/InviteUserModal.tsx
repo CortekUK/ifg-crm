@@ -19,8 +19,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Send } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Loader2, Send, Phone, Video, Calendar, Briefcase, GitBranch } from 'lucide-react'
 import { useInviteUser } from '@/lib/hooks/useUsers'
+import { usePipelines } from '@/lib/hooks/usePipelines'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface InviteUserModalProps {
@@ -33,11 +36,16 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
     fullName: '',
     email: '',
     role: 'recruiter',
+    title: '',
     sport: 'football',
+    phone: '',
     calendlyUrl: '',
+    zoomUrl: '',
+    pipelineIds: [] as string[],
   })
 
   const inviteUser = useInviteUser()
+  const { data: pipelines = [] } = usePipelines()
 
   // Reset form when modal opens
   useEffect(() => {
@@ -46,14 +54,27 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         fullName: '',
         email: '',
         role: 'recruiter',
+        title: '',
         sport: 'football',
+        phone: '',
         calendlyUrl: '',
+        zoomUrl: '',
+        pipelineIds: [],
       })
     }
   }, [isOpen])
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handlePipelineToggle = (pipelineId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      pipelineIds: prev.pipelineIds.includes(pipelineId)
+        ? prev.pipelineIds.filter((id) => id !== pipelineId)
+        : [...prev.pipelineIds, pipelineId],
+    }))
   }
 
   const handleSubmit = async () => {
@@ -64,8 +85,12 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         email: formData.email,
         fullName: formData.fullName,
         role: formData.role,
+        title: formData.title || undefined,
         sport: formData.sport,
+        phone: formData.phone || undefined,
         calendlyUrl: formData.calendlyUrl || undefined,
+        zoomUrl: formData.zoomUrl || undefined,
+        pipelineIds: formData.pipelineIds.length > 0 ? formData.pipelineIds : undefined,
       })
 
       toast({
@@ -85,10 +110,11 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
   }
 
   const isValid = formData.fullName && formData.email
+  const isRecruiter = formData.role === 'recruiter'
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
             Invite User
@@ -98,77 +124,186 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* User Details */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
-              User Details
-            </h3>
-            
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">
-                Full Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                value={formData.fullName}
-                onChange={(e) => handleChange('fullName', e.target.value)}
-                placeholder="John Smith"
-              />
-            </div>
+        <div className="flex-1 overflow-y-auto max-h-[calc(90vh-200px)] pr-2">
+          <div className="space-y-6 py-4">
+            {/* Basic Details */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                User Details
+              </h3>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">
-                Email <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="john@example.com"
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Full Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={formData.fullName}
+                    onChange={(e) => handleChange('fullName', e.target.value)}
+                    placeholder="John Smith"
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Role</Label>
-                <Select value={formData.role} onValueChange={(v) => handleChange('role', v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="recruiter">Recruiter</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Email <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    placeholder="john@example.com"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Role</Label>
+                  <Select value={formData.role} onValueChange={(v) => handleChange('role', v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="recruiter">Recruiter</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sport</Label>
+                  <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="football">Football</SelectItem>
+                      <SelectItem value="basketball">Basketball</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Sport</Label>
-                <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="football">Football</SelectItem>
-                    <SelectItem value="basketball">Basketball</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Job Title
+                </Label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => handleChange('title', e.target.value)}
+                  placeholder="e.g. Senior Recruiter"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used in email signatures and profile display
+                </p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Calendly URL (optional)</Label>
-              <Input
-                value={formData.calendlyUrl}
-                onChange={(e) => handleChange('calendlyUrl', e.target.value)}
-                placeholder="https://calendly.com/your-link"
-              />
+            {/* Contact & Links */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                Contact & Links
+              </h3>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Phone Number
+                </Label>
+                <Input
+                  value={formData.phone}
+                  onChange={(e) => handleChange('phone', e.target.value)}
+                  placeholder="+44 7700 900123"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Available as {'{{deal_owner_phone}}'} in templates
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Calendly URL
+                </Label>
+                <Input
+                  value={formData.calendlyUrl}
+                  onChange={(e) => handleChange('calendlyUrl', e.target.value)}
+                  placeholder="https://calendly.com/your-link"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Available as {'{{deal_owner_calendly}}'} in templates
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  Zoom Link
+                </Label>
+                <Input
+                  value={formData.zoomUrl}
+                  onChange={(e) => handleChange('zoomUrl', e.target.value)}
+                  placeholder="https://zoom.us/j/your-meeting-id"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Available as {'{{deal_owner_zoom}}'} in templates
+                </p>
+              </div>
             </div>
+
+            {/* Pipeline Assignment - Only show for recruiters */}
+            {isRecruiter && pipelines.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center gap-2">
+                  <GitBranch className="h-4 w-4" />
+                  Pipeline Assignment
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Select pipelines this recruiter will be assigned to for round-robin deal distribution.
+                </p>
+
+                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3 bg-slate-50 dark:bg-slate-800/50">
+                  {pipelines.map((pipeline) => (
+                    <div key={pipeline.id} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`pipeline-${pipeline.id}`}
+                        checked={formData.pipelineIds.includes(pipeline.id)}
+                        onCheckedChange={() => handlePipelineToggle(pipeline.id)}
+                      />
+                      <Label
+                        htmlFor={`pipeline-${pipeline.id}`}
+                        className="text-sm font-normal cursor-pointer flex-1"
+                      >
+                        {pipeline.name}
+                      </Label>
+                      <Badge variant="outline" className="text-xs">
+                        {pipeline.sport}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+
+                {formData.pipelineIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {formData.pipelineIds.map((id) => {
+                      const pipeline = pipelines.find((p) => p.id === id)
+                      return pipeline ? (
+                        <Badge key={id} variant="secondary" className="text-xs">
+                          {pipeline.name}
+                        </Badge>
+                      ) : null
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        <DialogFooter className="gap-3">
+        <DialogFooter className="gap-3 pt-4 border-t">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>

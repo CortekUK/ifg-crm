@@ -106,12 +106,12 @@ function getActivityIcon(type: string) {
 }
 
 function getActivityBg(type: string): string {
-  if (type.includes('email')) return 'bg-blue-50'
-  if (type.includes('stage')) return 'bg-purple-50'
-  if (type.includes('deal_won') || type.includes('deal_created')) return 'bg-green-50'
-  if (type.includes('deal_lost')) return 'bg-red-50'
-  if (type.includes('meeting')) return 'bg-blue-50'
-  return 'bg-slate-50'
+  if (type.includes('email')) return 'bg-blue-50 dark:bg-blue-900/20'
+  if (type.includes('stage')) return 'bg-purple-50 dark:bg-purple-900/20'
+  if (type.includes('deal_won') || type.includes('deal_created')) return 'bg-green-50 dark:bg-green-900/20'
+  if (type.includes('deal_lost')) return 'bg-red-50 dark:bg-red-900/20'
+  if (type.includes('meeting')) return 'bg-blue-50 dark:bg-blue-900/20'
+  return 'bg-slate-50 dark:bg-slate-800/50'
 }
 
 export function ContactDetailSheet({
@@ -388,7 +388,7 @@ export function ContactDetailSheet({
         <div className="flex-1 overflow-y-auto">
           {/* Upcoming Meeting Banner */}
           {upcomingEvent && (
-            <div className="mx-6 mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="mx-6 mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-green-100 rounded-lg">
@@ -438,7 +438,7 @@ export function ContactDetailSheet({
             <TabsContent value="overview" className="px-6 py-6 space-y-6 mt-0">
               {/* Contact Details */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Contact Details
                 </h3>
                 <div className="space-y-3">
@@ -475,7 +475,7 @@ export function ContactDetailSheet({
 
               {/* Status */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Status
                 </h3>
                 <div className="space-y-3">
@@ -505,7 +505,7 @@ export function ContactDetailSheet({
               {/* Assigned To */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                     Assigned To
                   </h3>
                   {!isEditingOwner && (
@@ -546,7 +546,7 @@ export function ContactDetailSheet({
               {/* Player Information */}
               {(contact.position || contact.club_name || contact.gpa || contact.sport) && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Player Information
                   </h3>
                   <div className="space-y-3">
@@ -581,7 +581,7 @@ export function ContactDetailSheet({
               {/* Parent/Guardian */}
               {(contact.parent_name || contact.parent_email || contact.parent_phone) && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Parent/Guardian
                   </h3>
                   <div className="space-y-3">
@@ -759,7 +759,7 @@ export function ContactDetailSheet({
 
               {/* Automations */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Automations
                 </h3>
                 {automationsLoading ? (
@@ -833,7 +833,7 @@ export function ContactDetailSheet({
               {/* Meeting History */}
               {calendlyEvents.length > 0 && !calendlyEventsLoading && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Meeting History
                   </h3>
                   <div className="space-y-2">
@@ -841,7 +841,7 @@ export function ContactDetailSheet({
                       .filter((e) => e.status !== 'scheduled' || new Date(e.start_time) <= new Date())
                       .slice(0, 3)
                       .map((event) => (
-                        <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800 dark:bg-slate-800">
+                        <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
                           <div>
                             <p className="text-sm font-medium">{event.event_name}</p>
                             <p className="text-xs text-muted-foreground">{formatDate(event.start_time)}</p>
@@ -871,7 +871,7 @@ export function ContactDetailSheet({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-green-700 dark:text-green-300">Total Pipeline Value</span>
                       <span className="text-xl font-bold text-green-700 dark:text-green-300">{formatCurrency(totalDealsValue)}</span>
@@ -882,7 +882,7 @@ export function ContactDetailSheet({
                     {deals.map((deal) => (
                       <div
                         key={deal.id}
-                        className="p-4 rounded-lg border bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800 transition-colors cursor-pointer"
+                        className="p-4 rounded-lg border bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                         style={{ borderLeftWidth: 4, borderLeftColor: deal.stage?.color || '#e2e8f0' }}
                       >
                         <div className="flex items-center justify-between">

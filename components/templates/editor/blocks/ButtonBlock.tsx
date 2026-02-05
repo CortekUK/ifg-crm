@@ -115,11 +115,13 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
               <Label className="text-xs">Width:</Label>
               <select
                 value={buttonContent.width}
-                onChange={(e) => onUpdate({ width: e.target.value as 'auto' | 'full' })}
+                onChange={(e) => onUpdate({ width: e.target.value })}
                 className="h-7 px-2 text-xs border rounded"
               >
                 <option value="auto">Auto</option>
                 <option value="full">Full width</option>
+                <option value="50">50%</option>
+                <option value="75">75%</option>
               </select>
             </div>
 
@@ -178,14 +180,16 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            display: buttonContent.width === 'full' ? 'block' : 'inline-block',
+            display: buttonContent.width === 'full' || buttonContent.width === '50' || buttonContent.width === '75' ? 'block' : 'inline-block',
+            width: buttonContent.width === 'full' ? '100%' : buttonContent.width === '50' ? '50%' : buttonContent.width === '75' ? '75%' : 'auto',
             backgroundColor: buttonContent.backgroundColor,
             color: buttonContent.textColor,
-            padding: '12px 24px',
+            padding: `${buttonContent.paddingY ?? 12}px ${buttonContent.paddingX ?? 24}px`,
             textDecoration: 'none',
             borderRadius: `${buttonContent.borderRadius}px`,
             fontWeight: 'bold',
             textAlign: 'center',
+            margin: buttonContent.alignment === 'center' ? '0 auto' : buttonContent.alignment === 'right' ? '0 0 0 auto' : undefined,
           }}
           onClick={(e) => e.preventDefault()}
         >

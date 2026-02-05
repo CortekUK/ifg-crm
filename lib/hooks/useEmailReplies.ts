@@ -137,6 +137,11 @@ export function useEmailReplyCounts() {
         .select('*', { count: 'exact', head: true })
         .eq('ai_intent', 'negative')
 
+      const { count: question } = await supabase
+        .from('email_replies')
+        .select('*', { count: 'exact', head: true })
+        .eq('ai_intent', 'question')
+
       return {
         unmatched: unmatched || 0,
         matched: matched || 0,
@@ -144,6 +149,7 @@ export function useEmailReplyCounts() {
         today: todayCount || 0,
         positive: positive || 0,
         negative: negative || 0,
+        question: question || 0,
       }
     },
   })

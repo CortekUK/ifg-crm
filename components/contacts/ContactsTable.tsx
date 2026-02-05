@@ -94,7 +94,7 @@ export function ContactsTable({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
@@ -135,14 +135,14 @@ export function ContactsTable({
 
   if (contacts.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
         <p className="text-muted-foreground">No contacts found</p>
       </div>
     )
   }
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>

@@ -49,8 +49,8 @@ export function TemplatesGrid({
 
   if (templates.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center">
-        <Mail className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+      <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No templates yet</h3>
         <p className="text-muted-foreground">
           Create your first template to streamline your communications.

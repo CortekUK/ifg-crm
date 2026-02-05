@@ -53,12 +53,16 @@ export function useUsersAndInvites() {
       email: invite.email,
       full_name: invite.full_name,
       role: invite.role,
+      title: invite.title,
       sport: invite.sport,
       calendly_url: invite.calendly_url,
+      zoom_url: invite.zoom_url,
+      phone: invite.phone,
       created_at: invite.created_at,
       is_invite: true,
       invite_status: invite.status,
       expires_at: invite.expires_at,
+      pipeline_assignments: invite.pipeline_ids || [],
     })),
     // Then existing users
     ...(usersQuery.data || []).map((user): UserOrInvite => ({
@@ -66,13 +70,17 @@ export function useUsersAndInvites() {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
+      title: user.title,
       sport: user.sport,
       calendly_url: user.calendly_url,
+      zoom_url: user.zoom_url,
+      phone: user.phone,
       avatar_url: user.avatar_url,
       is_active: user.is_active,
       created_at: user.created_at,
       last_login_at: user.last_login_at,
       is_invite: false,
+      pipeline_assignments: user.pipeline_assignments || [],
     })),
   ]
 
@@ -115,13 +123,36 @@ export function useUpdateUser() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ userId, updates }: { userId: string; updates: UpdateUserInput }) => {
+    mutationFn: async ({ userId, updates }: { userId: string; updates: Record<string, unknown> }) => {
+      // Filter out undefined values and pipeline_assignments (handled separately)
+      const dbUpdates: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined && key !== 'pipeline_assignments') {
+          dbUpdates[key] = value
+        }
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', userId)
 
       if (error) throw error
+
+      // Handle pipeline assignments separately if needed
+      // This would typically be stored in a junction table
+      if (updates.pipeline_assignments) {
+        // For now, we store in the profiles table as a JSON array
+        // In a production app, this might be a separate table
+        const { error: assignError } = await supabase
+          .from('profiles')
+          .update({ pipeline_assignments: updates.pipeline_assignments })
+          .eq('id', userId)
+
+        if (assignError) {
+          console.warn('Could not update pipeline assignments:', assignError.message)
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
@@ -138,14 +169,22 @@ export function useInviteUser() {
       email,
       fullName,
       role,
+      title,
       sport,
+      phone,
       calendlyUrl,
+      zoomUrl,
+      pipelineIds,
     }: {
       email: string
       fullName: string
       role: string
+      title?: string
       sport: string
+      phone?: string
       calendlyUrl?: string
+      zoomUrl?: string
+      pipelineIds?: string[]
     }) => {
       const response = await fetch('/api/users/invite', {
         method: 'POST',
@@ -156,8 +195,12 @@ export function useInviteUser() {
           email,
           fullName,
           role,
+          title,
           sport,
+          phone,
           calendlyUrl,
+          zoomUrl,
+          pipelineIds,
         }),
       })
 

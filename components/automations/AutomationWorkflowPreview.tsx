@@ -14,6 +14,9 @@ import {
   Zap,
   Plus,
   CheckCircle2,
+  Bell,
+  UserPlus,
+  MessageSquare,
 } from 'lucide-react'
 import type { AutomationStep, Automation } from '@/lib/types/automations'
 
@@ -42,6 +45,29 @@ export function AutomationWorkflowPreview({
     if (automation.trigger_type === 'stage_change') {
       return `Deal moves to "${automation.trigger_stage?.name || 'Unknown'}" stage`
     }
+    if (automation.trigger_type === 'invoice_created') {
+      return 'Invoice is created for the deal'
+    }
+    if (automation.trigger_type === 'invoice_overdue') {
+      return 'Invoice becomes overdue'
+    }
+    if (automation.trigger_type === 'payment_received') {
+      return 'Payment is received'
+    }
+    if (automation.trigger_type === 'time_before_date') {
+      const daysText = automation.config?.days_before
+        ? `${automation.config.days_before} days before`
+        : 'Before'
+      const dateFieldMap: Record<string, string> = {
+        programme_start_date: 'programme start',
+        interview_date: 'interview',
+        arrival_date: 'arrival',
+      }
+      const dateField = automation.config?.date_field
+        ? dateFieldMap[automation.config.date_field] || automation.config.date_field.replace(/_/g, ' ')
+        : 'scheduled date'
+      return `${daysText} ${dateField}`
+    }
     return 'Unknown trigger'
   }
 
@@ -52,11 +78,15 @@ export function AutomationWorkflowPreview({
       case 'wait':
         return <Clock className="h-4 w-4" />
       case 'send_sms':
-        return <Send className="h-4 w-4" />
+        return <MessageSquare className="h-4 w-4" />
       case 'move_to_stage':
         return <ArrowRight className="h-4 w-4" />
       case 'create_deal':
         return <Plus className="h-4 w-4" />
+      case 'notify':
+        return <Bell className="h-4 w-4" />
+      case 'create_portal_account':
+        return <UserPlus className="h-4 w-4" />
       default:
         return <Zap className="h-4 w-4" />
     }
@@ -69,11 +99,15 @@ export function AutomationWorkflowPreview({
       case 'wait':
         return 'bg-slate-100 text-slate-600'
       case 'send_sms':
-        return 'bg-green-100 dark:bg-green-900/50 text-green-600'
+        return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600'
       case 'move_to_stage':
         return 'bg-orange-100 dark:bg-orange-900/50 text-orange-600'
       case 'create_deal':
         return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600'
+      case 'notify':
+        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600'
+      case 'create_portal_account':
+        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600'
       default:
         return 'bg-slate-100 text-slate-600'
     }
@@ -138,59 +172,44 @@ export function AutomationWorkflowPreview({
             <div className="flex-1 min-w-0 pt-0.5">
               {/* Email Step */}
               {step.step_type === 'send_email' && (
-                <Card className="border-slate-200 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        Send an email:{' '}
-                        {step.template ? (
-                          <span className="text-blue-600 font-medium">
-                            {step.template.name}
-                          </span>
-                        ) : (
-                          <span className="text-blue-600 font-medium cursor-pointer hover:underline">
-                            Select template →
-                          </span>
-                        )}
-                      </p>
-                    </div>
+                <Card className="border-slate-200 dark:border-slate-700 shadow-sm">
+                  <CardContent className="p-3">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Send email:{' '}
+                      {step.template ? (
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {step.template.name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground italic">
+                          No template selected
+                        </span>
+                      )}
+                    </p>
                     {step.template?.subject && (
-                      <p className="text-xs text-muted-foreground mb-3 truncate">
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
                         Subject: {step.template.subject}
                       </p>
                     )}
 
                     {/* Stats */}
                     {showStats && step.stats && (
-                      <div className="flex items-center gap-4 text-xs pt-2 border-t border-slate-100">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Send className="h-3 w-3" />
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-300">
-                            {step.stats.sent ?? 0}
-                          </span>{' '}
-                          sent
-                        </div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Eye className="h-3 w-3" />
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-300">
-                            {(step.stats.open_rate ?? 0).toFixed(1)}%
-                          </span>{' '}
-                          opened
-                        </div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <MousePointer className="h-3 w-3" />
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-300">
-                            {(step.stats.click_rate ?? 0).toFixed(1)}%
-                          </span>{' '}
-                          clicked
-                        </div>
+                      <div className="flex items-center gap-3 text-xs mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                        <span className="text-muted-foreground">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">{step.stats.sent ?? 0}</span> sent
+                        </span>
+                        <span className="text-muted-foreground">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">{(step.stats.open_rate ?? 0).toFixed(0)}%</span> opened
+                        </span>
+                        <span className="text-muted-foreground">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">{(step.stats.click_rate ?? 0).toFixed(0)}%</span> clicked
+                        </span>
                       </div>
                     )}
 
                     {/* Placeholder stats when no real data */}
                     {showStats && !step.stats && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-2 border-t border-slate-100">
-                        <Clock className="h-3 w-3" />
+                      <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                         No data yet
                       </div>
                     )}
@@ -200,16 +219,15 @@ export function AutomationWorkflowPreview({
 
               {/* Wait Step */}
               {step.step_type === 'wait' && (
-                <div className="flex items-center gap-2 py-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300 dark:text-gray-300">
-                    Wait for{' '}
-                    <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                <div className="flex items-center gap-2 py-1.5">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Wait{' '}
+                    <span className="font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
                       {formatWaitDuration(step)}
                     </span>
                   </span>
                   {showStats && step.stats && step.stats.in_queue > 0 && (
-                    <Badge className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 hover:bg-amber-100">
-                      <Users className="h-3 w-3 mr-1" />
+                    <Badge className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                       {step.stats.in_queue} waiting
                     </Badge>
                   )}
@@ -218,14 +236,10 @@ export function AutomationWorkflowPreview({
 
               {/* Move to Stage Step */}
               {step.step_type === 'move_to_stage' && (
-                <Card className="border-orange-200 shadow-sm bg-orange-50/50">
-                  <CardContent className="p-4">
+                <Card className="border-orange-200 dark:border-orange-800 shadow-sm bg-orange-50/50 dark:bg-orange-900/20">
+                  <CardContent className="p-3">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Move deal to stage:{' '}
-                      <span className="text-orange-600 font-semibold">
-                        {/* This would need to fetch the target stage name */}
-                        Next Stage
-                      </span>
+                      Move deal to next stage
                     </p>
                   </CardContent>
                 </Card>
@@ -233,14 +247,55 @@ export function AutomationWorkflowPreview({
 
               {/* Create Deal Step */}
               {step.step_type === 'create_deal' && (
-                <Card className="border-purple-200 shadow-sm bg-purple-50/50">
-                  <CardContent className="p-4">
+                <Card className="border-purple-200 dark:border-purple-800 shadow-sm bg-purple-50/50 dark:bg-purple-900/20">
+                  <CardContent className="p-3">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Create a deal for contact
+                      Create deal for contact
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Round-robin assignment to selected recruiters
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Round-robin assignment to recruiters
                     </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Notify Step */}
+              {step.step_type === 'notify' && (
+                <Card className="border-amber-200 dark:border-amber-800 shadow-sm bg-amber-50/50 dark:bg-amber-900/20">
+                  <CardContent className="p-3">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {step.notify_type === 'parent' && 'Notify parent/guardian'}
+                      {step.notify_type === 'deal_owner' && 'Notify deal owner'}
+                      {step.notify_type === 'admin' && 'Notify admin'}
+                      {!step.notify_type && 'Send notification'}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Create Portal Account Step */}
+              {step.step_type === 'create_portal_account' && (
+                <Card className="border-cyan-200 dark:border-cyan-800 shadow-sm bg-cyan-50/50 dark:bg-cyan-900/20">
+                  <CardContent className="p-3">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Create player portal account
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* SMS Step */}
+              {step.step_type === 'send_sms' && (
+                <Card className="border-emerald-200 dark:border-emerald-800 shadow-sm bg-emerald-50/50 dark:bg-emerald-900/20">
+                  <CardContent className="p-3">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Send SMS
+                    </p>
+                    {step.sms_content && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {step.sms_content}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -250,33 +305,41 @@ export function AutomationWorkflowPreview({
       ))}
 
       {/* Exit Conditions */}
-      {automation.stop_on_stage_ids && automation.stop_on_stage_ids.length > 0 && (
+      {(automation.stop_on_stage_ids?.length || automation.exit_on_reply || automation.config?.stop_on_payment) && (
         <div className="relative">
           <div className="flex items-start gap-4 pt-1 pb-4">
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/50 text-green-600 shadow-sm">
               <CheckCircle2 className="h-4 w-4" />
             </div>
             <div className="flex-1 pt-0.5">
-              <Card className="border-green-200 shadow-sm bg-green-50/50">
-                <CardContent className="p-4">
+              <Card className="border-green-200 dark:border-green-800 shadow-sm bg-green-50/50 dark:bg-green-900/20">
+                <CardContent className="p-3">
                   <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                    Exit early when
+                    Exit conditions
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Deal moves to:{' '}
-                    {automation.stop_stages?.map((stage, i) => (
-                      <span key={stage.id}>
-                        {i > 0 && <span className="mx-1">or</span>}
-                        <Badge variant="outline" className="text-xs font-normal">
-                          {stage.name}
-                        </Badge>
-                      </span>
-                    )) || (
-                      <span className="text-muted-foreground">
-                        {automation.stop_on_stage_ids.length} stage(s) selected
-                      </span>
+                  <div className="space-y-1">
+                    {automation.exit_on_reply && (
+                      <p className="text-xs text-muted-foreground">
+                        • Contact replies to email
+                      </p>
                     )}
-                  </p>
+                    {automation.config?.stop_on_payment && (
+                      <p className="text-xs text-muted-foreground">
+                        • Payment received
+                      </p>
+                    )}
+                    {automation.stop_on_stage_ids && automation.stop_on_stage_ids.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        • Deal moves to:{' '}
+                        {automation.stop_stages?.map((stage, i) => (
+                          <span key={stage.id}>
+                            {i > 0 && ', '}
+                            <span className="font-medium">{stage.name}</span>
+                          </span>
+                        )) || `${automation.stop_on_stage_ids.length} stage(s)`}
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </div>

@@ -50,6 +50,14 @@ const defaultProgrammePerformance = [
   { programme: 'No data', enrolments: 0 },
 ]
 
+const defaultStageConversionRates = [
+  { fromStage: 'Stage 1', toStage: 'Stage 2', rate: 0 },
+]
+
+const defaultAvgTimePerStage = [
+  { stage: 'No data', avgDays: 0 },
+]
+
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -69,15 +77,23 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
 
   const leadsOverTime = data?.leadsOverTime?.length ? data.leadsOverTime : defaultLeadsOverTime
   const pipelineFunnel = data?.pipelineFunnel?.length ? data.pipelineFunnel : defaultPipelineFunnel
+  const stageConversionRates = data?.stageConversionRates?.length ? data.stageConversionRates : defaultStageConversionRates
+  const avgTimePerStage = data?.avgTimePerStage?.length ? data.avgTimePerStage : defaultAvgTimePerStage
   const revenueByMonth = data?.revenueByMonth?.length ? data.revenueByMonth : defaultRevenueByMonth
   const leadsBySource = data?.leadsBySource?.length ? data.leadsBySource : defaultLeadsBySource
   const topRecruiters = data?.topRecruiters?.length ? data.topRecruiters : defaultTopRecruiters
   const programmePerformance = data?.programmePerformance?.length ? data.programmePerformance : defaultProgrammePerformance
 
+  // Transform stage conversion rates for display
+  const conversionRatesForChart = stageConversionRates.map(item => ({
+    transition: `${item.fromStage} → ${item.toStage}`,
+    rate: item.rate,
+  }))
+
   if (isLoading || !isMounted) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <Card key={i}>
             <CardHeader>
               <Skeleton className="h-5 w-32" />
@@ -156,6 +172,96 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
                 <Bar dataKey="count" fill="#3B82F6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stage Conversion Rates */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Stage Conversion Rates</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            {conversionRatesForChart.length > 0 && conversionRatesForChart[0].rate > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={conversionRatesForChart} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 12 }}
+                    stroke="#9CA3AF"
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                  />
+                  <YAxis
+                    dataKey="transition"
+                    type="category"
+                    tick={{ fontSize: 10 }}
+                    stroke="#9CA3AF"
+                    width={120}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                    }}
+                    formatter={(value) => [`${value}%`, 'Conversion Rate']}
+                  />
+                  <Bar dataKey="rate" fill="#10B981" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                No stage transition data available
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Average Time Per Stage */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Average Time Per Stage (Days)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            {avgTimePerStage.length > 0 && avgTimePerStage[0].avgDays > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={avgTimePerStage}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="stage"
+                    tick={{ fontSize: 10 }}
+                    stroke="#9CA3AF"
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    stroke="#9CA3AF"
+                    tickFormatter={(value) => `${value}d`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                    }}
+                    formatter={(value) => [`${value} days`, 'Avg Time']}
+                  />
+                  <Bar dataKey="avgDays" fill="#6366F1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                No stage timing data available
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

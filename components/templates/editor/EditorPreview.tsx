@@ -72,7 +72,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
       {/* Preview Header */}
       <div className="p-4 border-b border-slate-200 space-y-4 shrink-0">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-blue-900 uppercase">Preview</h3>
+          <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">Preview</h3>
           <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
             <Button
               variant="ghost"

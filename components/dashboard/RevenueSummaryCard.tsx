@@ -76,10 +76,8 @@ export function RevenueSummaryCard() {
   })
 
   return (
-    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-emerald-50 dark:from-emerald-900/20 to-transparent pointer-events-none" />
-
-      <CardHeader className="relative z-10 pb-2">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
             <PoundSterling className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -89,7 +87,7 @@ export function RevenueSummaryCard() {
           </CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="relative z-10 pt-0">
+      <CardContent className="pt-0">
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-10 w-28" />

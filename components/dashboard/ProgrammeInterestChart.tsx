@@ -84,16 +84,13 @@ export function ProgrammeInterestChart() {
   const circumference = 2 * Math.PI * radius
 
   return (
-    <Card className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
-      {/* Subtle gradient overlay from top */}
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none" />
-      
-      <CardHeader className="relative z-10 pb-3">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-purple-100">
-            <PieChart className="h-4 w-4 text-purple-600" />
+          <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
+            <PieChart className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           </div>
-          <CardTitle className="font-oswald text-sm font-medium text-blue-900 uppercase">
+          <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
             PROGRAMME INTEREST
           </CardTitle>
         </div>
@@ -101,7 +98,7 @@ export function ProgrammeInterestChart() {
           Distribution of player interest across programmes
         </p>
       </CardHeader>
-      <CardContent className="relative z-10 pt-0">
+      <CardContent className="pt-0">
         {isLoading ? (
           <div className="flex flex-col items-center gap-4">
             <Skeleton className="h-40 w-40 rounded-full" />

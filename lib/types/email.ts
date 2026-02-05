@@ -2,7 +2,7 @@ import type { Contact } from './contacts'
 import type { Campaign } from './campaigns'
 import type { Profile } from './pipelines'
 
-export type EmailIntent = 'positive' | 'negative' | 'neutral' | 'unknown'
+export type EmailIntent = 'positive' | 'negative' | 'neutral' | 'question' | 'unknown'
 export type EmailMatchStatus = 'auto_matched' | 'manually_matched' | 'unmatched' | 'spam'
 export type EmailFollowUpStatus = 'open' | 'in_progress' | 'completed'
 
@@ -34,4 +34,5 @@ export interface EmailReplyCounts {
   today: number
   positive: number
   negative: number
+  question: number
 }

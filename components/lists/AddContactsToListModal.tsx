@@ -168,33 +168,33 @@ export function AddContactsToListModal({
           ) : availableContacts.length === 0 && alreadyInListContacts.length > 0 ? (
             <div className="divide-y">
               {/* Show already-in-list contacts with message */}
-              <div className="p-3 bg-amber-50 border-b border-amber-100">
-                <p className="text-sm text-amber-700 text-center">
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-100 dark:border-amber-800">
+                <p className="text-sm text-amber-700 dark:text-amber-300 text-center">
                   All matching contacts are already in this list
                 </p>
               </div>
               {alreadyInListContacts.map((contact) => (
                 <div
                   key={contact.id}
-                  className="flex items-center gap-3 p-3 bg-slate-50/50 opacity-60 cursor-not-allowed"
+                  className="flex items-center gap-3 p-3 bg-slate-50/50 dark:bg-slate-800/50 opacity-60 cursor-not-allowed"
                 >
-                  <div className="h-4 w-4 rounded border border-slate-300 bg-slate-200 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-slate-500" />
+                  <div className="h-4 w-4 rounded border border-slate-300 dark:border-slate-600 bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                   </div>
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-slate-100 text-slate-500 text-xs">
+                    <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs">
                       {getInitials(contact)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-500 truncate">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
                       {contact.first_name} {contact.last_name}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {contact.email}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-600">
+                  <Badge variant="secondary" className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
                     Already in list
                   </Badge>
                 </div>
@@ -205,13 +205,13 @@ export function AddContactsToListModal({
               {/* Select All - only for available contacts */}
               {availableContacts.length > 0 && (
                 <div
-                  className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b bg-slate-50"
+                  className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b bg-slate-50 dark:bg-slate-800"
                   onClick={handleSelectAll}
                 >
                   <Checkbox
                     checked={selectedIds.size === availableContacts.length && availableContacts.length > 0}
                   />
-                  <span className="text-sm font-medium text-gray-600">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                     Select all ({availableContacts.length})
                   </span>
                 </div>
@@ -221,25 +221,25 @@ export function AddContactsToListModal({
               {alreadyInListContacts.map((contact) => (
                 <div
                   key={contact.id}
-                  className="flex items-center gap-3 p-3 bg-slate-50/50 opacity-60 cursor-not-allowed"
+                  className="flex items-center gap-3 p-3 bg-slate-50/50 dark:bg-slate-800/50 opacity-60 cursor-not-allowed"
                 >
-                  <div className="h-4 w-4 rounded border border-slate-300 bg-slate-200 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-slate-500" />
+                  <div className="h-4 w-4 rounded border border-slate-300 dark:border-slate-600 bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                   </div>
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-slate-100 text-slate-500 text-xs">
+                    <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs">
                       {getInitials(contact)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-500 truncate">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
                       {contact.first_name} {contact.last_name}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {contact.email}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-600">
+                  <Badge variant="secondary" className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
                     Already in list
                   </Badge>
                 </div>

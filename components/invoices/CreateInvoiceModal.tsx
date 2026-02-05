@@ -71,6 +71,8 @@ export function CreateInvoiceModal({
   const [type, setType] = useState<InvoiceType>('deposit')
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
+  const [discountType, setDiscountType] = useState<'none' | 'percentage' | 'fixed'>('none')
+  const [discountValue, setDiscountValue] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
   const [dueDateOpen, setDueDateOpen] = useState(false)
   const [notes, setNotes] = useState('')
@@ -91,10 +93,27 @@ export function CreateInvoiceModal({
       setType('deposit')
       setDescription('')
       setAmount('')
+      setDiscountType('none')
+      setDiscountValue('')
       setDueDate(undefined)
       setNotes('')
     }
   }, [isOpen])
+
+  // Calculate final amount after discount
+  const calculateFinalAmount = () => {
+    const baseAmount = parseFloat(amount) || 0
+    if (discountType === 'none' || !discountValue) return baseAmount
+
+    const discountVal = parseFloat(discountValue) || 0
+    if (discountType === 'percentage') {
+      return baseAmount * (1 - discountVal / 100)
+    } else {
+      return Math.max(0, baseAmount - discountVal)
+    }
+  }
+
+  const finalAmount = calculateFinalAmount()
 
   const handleSelectContact = (contact: { id: string; first_name: string; last_name: string }) => {
     setSelectedContactId(contact.id)
@@ -106,13 +125,22 @@ export function CreateInvoiceModal({
   const handleSubmit = async (sendNow: boolean) => {
     if (!selectedContactId || !description || !amount || !dueDate) return
 
+    // Build description with discount note if applicable
+    let finalDescription = description
+    if (discountType !== 'none' && discountValue) {
+      const discountNote = discountType === 'percentage'
+        ? `(${discountValue}% scholarship applied)`
+        : `(£${discountValue} discount applied)`
+      finalDescription = `${description} ${discountNote}`
+    }
+
     try {
       const invoice = await createInvoice.mutateAsync({
         contact_id: selectedContactId,
         deal_id: selectedDealId,
         type,
-        description,
-        amount: parseFloat(amount),
+        description: finalDescription,
+        amount: finalAmount,
         due_date: format(dueDate, 'yyyy-MM-dd'),
         notes: notes || undefined,
         created_by_id: userId,
@@ -167,12 +195,12 @@ export function CreateInvoiceModal({
           <div className="space-y-6 py-6">
             {/* Contact & Deal */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Contact & Deal
               </h3>
               
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Contact <span className="text-red-500">*</span>
                 </Label>
                 <Popover open={contactOpen} onOpenChange={setContactOpen}>
@@ -229,7 +257,7 @@ export function CreateInvoiceModal({
 
               {selectedContactId && deals.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Link to Deal (optional)</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Link to Deal (optional)</Label>
                   <Select
                     value={selectedDealId || '__none__'}
                     onValueChange={(v) => setSelectedDealId(v === '__none__' ? null : v)}
@@ -252,13 +280,13 @@ export function CreateInvoiceModal({
 
             {/* Invoice Details */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Invoice Details
               </h3>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Type <span className="text-red-500">*</span>
                   </Label>
                   <Select value={type} onValueChange={(v) => setType(v as InvoiceType)}>
@@ -276,7 +304,7 @@ export function CreateInvoiceModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Due Date <span className="text-red-500">*</span>
                   </Label>
                   <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
@@ -308,7 +336,7 @@ export function CreateInvoiceModal({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Description <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -319,7 +347,7 @@ export function CreateInvoiceModal({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Amount (£) <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
@@ -338,8 +366,50 @@ export function CreateInvoiceModal({
                 </div>
               </div>
 
+              {/* Discount/Scholarship */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Notes (optional)</Label>
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Discount / Scholarship</Label>
+                <div className="flex gap-2">
+                  <Select value={discountType} onValueChange={(v) => setDiscountType(v as 'none' | 'percentage' | 'fixed')}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No discount</SelectItem>
+                      <SelectItem value="percentage">Percentage (%)</SelectItem>
+                      <SelectItem value="fixed">Fixed (£)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {discountType !== 'none' && (
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {discountType === 'percentage' ? '%' : '£'}
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step={discountType === 'percentage' ? '1' : '0.01'}
+                        max={discountType === 'percentage' ? '100' : undefined}
+                        value={discountValue}
+                        onChange={(e) => setDiscountValue(e.target.value)}
+                        placeholder={discountType === 'percentage' ? '10' : '100.00'}
+                        className="pl-7"
+                      />
+                    </div>
+                  )}
+                </div>
+                {discountType !== 'none' && discountValue && parseFloat(amount) > 0 && (
+                  <p className="text-sm text-green-600 font-medium">
+                    Final amount: £{finalAmount.toFixed(2)}
+                    <span className="text-muted-foreground font-normal ml-1">
+                      (saving £{(parseFloat(amount) - finalAmount).toFixed(2)})
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes (optional)</Label>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -351,7 +421,7 @@ export function CreateInvoiceModal({
           </div>
         </div>
 
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50 shrink-0">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
           <div className="flex gap-3 w-full">
             <Button
               variant="outline"

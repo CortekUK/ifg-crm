@@ -145,6 +145,62 @@ export function useDeleteInvoice() {
   })
 }
 
+export function useBulkUpdateInvoiceStatus() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      invoiceIds,
+      status,
+    }: {
+      invoiceIds: string[]
+      status: InvoiceStatus
+    }) => {
+      const updateData: Record<string, unknown> = { status }
+
+      // Set timestamps based on status
+      if (status === 'sent') {
+        updateData.sent_at = new Date().toISOString()
+      }
+      if (status === 'paid') {
+        updateData.paid_at = new Date().toISOString()
+      }
+
+      const { error } = await supabase
+        .from('invoices')
+        .update(updateData)
+        .in('id', invoiceIds)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
+    },
+  })
+}
+
+export function useBulkDeleteInvoices() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (invoiceIds: string[]) => {
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .in('id', invoiceIds)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
+    },
+  })
+}
+
 export function useInvoiceStats() {
   const supabase = createClient()
 

@@ -3,15 +3,22 @@
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { Phone } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  MessageSquare,
+  Calendar,
+  User,
+  Sparkles,
+  Phone,
+  ExternalLink,
+  Tag
+} from 'lucide-react'
 import { formatDateLong, formatRelativeTime, formatPhoneNumber } from '@/lib/utils/format'
 import type { SMSMessage, SMSIntent } from '@/lib/types/sms'
 
@@ -21,11 +28,12 @@ interface SMSDetailSheetProps {
   onClose: () => void
 }
 
-const intentConfig: Record<SMSIntent, { label: string; className: string }> = {
-  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
-  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
-  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500' },
+const intentConfig: Record<SMSIntent, { label: string; className: string; icon: string }> = {
+  positive: { label: 'Positive Intent', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700', icon: '✓' },
+  negative: { label: 'Negative Intent', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700', icon: '✗' },
+  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600', icon: '—' },
+  question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700', icon: '?' },
+  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600', icon: '?' },
 }
 
 export function SMSDetailSheet({
@@ -51,94 +59,165 @@ export function SMSDetailSheet({
     ? `${message.contact.first_name} ${message.contact.last_name}`
     : formatPhoneNumber(message.phone_number)
 
+  const isMatched = message.match_status === 'auto_matched' || message.match_status === 'manually_matched'
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>SMS Details</SheetTitle>
-          <SheetDescription>
-            Full message content and metadata
-          </SheetDescription>
+      <SheetContent className="sm:max-w-lg flex flex-col p-0 gap-0">
+        {/* Header */}
+        <SheetHeader className="px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-purple-100 dark:bg-purple-900/50">
+              <MessageSquare className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
+                SMS Details
+              </SheetTitle>
+              <p className="text-sm text-muted-foreground">
+                View full message content and metadata
+              </p>
+            </div>
+          </div>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-140px)] pr-4">
-          <div className="space-y-6 mt-6">
-            {/* Sender Info */}
-            <div className="flex items-start gap-4">
-              {message.contact ? (
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600">
-                    {getInitials(message.contact.first_name, message.contact.last_name)}
-                  </AvatarFallback>
-                </Avatar>
-              ) : (
-                <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Phone className="h-6 w-6 text-gray-500" />
+        <ScrollArea className="flex-1">
+          <div className="px-6 py-6 space-y-6">
+            {/* Sender Card */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-start gap-4">
+                {message.contact ? (
+                  <Avatar className="h-12 w-12 ring-2 ring-white dark:ring-slate-700 shadow-sm">
+                    <AvatarFallback className="bg-purple-500 text-white font-semibold">
+                      {getInitials(message.contact.first_name, message.contact.last_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="h-12 w-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center ring-2 ring-white dark:ring-slate-700 shadow-sm">
+                    <Phone className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 dark:text-white text-lg">
+                    {displayName}
+                  </p>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5" />
+                    <span>{formatPhoneNumber(message.phone_number)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{formatDateLong(message.created_at)}</span>
+                    <span className="text-slate-400 dark:text-slate-600">•</span>
+                    <span>{formatRelativeTime(message.created_at)}</span>
+                  </div>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 dark:text-white">{displayName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatPhoneNumber(message.phone_number)}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatDateLong(message.created_at)} ({formatRelativeTime(message.created_at)})
-                </p>
               </div>
             </div>
 
-            {/* Status Badges */}
+            {/* AI Classification */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100 uppercase tracking-wide flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                AI Classification
+              </h3>
+              <div className={`flex items-center gap-3 p-4 rounded-xl border ${intentInfo.className}`}>
+                <div className="h-10 w-10 rounded-full bg-white/50 dark:bg-black/20 flex items-center justify-center text-lg font-bold">
+                  {intentInfo.icon}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">{intentInfo.label}</p>
+                    {confidence !== null && (
+                      <span className="text-xs opacity-70">({confidence}% confident)</span>
+                    )}
+                  </div>
+                  <p className="text-xs opacity-80">
+                    {intent === 'positive' && 'This message shows interest or positive sentiment'}
+                    {intent === 'negative' && 'This message indicates disinterest or negative sentiment'}
+                    {intent === 'neutral' && 'This message has neutral or unclear sentiment'}
+                    {intent === 'question' && 'This message contains a question requiring response'}
+                    {intent === 'unknown' && 'Unable to determine sentiment'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Status & Pipeline */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={intentInfo.className}>{intentInfo.label}</Badge>
-              {confidence !== null && (
-                <span className="text-xs text-muted-foreground">
-                  {confidence}% confident
-                </span>
-              )}
-              {message.match_status === 'unmatched' && (
-                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                  Unmatched
+              {message.match_status === 'auto_matched' && (
+                <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700">
+                  Auto-matched
                 </Badge>
               )}
-              {message.match_status === 'auto_matched' && (
-                <Badge variant="outline">Auto-matched</Badge>
-              )}
               {message.match_status === 'manually_matched' && (
-                <Badge variant="outline">Manually matched</Badge>
+                <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700">
+                  Manually matched
+                </Badge>
               )}
               {message.match_status === 'spam' && (
                 <Badge variant="destructive">Spam</Badge>
               )}
+              {message.match_status === 'unmatched' && (
+                <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700">
+                  Unmatched
+                </Badge>
+              )}
               {message.pipeline && (
-                <Badge variant="secondary">{message.pipeline.name}</Badge>
+                <Badge variant="secondary" className="gap-1">
+                  <Tag className="h-3 w-3" />
+                  {message.pipeline.name}
+                </Badge>
               )}
             </div>
 
             {/* Matched Contact */}
-            {message.contact && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-green-800 mb-1">
-                  Matched to Contact
-                </p>
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  {message.contact.first_name} {message.contact.last_name}
-                </p>
-                {message.contact.email && (
-                  <p className="text-xs text-green-600">{message.contact.email}</p>
-                )}
-                {message.contact.phone && (
-                  <p className="text-xs text-green-600">{formatPhoneNumber(message.contact.phone)}</p>
-                )}
+            {isMatched && message.contact && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100 uppercase tracking-wide flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Matched Contact
+                </h3>
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
+                          {message.contact.first_name?.[0]}{message.contact.last_name?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-green-900 dark:text-green-100">
+                          {message.contact.first_name} {message.contact.last_name}
+                        </p>
+                        {message.contact.email && (
+                          <p className="text-sm text-green-700 dark:text-green-400">
+                            {message.contact.email}
+                          </p>
+                        )}
+                        {message.contact.phone && (
+                          <p className="text-sm text-green-700 dark:text-green-400">
+                            {formatPhoneNumber(message.contact.phone)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" className="text-green-700 dark:text-green-300 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-800/50">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 
-            <Separator />
-
-            {/* Message Content */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Message</h3>
-              <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4">
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            {/* Message Body */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100 uppercase tracking-wide flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Message
+              </h3>
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
                   {message.content || '(No content)'}
                 </p>
               </div>

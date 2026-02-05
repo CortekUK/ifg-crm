@@ -266,7 +266,7 @@ export function CampaignDetailSheet({
                 <TabsContent value="details" className="px-6 py-4 space-y-6 mt-0">
                   {/* Campaign Info */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                       Campaign Information
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -335,7 +335,7 @@ export function CampaignDetailSheet({
                   {/* Recipient Lists */}
                   {campaign.recipient_lists && campaign.recipient_lists.length > 0 && (
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                      <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Recipient Lists
                       </h3>
                       <div className="space-y-2">
@@ -552,7 +552,7 @@ export function CampaignDetailSheet({
                 </TabsContent>
 
                 <TabsContent value="content" className="px-6 py-4 space-y-6 mt-0">
-                  <h3 className="text-sm font-semibold text-blue-900 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     {campaign.type === 'email' ? 'Email Content' : 'SMS Content'}
                   </h3>
 

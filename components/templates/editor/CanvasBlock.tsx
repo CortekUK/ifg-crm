@@ -13,6 +13,9 @@ import { SpacerBlock } from './blocks/SpacerBlock'
 import { VideoBlock } from './blocks/VideoBlock'
 import { SocialBlock } from './blocks/SocialBlock'
 import { HTMLBlock } from './blocks/HTMLBlock'
+import { ColumnsBlock } from './blocks/ColumnsBlock'
+import { ConditionalBlock } from './blocks/ConditionalBlock'
+import { RecruiterSignatureBlock } from './blocks/RecruiterSignatureBlock'
 import type { EditorBlock } from '@/lib/templates/editor-types'
 
 interface CanvasBlockProps {
@@ -101,6 +104,30 @@ export function CanvasBlock({
       case 'html':
         return (
           <HTMLBlock
+            content={blockContent}
+            isSelected={isSelected}
+            onUpdate={onUpdate}
+          />
+        )
+      case 'columns':
+        return (
+          <ColumnsBlock
+            content={blockContent}
+            isSelected={isSelected}
+            onUpdate={onUpdate}
+          />
+        )
+      case 'conditional':
+        return (
+          <ConditionalBlock
+            content={blockContent}
+            isSelected={isSelected}
+            onUpdate={onUpdate}
+          />
+        )
+      case 'recruiter_signature':
+        return (
+          <RecruiterSignatureBlock
             content={blockContent}
             isSelected={isSelected}
             onUpdate={onUpdate}

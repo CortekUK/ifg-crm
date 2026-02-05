@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Search, X } from 'lucide-react'
+import { usePipelines } from '@/lib/hooks/usePipelines'
 import type { PaymentFilters as Filters } from '@/lib/types/payments'
 
 interface PaymentFiltersProps {
@@ -19,6 +20,8 @@ interface PaymentFiltersProps {
 }
 
 export function PaymentFilters({ filters, onFiltersChange }: PaymentFiltersProps) {
+  const { data: pipelines = [] } = usePipelines()
+
   const handleChange = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     onFiltersChange({ ...filters, [key]: value })
   }
@@ -28,6 +31,7 @@ export function PaymentFilters({ filters, onFiltersChange }: PaymentFiltersProps
       search: '',
       paymentMethod: 'all',
       status: 'all',
+      pipelineId: undefined,
       dateFrom: null,
       dateTo: null,
     })
@@ -37,6 +41,7 @@ export function PaymentFilters({ filters, onFiltersChange }: PaymentFiltersProps
     filters.search ||
     filters.paymentMethod !== 'all' ||
     filters.status !== 'all' ||
+    filters.pipelineId ||
     filters.dateFrom ||
     filters.dateTo
 
@@ -85,6 +90,24 @@ export function PaymentFilters({ filters, onFiltersChange }: PaymentFiltersProps
             <SelectItem value="successful">Successful</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Programme Filter */}
+        <Select
+          value={filters.pipelineId || 'all'}
+          onValueChange={(v) => handleChange('pipelineId', v === 'all' ? undefined : v)}
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All Programmes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Programmes</SelectItem>
+            {pipelines.map((pipeline) => (
+              <SelectItem key={pipeline.id} value={pipeline.id}>
+                {pipeline.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

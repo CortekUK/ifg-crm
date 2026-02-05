@@ -51,11 +51,11 @@ export function DeleteTemplateDialog({
                 Checking template usage...
               </div>
             ) : usage?.isUsed ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
-                <p className="text-amber-800 font-medium text-sm">
+              <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                <p className="text-amber-800 dark:text-amber-200 font-medium text-sm">
                   Warning: This template is used in {usage.usedInAutomations.length} automation(s):
                 </p>
-                <ul className="mt-2 text-sm text-amber-700 list-disc list-inside">
+                <ul className="mt-2 text-sm text-amber-700 dark:text-amber-300 list-disc list-inside">
                   {usage.usedInAutomations.slice(0, 5).map((automation) => (
                     <li key={automation.id}>{automation.name}</li>
                   ))}

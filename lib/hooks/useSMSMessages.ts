@@ -95,6 +95,14 @@ export function useSMSMessageCounts() {
         .eq('ai_intent', 'negative')
         .eq('match_status', 'unmatched')
 
+      // Get question intent count
+      const { count: questionCount } = await supabase
+        .from('sms_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'inbound')
+        .eq('ai_intent', 'question')
+        .eq('match_status', 'unmatched')
+
       return {
         unmatched: unmatchedCount || 0,
         matched: matchedCount || 0,
@@ -102,6 +110,7 @@ export function useSMSMessageCounts() {
         today: todayCount || 0,
         positive: positiveCount || 0,
         negative: negativeCount || 0,
+        question: questionCount || 0,
       }
     },
   })

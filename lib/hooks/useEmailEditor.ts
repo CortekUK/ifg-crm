@@ -186,6 +186,29 @@ export function useEmailEditor(templateId?: string) {
     [settings, saveToHistory, markChanged]
   )
 
+  // Add block from module (with predefined content)
+  const addBlockFromModule = useCallback(
+    (block: EditorBlock, index?: number) => {
+      // Ensure the block has a new unique ID
+      const newBlock: EditorBlock = {
+        ...block,
+        id: generateId(),
+      }
+
+      setBlocks((prev) => {
+        const newBlocks =
+          index !== undefined
+            ? [...prev.slice(0, index), newBlock, ...prev.slice(index)]
+            : [...prev, newBlock]
+        saveToHistory(newBlocks, settings)
+        return newBlocks
+      })
+      setSelectedBlockId(newBlock.id)
+      markChanged()
+    },
+    [settings, saveToHistory, markChanged]
+  )
+
   // Update block
   const updateBlock = useCallback(
     (id: string, updates: Partial<EditorBlock['content']>) => {
@@ -364,6 +387,7 @@ export function useEmailEditor(templateId?: string) {
 
     // Block operations
     addBlock,
+    addBlockFromModule,
     updateBlock,
     deleteBlock,
     duplicateBlock,

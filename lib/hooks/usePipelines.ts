@@ -40,6 +40,7 @@ export function useAllPipelines() {
 interface CreatePipelineInput {
   name: string
   sport: 'football' | 'basketball'
+  is_active?: boolean
   programme_id?: string | null
   stages?: Array<{
     name: string
@@ -72,7 +73,7 @@ export function useCreatePipeline() {
           sport: input.sport,
           programme_id: input.programme_id || null,
           display_order: maxOrder + 1,
-          is_active: true,
+          is_active: input.is_active ?? true,
         })
         .select()
         .single()
