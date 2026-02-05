@@ -544,18 +544,12 @@ export function ContactDetailSheet({
               </div>
 
               {/* Player Information */}
-              {(contact.position || contact.club_name || contact.gpa || contact.sport) && (
+              {(contact.position || contact.club_name || contact.gpa) && (
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Player Information
                   </h3>
                   <div className="space-y-3">
-                    {contact.sport && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Sport</span>
-                        <span className="text-sm font-medium">{contact.sport === 'football' ? 'Football' : 'Basketball'}</span>
-                      </div>
-                    )}
                     {contact.position && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-slate-500">Position</span>

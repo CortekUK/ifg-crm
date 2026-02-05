@@ -10,13 +10,6 @@ import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -60,7 +53,6 @@ import type { Pipeline, PipelineStage } from '@/lib/types/pipelines'
 
 interface CreatePipelineFormData {
   name: string
-  sport: 'football' | 'basketball'
   is_active: boolean
 }
 
@@ -98,14 +90,12 @@ export function PipelineManagementSettings() {
 
   const [createFormData, setCreateFormData] = useState<CreatePipelineFormData>({
     name: '',
-    sport: 'football',
     is_active: true,
   })
 
   const [editFormData, setEditFormData] = useState<EditPipelineFormData>({
     id: '',
     name: '',
-    sport: 'football',
     is_active: true,
   })
 
@@ -117,7 +107,7 @@ export function PipelineManagementSettings() {
     try {
       await createPipeline.mutateAsync({
         name: createFormData.name.trim(),
-        sport: createFormData.sport,
+        sport: 'football',
         is_active: createFormData.is_active,
       })
 
@@ -127,7 +117,7 @@ export function PipelineManagementSettings() {
       })
 
       setIsCreateModalOpen(false)
-      setCreateFormData({ name: '', sport: 'football', is_active: true })
+      setCreateFormData({ name: '', is_active: true })
     } catch (error) {
       toast({
         title: 'Failed to create pipeline',
@@ -145,7 +135,6 @@ export function PipelineManagementSettings() {
         pipelineId: editFormData.id,
         updates: {
           name: editFormData.name.trim(),
-          sport: editFormData.sport,
           is_active: editFormData.is_active,
         },
       })
@@ -191,7 +180,6 @@ export function PipelineManagementSettings() {
     setEditFormData({
       id: pipeline.id,
       name: pipeline.name,
-      sport: pipeline.sport,
       is_active: pipeline.is_active,
     })
     setIsEditModalOpen(true)
@@ -303,9 +291,11 @@ export function PipelineManagementSettings() {
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                       <div className="flex items-center gap-2 flex-1 text-left">
                         <span className="font-medium">{pipeline.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {pipeline.sport}
-                        </Badge>
+                        {pipeline.programme && (
+                          <Badge variant="outline" className="text-xs">
+                            {pipeline.programme.name}
+                          </Badge>
+                        )}
                         {!pipeline.is_active && (
                           <Badge variant="secondary" className="text-xs">
                             Inactive
@@ -440,24 +430,6 @@ export function PipelineManagementSettings() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pipeline-sport">Sport</Label>
-              <Select
-                value={createFormData.sport}
-                onValueChange={(v: 'football' | 'basketball') =>
-                  setCreateFormData((prev) => ({ ...prev, sport: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="football">Football</SelectItem>
-                  <SelectItem value="basketball">Basketball</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="pipeline-active">Active</Label>
@@ -514,24 +486,6 @@ export function PipelineManagementSettings() {
                 onChange={(e) => setEditFormData((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g. UCLan 2027"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-pipeline-sport">Sport</Label>
-              <Select
-                value={editFormData.sport}
-                onValueChange={(v: 'football' | 'basketball') =>
-                  setEditFormData((prev) => ({ ...prev, sport: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="football">Football</SelectItem>
-                  <SelectItem value="basketball">Basketball</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="flex items-center justify-between">

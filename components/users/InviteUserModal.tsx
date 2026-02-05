@@ -37,7 +37,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
     email: '',
     role: 'recruiter',
     title: '',
-    sport: 'football',
     phone: '',
     calendlyUrl: '',
     zoomUrl: '',
@@ -55,7 +54,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         email: '',
         role: 'recruiter',
         title: '',
-        sport: 'football',
         phone: '',
         calendlyUrl: '',
         zoomUrl: '',
@@ -86,7 +84,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         fullName: formData.fullName,
         role: formData.role,
         title: formData.title || undefined,
-        sport: formData.sport,
         phone: formData.phone || undefined,
         calendlyUrl: formData.calendlyUrl || undefined,
         zoomUrl: formData.zoomUrl || undefined,
@@ -110,7 +107,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
   }
 
   const isValid = formData.fullName && formData.email
-  const isRecruiter = formData.role === 'recruiter'
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -157,33 +153,18 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Role</Label>
-                  <Select value={formData.role} onValueChange={(v) => handleChange('role', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="recruiter">Recruiter</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sport</Label>
-                  <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="football">Football</SelectItem>
-                      <SelectItem value="basketball">Basketball</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Role</Label>
+                <Select value={formData.role} onValueChange={(v) => handleChange('role', v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="recruiter">Recruiter</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -254,15 +235,15 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
               </div>
             </div>
 
-            {/* Pipeline Assignment - Only show for recruiters */}
-            {isRecruiter && pipelines.length > 0 && (
+            {/* Pipeline Assignment */}
+            {pipelines.length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center gap-2">
                   <GitBranch className="h-4 w-4" />
                   Pipeline Assignment
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Select pipelines this recruiter will be assigned to for round-robin deal distribution.
+                  Select pipelines this user will be assigned to for round-robin deal distribution.
                 </p>
 
                 <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3 bg-slate-50 dark:bg-slate-800/50">
@@ -278,10 +259,12 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
                         className="text-sm font-normal cursor-pointer flex-1"
                       >
                         {pipeline.name}
+                        {pipeline.programme && (
+                          <span className="text-muted-foreground ml-1">
+                            ({pipeline.programme.name})
+                          </span>
+                        )}
                       </Label>
-                      <Badge variant="outline" className="text-xs">
-                        {pipeline.sport}
-                      </Badge>
                     </div>
                   ))}
                 </div>

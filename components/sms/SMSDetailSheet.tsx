@@ -17,7 +17,9 @@ import {
   Sparkles,
   Phone,
   ExternalLink,
-  Tag
+  Tag,
+  GitBranch,
+  Target,
 } from 'lucide-react'
 import { formatDateLong, formatRelativeTime, formatPhoneNumber } from '@/lib/utils/format'
 import type { SMSMessage, SMSIntent } from '@/lib/types/sms'
@@ -143,7 +145,7 @@ export function SMSDetailSheet({
               </div>
             </div>
 
-            {/* Status & Pipeline */}
+            {/* Status */}
             <div className="flex items-center gap-2 flex-wrap">
               {message.match_status === 'auto_matched' && (
                 <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700">
@@ -163,13 +165,37 @@ export function SMSDetailSheet({
                   Unmatched
                 </Badge>
               )}
-              {message.pipeline && (
-                <Badge variant="secondary" className="gap-1">
-                  <Tag className="h-3 w-3" />
-                  {message.pipeline.name}
-                </Badge>
-              )}
             </div>
+
+            {/* Pipeline Info */}
+            {message.pipeline && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100 uppercase tracking-wide flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Programme Pipeline
+                </h3>
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-800/50 flex items-center justify-center">
+                      <GitBranch className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-purple-900 dark:text-purple-100">
+                        {message.pipeline.name}
+                      </p>
+                      {message.pipeline.programme && (
+                        <p className="text-sm text-purple-700 dark:text-purple-400">
+                          Programme: {message.pipeline.programme.name}
+                        </p>
+                      )}
+                      <p className="text-xs text-purple-600/80 dark:text-purple-400/80 mt-1">
+                        Use Smart Process to create deals from this reply
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Matched Contact */}
             {isMatched && message.contact && (

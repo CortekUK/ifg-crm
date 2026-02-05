@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2, Send } from 'lucide-react'
+import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2, Send, GitBranch } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -142,6 +142,7 @@ export function CampaignsTable({
               <TableHead className="w-12"><Checkbox disabled /></TableHead>
               <TableHead>Campaign</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Pipeline</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Recipients</TableHead>
               <TableHead>Open Rate</TableHead>
@@ -156,6 +157,7 @@ export function CampaignsTable({
                 <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-12" /></TableCell>
@@ -196,6 +198,7 @@ export function CampaignsTable({
               </TableHead>
               <TableHead>Campaign</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Pipeline</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Recipients</TableHead>
               <TableHead>Open Rate</TableHead>
@@ -303,6 +306,31 @@ export function CampaignsTable({
                       )}
                       <span className="capitalize">{campaign.type}</span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {campaign.pipeline ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="text-xs font-normal cursor-default bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700">
+                              <GitBranch className="h-3 w-3 mr-1" />
+                              {campaign.pipeline.name}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs">
+                              <p className="font-medium">Programme-Specific Campaign</p>
+                              {campaign.pipeline.programme && (
+                                <p className="text-muted-foreground">Programme: {campaign.pipeline.programme.name}</p>
+                              )}
+                              <p className="text-muted-foreground mt-1">Replies create deals via Smart Process</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Generic</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">

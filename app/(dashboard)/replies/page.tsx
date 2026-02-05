@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Inbox, Mail, MessageSquare, MessagesSquare, CalendarDays, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
-import { toast } from '@/lib/hooks/use-toast'
 
 // Email Replies Components
 import { EmailReplyStats } from '@/components/email/EmailReplyStats'
@@ -24,10 +23,8 @@ import { SMSDetailSheet } from '@/components/sms/SMSDetailSheet'
 import { MatchContactModal } from '@/components/sms/MatchContactModal'
 import { useSMSMessages, useSMSMessageCounts } from '@/lib/hooks/useSMSMessages'
 
-// Bulk Actions
-import { BulkActionsBar } from '@/components/replies/BulkActionsBar'
+// Smart Process
 import { SmartMatchModal } from '@/components/replies/SmartMatchModal'
-import { useBulkProcessEmailReplies, useBulkProcessSMSMessages } from '@/lib/hooks/useBulkReplyActions'
 
 import type { EmailReply } from '@/lib/types/email'
 import type { SMSMessage } from '@/lib/types/sms'
@@ -53,7 +50,7 @@ export default function RepliesPage() {
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set())
   const [selectedSMSIds, setSelectedSMSIds] = useState<Set<string>>(new Set())
 
-  // Smart Match modal state
+  // Smart Process modal state
   const [smartMatchOpen, setSmartMatchOpen] = useState(false)
 
   // Get current user
@@ -87,18 +84,6 @@ export default function RepliesPage() {
     [smsMessages, selectedSMSIds]
   )
 
-  // Bulk processing hooks
-  const bulkProcessEmails = useBulkProcessEmailReplies(selectedEmailReplies)
-  const bulkProcessSMS = useBulkProcessSMSMessages(selectedSMSMessages)
-
-  // Count positive intent in selection
-  const selectedPositiveEmailCount = selectedEmailReplies.filter(
-    (r) => r.ai_intent === 'positive'
-  ).length
-  const selectedPositiveSMSCount = selectedSMSMessages.filter(
-    (m) => m.ai_intent === 'positive'
-  ).length
-
   // Handle email selection change
   const handleEmailSelectChange = (reply: EmailReply, selected: boolean) => {
     setSelectedEmailIds((prev) => {
@@ -128,44 +113,6 @@ export default function RepliesPage() {
   // Clear selections
   const clearEmailSelection = () => setSelectedEmailIds(new Set())
   const clearSMSSelection = () => setSelectedSMSIds(new Set())
-
-  // Apply bulk recommendations for emails
-  const handleApplyEmailRecommendations = async (pipelineId: string) => {
-    if (!userId) return
-    try {
-      const result = await bulkProcessEmails.mutateAsync({ pipelineId, userId })
-      toast({
-        title: 'Recommendations applied',
-        description: `Processed ${result.processed} replies. ${result.dealsCreated} deals created, ${result.contactsCreated} contacts created, ${result.contactsMatched} contacts matched.`,
-      })
-      clearEmailSelection()
-    } catch (error) {
-      toast({
-        title: 'Error applying recommendations',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  // Apply bulk recommendations for SMS
-  const handleApplySMSRecommendations = async (pipelineId: string) => {
-    if (!userId) return
-    try {
-      const result = await bulkProcessSMS.mutateAsync({ pipelineId, userId })
-      toast({
-        title: 'Recommendations applied',
-        description: `Processed ${result.processed} messages. ${result.dealsCreated} deals created, ${result.contactsCreated} contacts created, ${result.contactsMatched} contacts matched.`,
-      })
-      clearSMSSelection()
-    } catch (error) {
-      toast({
-        title: 'Error applying recommendations',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
-      })
-    }
-  }
 
   const handleMatchEmail = (reply: EmailReply) => {
     setEmailToMatch(reply)
@@ -329,7 +276,7 @@ export default function RepliesPage() {
                   className="bg-purple-600 hover:bg-purple-700 text-white shrink-0 disabled:opacity-50"
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Smart Match {selectedEmailIds.size > 0 && `(${selectedEmailIds.size})`}
+                  Smart Process {selectedEmailIds.size > 0 && `(${selectedEmailIds.size})`}
                 </Button>
               </div>
             )}
@@ -348,15 +295,6 @@ export default function RepliesPage() {
             selectable={emailTab !== 'spam'}
             selectedIds={selectedEmailIds}
             onSelectChange={handleEmailSelectChange}
-          />
-
-          {/* Bulk Actions Bar for Emails */}
-          <BulkActionsBar
-            selectedCount={selectedEmailIds.size}
-            positiveCount={selectedPositiveEmailCount}
-            onApplyRecommendations={handleApplyEmailRecommendations}
-            onClearSelection={clearEmailSelection}
-            isProcessing={bulkProcessEmails.isPending}
           />
 
           <EmailDetailSheet
@@ -401,7 +339,7 @@ export default function RepliesPage() {
                   className="bg-purple-600 hover:bg-purple-700 text-white shrink-0 disabled:opacity-50"
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Smart Match {selectedSMSIds.size > 0 && `(${selectedSMSIds.size})`}
+                  Smart Process {selectedSMSIds.size > 0 && `(${selectedSMSIds.size})`}
                 </Button>
               </div>
             )}
@@ -420,15 +358,6 @@ export default function RepliesPage() {
             selectable={smsTab !== 'spam'}
             selectedIds={selectedSMSIds}
             onSelectChange={handleSMSSelectChange}
-          />
-
-          {/* Bulk Actions Bar for SMS */}
-          <BulkActionsBar
-            selectedCount={selectedSMSIds.size}
-            positiveCount={selectedPositiveSMSCount}
-            onApplyRecommendations={handleApplySMSRecommendations}
-            onClearSelection={clearSMSSelection}
-            isProcessing={bulkProcessSMS.isPending}
           />
 
           <SMSDetailSheet
@@ -451,7 +380,7 @@ export default function RepliesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Smart Match Modal */}
+      {/* Smart Process Modal */}
       {userId && (
         <SmartMatchModal
           isOpen={smartMatchOpen}

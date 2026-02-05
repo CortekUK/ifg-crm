@@ -50,6 +50,7 @@ import {
   XCircle,
   Loader2,
   CheckCircle,
+  GitBranch,
 } from 'lucide-react'
 import { formatDate, formatDateTime, formatDateLong, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -112,6 +113,8 @@ export function CampaignDetailSheet({
     clicked: recipients.filter(r => !!r.clicked_at || r.status === 'clicked').length,
     // Bounced = status is explicitly 'bounced'
     bounced: recipients.filter(r => r.status === 'bounced').length,
+    // Complained/Unsubscribed = status is 'complained' (marked as spam)
+    unsubscribed: recipients.filter(r => r.status === 'complained').length,
     // Failed = status is explicitly 'failed'
     failed: recipients.filter(r => r.status === 'failed').length,
     uniqueRecipients: new Set(recipients.map(r => r.recipient_contact_id).filter(Boolean)).size,
@@ -123,6 +126,7 @@ export function CampaignDetailSheet({
     openRate: stats.delivered > 0 ? (stats.opened / stats.delivered) * 100 : 0,
     clickRate: stats.delivered > 0 ? (stats.clicked / stats.delivered) * 100 : 0,
     bounceRate: stats.total > 0 ? (stats.bounced / stats.total) * 100 : 0,
+    unsubscribeRate: stats.total > 0 ? (stats.unsubscribed / stats.total) * 100 : 0,
   } : null
 
   const deleteCampaign = useDeleteCampaign()
@@ -305,6 +309,34 @@ export function CampaignDetailSheet({
                       )}
                     </div>
 
+                    {/* Pipeline Link */}
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase mb-1">Pipeline</p>
+                      {campaign.pipeline ? (
+                        <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                          <GitBranch className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          <div>
+                            <p className="font-medium text-purple-700 dark:text-purple-300">
+                              {campaign.pipeline.name}
+                            </p>
+                            {campaign.pipeline.programme && (
+                              <p className="text-xs text-purple-600 dark:text-purple-400">
+                                Programme: {campaign.pipeline.programme.name}
+                              </p>
+                            )}
+                            <p className="text-xs text-purple-600/70 dark:text-purple-400/70 mt-0.5">
+                              Replies create deals via Smart Process
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Generic campaign</span>
+                          <span className="text-xs text-muted-foreground">(contact matching only)</span>
+                        </div>
+                      )}
+                    </div>
+
                     {campaign.type === 'email' && (
                       <>
                         {campaign.subject && (
@@ -467,6 +499,20 @@ export function CampaignDetailSheet({
                                 </p>
                               </CardContent>
                             </Card>
+                            {statsWithRates.unsubscribed > 0 && (
+                              <Card>
+                                <CardContent className="p-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <UserMinus className="h-4 w-4 text-orange-600" />
+                                    <span className="text-sm text-muted-foreground">Unsubscribed</span>
+                                  </div>
+                                  <p className="text-2xl font-bold">{formatNumber(statsWithRates.unsubscribed)}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {statsWithRates.unsubscribeRate.toFixed(1)}% unsubscribe rate
+                                  </p>
+                                </CardContent>
+                              </Card>
+                            )}
                           </div>
                         </>
                       ) : (

@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2, Save, Phone, Calendar, FileSignature, Video, Briefcase, GitBranch } from 'lucide-react'
 import { useUpdateUser } from '@/lib/hooks/useUsers'
 import { usePipelines } from '@/lib/hooks/usePipelines'
@@ -40,7 +39,6 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
     fullName: '',
     role: 'recruiter',
     title: '',
-    sport: 'football',
     phone: '',
     calendlyUrl: '',
     zoomUrl: '',
@@ -59,7 +57,6 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
         fullName: user.full_name || '',
         role: user.role,
         title: user.title || '',
-        sport: user.sport,
         phone: user.phone || '',
         calendlyUrl: user.calendly_url || '',
         zoomUrl: user.zoom_url || '',
@@ -93,7 +90,6 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
           full_name: formData.fullName,
           role: formData.role as User['role'],
           title: formData.title || undefined,
-          sport: formData.sport as User['sport'],
           phone: formData.phone || undefined,
           calendly_url: formData.calendlyUrl || undefined,
           zoom_url: formData.zoomUrl || undefined,
@@ -120,12 +116,11 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
   }
 
   const isValid = formData.fullName
-  const isRecruiter = formData.role === 'recruiter'
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
             Edit User
           </DialogTitle>
@@ -134,8 +129,8 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6">
+          <div className="space-y-6 pb-6">
             {/* Basic Details */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -162,33 +157,18 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select value={formData.role} onValueChange={(v) => handleChange('role', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="recruiter">Recruiter</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sport</Label>
-                  <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="football">Football</SelectItem>
-                      <SelectItem value="basketball">Basketball</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={formData.role} onValueChange={(v) => handleChange('role', v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="recruiter">Recruiter</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -288,20 +268,20 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
               </div>
             </div>
 
-            {/* Pipeline Assignment - Only show for recruiters */}
-            {isRecruiter && pipelines.length > 0 && (
+            {/* Pipeline Assignment - Show for all users */}
+            {pipelines.length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center gap-2">
                   <GitBranch className="h-4 w-4" />
                   Pipeline Assignment
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Select pipelines this recruiter is assigned to for round-robin deal distribution.
+                  Select pipelines this user is assigned to for round-robin deal distribution.
                 </p>
 
-                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3 bg-slate-50 dark:bg-slate-800/50">
+                <div className="space-y-2 border rounded-lg p-3 bg-slate-50 dark:bg-slate-800/50">
                   {pipelines.map((pipeline) => (
-                    <div key={pipeline.id} className="flex items-center space-x-3">
+                    <div key={pipeline.id} className="flex items-center space-x-3 py-1">
                       <Checkbox
                         id={`pipeline-edit-${pipeline.id}`}
                         checked={formData.pipelineAssignments.includes(pipeline.id)}
@@ -312,10 +292,12 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
                         className="text-sm font-normal cursor-pointer flex-1"
                       >
                         {pipeline.name}
+                        {pipeline.programme && (
+                          <span className="text-muted-foreground ml-1">
+                            ({pipeline.programme.name})
+                          </span>
+                        )}
                       </Label>
-                      <Badge variant="outline" className="text-xs">
-                        {pipeline.sport}
-                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -358,9 +340,9 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
-        <div className="flex gap-3 pt-4 border-t">
+        <div className="flex gap-3 px-6 py-4 border-t bg-slate-50 dark:bg-slate-900 shrink-0">
           <Button variant="outline" onClick={onClose} className="flex-1">
             Cancel
           </Button>

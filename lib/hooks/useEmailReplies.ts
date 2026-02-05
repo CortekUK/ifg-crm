@@ -44,7 +44,7 @@ export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatch
         .select(`
           *,
           contact:contacts(*),
-          campaign:campaigns(*),
+          campaign:campaigns(*, pipeline:pipelines(id, name, programme_id, programme:programmes(id, name))),
           matched_by:profiles(*)
         `)
         .order('received_at', { ascending: false })

@@ -6,6 +6,8 @@ import { PipelinesPageHeader } from '@/components/pipelines/PipelinesPageHeader'
 import { PipelineFilters } from '@/components/pipelines/PipelineFilters'
 import { PipelineStats } from '@/components/pipelines/PipelineStats'
 import { KanbanBoard } from '@/components/pipelines/KanbanBoard'
+import { PipelineListView } from '@/components/pipelines/PipelineListView'
+import { usePipelineViewPreference } from '@/lib/hooks/usePipelineViewPreference'
 import { AddDealModal } from '@/components/pipelines/AddDealModal'
 import { DealDetailSheet } from '@/components/pipelines/DealDetailSheet'
 import { CreatePipelineModal } from '@/components/pipelines/CreatePipelineModal'
@@ -88,6 +90,9 @@ export default function PipelinesPage() {
 
   // Mutation for resetting automation enrollments
   const resetEnrollments = useResetEnrollments()
+
+  // View mode preference (kanban or list)
+  const { viewMode, setViewMode } = usePipelineViewPreference()
 
   // Load selected pipeline from localStorage on mount
   useEffect(() => {
@@ -179,7 +184,95 @@ export default function PipelinesPage() {
     [moveDeal, selectedPipelineId, userId]
   )
 
-  // Handle drag end
+  // Core stage change logic - checks for automations and shows modals if needed
+  const handleStageChange = useCallback(
+    async (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => {
+      if (!selectedPipelineId) return
+
+      // Check for resettable enrollments
+      const supabase = createClient()
+
+      // Find automations that trigger on the target stage
+      const { data: automations } = await supabase
+        .from('automations')
+        .select('id, name')
+        .eq('trigger_stage_id', newStageId)
+        .eq('pipeline_id', selectedPipelineId)
+        .eq('is_active', true)
+
+      if (automations && automations.length > 0) {
+        const automationIds = automations.map(a => a.id)
+        const automationMap = new Map(automations.map(a => [a.id, a.name]))
+
+        // Check for ANY existing enrollments (active, stopped, or completed)
+        const { data: enrollments } = await supabase
+          .from('automation_enrollments')
+          .select('id, automation_id, status, enrolled_at, current_step_id')
+          .eq('deal_id', dealId)
+          .in('automation_id', automationIds)
+
+        if (enrollments && enrollments.length > 0) {
+          // Show the reset modal for any existing enrollment
+          const resettableEnrollments: ResettableEnrollment[] = enrollments.map(e => ({
+            id: e.id,
+            automation_id: e.automation_id,
+            automation_name: automationMap.get(e.automation_id) || 'Unknown Automation',
+            status: e.status as 'stopped' | 'completed',
+            enrolled_at: e.enrolled_at,
+          }))
+
+          setPendingMove({
+            dealId,
+            newStageId,
+            oldStageName: oldStage?.name,
+            newStageName: newStage?.name,
+            enrollments: resettableEnrollments,
+          })
+          setResetModalOpen(true)
+          return
+        }
+      }
+
+      // No trigger stage automations to restart, but check if deal has active automations
+      // that might need to be stopped (moving AWAY from where automation is running)
+      const { data: activeEnrollments } = await supabase
+        .from('automation_enrollments')
+        .select(`
+          id,
+          automation_id,
+          automations(name)
+        `)
+        .eq('deal_id', dealId)
+        .eq('status', 'active')
+
+      if (activeEnrollments && activeEnrollments.length > 0) {
+        // Deal has active automations - ask if user wants to stop them
+        const enrollmentsWithNames = activeEnrollments.map(e => ({
+          id: e.id,
+          automation_id: e.automation_id,
+          automation_name: (e.automations as { name: string } | { name: string }[] | null)
+            ? (Array.isArray(e.automations) ? e.automations[0]?.name : (e.automations as { name: string })?.name) || 'Unknown Automation'
+            : 'Unknown Automation',
+        }))
+
+        setPendingStopMove({
+          dealId,
+          newStageId,
+          oldStageName: oldStage?.name,
+          newStageName: newStage?.name,
+          enrollments: enrollmentsWithNames,
+        })
+        setStopModalOpen(true)
+        return
+      }
+
+      // No automations to worry about, proceed with move
+      executeMoveDeals(dealId, newStageId, oldStage?.name, newStage?.name)
+    },
+    [executeMoveDeals, selectedPipelineId]
+  )
+
+  // Handle drag end (for Kanban board)
   const handleDragEnd = useCallback(
     async (result: DropResult) => {
       const { destination, source, draggableId } = result
@@ -199,89 +292,10 @@ export default function PipelinesPage() {
       if (destination.droppableId !== source.droppableId && selectedPipelineId) {
         const oldStage = stages.find((s) => s.id === source.droppableId)
         const newStage = stages.find((s) => s.id === destination.droppableId)
-
-        // Check for resettable enrollments
-        const supabase = createClient()
-
-        // Find automations that trigger on the target stage
-        const { data: automations } = await supabase
-          .from('automations')
-          .select('id, name')
-          .eq('trigger_stage_id', destination.droppableId)
-          .eq('pipeline_id', selectedPipelineId)
-          .eq('is_active', true)
-
-        if (automations && automations.length > 0) {
-          const automationIds = automations.map(a => a.id)
-          const automationMap = new Map(automations.map(a => [a.id, a.name]))
-
-          // Check for ANY existing enrollments (active, stopped, or completed)
-          const { data: enrollments } = await supabase
-            .from('automation_enrollments')
-            .select('id, automation_id, status, enrolled_at, current_step_id')
-            .eq('deal_id', draggableId)
-            .in('automation_id', automationIds)
-
-          if (enrollments && enrollments.length > 0) {
-            // Show the reset modal for any existing enrollment
-            const resettableEnrollments: ResettableEnrollment[] = enrollments.map(e => ({
-              id: e.id,
-              automation_id: e.automation_id,
-              automation_name: automationMap.get(e.automation_id) || 'Unknown Automation',
-              status: e.status as 'stopped' | 'completed',
-              enrolled_at: e.enrolled_at,
-            }))
-
-            setPendingMove({
-              dealId: draggableId,
-              newStageId: destination.droppableId,
-              oldStageName: oldStage?.name,
-              newStageName: newStage?.name,
-              enrollments: resettableEnrollments,
-            })
-            setResetModalOpen(true)
-            return
-          }
-        }
-
-        // No trigger stage automations to restart, but check if deal has active automations
-        // that might need to be stopped (moving AWAY from where automation is running)
-        const { data: activeEnrollments } = await supabase
-          .from('automation_enrollments')
-          .select(`
-            id,
-            automation_id,
-            automations(name)
-          `)
-          .eq('deal_id', draggableId)
-          .eq('status', 'active')
-
-        if (activeEnrollments && activeEnrollments.length > 0) {
-          // Deal has active automations - ask if user wants to stop them
-          const enrollmentsWithNames = activeEnrollments.map(e => ({
-            id: e.id,
-            automation_id: e.automation_id,
-            automation_name: (e.automations as { name: string } | { name: string }[] | null)
-              ? (Array.isArray(e.automations) ? e.automations[0]?.name : (e.automations as { name: string })?.name) || 'Unknown Automation'
-              : 'Unknown Automation',
-          }))
-
-          setPendingStopMove({
-            dealId: draggableId,
-            newStageId: destination.droppableId,
-            oldStageName: oldStage?.name,
-            newStageName: newStage?.name,
-            enrollments: enrollmentsWithNames,
-          })
-          setStopModalOpen(true)
-          return
-        }
-
-        // No automations to worry about, proceed with move
-        executeMoveDeals(draggableId, destination.droppableId, oldStage?.name, newStage?.name)
+        await handleStageChange(draggableId, destination.droppableId, oldStage, newStage)
       }
     },
-    [executeMoveDeals, selectedPipelineId, stages]
+    [handleStageChange, selectedPipelineId, stages]
   )
 
   // Handle reset modal - restart automation
@@ -445,6 +459,8 @@ export default function PipelinesPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         deals={deals}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
       {/* Stats */}
@@ -461,16 +477,27 @@ export default function PipelinesPage() {
         />
       )}
 
-      {/* Kanban Board */}
-      <KanbanBoard
-        stages={stages}
-        deals={filteredDeals}
-        pipelineId={selectedPipelineId}
-        isLoading={isLoading && !stages.length}
-        onDragEnd={handleDragEnd}
-        onAddClick={handleAddClick}
-        onDealClick={handleDealClick}
-      />
+      {/* Pipeline View - Kanban or List */}
+      {viewMode === 'kanban' ? (
+        <KanbanBoard
+          stages={stages}
+          deals={filteredDeals}
+          pipelineId={selectedPipelineId}
+          isLoading={isLoading && !stages.length}
+          onDragEnd={handleDragEnd}
+          onAddClick={handleAddClick}
+          onDealClick={handleDealClick}
+        />
+      ) : (
+        <PipelineListView
+          deals={filteredDeals}
+          stages={stages}
+          pipelineId={selectedPipelineId}
+          isLoading={isLoading && !stages.length}
+          onDealClick={handleDealClick}
+          onStageChange={handleStageChange}
+        />
+      )}
 
       {/* Add Deal Modal */}
       {selectedStage && selectedPipelineId && userId && (

@@ -17,7 +17,9 @@ import {
   Sparkles,
   MessageSquare,
   ExternalLink,
-  Tag
+  Tag,
+  GitBranch,
+  Target,
 } from 'lucide-react'
 import { formatDateLong, formatRelativeTime } from '@/lib/utils/format'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
@@ -160,6 +162,36 @@ export function EmailDetailSheet({
               )}
             </div>
 
+            {/* Programme-Specific Campaign Info */}
+            {reply.campaign?.pipeline && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100 uppercase tracking-wide flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Programme-Specific Campaign
+                </h3>
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-800/50 flex items-center justify-center">
+                      <GitBranch className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-purple-900 dark:text-purple-100">
+                        {reply.campaign.pipeline.name}
+                      </p>
+                      {reply.campaign.pipeline.programme && (
+                        <p className="text-sm text-purple-700 dark:text-purple-400">
+                          Programme: {reply.campaign.pipeline.programme.name}
+                        </p>
+                      )}
+                      <p className="text-xs text-purple-600/80 dark:text-purple-400/80 mt-1">
+                        Use Smart Process to create deals from this reply
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Matched Contact */}
             {isMatched && reply.contact && (
               <div className="space-y-3">
@@ -211,7 +243,7 @@ export function EmailDetailSheet({
               </h3>
               <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
                 <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                  {reply.body_full || reply.body_preview || '(No content)'}
+                  {reply.body_preview || '(No content)'}
                 </p>
               </div>
             </div>

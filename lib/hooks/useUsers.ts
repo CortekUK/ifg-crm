@@ -170,7 +170,6 @@ export function useInviteUser() {
       fullName,
       role,
       title,
-      sport,
       phone,
       calendlyUrl,
       zoomUrl,
@@ -180,7 +179,6 @@ export function useInviteUser() {
       fullName: string
       role: string
       title?: string
-      sport: string
       phone?: string
       calendlyUrl?: string
       zoomUrl?: string
@@ -196,7 +194,7 @@ export function useInviteUser() {
           fullName,
           role,
           title,
-          sport,
+          sport: 'football',
           phone,
           calendlyUrl,
           zoomUrl,

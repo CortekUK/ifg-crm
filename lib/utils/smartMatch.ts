@@ -12,6 +12,11 @@ export interface MatchSuggestion {
   confidence: number
   matchReason: string
   createNew: boolean
+  // Campaign pipeline data for deal creation
+  campaignId: string | null
+  campaignName: string | null // For activity logging
+  campaignPipelineId: string | null // From reply.campaign?.pipeline_id
+  aiIntent: string | null // From reply.ai_intent for determining positive intent
 }
 
 /**
@@ -94,6 +99,12 @@ function findEmailMatch(reply: EmailReply, contacts: Contact[]): MatchSuggestion
   const fromEmail = reply.from_email.toLowerCase()
   const fromName = reply.from_name?.trim() || null
 
+  // Extract campaign pipeline data
+  const campaignId = reply.campaign_id
+  const campaignName = reply.campaign?.name || null
+  const campaignPipelineId = reply.campaign?.pipeline_id || null
+  const aiIntent = reply.ai_intent
+
   let bestMatch: Contact | null = null
   let bestConfidence = 0
   let matchReason = ''
@@ -114,6 +125,10 @@ function findEmailMatch(reply: EmailReply, contacts: Contact[]): MatchSuggestion
         confidence: 100,
         matchReason: 'Exact email match',
         createNew: false,
+        campaignId,
+        campaignName,
+        campaignPipelineId,
+        aiIntent,
       }
     }
 
@@ -154,6 +169,10 @@ function findEmailMatch(reply: EmailReply, contacts: Contact[]): MatchSuggestion
     confidence: bestConfidence,
     matchReason: bestMatch ? matchReason : 'No match found',
     createNew: !bestMatch,
+    campaignId,
+    campaignName,
+    campaignPipelineId,
+    aiIntent,
   }
 }
 
@@ -162,6 +181,10 @@ function findEmailMatch(reply: EmailReply, contacts: Contact[]): MatchSuggestion
  */
 function findSMSMatch(message: SMSMessage, contacts: Contact[]): MatchSuggestion {
   const messagePhone = normalizePhone(message.phone_number)
+
+  // SMS messages have pipeline_id directly on the message
+  const campaignPipelineId = message.pipeline_id || null
+  const aiIntent = message.ai_intent || null
 
   let bestMatch: Contact | null = null
   let bestConfidence = 0
@@ -184,6 +207,10 @@ function findSMSMatch(message: SMSMessage, contacts: Contact[]): MatchSuggestion
         confidence: 100,
         matchReason: 'Exact phone match',
         createNew: false,
+        campaignId: null,
+        campaignName: null,
+        campaignPipelineId,
+        aiIntent,
       }
     }
 
@@ -224,6 +251,10 @@ function findSMSMatch(message: SMSMessage, contacts: Contact[]): MatchSuggestion
     confidence: bestConfidence,
     matchReason: bestMatch ? matchReason : 'No match found',
     createNew: !bestMatch,
+    campaignId: null,
+    campaignName: null,
+    campaignPipelineId,
+    aiIntent,
   }
 }
 

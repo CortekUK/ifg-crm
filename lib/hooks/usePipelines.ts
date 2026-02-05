@@ -200,3 +200,69 @@ export function usePipelineDealCounts() {
     },
   })
 }
+
+// Get campaigns linked to a pipeline
+interface PipelineCampaignStats {
+  id: string
+  name: string
+  type: 'email' | 'sms'
+  status: string
+  sent_at: string | null
+  created_at: string
+  total_recipients?: number
+  // Stats from email_sends
+  reply_count?: number
+  deal_count?: number
+}
+
+export function usePipelineCampaigns(pipelineId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<PipelineCampaignStats[]>({
+    queryKey: ['pipeline-campaigns', pipelineId],
+    queryFn: async () => {
+      if (!pipelineId) return []
+
+      // Get campaigns linked to this pipeline
+      const { data: campaigns, error } = await supabase
+        .from('campaigns')
+        .select('id, name, type, status, sent_at, created_at, total_recipients')
+        .eq('pipeline_id', pipelineId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      if (!campaigns || campaigns.length === 0) return []
+
+      // Get reply counts from email_replies for each campaign
+      const campaignIds = campaigns.map(c => c.id)
+
+      const { data: replyCounts } = await supabase
+        .from('email_replies')
+        .select('campaign_id')
+        .in('campaign_id', campaignIds)
+
+      const replyCountMap = new Map<string, number>()
+      replyCounts?.forEach(r => {
+        if (r.campaign_id) {
+          replyCountMap.set(r.campaign_id, (replyCountMap.get(r.campaign_id) || 0) + 1)
+        }
+      })
+
+      // Get deal counts created from Smart Process for this pipeline
+      const { data: deals } = await supabase
+        .from('deals')
+        .select('id, source')
+        .eq('pipeline_id', pipelineId)
+        .eq('source', 'smart_process')
+
+      const dealCount = deals?.length || 0
+
+      return campaigns.map(campaign => ({
+        ...campaign,
+        reply_count: replyCountMap.get(campaign.id) || 0,
+        deal_count: campaign.status === 'sent' ? Math.round(dealCount / campaigns.filter(c => c.status === 'sent').length) : 0,
+      }))
+    },
+    enabled: !!pipelineId,
+  })
+}

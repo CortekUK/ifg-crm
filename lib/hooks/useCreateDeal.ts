@@ -12,6 +12,10 @@ interface CreateDealParams {
   description?: string
   winProbability?: number
   forecastedCloseDate?: string
+  // Source tracking for Smart Process
+  source?: 'manual' | 'smart_process' | 'automation' | 'import'
+  campaignId?: string
+  campaignName?: string
 }
 
 export function useCreateDeal() {
@@ -30,8 +34,11 @@ export function useCreateDeal() {
       description,
       winProbability,
       forecastedCloseDate,
+      source,
+      campaignId,
+      campaignName,
     }: CreateDealParams) => {
-      // Create the deal
+      // Create the deal with source tracking
       const { data: deal, error: dealError } = await supabase
         .from('deals')
         .insert({
@@ -45,21 +52,45 @@ export function useCreateDeal() {
           description: description || null,
           win_probability: winProbability ?? null,
           forecasted_close_date: forecastedCloseDate || null,
+          source: source || 'manual',
         })
         .select()
         .single()
 
       if (dealError) throw dealError
 
-      // Log the activity
+      // Build activity description based on source
+      let activityDescription = `Deal created: ${title}`
+      if (source === 'smart_process' && campaignName) {
+        activityDescription = `Deal created from "${campaignName}" campaign reply via Smart Process`
+      } else if (source === 'smart_process') {
+        activityDescription = `Deal created from campaign reply via Smart Process`
+      } else if (source === 'automation') {
+        activityDescription = `Deal created by automation`
+      } else if (source === 'import') {
+        activityDescription = `Deal created from import`
+      }
+
+      // Log the activity with campaign reference if available
+      const activityData: Record<string, unknown> = {
+        deal_id: deal.id,
+        activity_type: 'deal_created',
+        description: activityDescription,
+        performed_by_id: ownerId,
+      }
+
+      // Store campaign reference in metadata if available
+      if (campaignId) {
+        activityData.metadata = JSON.stringify({
+          source,
+          campaign_id: campaignId,
+          campaign_name: campaignName,
+        })
+      }
+
       const { error: activityError } = await supabase
         .from('deal_activities')
-        .insert({
-          deal_id: deal.id,
-          activity_type: 'deal_created',
-          description: `Deal created: ${title}`,
-          performed_by_id: ownerId,
-        })
+        .insert(activityData)
 
       if (activityError) {
         console.error('Failed to log deal creation activity:', activityError)

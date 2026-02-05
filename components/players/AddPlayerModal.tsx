@@ -99,7 +99,6 @@ const initialFormData = {
   date_of_birth: '',
   graduation_year: '',
   gender: '',
-  sport: 'football',
   position: '',
   club_name: '',
   gpa: '',
@@ -197,7 +196,7 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
           date_of_birth: formData.date_of_birth || null,
           graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
           gender: formData.gender || null,
-          sport: formData.sport as 'football' | 'basketball',
+          sport: 'football',
           position: formData.position || null,
           club_name: formData.club_name || null,
           gpa: formData.gpa ? parseFloat(formData.gpa) : null,
@@ -412,34 +411,20 @@ export function AddPlayerModal({ isOpen, onClose }: AddPlayerModalProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sport</Label>
-                  <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sport" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="football">Football</SelectItem>
-                      <SelectItem value="basketball">Basketball</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Position</Label>
-                  <Select value={formData.position} onValueChange={(v) => handleChange('position', v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {positions.map((pos) => (
-                        <SelectItem key={pos} value={pos}>
-                          {pos}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Position</Label>
+                <Select value={formData.position} onValueChange={(v) => handleChange('position', v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {positions.map((pos) => (
+                      <SelectItem key={pos} value={pos}>
+                        {pos}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

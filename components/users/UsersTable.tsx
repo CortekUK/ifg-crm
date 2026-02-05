@@ -69,7 +69,6 @@ export function UsersTable({
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Sport</TableHead>
               <TableHead>Calendly</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Login</TableHead>
@@ -82,7 +81,6 @@ export function UsersTable({
                 <TableCell><Skeleton className="h-10 w-36" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -115,7 +113,6 @@ export function UsersTable({
             <TableHead>User</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
-            <TableHead>Sport</TableHead>
             <TableHead>Calendly</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Last Login</TableHead>
@@ -161,11 +158,6 @@ export function UsersTable({
                 {/* Role */}
                 <TableCell>
                   <Badge className={role.className}>{role.label}</Badge>
-                </TableCell>
-
-                {/* Sport */}
-                <TableCell className="capitalize text-sm">
-                  {user.sport}
                 </TableCell>
 
                 {/* Calendly */}

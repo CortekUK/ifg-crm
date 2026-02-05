@@ -10,8 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, X } from 'lucide-react'
+import { Search, X, LayoutGrid, List } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Deal } from '@/lib/types/pipelines'
+import type { ViewMode } from '@/lib/hooks/usePipelineViewPreference'
 
 interface PipelineFiltersProps {
   search: string
@@ -21,6 +23,8 @@ interface PipelineFiltersProps {
   statusFilter: string
   onStatusFilterChange: (value: string) => void
   deals: Deal[]
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
 }
 
 export function PipelineFilters({
@@ -31,6 +35,8 @@ export function PipelineFilters({
   statusFilter,
   onStatusFilterChange,
   deals,
+  viewMode,
+  onViewModeChange,
 }: PipelineFiltersProps) {
   // Extract unique owners from deals
   const owners = useMemo(() => {
@@ -109,6 +115,32 @@ export function PipelineFilters({
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9"
         />
+      </div>
+
+      {/* View Toggle */}
+      <div className="flex items-center border rounded-lg p-1 bg-muted/50">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onViewModeChange('kanban')}
+          className={cn(
+            'h-7 px-2',
+            viewMode === 'kanban' && 'bg-background shadow-sm'
+          )}
+        >
+          <LayoutGrid className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onViewModeChange('list')}
+          className={cn(
+            'h-7 px-2',
+            viewMode === 'list' && 'bg-background shadow-sm'
+          )}
+        >
+          <List className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   )

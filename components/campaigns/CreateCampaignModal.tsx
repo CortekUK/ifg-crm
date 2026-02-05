@@ -52,6 +52,12 @@ import {
   AlertTriangle,
   Eye,
   Type,
+  Megaphone,
+  Target,
+  Info,
+  Tag,
+  GitBranch,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, formatNumber } from '@/lib/utils/format'
@@ -60,9 +66,14 @@ import {
   useUpdateCampaign,
   useCampaignLists,
   useEmailTemplates,
-  useCalculateRecipients,
   useSendCampaign,
 } from '@/lib/hooks/useCampaigns'
+import { usePipelines } from '@/lib/hooks/usePipelines'
+import {
+  useTags,
+  usePipelineStages,
+  useCalculateCombinedRecipients,
+} from '@/lib/hooks/useCampaignRecipientSources'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Campaign, CreateCampaignInput } from '@/lib/types/campaigns'
 
@@ -103,6 +114,16 @@ export function CreateCampaignModal({
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [isListDropdownOpen, setIsListDropdownOpen] = useState(false)
 
+  // Tag-based recipient selection
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [tagSearchQuery, setTagSearchQuery] = useState('')
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
+
+  // Pipeline stage recipient selection
+  const [selectedStages, setSelectedStages] = useState<string[]>([])
+  const [stagePipelineId, setStagePipelineId] = useState<string | null>(null)
+  const [isStageDropdownOpen, setIsStageDropdownOpen] = useState(false)
+
   // Email fields
   const [emailSubject, setEmailSubject] = useState('')
   const [previewText, setPreviewText] = useState('')
@@ -128,9 +149,20 @@ export function CreateCampaignModal({
   // Send confirmation dialog
   const [showSendConfirmation, setShowSendConfirmation] = useState(false)
 
+  // Campaign mode (generic vs programme-specific)
+  const [campaignMode, setCampaignMode] = useState<'generic' | 'programme'>('generic')
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
+
   const { data: lists = [] } = useCampaignLists()
+  const { data: pipelines = [] } = usePipelines()
   const { data: templates = [] } = useEmailTemplates()
-  const { data: recipientData, isLoading: recipientCountLoading } = useCalculateRecipients(selectedLists)
+  const { data: tags = [] } = useTags()
+  const { data: stages = [] } = usePipelineStages(stagePipelineId)
+  const { data: recipientData, isLoading: recipientCountLoading } = useCalculateCombinedRecipients(
+    selectedLists,
+    selectedTags,
+    selectedStages
+  )
   const createCampaign = useCreateCampaign()
   const updateCampaign = useUpdateCampaign()
   const sendCampaign = useSendCampaign()
@@ -140,6 +172,11 @@ export function CreateCampaignModal({
   // Filter lists based on search query
   const filteredLists = lists.filter((list) =>
     list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
+  )
+
+  // Filter tags based on search query
+  const filteredTags = tags.filter((tag) =>
+    tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
   )
 
   // Initialize form when modal opens or editCampaign changes
@@ -160,6 +197,9 @@ export function CreateCampaignModal({
         setEmailBodyHtml(editCampaign.body_html || '')
         setEmailContentMode(editCampaign.email_template_id ? 'template' : 'compose')
         setSmsContent(editCampaign.sms_content || '')
+        // Campaign mode based on pipeline_id
+        setCampaignMode(editCampaign.pipeline_id ? 'programme' : 'generic')
+        setSelectedPipelineId(editCampaign.pipeline_id || null)
         if (editCampaign.scheduled_at) {
           setIsScheduled(true)
           const date = new Date(editCampaign.scheduled_at)
@@ -179,6 +219,12 @@ export function CreateCampaignModal({
         setSelectedLists([])
         setListSearchQuery('')
         setIsListDropdownOpen(false)
+        setSelectedTags([])
+        setTagSearchQuery('')
+        setIsTagDropdownOpen(false)
+        setSelectedStages([])
+        setStagePipelineId(null)
+        setIsStageDropdownOpen(false)
         setEmailSubject('')
         setPreviewText('')
         setFromName('')
@@ -192,6 +238,8 @@ export function CreateCampaignModal({
         setIsScheduled(false)
         setScheduledDate(undefined)
         setScheduledTime('09:00')
+        setCampaignMode('generic')
+        setSelectedPipelineId(null)
       }
     }
   }, [isOpen, editCampaign])
@@ -201,6 +249,22 @@ export function CreateCampaignModal({
       prev.includes(listId)
         ? prev.filter((id) => id !== listId)
         : [...prev, listId]
+    )
+  }
+
+  const handleTagToggle = (tagId: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId]
+    )
+  }
+
+  const handleStageToggle = (stageId: string) => {
+    setSelectedStages((prev) =>
+      prev.includes(stageId)
+        ? prev.filter((id) => id !== stageId)
+        : [...prev, stageId]
     )
   }
 
@@ -240,6 +304,7 @@ export function CreateCampaignModal({
         created_by_id: userId,
         recipient_list_ids: selectedLists.length > 0 ? selectedLists : undefined,
         scheduled_at: !saveAsDraft && isScheduled ? scheduledAt : undefined,
+        pipeline_id: campaignMode === 'programme' ? selectedPipelineId : null,
       }
 
       if (type === 'email') {
@@ -317,7 +382,7 @@ export function CreateCampaignModal({
 
   const smsSegments = Math.ceil(smsContent.length / 160)
   const isValid = name.trim().length > 0
-  const hasNoRecipients = selectedLists.length === 0
+  const hasNoRecipients = selectedLists.length === 0 && selectedTags.length === 0 && selectedStages.length === 0
   const isPending = createCampaign.isPending || updateCampaign.isPending || sendCampaign.isPending
 
   // Get preview content
@@ -400,6 +465,106 @@ export function CreateCampaignModal({
                     </Alert>
                   )}
                 </div>
+
+                {/* Campaign Mode Selection */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Campaign Mode</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card
+                      className={cn(
+                        'cursor-pointer transition-all border-2',
+                        campaignMode === 'generic'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
+                        isEditing && 'opacity-60 cursor-not-allowed'
+                      )}
+                      onClick={() => !isEditing && setCampaignMode('generic')}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Megaphone className={cn(
+                            'h-4 w-4',
+                            campaignMode === 'generic' ? 'text-blue-600' : 'text-slate-400'
+                          )} />
+                          <span className={cn(
+                            'font-medium text-sm',
+                            campaignMode === 'generic' ? 'text-blue-700 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'
+                          )}>
+                            Generic
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Standard campaign. Matches contacts on reply.
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card
+                      className={cn(
+                        'cursor-pointer transition-all border-2',
+                        campaignMode === 'programme'
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
+                        isEditing && 'opacity-60 cursor-not-allowed'
+                      )}
+                      onClick={() => !isEditing && setCampaignMode('programme')}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Target className={cn(
+                            'h-4 w-4',
+                            campaignMode === 'programme' ? 'text-purple-600' : 'text-slate-400'
+                          )} />
+                          <span className={cn(
+                            'font-medium text-sm',
+                            campaignMode === 'programme' ? 'text-purple-700 dark:text-purple-400' : 'text-slate-700 dark:text-slate-300'
+                          )}>
+                            Programme-Specific
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Links to pipeline. Auto-creates deals on reply.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Pipeline Selection (only for programme-specific) */}
+                {campaignMode === 'programme' && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Pipeline <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={selectedPipelineId || ''}
+                      onValueChange={(value) => setSelectedPipelineId(value || null)}
+                      disabled={isEditing}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a pipeline..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pipelines.map((pipeline) => (
+                          <SelectItem key={pipeline.id} value={pipeline.id}>
+                            {pipeline.name}
+                            {pipeline.programme && (
+                              <span className="text-muted-foreground ml-1">
+                                ({pipeline.programme.name})
+                              </span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Alert className="bg-purple-50 border-purple-200 dark:bg-purple-950/50 dark:border-purple-800">
+                      <Info className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <AlertDescription className="text-purple-800 dark:text-purple-200">
+                        When contacts reply to this campaign, Smart Process will offer to create deals
+                        in the selected pipeline with round-robin assignment.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
               </div>
 
               {/* Recipients */}
@@ -410,10 +575,10 @@ export function CreateCampaignModal({
 
                 {/* No Recipients Warning */}
                 {hasNoRecipients && (
-                  <Alert className="bg-yellow-50 border-yellow-200">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertDescription className="text-yellow-800">
-                      No recipient lists selected. Select at least one list to send this campaign.
+                  <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/50 dark:border-yellow-800">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                    <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                      No recipients selected. Select at least one list, tag, or pipeline stage.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -511,8 +676,232 @@ export function CreateCampaignModal({
                   </div>
                 )}
 
+                {/* Tag Selection */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <span className="flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      Select by Tags
+                    </span>
+                  </Label>
+                  <Popover open={isTagDropdownOpen} onOpenChange={setIsTagDropdownOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                      >
+                        <span className="text-muted-foreground">
+                          {selectedTags.length === 0
+                            ? 'Select tags...'
+                            : `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected`}
+                        </span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start" sideOffset={4}>
+                      <div className="p-2 border-b">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search tags..."
+                            value={tagSearchQuery}
+                            onChange={(e) => setTagSearchQuery(e.target.value)}
+                            className="pl-8"
+                          />
+                        </div>
+                      </div>
+                      <ScrollArea className="h-[240px]">
+                        <div className="p-1">
+                          {filteredTags.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No tags found
+                            </p>
+                          ) : (
+                            filteredTags.map((tag) => {
+                              const isSelected = selectedTags.includes(tag.id)
+                              return (
+                                <div
+                                  key={tag.id}
+                                  className={cn(
+                                    'flex items-center justify-between p-2 rounded-md cursor-pointer',
+                                    isSelected ? 'bg-blue-50 dark:bg-blue-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                  )}
+                                  onClick={() => handleTagToggle(tag.id)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={isSelected} />
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: tag.color }}
+                                    />
+                                    <span className="text-sm font-medium">{tag.name}</span>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatNumber(tag.contact_count || 0)} contacts
+                                  </span>
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Selected Tags Badges */}
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTags.map((tagId) => {
+                      const tag = tags.find((t) => t.id === tagId)
+                      return tag ? (
+                        <Badge
+                          key={tagId}
+                          variant="secondary"
+                          className="pr-1"
+                          style={{
+                            backgroundColor: `${tag.color}20`,
+                            color: tag.color,
+                            borderColor: tag.color,
+                          }}
+                        >
+                          {tag.name}
+                          <span className="ml-1 opacity-70">
+                            ({formatNumber(tag.contact_count || 0)})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleTagToggle(tagId)}
+                            className="ml-1 p-0.5 rounded-full hover:bg-black/10"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ) : null
+                    })}
+                  </div>
+                )}
+
+                {/* Pipeline Stage Selection */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <span className="flex items-center gap-2">
+                      <Layers className="h-4 w-4" />
+                      Select by Pipeline Stage
+                    </span>
+                  </Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={stagePipelineId || ''}
+                      onValueChange={(value) => {
+                        setStagePipelineId(value || null)
+                        setSelectedStages([]) // Reset stages when pipeline changes
+                      }}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select pipeline..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pipelines.map((pipeline) => (
+                          <SelectItem key={pipeline.id} value={pipeline.id}>
+                            {pipeline.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Popover open={isStageDropdownOpen} onOpenChange={setIsStageDropdownOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="flex-1 justify-between font-normal"
+                          disabled={!stagePipelineId}
+                        >
+                          <span className="text-muted-foreground">
+                            {selectedStages.length === 0
+                              ? 'Select stages...'
+                              : `${selectedStages.length} stage${selectedStages.length > 1 ? 's' : ''} selected`}
+                          </span>
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0" align="start" sideOffset={4}>
+                        <ScrollArea className="h-[240px]">
+                          <div className="p-1">
+                            {stages.length === 0 ? (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                No stages found
+                              </p>
+                            ) : (
+                              stages.map((stage) => {
+                                const isSelected = selectedStages.includes(stage.id)
+                                return (
+                                  <div
+                                    key={stage.id}
+                                    className={cn(
+                                      'flex items-center justify-between p-2 rounded-md cursor-pointer',
+                                      isSelected ? 'bg-blue-50 dark:bg-blue-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                    )}
+                                    onClick={() => handleStageToggle(stage.id)}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox checked={isSelected} />
+                                      <div
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: stage.color }}
+                                      />
+                                      <span className="text-sm font-medium">{stage.name}</span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatNumber(stage.deal_count || 0)} deals
+                                    </span>
+                                  </div>
+                                )
+                              })
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* Selected Stages Badges */}
+                {selectedStages.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStages.map((stageId) => {
+                      const stage = stages.find((s) => s.id === stageId)
+                      return stage ? (
+                        <Badge
+                          key={stageId}
+                          variant="secondary"
+                          className="pr-1"
+                          style={{
+                            backgroundColor: `${stage.color}20`,
+                            color: stage.color,
+                            borderColor: stage.color,
+                          }}
+                        >
+                          {stage.name}
+                          <span className="ml-1 opacity-70">
+                            ({formatNumber(stage.deal_count || 0)} deals)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleStageToggle(stageId)}
+                            className="ml-1 p-0.5 rounded-full hover:bg-black/10"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ) : null
+                    })}
+                  </div>
+                )}
+
                 {/* Total Recipients Card */}
-                {selectedLists.length > 0 && (
+                {(selectedLists.length > 0 || selectedTags.length > 0 || selectedStages.length > 0) && (
                   <Card className="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -538,8 +927,28 @@ export function CreateCampaignModal({
                       </div>
                       {recipientData?.hasDuplicates && !recipientCountLoading && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          (duplicates removed across lists)
+                          (duplicates removed across sources)
                         </p>
+                      )}
+                      {/* Source breakdown */}
+                      {!recipientCountLoading && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {selectedLists.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {selectedLists.length} list{selectedLists.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {selectedTags.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {selectedLists.length > 0 && '•'} {selectedTags.length} tag{selectedTags.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {selectedStages.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {(selectedLists.length > 0 || selectedTags.length > 0) && '•'} {selectedStages.length} stage{selectedStages.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </CardContent>
                   </Card>

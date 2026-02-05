@@ -12,6 +12,7 @@ import {
   Clock,
   Coins,
   TrendingUp,
+  Target,
 } from 'lucide-react'
 import { ReportCard } from './ReportCard'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -46,6 +47,14 @@ const reports = [
     icon: Send,
     name: 'Campaign Performance',
     description: 'Email and SMS campaign metrics and engagement.',
+    format: 'CSV/PDF',
+    lastGenerated: undefined,
+  },
+  {
+    id: 'campaign-conversions',
+    icon: Target,
+    name: 'Campaign Conversions',
+    description: 'Track campaign-to-deal conversion rates by pipeline via Smart Process.',
     format: 'CSV/PDF',
     lastGenerated: undefined,
   },

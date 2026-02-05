@@ -76,7 +76,6 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
     date_of_birth: '',
     graduation_year: '',
     gender: '',
-    sport: 'football',
     position: '',
     club_name: '',
     gpa: '',
@@ -105,7 +104,6 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
         date_of_birth: contact.date_of_birth || '',
         graduation_year: contact.graduation_year?.toString() || '',
         gender: contact.gender || '',
-        sport: contact.sport || 'football',
         position: contact.position || '',
         club_name: contact.club_name || '',
         gpa: contact.gpa?.toString() || '',
@@ -141,7 +139,7 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
           date_of_birth: formData.date_of_birth || null,
           graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
           gender: (formData.gender as 'male' | 'female') || null,
-          sport: formData.sport as 'football' | 'basketball',
+          sport: 'football',
           position: formData.position || null,
           club_name: formData.club_name || null,
           gpa: formData.gpa ? parseFloat(formData.gpa) : null,
@@ -313,27 +311,13 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sport</Label>
-                  <Select value={formData.sport} onValueChange={(v) => handleChange('sport', v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sport" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="football">Football</SelectItem>
-                      <SelectItem value="basketball">Basketball</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Position</Label>
-                  <Input
-                    value={formData.position}
-                    onChange={(e) => handleChange('position', e.target.value)}
-                    placeholder="e.g. Midfielder"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Position</Label>
+                <Input
+                  value={formData.position}
+                  onChange={(e) => handleChange('position', e.target.value)}
+                  placeholder="e.g. Midfielder"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -183,7 +183,7 @@ export function MatchEmailModal({
                         {reply.subject || '(No subject)'}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {reply.body_preview || reply.body_full?.slice(0, 150)}
+                        {reply.body_preview || '(No content)'}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge className={intentInfo.className}>{intentInfo.label}</Badge>

@@ -20,7 +20,8 @@ export function useCampaigns(filters?: CampaignFilters) {
           *,
           template:email_templates(*),
           from_user:profiles!campaigns_from_user_id_fkey(id, email, full_name),
-          created_by:profiles!campaigns_created_by_id_fkey(id, email, full_name)
+          created_by:profiles!campaigns_created_by_id_fkey(id, email, full_name),
+          pipeline:pipelines(id, name, programme_id, programme:programmes(id, name))
         `)
         .order('created_at', { ascending: false })
 
@@ -33,6 +34,13 @@ export function useCampaigns(filters?: CampaignFilters) {
       }
       if (filters?.status && filters.status !== 'all') {
         query = query.eq('status', filters.status)
+      }
+      if (filters?.pipelineId && filters.pipelineId !== 'all') {
+        if (filters.pipelineId === 'generic') {
+          query = query.is('pipeline_id', null)
+        } else {
+          query = query.eq('pipeline_id', filters.pipelineId)
+        }
       }
 
       const { data: campaigns, error } = await query
@@ -111,7 +119,8 @@ export function useCampaign(campaignId: string | null) {
           *,
           template:email_templates(*),
           from_user:profiles!campaigns_from_user_id_fkey(id, email, full_name),
-          created_by:profiles!campaigns_created_by_id_fkey(id, email, full_name)
+          created_by:profiles!campaigns_created_by_id_fkey(id, email, full_name),
+          pipeline:pipelines(id, name, programme_id, programme:programmes(id, name))
         `)
         .eq('id', campaignId)
         .single()
@@ -180,6 +189,7 @@ export function useCreateCampaign() {
           created_by_id: campaign.created_by_id,
           scheduled_at: campaign.scheduled_at || null,
           recipient_list_ids: campaign.recipient_list_ids || [],
+          pipeline_id: campaign.pipeline_id || null,
         })
         .select()
         .single()
@@ -216,6 +226,7 @@ export function useUpdateCampaign() {
       if (input.sms_content !== undefined) updates.sms_content = input.sms_content
       if (input.scheduled_at !== undefined) updates.scheduled_at = input.scheduled_at
       if (input.recipient_list_ids !== undefined) updates.recipient_list_ids = input.recipient_list_ids
+      if (input.pipeline_id !== undefined) updates.pipeline_id = input.pipeline_id
 
       const { data, error } = await supabase
         .from('campaigns')
@@ -288,6 +299,7 @@ export function useDuplicateCampaign() {
           from_user_id: original.from_user_id,
           created_by_id: original.created_by_id,
           recipient_list_ids: original.recipient_list_ids,
+          pipeline_id: original.pipeline_id,
         })
         .select()
         .single()

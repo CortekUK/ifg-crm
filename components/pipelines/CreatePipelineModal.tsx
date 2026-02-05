@@ -52,7 +52,6 @@ const DEFAULT_STAGES: Array<{
 
 export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
   const [name, setName] = useState('')
-  const [sport, setSport] = useState<'football' | 'basketball'>('football')
   const [programmeId, setProgrammeId] = useState<string>('')
   const [useDefaultStages, setUseDefaultStages] = useState(true)
 
@@ -63,7 +62,6 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
   useEffect(() => {
     if (isOpen) {
       setName('')
-      setSport('football')
       setProgrammeId('')
       setUseDefaultStages(true)
     }
@@ -84,7 +82,7 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
     try {
       await createPipeline.mutateAsync({
         name: name.trim(),
-        sport,
+        sport: 'football',
         programme_id: programmeId || null,
         stages: useDefaultStages ? DEFAULT_STAGES : undefined,
       })
@@ -134,21 +132,6 @@ export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProp
                   placeholder="e.g., UCLan 2026"
                   required
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Sport <span className="text-red-500">*</span>
-                </Label>
-                <Select value={sport} onValueChange={(v) => setSport(v as 'football' | 'basketball')}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sport" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="football">Football</SelectItem>
-                    <SelectItem value="basketball">Basketball</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="space-y-2">

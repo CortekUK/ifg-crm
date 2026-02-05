@@ -31,8 +31,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Switch } from '@/components/ui/switch'
-import { Loader2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Pencil } from 'lucide-react'
-import { useUpdatePipeline, useDeletePipeline } from '@/lib/hooks/usePipelines'
+import { Loader2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Pencil, Send, Mail, MessageSquare, TrendingUp } from 'lucide-react'
+import { useUpdatePipeline, useDeletePipeline, usePipelineCampaigns } from '@/lib/hooks/usePipelines'
+import { formatDate, formatNumber } from '@/lib/utils/format'
 import { usePipelineStages, useCreateStage, useUpdateStage, useDeleteStage, useReorderStages } from '@/lib/hooks/usePipelineStages'
 import { useProgrammes } from '@/lib/hooks/useProgrammes'
 import { toast } from '@/lib/hooks/use-toast'
@@ -95,6 +96,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
 
   const { data: programmes = [] } = useProgrammes()
   const { data: stages = [], isLoading: stagesLoading } = usePipelineStages(pipeline?.id || null)
+  const { data: linkedCampaigns = [], isLoading: campaignsLoading } = usePipelineCampaigns(pipeline?.id || null)
   
   const updatePipeline = useUpdatePipeline()
   const deletePipeline = useDeletePipeline()
@@ -303,9 +305,10 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
           </SheetHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-            <TabsList className="mx-6 mt-4 grid w-auto grid-cols-2">
+            <TabsList className="mx-6 mt-4 grid w-auto grid-cols-3">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="stages">Stages</TabsTrigger>
+              <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
             </TabsList>
 
             {/* Details Tab */}
@@ -611,6 +614,113 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                     </Button>
                   )}
                 </>
+              )}
+            </TabsContent>
+
+            {/* Campaigns Tab */}
+            <TabsContent value="campaigns" className="flex-1 overflow-y-auto px-6 py-6 space-y-4 mt-0">
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Linked Campaigns
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Campaigns targeting this pipeline. Replies create deals via Smart Process.
+                </p>
+              </div>
+
+              {campaignsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : linkedCampaigns.length === 0 ? (
+                <div className="text-center py-8">
+                  <Send className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    No campaigns linked to this pipeline yet.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Create a programme-specific campaign to link it to this pipeline.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Stats summary */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                        {linkedCampaigns.length}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">Campaigns</p>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/30 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                        {formatNumber(linkedCampaigns.reduce((sum, c) => sum + (c.reply_count || 0), 0))}
+                      </p>
+                      <p className="text-xs text-green-600 dark:text-green-400">Replies</p>
+                    </div>
+                    <div className="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                        {linkedCampaigns.filter(c => c.status === 'sent').length}
+                      </p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Sent</p>
+                    </div>
+                  </div>
+
+                  {/* Campaign list */}
+                  <div className="space-y-2">
+                    {linkedCampaigns.map((campaign) => (
+                      <div
+                        key={campaign.id}
+                        className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                          {campaign.type === 'email' ? (
+                            <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                            {campaign.name}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className={`px-1.5 py-0.5 rounded ${
+                              campaign.status === 'sent'
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                : campaign.status === 'draft'
+                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                            }`}>
+                              {campaign.status}
+                            </span>
+                            {campaign.sent_at && (
+                              <span>{formatDate(campaign.sent_at)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {campaign.status === 'sent' && (
+                            <>
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                {formatNumber(campaign.reply_count || 0)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">replies</p>
+                            </>
+                          )}
+                          {campaign.status !== 'sent' && campaign.total_recipients && (
+                            <>
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                {formatNumber(campaign.total_recipients)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">recipients</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </TabsContent>
           </Tabs>

@@ -8,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search } from 'lucide-react'
+import { Search, GitBranch } from 'lucide-react'
+import { usePipelines } from '@/lib/hooks/usePipelines'
 import type { CampaignFilters as CampaignFiltersType } from '@/lib/types/campaigns'
 
 interface CampaignFiltersProps {
@@ -17,6 +18,8 @@ interface CampaignFiltersProps {
 }
 
 export function CampaignFilters({ filters, onFiltersChange }: CampaignFiltersProps) {
+  const { data: pipelines = [] } = usePipelines()
+
   return (
     <div className="flex flex-col sm:flex-row gap-4">
       {/* Search */}
@@ -64,6 +67,30 @@ export function CampaignFilters({ filters, onFiltersChange }: CampaignFiltersPro
           <SelectItem value="sending">Sending</SelectItem>
           <SelectItem value="sent">Sent</SelectItem>
           <SelectItem value="cancelled">Cancelled</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Pipeline Filter */}
+      <Select
+        value={filters.pipelineId || 'all'}
+        onValueChange={(value) =>
+          onFiltersChange({ ...filters, pipelineId: value as CampaignFiltersType['pipelineId'] })
+        }
+      >
+        <SelectTrigger className="w-[180px]">
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            <SelectValue placeholder="All Pipelines" />
+          </div>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Pipelines</SelectItem>
+          <SelectItem value="generic">Generic Only</SelectItem>
+          {pipelines.map((pipeline) => (
+            <SelectItem key={pipeline.id} value={pipeline.id}>
+              {pipeline.name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

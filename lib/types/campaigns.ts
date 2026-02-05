@@ -38,6 +38,8 @@ export interface Campaign {
   created_at: string
   updated_at: string
   recipient_list_ids: string[] | null
+  // Pipeline link (null = generic campaign, set = programme-specific)
+  pipeline_id: string | null
   // Progress tracking fields
   total_recipients?: number
   processed_recipients?: number
@@ -60,6 +62,16 @@ export interface Campaign {
     name: string
     contact_count?: number
   }[]
+  // Pipeline join data
+  pipeline?: {
+    id: string
+    name: string
+    programme_id: string | null
+    programme?: {
+      id: string
+      name: string
+    } | null
+  } | null
   // Aggregated stats (from campaign_recipients)
   recipient_count?: number
   delivered_count?: number
@@ -89,6 +101,8 @@ export interface CreateCampaignInput {
   created_by_id: string
   scheduled_at?: string
   recipient_list_ids?: string[]
+  // Pipeline link (null = generic campaign)
+  pipeline_id?: string | null
 }
 
 export interface UpdateCampaignInput {
@@ -109,10 +123,13 @@ export interface UpdateCampaignInput {
   // Common fields
   scheduled_at?: string | null
   recipient_list_ids?: string[]
+  // Pipeline link (null = generic campaign)
+  pipeline_id?: string | null
 }
 
 export interface CampaignFilters {
   search?: string
   type?: 'email' | 'sms' | 'all'
   status?: Campaign['status'] | 'all'
+  pipelineId?: string | 'all'
 }
