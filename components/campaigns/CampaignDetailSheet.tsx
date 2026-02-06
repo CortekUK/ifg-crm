@@ -5,6 +5,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
@@ -232,20 +233,22 @@ export function CampaignDetailSheet({
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent className="w-full sm:max-w-2xl flex flex-col p-0 gap-0">
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
-                  {isLoading ? <Skeleton className="h-7 w-48" /> : campaign?.name}
-                </SheetTitle>
+            <div className="flex items-start justify-between pr-8">
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-3">
+                  <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white truncate">
+                    {isLoading ? <Skeleton className="h-7 w-48" /> : campaign?.name}
+                  </SheetTitle>
+                  {campaign && (
+                    <Badge className={cn('font-normal shrink-0', statusConfig[campaign.status].className)}>
+                      {statusConfig[campaign.status].label}
+                    </Badge>
+                  )}
+                </div>
                 <SheetDescription>
                   Campaign details and performance metrics
                 </SheetDescription>
               </div>
-              {campaign && (
-                <Badge className={cn('font-normal', statusConfig[campaign.status].className)}>
-                  {statusConfig[campaign.status].label}
-                </Badge>
-              )}
             </div>
           </SheetHeader>
 
@@ -523,78 +526,6 @@ export function CampaignDetailSheet({
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                      Actions
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {(campaign.status === 'draft' || campaign.status === 'scheduled') && campaign.type === 'email' && (
-                        <Button
-                          size="sm"
-                          onClick={() => setShowSendDialog(true)}
-                          disabled={!campaign.recipient_list_ids?.length}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Send Now
-                        </Button>
-                      )}
-                      {campaign.status === 'sent' && campaign.type === 'email' && (
-                        <Button
-                          size="sm"
-                          onClick={() => setShowResendDialog(true)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Send Again
-                        </Button>
-                      )}
-                      {(campaign.status === 'draft' || campaign.status === 'scheduled') && onEdit && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onEdit(campaign)}
-                        >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDuplicate}
-                        disabled={duplicateCampaign.isPending}
-                      >
-                        {duplicateCampaign.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Copy className="h-4 w-4 mr-2" />
-                        )}
-                        Duplicate
-                      </Button>
-                      {campaign.status === 'scheduled' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowCancelDialog(true)}
-                          className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Cancel
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowDeleteDialog(true)}
-                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
                 </TabsContent>
 
                 <TabsContent value="content" className="px-6 py-4 space-y-6 mt-0">
@@ -780,6 +711,79 @@ export function CampaignDetailSheet({
               </div>
             </Tabs>
           ) : null}
+
+          {/* Footer Actions */}
+          {campaign && (
+            <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-900 shrink-0">
+              <div className="flex items-center justify-between w-full gap-3">
+                {/* Primary Actions */}
+                <div className="flex items-center gap-2">
+                  {(campaign.status === 'draft' || campaign.status === 'scheduled') && campaign.type === 'email' && (
+                    <Button
+                      onClick={() => setShowSendDialog(true)}
+                      disabled={!campaign.recipient_list_ids?.length}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Now
+                    </Button>
+                  )}
+                  {campaign.status === 'sent' && campaign.type === 'email' && (
+                    <Button
+                      onClick={() => setShowResendDialog(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Again
+                    </Button>
+                  )}
+                  {(campaign.status === 'draft' || campaign.status === 'scheduled') && onEdit && (
+                    <Button
+                      variant="outline"
+                      onClick={() => onEdit(campaign)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={handleDuplicate}
+                    disabled={duplicateCampaign.isPending}
+                  >
+                    {duplicateCampaign.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Copy className="h-4 w-4 mr-2" />
+                    )}
+                    Duplicate
+                  </Button>
+                </div>
+
+                {/* Destructive Actions */}
+                <div className="flex items-center gap-2">
+                  {campaign.status === 'scheduled' && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowCancelDialog(true)}
+                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-950"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </SheetFooter>
+          )}
         </SheetContent>
       </Sheet>
 
