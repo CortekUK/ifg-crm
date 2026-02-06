@@ -475,10 +475,9 @@ export function CreateCampaignModal({
                         'cursor-pointer transition-all border-2',
                         campaignMode === 'generic'
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
-                        isEditing && 'opacity-60 cursor-not-allowed'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                       )}
-                      onClick={() => !isEditing && setCampaignMode('generic')}
+                      onClick={() => setCampaignMode('generic')}
                     >
                       <CardContent className="p-3">
                         <div className="flex items-center gap-2 mb-1">
@@ -503,10 +502,9 @@ export function CreateCampaignModal({
                         'cursor-pointer transition-all border-2',
                         campaignMode === 'programme'
                           ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
-                        isEditing && 'opacity-60 cursor-not-allowed'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                       )}
-                      onClick={() => !isEditing && setCampaignMode('programme')}
+                      onClick={() => setCampaignMode('programme')}
                     >
                       <CardContent className="p-3">
                         <div className="flex items-center gap-2 mb-1">
@@ -538,7 +536,6 @@ export function CreateCampaignModal({
                     <Select
                       value={selectedPipelineId || ''}
                       onValueChange={(value) => setSelectedPipelineId(value || null)}
-                      disabled={isEditing}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a pipeline..." />
