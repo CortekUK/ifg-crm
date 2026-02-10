@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { AutomationsPageHeader } from '@/components/automations/AutomationsPageHeader'
 import { AutomationStats } from '@/components/automations/AutomationStats'
 import { AutomationTabs } from '@/components/automations/AutomationTabs'
@@ -18,6 +18,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Filter } from 'lucide-react'
 import { useAutomations, useAutomationLogs, useToggleAutomation, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, useDuplicateAutomation } from '@/lib/hooks/useAutomations'
 import { useAutomationStats } from '@/lib/hooks/useAutomationStats'
 import { toast } from '@/lib/hooks/use-toast'
@@ -30,6 +38,7 @@ export default function AutomationsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [historyFilters, setHistoryFilters] = useState<AutomationFilters>({})
   const [automationToDelete, setAutomationToDelete] = useState<Automation | null>(null)
+  const [pipelineFilter, setPipelineFilter] = useState<string>('all')
 
   // Fetch data
   const { data: automations = [], isLoading: automationsLoading } = useAutomations()
@@ -40,6 +49,25 @@ export default function AutomationsPage() {
   const updateAutomation = useUpdateAutomation()
   const deleteAutomation = useDeleteAutomation()
   const duplicateAutomation = useDuplicateAutomation()
+
+  // Extract unique pipelines from automations for the filter
+  const uniquePipelines = useMemo(() => {
+    const pipelineMap = new Map<string, string>()
+    automations.forEach((a) => {
+      if (a.pipeline_id && a.pipeline?.name) {
+        pipelineMap.set(a.pipeline_id, a.pipeline.name)
+      }
+    })
+    return Array.from(pipelineMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [automations])
+
+  // Filter automations by selected pipeline
+  const filteredAutomations = useMemo(() => {
+    if (pipelineFilter === 'all') return automations
+    return automations.filter((a) => a.pipeline_id === pipelineFilter)
+  }, [automations, pipelineFilter])
 
   const handleCreateClick = () => {
     setEditingAutomation(null)
@@ -169,13 +197,31 @@ export default function AutomationsPage() {
         isLoading={statsLoading}
       />
 
-      {/* Tabs */}
-      <AutomationTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* Tabs + Filter */}
+      <div className="flex items-center justify-between gap-4">
+        <AutomationTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        {activeTab === 'automations' && uniquePipelines.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={pipelineFilter} onValueChange={setPipelineFilter}>
+              <SelectTrigger className="w-[200px] h-9">
+                <SelectValue placeholder="All Pipelines" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Pipelines</SelectItem>
+                {uniquePipelines.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
 
       {/* Content */}
       {activeTab === 'automations' ? (
         <AutomationsTable
-          automations={automations}
+          automations={filteredAutomations}
           isLoading={automationsLoading}
           onView={handleView}
           onEdit={handleEdit}
