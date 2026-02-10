@@ -207,15 +207,10 @@ export function AddDealModal({
                             <Loader2 className="h-4 w-4 animate-spin" />
                           </div>
                         )}
-                        {!isSearching && contactSearch.length >= 2 && contacts.length === 0 && (
+                        {!isSearching && contacts.length === 0 && (
                           <CommandEmpty>No contacts found.</CommandEmpty>
                         )}
-                        {!isSearching && contactSearch.length < 2 && (
-                          <div className="py-6 text-center text-sm text-muted-foreground">
-                            Type at least 2 characters to search
-                          </div>
-                        )}
-                        {contacts.length > 0 && (
+                        {!isSearching && contacts.length > 0 && (
                           <CommandGroup>
                             {contacts.map((contact) => (
                               <CommandItem

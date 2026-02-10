@@ -125,7 +125,11 @@ export function UsersTable({
             const isPendingInvite = user.is_invite
 
             return (
-              <TableRow key={user.id} className={isPendingInvite ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}>
+              <TableRow
+                key={user.id}
+                className={`cursor-pointer hover:bg-muted/50 ${isPendingInvite ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}`}
+                onClick={() => !isPendingInvite && onEdit(user as unknown as User)}
+              >
                 {/* User */}
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -161,7 +165,7 @@ export function UsersTable({
                 </TableCell>
 
                 {/* Calendly */}
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   {user.calendly_url ? (
                     <a
                       href={user.calendly_url}
@@ -204,7 +208,7 @@ export function UsersTable({
                 </TableCell>
 
                 {/* Actions */}
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">

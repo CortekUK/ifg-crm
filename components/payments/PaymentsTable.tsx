@@ -153,7 +153,7 @@ export function PaymentsTable({
             const MethodIcon = method.icon
 
             return (
-              <TableRow key={payment.id}>
+              <TableRow key={payment.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onView?.(payment)}>
                 {/* Date */}
                 <TableCell className="text-sm">
                   {formatDate(payment.created_at)}
@@ -179,13 +179,10 @@ export function PaymentsTable({
                 </TableCell>
 
                 {/* Invoice # */}
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   {payment.invoice ? (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onViewInvoice?.(payment.invoice!.id)
-                      }}
+                      onClick={() => onViewInvoice?.(payment.invoice!.id)}
                       className="text-blue-600 hover:underline text-sm text-left"
                     >
                       {payment.invoice.invoice_number}
@@ -219,7 +216,7 @@ export function PaymentsTable({
                 </TableCell>
 
                 {/* Actions */}
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">

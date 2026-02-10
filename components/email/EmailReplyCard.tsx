@@ -53,13 +53,16 @@ export function EmailReplyCard({
   const displayName = reply.from_name || reply.from_email
 
   return (
-    <tr className={cn(
-      'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors',
-      isSpam && 'opacity-60',
-      selected && 'bg-blue-50/50 dark:bg-blue-900/20'
-    )}>
+    <tr
+      className={cn(
+        'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer',
+        isSpam && 'opacity-60',
+        selected && 'bg-blue-50/50 dark:bg-blue-900/20'
+      )}
+      onClick={() => onViewFull(reply)}
+    >
       {/* Checkbox */}
-      <td className="pl-4 pr-2 py-2.5 w-10">
+      <td className="pl-4 pr-2 py-2.5 w-10" onClick={(e) => e.stopPropagation()}>
         {selectable && !isSpam ? (
           <Checkbox
             checked={selected}
@@ -150,7 +153,7 @@ export function EmailReplyCard({
       </td>
 
       {/* Actions */}
-      <td className="pl-2 pr-4 py-2.5">
+      <td className="pl-2 pr-4 py-2.5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           <Button
             variant="ghost"

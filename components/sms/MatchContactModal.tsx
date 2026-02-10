@@ -214,7 +214,7 @@ export function MatchContactModal({
                   </div>
                 ) : contacts.length === 0 ? (
                   <div className="p-4 text-center text-muted-foreground">
-                    No contacts found. Try a different search.
+                    No contacts found.
                   </div>
                 ) : (
                   <div className="p-2 space-y-1">

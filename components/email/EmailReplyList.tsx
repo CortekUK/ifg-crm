@@ -135,7 +135,7 @@ export function EmailReplyList({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-hidden">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -189,7 +189,7 @@ export function EmailReplyList({
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-hidden">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">

@@ -160,9 +160,7 @@ export function AddContactsToListModal({
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Users className="h-10 w-10 text-gray-300 mb-3" />
               <p className="text-sm text-muted-foreground text-center">
-                {search
-                  ? 'No contacts found matching your search.'
-                  : 'Start typing to search for contacts.'}
+                No contacts found matching your search.
               </p>
             </div>
           ) : availableContacts.length === 0 && alreadyInListContacts.length > 0 ? (

@@ -54,6 +54,31 @@ interface CampaignsTableProps {
   onEditCampaign: (campaign: Campaign) => void
 }
 
+// Predefined color palette for pipeline badges
+const pipelineColors = [
+  { bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-700' },
+  { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-700' },
+  { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-700' },
+  { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-700' },
+  { bg: 'bg-rose-50 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-700' },
+  { bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-700' },
+  { bg: 'bg-indigo-50 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-700' },
+  { bg: 'bg-teal-50 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-200 dark:border-teal-700' },
+]
+
+function buildPipelineColorMap(campaigns: Campaign[]) {
+  const colorMap = new Map<string, typeof pipelineColors[number]>()
+  let colorIndex = 0
+  for (const campaign of campaigns) {
+    const id = campaign.pipeline_id
+    if (id && !colorMap.has(id)) {
+      colorMap.set(id, pipelineColors[colorIndex % pipelineColors.length])
+      colorIndex++
+    }
+  }
+  return colorMap
+}
+
 const statusConfig: Record<Campaign['status'], { label: string; className: string; icon?: React.ReactNode }> = {
   draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' },
   scheduled: { label: 'Scheduled', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900' },
@@ -73,6 +98,8 @@ export function CampaignsTable({
 }: CampaignsTableProps) {
   const [deleteDialogCampaign, setDeleteDialogCampaign] = useState<Campaign | null>(null)
   const [cancelDialogCampaign, setCancelDialogCampaign] = useState<Campaign | null>(null)
+
+  const pipelineColorMap = buildPipelineColorMap(campaigns)
 
   const deleteCampaign = useDeleteCampaign()
   const duplicateCampaign = useDuplicateCampaign()
@@ -308,11 +335,13 @@ export function CampaignsTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {campaign.pipeline ? (
+                    {campaign.pipeline ? (() => {
+                      const color = pipelineColorMap.get(campaign.pipeline_id!) || pipelineColors[0]
+                      return (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Badge variant="outline" className="text-xs font-normal cursor-default bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700">
+                            <Badge variant="outline" className={cn('text-xs font-normal cursor-default', color.bg, color.text, color.border)}>
                               <GitBranch className="h-3 w-3 mr-1" />
                               {campaign.pipeline.name}
                             </Badge>
@@ -328,8 +357,11 @@ export function CampaignsTable({
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Generic</span>
+                      )
+                    })() : (
+                      <Badge variant="outline" className="text-xs font-normal cursor-default bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                        Generic
+                      </Badge>
                     )}
                   </TableCell>
                   <TableCell>

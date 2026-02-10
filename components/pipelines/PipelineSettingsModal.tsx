@@ -652,17 +652,17 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                       </p>
                       <p className="text-xs text-blue-600 dark:text-blue-400">Campaigns</p>
                     </div>
+                    <div className="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                        {formatNumber(linkedCampaigns.reduce((sum, c) => sum + (c.total_recipients || 0), 0))}
+                      </p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Recipients</p>
+                    </div>
                     <div className="bg-green-50 dark:bg-green-900/30 rounded-lg p-3 text-center">
                       <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                         {formatNumber(linkedCampaigns.reduce((sum, c) => sum + (c.reply_count || 0), 0))}
                       </p>
                       <p className="text-xs text-green-600 dark:text-green-400">Replies</p>
-                    </div>
-                    <div className="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-3 text-center">
-                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                        {linkedCampaigns.filter(c => c.status === 'sent').length}
-                      </p>
-                      <p className="text-xs text-purple-600 dark:text-purple-400">Sent</p>
                     </div>
                   </div>
 

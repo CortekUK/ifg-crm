@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from 'date-fns'
 import { MessageSquare, Mail, ArrowRight, User } from 'lucide-react'
 
-type AIIntent = 'positive' | 'negative' | 'neutral' | 'unknown'
+type AIIntent = 'positive' | 'negative' | 'neutral' | 'question' | 'unknown'
 
 interface SMSMessage {
   id: string
@@ -33,6 +33,7 @@ const intentConfig: Record<AIIntent, { label: string; className: string }> = {
   positive: { label: 'Positive', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   negative: { label: 'Negative', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
   neutral: { label: 'Neutral', className: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' },
+  question: { label: 'Question', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
   unknown: { label: 'Unknown', className: 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400' },
 }
 
@@ -104,7 +105,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
   const subtitle = type === 'sms' 
     ? 'Recent messages awaiting response.' 
     : 'Recent emails awaiting response.'
-  const linkHref = type === 'sms' ? '/sms-replies' : '/email-replies'
+  const linkHref = '/replies'
 
   // Show error state
   if (error) {
@@ -179,7 +180,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
               // SMS Messages
               (data.messages as SMSMessage[]).map((message) => {
                 const intent = message.ai_intent || 'unknown'
-                const intentStyle = intentConfig[intent]
+                const intentStyle = intentConfig[intent] || intentConfig.unknown
                 return (
                   <div
                     key={message.id}
@@ -223,7 +224,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
               // Email Replies
               (data.messages as EmailReply[]).map((email) => {
                 const intent = email.ai_intent || 'unknown'
-                const intentStyle = intentConfig[intent]
+                const intentStyle = intentConfig[intent] || intentConfig.unknown
                 return (
                   <div
                     key={email.id}

@@ -79,6 +79,43 @@ export function usePipelineStages(pipelineId: string | null) {
   })
 }
 
+// Hook to fetch ALL pipeline stages grouped by pipeline (for campaign recipient selection)
+export function useAllPipelineStages() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['all-pipeline-stages'],
+    queryFn: async () => {
+      const { data: stages, error } = await supabase
+        .from('pipeline_stages')
+        .select('*, pipeline:pipelines(id, name)')
+        .order('display_order')
+
+      if (error) throw error
+      if (!stages || stages.length === 0) return []
+
+      // Get deal counts for each stage (active deals only)
+      const stageIds = stages.map((s) => s.id)
+      const { data: dealCounts } = await supabase
+        .from('deals')
+        .select('current_stage_id')
+        .in('current_stage_id', stageIds)
+        .is('won_at', null)
+        .is('lost_at', null)
+
+      const countMap = new Map<string, number>()
+      dealCounts?.forEach((d) => {
+        countMap.set(d.current_stage_id, (countMap.get(d.current_stage_id) || 0) + 1)
+      })
+
+      return stages.map((stage) => ({
+        ...stage,
+        deal_count: countMap.get(stage.id) || 0,
+      }))
+    },
+  })
+}
+
 // Calculate recipients from tags
 export function useCalculateRecipientsFromTags(tagIds: string[]) {
   const supabase = createClient()

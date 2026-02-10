@@ -312,23 +312,29 @@ export function PipelineListView({
                 </TableCell>
 
                 {/* Stage */}
-                <TableCell onClick={(e) => e.stopPropagation()}>
+                <TableCell
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <Select
                     value={deal.current_stage_id}
                     onValueChange={(value) => handleStageSelect(deal, value)}
                   >
                     <SelectTrigger className="w-[190px] h-8">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: currentStage?.color || '#94a3b8' }}
-                        />
-                        <span className="truncate">
-                          {currentStage?.name || 'Unknown'}
-                        </span>
-                      </div>
+                      <SelectValue>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: currentStage?.color || '#94a3b8' }}
+                          />
+                          <span className="truncate">
+                            {currentStage?.name || 'Unknown'}
+                          </span>
+                        </div>
+                      </SelectValue>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" sideOffset={4}>
                       {stages.map((stage) => (
                         <SelectItem key={stage.id} value={stage.id}>
                           <div className="flex items-center gap-2">

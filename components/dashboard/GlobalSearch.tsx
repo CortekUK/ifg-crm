@@ -106,11 +106,7 @@ export function GlobalSearch() {
             {isLoading && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
           </div>
           <CommandList className="max-h-[300px] overflow-y-auto">
-            {query.length < 2 ? (
-              <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                Type at least 2 characters to search...
-              </div>
-            ) : isLoading ? (
+            {isLoading ? (
               <div className="p-4 space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="flex items-center gap-3">

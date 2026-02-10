@@ -20,7 +20,7 @@ export function SMSReplyTabs({ activeTab, onTabChange, counts }: SMSReplyTabsPro
   ]
 
   return (
-    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1.5 gap-1">
+    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 gap-0.5">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id
         return (
@@ -28,25 +28,17 @@ export function SMSReplyTabs({ activeTab, onTabChange, counts }: SMSReplyTabsPro
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium text-sm transition-all',
+              'flex items-center gap-1.5 py-1.5 px-3.5 rounded-md text-sm font-medium transition-all',
               isActive
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             )}
           >
             <span>{tab.label}</span>
-            <span
-              className={cn(
-                'text-xs font-semibold px-2 py-0.5 rounded-full min-w-[1.5rem]',
-                isActive
-                  ? tab.color === 'red'
-                    ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
-                    : tab.color === 'green'
-                    ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                  : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-              )}
-            >
+            <span className={cn(
+              'text-[11px] font-medium tabular-nums min-w-[1.25rem] text-center',
+              isActive ? 'text-slate-500 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'
+            )}>
               {tab.count}
             </span>
           </button>

@@ -117,6 +117,26 @@ export function PipelineFilters({
         />
       </div>
 
+      {/* Deal Freshness Legend */}
+      <div className="hidden md:flex items-center gap-3 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <span>Hot</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <span>Active</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-amber-500" />
+          <span>Follow up</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-red-500" />
+          <span>Stale</span>
+        </div>
+      </div>
+
       {/* View Toggle */}
       <div className="flex items-center border rounded-lg p-1 bg-muted/50">
         <Button

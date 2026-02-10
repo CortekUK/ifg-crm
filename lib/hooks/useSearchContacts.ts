@@ -6,9 +6,19 @@ export function useSearchContacts(search: string) {
   const supabase = createClient()
 
   return useQuery<Contact[]>({
-    queryKey: ['contacts-search', search],
+    queryKey: ['contacts-search', search || '__recent__'],
     queryFn: async () => {
-      if (!search || search.length < 2) return []
+      if (!search || search.length < 2) {
+        // Show recent contacts when no search query
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(15)
+
+        if (error) throw error
+        return data || []
+      }
 
       const { data, error } = await supabase
         .from('contacts')
@@ -16,11 +26,11 @@ export function useSearchContacts(search: string) {
         .or(
           `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`
         )
-        .limit(10)
+        .limit(15)
 
       if (error) throw error
       return data || []
     },
-    enabled: search.length >= 2,
+    enabled: true,
   })
 }

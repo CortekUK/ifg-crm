@@ -186,6 +186,20 @@ Deno.serve(async (req) => {
     console.log(`Created email reply record: ${replyRecord.id}, contact: ${contactId}, match_status: ${matchStatus}`)
 
     // ============================================
+    // 3.5 CLASSIFY REPLY INTENT WITH AI
+    // ============================================
+    const replyText = event.data.text || stripHtml(event.data.html || '')
+    const aiIntent = await classifyIntent(replyText)
+
+    if (aiIntent) {
+      await supabase
+        .from('email_replies')
+        .update({ ai_intent: aiIntent })
+        .eq('id', replyRecord.id)
+      console.log(`Classified reply ${replyRecord.id} intent: ${aiIntent}`)
+    }
+
+    // ============================================
     // 4. CHECK FOR IMMEDIATE EXIT CONDITIONS
     // ============================================
     let enrollmentsStopped = 0
@@ -268,6 +282,7 @@ Deno.serve(async (req) => {
         reply_id: replyRecord.id,
         contact_id: contactId,
         match_status: matchStatus,
+        ai_intent: aiIntent || null,
         enrollments_stopped: enrollmentsStopped,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -281,6 +296,56 @@ Deno.serve(async (req) => {
     )
   }
 })
+
+/**
+ * Classify the intent of a reply using Claude AI
+ */
+const CLASSIFICATION_PROMPT = `You are classifying the intent of a reply to a business outreach/recruitment email.
+
+Classify as exactly one of:
+- positive: Interested, wants to learn more, agrees to meeting/call, asks about opportunity details
+- negative: Not interested, asks to be removed, opt-out, do not contact, already employed/not looking
+- question: Asking a question that needs a human response (salary, role details, timeline) without clear positive/negative signal
+- neutral: Auto-reply, out of office, acknowledgment without clear intent, forwarded without comment
+- unknown: Cannot determine intent, too short/ambiguous, or in a language that cannot be classified
+
+Respond with ONLY the classification word, nothing else.`
+
+async function classifyIntent(text: string): Promise<string | null> {
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  if (!apiKey || !text) return null
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        system: CLASSIFICATION_PROMPT,
+        messages: [{ role: 'user', content: text }],
+      }),
+    })
+
+    if (!response.ok) {
+      console.error('Claude API error:', response.status)
+      return null
+    }
+
+    const result = await response.json()
+    const intent = result.content?.[0]?.text?.trim().toLowerCase()
+
+    const validIntents = ['positive', 'negative', 'neutral', 'question', 'unknown']
+    return validIntents.includes(intent) ? intent : null
+  } catch (err) {
+    console.error('Intent classification failed:', err)
+    return null
+  }
+}
 
 /**
  * Parse an email address from "Name <email@example.com>" format

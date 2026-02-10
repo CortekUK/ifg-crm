@@ -13,11 +13,33 @@ export function useGlobalSearch(query: string) {
   const supabase = createClient()
 
   return useQuery<SearchResult[]>({
-    queryKey: ['global-search', query],
+    queryKey: ['global-search', query || '__recent__'],
     queryFn: async () => {
-      if (!query || query.length < 2) return []
-
       const results: SearchResult[] = []
+
+      if (!query || query.length < 2) {
+        // Show recent contacts when no search query
+        const { data: contacts } = await supabase
+          .from('contacts')
+          .select('id, first_name, last_name, email')
+          .order('created_at', { ascending: false })
+          .limit(8)
+
+        if (contacts) {
+          contacts.forEach((contact) => {
+            results.push({
+              id: contact.id,
+              type: 'contact',
+              title: `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unnamed Contact',
+              subtitle: contact.email || 'No email',
+              href: `/contacts?id=${contact.id}`,
+            })
+          })
+        }
+
+        return results
+      }
+
       const searchTerm = `%${query}%`
 
       // Search contacts
@@ -102,7 +124,7 @@ export function useGlobalSearch(query: string) {
 
       return results
     },
-    enabled: query.length >= 2,
+    enabled: true,
     staleTime: 1000 * 30, // 30 seconds
   })
 }
