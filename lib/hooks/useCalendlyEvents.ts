@@ -17,10 +17,7 @@ export function useCalendlyEvents(contactId: string | null) {
       
       const { data, error } = await supabase
         .from('calendly_events')
-        .select(`
-          *,
-          user:profiles(id, full_name, email)
-        `)
+        .select('*')
         .eq('contact_id', contactId)
         .order('start_time', { ascending: false })
       
@@ -88,10 +85,7 @@ export function useDealCalendlyEvents(dealId: string | null) {
       
       const { data, error } = await supabase
         .from('calendly_events')
-        .select(`
-          *,
-          user:profiles(id, full_name, email)
-        `)
+        .select('*')
         .eq('deal_id', dealId)
         .order('start_time', { ascending: false })
       
