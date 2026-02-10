@@ -8,10 +8,24 @@ export function usePlayers(filters?: PlayerFilters) {
   return useQuery<{ players: Player[]; total: number }>({
     queryKey: ['players', filters],
     queryFn: async () => {
+      // Players = contacts that belong to at least one list
+      // First get distinct contact IDs from contact_lists
+      const { data: listEntries, error: listError } = await supabase
+        .from('contact_lists')
+        .select('contact_id')
+
+      if (listError) throw listError
+
+      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
+
+      if (playerIds.length === 0) {
+        return { players: [], total: 0 }
+      }
+
       let query = supabase
         .from('contacts')
         .select('*', { count: 'exact' })
-        .not('graduation_year', 'is', null) // Players have graduation year set
+        .in('id', playerIds)
 
       // Apply filters
       if (filters?.search) {
@@ -75,33 +89,48 @@ export function usePlayerStats() {
   return useQuery<PlayerStats>({
     queryKey: ['player-stats'],
     queryFn: async () => {
-      // Total players (contacts with graduation_year)
-      const { count: totalPlayers } = await supabase
-        .from('contacts')
-        .select('*', { count: 'exact', head: true })
-        .not('graduation_year', 'is', null)
+      // Players = contacts that belong to at least one list
+      const { data: listEntries } = await supabase
+        .from('contact_lists')
+        .select('contact_id')
+
+      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
+
+      // Total players
+      const totalPlayers = playerIds.length
+
+      if (totalPlayers === 0) {
+        return {
+          totalPlayers: 0,
+          activeInPipeline: 0,
+          graduatingThisYear: 0,
+          usPlayers: 0,
+        }
+      }
 
       // Active in pipeline (players with deals)
       const { count: activeInPipeline } = await supabase
         .from('deals')
         .select('contact_id', { count: 'exact', head: true })
+        .in('contact_id', playerIds)
 
       // Graduating this year (2026)
       const currentYear = new Date().getFullYear()
       const { count: graduatingThisYear } = await supabase
         .from('contacts')
         .select('*', { count: 'exact', head: true })
+        .in('id', playerIds)
         .eq('graduation_year', currentYear)
 
       // US Players
       const { count: usPlayers } = await supabase
         .from('contacts')
         .select('*', { count: 'exact', head: true })
-        .not('graduation_year', 'is', null)
+        .in('id', playerIds)
         .eq('country', 'United States')
 
       return {
-        totalPlayers: totalPlayers || 0,
+        totalPlayers,
         activeInPipeline: activeInPipeline || 0,
         graduatingThisYear: graduatingThisYear || 0,
         usPlayers: usPlayers || 0,
@@ -161,11 +190,19 @@ export function useDistinctPositions() {
   return useQuery<string[]>({
     queryKey: ['distinct-positions'],
     queryFn: async () => {
+      // Get player IDs (contacts in at least one list)
+      const { data: listEntries } = await supabase
+        .from('contact_lists')
+        .select('contact_id')
+
+      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
+      if (playerIds.length === 0) return []
+
       const { data, error } = await supabase
         .from('contacts')
         .select('position')
+        .in('id', playerIds)
         .not('position', 'is', null)
-        .not('graduation_year', 'is', null)
 
       if (error) throw error
 
@@ -182,11 +219,19 @@ export function useDistinctCountries() {
   return useQuery<string[]>({
     queryKey: ['distinct-countries'],
     queryFn: async () => {
+      // Get player IDs (contacts in at least one list)
+      const { data: listEntries } = await supabase
+        .from('contact_lists')
+        .select('contact_id')
+
+      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
+      if (playerIds.length === 0) return []
+
       const { data, error } = await supabase
         .from('contacts')
         .select('country')
+        .in('id', playerIds)
         .not('country', 'is', null)
-        .not('graduation_year', 'is', null)
 
       if (error) throw error
 
