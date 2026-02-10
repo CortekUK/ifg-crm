@@ -134,22 +134,18 @@ export function useCalendlyConnectionStatus() {
     queryKey: ['calendly-connection-status'],
     queryFn: async () => {
       const supabase = createClient()
-      
+
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return { connected: false }
-      
-      const { data: profile, error } = await supabase
+      if (!user) return { connected: false } as CalendlyConnectionStatus
+
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('calendly_user_uri, calendly_connected_at')
+        .select('calendly_url')
         .eq('id', user.id)
         .single()
-      
-      if (error) throw error
-      
+
       return {
-        connected: !!profile?.calendly_user_uri,
-        user_uri: profile?.calendly_user_uri || undefined,
-        connected_at: profile?.calendly_connected_at || undefined,
+        connected: !!profile?.calendly_url,
       } as CalendlyConnectionStatus
     },
   })
@@ -186,22 +182,17 @@ export function useConnectCalendly() {
       
       const calendlyUser = await response.json()
       
-      // Update profile with Calendly connection
+      // Update profile with Calendly scheduling link
+      const schedulingUrl = calendlyUser.resource.scheduling_url
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
-          calendly_access_token: params.accessToken, // In production, encrypt this
-          calendly_webhook_secret: params.webhookSecret || null,
-          calendly_user_uri: calendlyUser.resource.uri,
-          calendly_connected_at: new Date().toISOString(),
-        })
+        .update({ calendly_url: schedulingUrl || null })
         .eq('id', user.id)
-      
+
       if (updateError) throw updateError
-      
+
       return {
         connected: true,
-        user_uri: calendlyUser.resource.uri,
         user_name: calendlyUser.resource.name,
       }
     },
@@ -226,12 +217,7 @@ export function useDisconnectCalendly() {
       
       const { error } = await supabase
         .from('profiles')
-        .update({
-          calendly_access_token: null,
-          calendly_webhook_secret: null,
-          calendly_user_uri: null,
-          calendly_connected_at: null,
-        })
+        .update({ calendly_url: null })
         .eq('id', user.id)
       
       if (error) throw error
