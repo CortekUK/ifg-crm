@@ -271,11 +271,30 @@ export function SmartDealModal({
 
     const selectedItems = eligible.filter((item) => selectedIds.has(item.id))
     let dealCount = 0
+    let skippedCount = 0
     let errorCount = 0
 
     try {
       for (const item of selectedItems) {
         try {
+          // Check if a deal already exists for this contact + pipeline
+          const { count: existingCount } = await supabase
+            .from('deals')
+            .select('id', { count: 'exact', head: true })
+            .eq('contact_id', item.contactId)
+            .eq('pipeline_id', item.pipelineId)
+
+          if (existingCount && existingCount > 0) {
+            // Deal already exists — still move reply out of Matched tab
+            const replyTable = type === 'email' ? 'email_replies' : 'sms_messages'
+            await supabase
+              .from(replyTable)
+              .update({ match_status: 'deal_created' })
+              .eq('id', item.id)
+            skippedCount++
+            continue
+          }
+
           // Get first stage for this pipeline
           const { data: firstStage, error: stageError } = await supabase
             .from('pipeline_stages')
@@ -358,7 +377,8 @@ export function SmartDealModal({
       queryClient.invalidateQueries({ queryKey: ['deals'] })
 
       const parts = []
-      if (dealCount > 0) parts.push(`${dealCount} deals created`)
+      if (dealCount > 0) parts.push(`${dealCount} deal${dealCount === 1 ? '' : 's'} created`)
+      if (skippedCount > 0) parts.push(`${skippedCount} already had deals`)
       if (errorCount > 0) parts.push(`${errorCount} errors`)
 
       toast({
