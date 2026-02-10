@@ -18,6 +18,7 @@ import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
 import { useResetEnrollments, type ResettableEnrollment } from '@/lib/hooks/useAutomationEnrollments'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage, Deal, Pipeline } from '@/lib/types/pipelines'
@@ -59,17 +60,15 @@ export default function PipelinesPage() {
     enrollments: { id: string; automation_id: string; automation_name: string }[]
   } | null>(null)
 
-  // Fetch current user
+  // Fetch current user (with role)
+  const { data: currentUser } = useCurrentUser()
   useEffect(() => {
-    const fetchUser = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserId(user.id)
-      }
+    if (currentUser?.id) {
+      setUserId(currentUser.id)
     }
-    fetchUser()
-  }, [])
+  }, [currentUser?.id])
+
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
 
   // Fetch pipelines
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines()
@@ -272,6 +271,15 @@ export default function PipelinesPage() {
     [executeMoveDeals, selectedPipelineId]
   )
 
+  // Check if current user can move a specific deal
+  const canMoveDeal = useCallback(
+    (deal: Deal) => {
+      if (isAdmin) return true
+      return deal.deal_owner_id === userId
+    },
+    [isAdmin, userId]
+  )
+
   // Handle drag end (for Kanban board)
   const handleDragEnd = useCallback(
     async (result: DropResult) => {
@@ -290,12 +298,23 @@ export default function PipelinesPage() {
 
       // Different column = stage changed
       if (destination.droppableId !== source.droppableId && selectedPipelineId) {
+        // Ownership check: recruiters can only move their own deals
+        const deal = deals.find((d) => d.id === draggableId)
+        if (deal && !canMoveDeal(deal)) {
+          toast({
+            title: 'Cannot move deal',
+            description: 'You can only move deals that are assigned to you.',
+            variant: 'destructive',
+          })
+          return
+        }
+
         const oldStage = stages.find((s) => s.id === source.droppableId)
         const newStage = stages.find((s) => s.id === destination.droppableId)
         await handleStageChange(draggableId, destination.droppableId, oldStage, newStage)
       }
     },
-    [handleStageChange, selectedPipelineId, stages]
+    [handleStageChange, selectedPipelineId, stages, deals, canMoveDeal]
   )
 
   // Handle reset modal - restart automation
@@ -488,6 +507,7 @@ export default function PipelinesPage() {
           onDragEnd={handleDragEnd}
           onAddClick={handleAddClick}
           onDealClick={handleDealClick}
+          canMoveDeal={canMoveDeal}
         />
       ) : (
         <PipelineListView
@@ -497,6 +517,7 @@ export default function PipelinesPage() {
           isLoading={isLoading && !stages.length}
           onDealClick={handleDealClick}
           onStageChange={handleStageChange}
+          canMoveDeal={canMoveDeal}
         />
       )}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -59,6 +59,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, formatNumber } from '@/lib/utils/format'
+import { useQuery } from '@tanstack/react-query'
 import {
   useCreateCampaign,
   useUpdateCampaign,
@@ -67,6 +68,7 @@ import {
   useSendCampaign,
 } from '@/lib/hooks/useCampaigns'
 import { usePipelines } from '@/lib/hooks/usePipelines'
+import { createClient } from '@/lib/supabase/client'
 import {
   useTags,
   useAllPipelineStages,
@@ -136,6 +138,9 @@ export function CreateCampaignModal({
   // SMS fields
   const [smsContent, setSmsContent] = useState('')
 
+  // Send As (recruiter selection)
+  const [sendAsUserId, setSendAsUserId] = useState<string>(userId)
+
   // Scheduling
   const [isScheduled, setIsScheduled] = useState(false)
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>()
@@ -164,6 +169,21 @@ export function CreateCampaignModal({
     selectedTags,
     selectedStages
   )
+  // Fetch active team members for "Send As" dropdown
+  const { data: teamMembers = [] } = useQuery<{ id: string; full_name: string | null; email: string }[]>({
+    queryKey: ['team-members-active'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('is_active', true)
+        .order('full_name')
+      if (error) throw error
+      return data || []
+    },
+  })
+
   const createCampaign = useCreateCampaign()
   const updateCampaign = useUpdateCampaign()
   const sendCampaign = useSendCampaign()
@@ -199,6 +219,7 @@ export function CreateCampaignModal({
       // Populate form with existing campaign data
       setName(editCampaign.name)
       setType(editCampaign.type)
+      setSendAsUserId(editCampaign.from_user_id || userId)
       setSelectedLists(editCampaign.recipient_list_ids || [])
       setEmailSubject(editCampaign.subject || '')
       setPreviewText(editCampaign.preview_text || '')
@@ -229,6 +250,7 @@ export function CreateCampaignModal({
       // Reset form for new campaign
       setName('')
       setType('email')
+      setSendAsUserId(userId)
       setSelectedLists([])
       setListSearchQuery('')
       setIsListDropdownOpen(false)
@@ -312,7 +334,7 @@ export function CreateCampaignModal({
         name: name.trim(),
         type,
         status: saveAsDraft ? 'draft' : isScheduled ? 'scheduled' : 'draft',
-        from_user_id: userId,
+        from_user_id: sendAsUserId,
         created_by_id: userId,
         recipient_list_ids: selectedLists.length > 0 ? selectedLists : undefined,
         scheduled_at: !saveAsDraft && isScheduled ? scheduledAt : undefined,
@@ -522,6 +544,29 @@ export function CreateCampaignModal({
                       </AlertDescription>
                     </Alert>
                   )}
+                </div>
+
+                {/* Send As (Recruiter Selection) */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Send As
+                  </Label>
+                  <Select value={sendAsUserId} onValueChange={setSendAsUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select recruiter..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.full_name || member.email}
+                          {member.id === userId && ' (You)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The recruiter this campaign will be sent on behalf of. Their Calendly link will be used for {'{{calendly_link}}'}.
+                  </p>
                 </div>
               </div>
 

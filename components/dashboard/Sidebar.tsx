@@ -69,6 +69,7 @@ const navSections = [
   },
   {
     label: 'AUTOMATION',
+    adminOnly: true,
     items: [
       { href: '/automations', label: 'Automations', icon: Zap },
     ],

@@ -51,6 +51,7 @@ interface PipelineListViewProps {
   onStageChange: (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => void
   onMarkWon?: (deal: Deal) => void
   onMarkLost?: (deal: Deal) => void
+  canMoveDeal?: (deal: Deal) => boolean
 }
 
 type SortKey = 'contact' | 'stage' | 'value' | 'owner' | 'time_in_stage' | 'created' | 'status'
@@ -119,6 +120,7 @@ export function PipelineListView({
   onStageChange,
   onMarkWon,
   onMarkLost,
+  canMoveDeal,
 }: PipelineListViewProps) {
   const [sortBy, setSortBy] = useState<SortKey>('contact')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
@@ -320,6 +322,7 @@ export function PipelineListView({
                   <Select
                     value={deal.current_stage_id}
                     onValueChange={(value) => handleStageSelect(deal, value)}
+                    disabled={canMoveDeal ? !canMoveDeal(deal) : false}
                   >
                     <SelectTrigger className="w-[190px] h-8">
                       <SelectValue>

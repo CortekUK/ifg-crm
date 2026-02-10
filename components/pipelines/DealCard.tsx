@@ -24,6 +24,7 @@ interface DealCardProps {
   deal: Deal
   index: number
   onClick?: () => void
+  isDragDisabled?: boolean
 }
 
 // Colour palette for avatar backgrounds
@@ -77,7 +78,7 @@ function getStatusColor(deal: Deal): { color: string; label: string } {
   return { color: 'bg-red-500', label: 'Stale - needs attention' }
 }
 
-export function DealCard({ deal, index, onClick }: DealCardProps) {
+export function DealCard({ deal, index, onClick, isDragDisabled }: DealCardProps) {
   const contact = deal.contact
   const contactName = contact
     ? `${contact.first_name} ${contact.last_name}`
@@ -89,7 +90,7 @@ export function DealCard({ deal, index, onClick }: DealCardProps) {
   const status = getStatusColor(deal)
 
   return (
-    <Draggable draggableId={deal.id} index={index}>
+    <Draggable draggableId={deal.id} index={index} isDragDisabled={isDragDisabled}>
       {(provided, snapshot) => {
         // Custom style for smooth drop animation
         const style = {

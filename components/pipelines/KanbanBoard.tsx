@@ -17,6 +17,7 @@ interface KanbanBoardProps {
   onDragEnd: (result: DropResult) => void
   onAddClick: (stage: PipelineStage) => void
   onDealClick?: (deal: Deal) => void
+  canMoveDeal?: (deal: Deal) => boolean
 }
 
 function LoadingSkeleton() {
@@ -99,6 +100,7 @@ export function KanbanBoard({
   onDragEnd,
   onAddClick,
   onDealClick,
+  canMoveDeal,
 }: KanbanBoardProps) {
   const {
     isLoaded: prefsLoaded,
@@ -147,6 +149,7 @@ export function KanbanBoard({
               onSortChange={(sort) => setColumnSort(stage.id, sort)}
               onAddClick={onAddClick}
               onDealClick={onDealClick}
+              canMoveDeal={canMoveDeal}
             />
           ))}
         </div>

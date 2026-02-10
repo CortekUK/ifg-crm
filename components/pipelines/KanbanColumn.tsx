@@ -22,6 +22,7 @@ interface KanbanColumnProps {
   onSortChange?: (sort: SortOption) => void
   onAddClick: (stage: PipelineStage) => void
   onDealClick?: (deal: Deal) => void
+  canMoveDeal?: (deal: Deal) => boolean
 }
 
 function sortDeals(deals: Deal[], sortBy: SortOption): Deal[] {
@@ -68,6 +69,7 @@ export function KanbanColumn({
   onSortChange,
   onAddClick,
   onDealClick,
+  canMoveDeal,
 }: KanbanColumnProps) {
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
   
@@ -196,6 +198,7 @@ export function KanbanColumn({
                     deal={deal}
                     index={index}
                     onClick={onDealClick ? () => onDealClick(deal) : undefined}
+                    isDragDisabled={canMoveDeal ? !canMoveDeal(deal) : false}
                   />
                 ))
               )}

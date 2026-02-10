@@ -36,6 +36,10 @@ import {
   CalendarClock,
   Pencil,
   Video,
+  Plus,
+  Search,
+  X,
+  Tag,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
@@ -48,6 +52,9 @@ import { useDealActivities, useAddDealNote } from '@/lib/hooks/useDealActivities
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useMoveDeal } from '@/lib/hooks/useDeals'
 import { useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
+import { useContactLists, useContactTags, useTags as useAllTags, useAddTagToContact, useRemoveTagFromContact } from '@/lib/hooks/useContacts'
+import { useLists, useAddContactsToList, useRemoveContactFromList } from '@/lib/hooks/useLists'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import { OwnerSelect } from '@/components/ui/owner-select'
@@ -74,13 +81,40 @@ export function DealDetailSheet({
   const [editProbability, setEditProbability] = useState<number | null>(null)
   const [editDescription, setEditDescription] = useState('')
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+  const [isAddListOpen, setIsAddListOpen] = useState(false)
+  const [listSearchQuery, setListSearchQuery] = useState('')
+  const [isAddTagOpen, setIsAddTagOpen] = useState(false)
+  const [tagSearchQuery, setTagSearchQuery] = useState('')
 
+  const { data: currentUser } = useCurrentUser()
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+  const canMove = isAdmin || deal?.deal_owner_id === userId
+
+  const contactId = deal?.contact_id || null
   const { data: activities = [], isLoading: activitiesLoading } = useDealActivities(deal?.id || null)
   const { data: stages = [] } = usePipelineStages(deal?.pipeline_id || null)
   const { data: upcomingCalendlyEvent } = useUpcomingCalendlyEvent(deal?.contact_id || null)
+  const { data: contactLists = [], isLoading: listsLoading } = useContactLists(contactId)
+  const { data: allLists = [] } = useLists()
+  const { data: contactTags = [], isLoading: tagsLoading } = useContactTags(contactId)
+  const { data: allTags = [] } = useAllTags()
+  const addToList = useAddContactsToList()
+  const removeFromList = useRemoveContactFromList()
+  const addTagToContact = useAddTagToContact()
+  const removeTagFromContact = useRemoveTagFromContact()
   const moveDeal = useMoveDeal()
   const addNote = useAddDealNote()
   const updateDeal = useUpdateDeal()
+
+  // Available lists/tags (not already assigned)
+  const availableLists = allLists.filter(
+    (l) => !contactLists.some((cl) => cl.id === l.id) &&
+    l.name.toLowerCase().includes(listSearchQuery.toLowerCase())
+  )
+  const availableTags = allTags.filter(
+    (t) => !contactTags.some((ct) => ct.id === t.id) &&
+    t.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
+  )
 
   useEffect(() => {
     if (isOpen) {
@@ -91,6 +125,10 @@ export function DealDetailSheet({
       setIsEditingOwner(false)
       setEditProbability(deal?.win_probability ?? null)
       setEditDescription(deal?.description || '')
+      setIsAddListOpen(false)
+      setListSearchQuery('')
+      setIsAddTagOpen(false)
+      setTagSearchQuery('')
     }
   }, [isOpen, deal?.id, deal?.win_probability, deal?.description])
 
@@ -200,6 +238,50 @@ export function DealDetailSheet({
     }
   }
 
+  const handleAddToList = async (listId: string, listName: string) => {
+    if (!contactId) return
+    try {
+      await addToList.mutateAsync({ listId, contactIds: [contactId] })
+      setIsAddListOpen(false)
+      setListSearchQuery('')
+      toast({ title: 'Added to list', description: `Added to "${listName}"` })
+    } catch (error) {
+      toast({ title: 'Failed to add to list', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+    }
+  }
+
+  const handleRemoveFromList = async (listId: string, listName: string) => {
+    if (!contactId) return
+    try {
+      await removeFromList.mutateAsync({ listId, contactId })
+      toast({ title: 'Removed from list', description: `Removed from "${listName}"` })
+    } catch (error) {
+      toast({ title: 'Failed to remove from list', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+    }
+  }
+
+  const handleAddTag = async (tagId: string, tagName: string) => {
+    if (!contactId) return
+    try {
+      await addTagToContact.mutateAsync({ contactId, tagId })
+      setIsAddTagOpen(false)
+      setTagSearchQuery('')
+      toast({ title: 'Tag added', description: `Added "${tagName}"` })
+    } catch (error) {
+      toast({ title: 'Failed to add tag', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+    }
+  }
+
+  const handleRemoveTag = async (tagId: string, tagName: string) => {
+    if (!contactId) return
+    try {
+      await removeTagFromContact.mutateAsync({ contactId, tagId })
+      toast({ title: 'Tag removed', description: `Removed "${tagName}"` })
+    } catch (error) {
+      toast({ title: 'Failed to remove tag', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+    }
+  }
+
   if (!deal) return null
 
   const notes = activities.filter((a) => a.activity_type === 'note_added')
@@ -235,7 +317,7 @@ export function DealDetailSheet({
           <div className="grid grid-cols-2 gap-2 mt-4">
             <div className="space-y-1">
               <Label className="text-xs text-slate-500 dark:text-slate-400">Move to Stage</Label>
-              <Select value={deal.current_stage_id} onValueChange={handleStageChange} disabled={moveDeal.isPending}>
+              <Select value={deal.current_stage_id} onValueChange={handleStageChange} disabled={moveDeal.isPending || !canMove}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -247,11 +329,11 @@ export function DealDetailSheet({
               </Select>
             </div>
             <div className="flex items-end gap-2">
-              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkWon}>
+              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkWon} disabled={!canMove}>
                 <Trophy className="h-4 w-4 mr-1" />
                 Won
               </Button>
-              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkLost}>
+              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkLost} disabled={!canMove}>
                 <XCircle className="h-4 w-4 mr-1" />
                 Lost
               </Button>
@@ -379,6 +461,158 @@ export function DealDetailSheet({
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Lists */}
+              {contactId && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                      Lists
+                    </h3>
+                    <Popover open={isAddListOpen} onOpenChange={setIsAddListOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add to List
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2" align="end">
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                              placeholder="Search lists..."
+                              value={listSearchQuery}
+                              onChange={(e) => setListSearchQuery(e.target.value)}
+                              className="h-8 pl-7 text-sm"
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto">
+                            {availableLists.length === 0 ? (
+                              <p className="text-xs text-muted-foreground text-center py-3">
+                                {listSearchQuery ? 'No lists found' : 'In all lists'}
+                              </p>
+                            ) : (
+                              availableLists.slice(0, 8).map((list) => (
+                                <button
+                                  key={list.id}
+                                  onClick={() => handleAddToList(list.id, list.name)}
+                                  disabled={addToList.isPending}
+                                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                                >
+                                  {list.name}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {listsLoading ? (
+                    <Skeleton className="h-8 w-full" />
+                  ) : contactLists.length === 0 ? (
+                    <p className="text-sm text-slate-500">Not in any lists</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {contactLists.map((list) => (
+                        <Badge key={list.id} variant="secondary" className="pr-1">
+                          {list.name}
+                          <button
+                            onClick={() => handleRemoveFromList(list.id, list.name)}
+                            className="ml-1 p-0.5 rounded-full hover:bg-slate-300/50"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tags */}
+              {contactId && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                      Tags
+                    </h3>
+                    <Popover open={isAddTagOpen} onOpenChange={setIsAddTagOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Tag
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2" align="end">
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                              placeholder="Search tags..."
+                              value={tagSearchQuery}
+                              onChange={(e) => setTagSearchQuery(e.target.value)}
+                              className="h-8 pl-7 text-sm"
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto">
+                            {availableTags.length === 0 ? (
+                              <p className="text-xs text-muted-foreground text-center py-3">
+                                {tagSearchQuery ? 'No tags found' : 'All tags applied'}
+                              </p>
+                            ) : (
+                              availableTags.slice(0, 8).map((tag) => (
+                                <button
+                                  key={tag.id}
+                                  onClick={() => handleAddTag(tag.id, tag.name)}
+                                  disabled={addTagToContact.isPending}
+                                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                  <div
+                                    className="w-2.5 h-2.5 rounded-full"
+                                    style={{ backgroundColor: tag.color }}
+                                  />
+                                  {tag.name}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {tagsLoading ? (
+                    <Skeleton className="h-8 w-full" />
+                  ) : contactTags.length === 0 ? (
+                    <p className="text-sm text-slate-500">No tags applied</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {contactTags.map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          className="pr-1"
+                          style={{
+                            backgroundColor: `${tag.color}20`,
+                            color: tag.color,
+                            borderColor: tag.color,
+                          }}
+                        >
+                          <Tag className="h-3 w-3 mr-1" />
+                          {tag.name}
+                          <button
+                            onClick={() => handleRemoveTag(tag.id, tag.name)}
+                            className="ml-1 p-0.5 rounded-full hover:bg-slate-300/50"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
