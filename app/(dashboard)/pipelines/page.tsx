@@ -461,6 +461,7 @@ export default function PipelinesPage() {
         deals={deals}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        userId={userId}
       />
 
       {/* Stats */}

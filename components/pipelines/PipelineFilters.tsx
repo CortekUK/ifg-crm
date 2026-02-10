@@ -25,6 +25,7 @@ interface PipelineFiltersProps {
   deals: Deal[]
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
+  userId?: string | null
 }
 
 export function PipelineFilters({
@@ -37,6 +38,7 @@ export function PipelineFilters({
   deals,
   viewMode,
   onViewModeChange,
+  userId,
 }: PipelineFiltersProps) {
   // Extract unique owners from deals
   const owners = useMemo(() => {
@@ -71,7 +73,8 @@ export function PipelineFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Owners</SelectItem>
-            {owners.map((owner) => (
+            {userId && <SelectItem value={userId}>My Deals</SelectItem>}
+            {owners.filter(o => o.id !== userId).map((owner) => (
               <SelectItem key={owner.id} value={owner.id}>
                 {owner.name}
               </SelectItem>
