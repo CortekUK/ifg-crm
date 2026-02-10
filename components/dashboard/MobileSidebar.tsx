@@ -40,6 +40,7 @@ interface MobileSidebarProps {
     email: string
     full_name?: string | null
     avatar_url?: string | null
+    role?: string
   } | null
 }
 
@@ -56,6 +57,7 @@ const navSections = [
   },
   {
     label: 'MARKETING',
+    adminOnly: true,
     items: [
       { href: '/campaigns', label: 'Campaigns', icon: Send },
       { href: '/lists', label: 'Lists', icon: ListIcon },
@@ -70,6 +72,7 @@ const navSections = [
   },
   {
     label: 'FINANCE',
+    adminOnly: true,
     items: [
       { href: '/invoices', label: 'Invoices', icon: ReceiptPoundSterling },
       { href: '/payments', label: 'Payments', icon: CreditCard },
@@ -77,6 +80,7 @@ const navSections = [
   },
   {
     label: 'INSIGHTS',
+    adminOnly: true,
     items: [
       { href: '/analytics', label: 'Analytics', icon: BarChart3 },
       { href: '/reports', label: 'Reports', icon: FileBarChart },
@@ -84,6 +88,7 @@ const navSections = [
   },
   {
     label: 'ADMIN',
+    adminOnly: true,
     items: [
       { href: '/users', label: 'Users', icon: UserCog },
       { href: '/settings', label: 'Settings', icon: Settings },
@@ -94,6 +99,10 @@ const navSections = [
 export function MobileSidebar({ user }: MobileSidebarProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const visibleSections = navSections.filter(
+    (section) => !section.adminOnly || isAdmin
+  )
 
   const getInitials = (name: string | null | undefined, email: string) => {
     if (name) {
@@ -145,7 +154,7 @@ export function MobileSidebar({ user }: MobileSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-5 max-h-[calc(100vh-180px)]">
-          {navSections.map((section) => (
+          {visibleSections.map((section) => (
             <div key={section.label}>
               <h3 className="text-[10px] font-semibold text-white/50 uppercase mb-2 px-3">
                 {section.label}

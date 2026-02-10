@@ -43,6 +43,7 @@ interface SidebarProps {
     email: string
     full_name?: string | null
     avatar_url?: string | null
+    role?: string
   } | null
 }
 
@@ -59,6 +60,7 @@ const navSections = [
   },
   {
     label: 'MARKETING',
+    adminOnly: true,
     items: [
       { href: '/campaigns', label: 'Campaigns', icon: Send },
       { href: '/lists', label: 'Lists', icon: ListIcon },
@@ -73,6 +75,7 @@ const navSections = [
   },
   {
     label: 'FINANCE',
+    adminOnly: true,
     items: [
       { href: '/invoices', label: 'Invoices', icon: ReceiptPoundSterling },
       { href: '/payments', label: 'Payments', icon: CreditCard },
@@ -80,6 +83,7 @@ const navSections = [
   },
   {
     label: 'INSIGHTS',
+    adminOnly: true,
     items: [
       { href: '/analytics', label: 'Analytics', icon: BarChart3 },
       { href: '/reports', label: 'Reports', icon: FileBarChart },
@@ -87,6 +91,7 @@ const navSections = [
   },
   {
     label: 'ADMIN',
+    adminOnly: true,
     items: [
       { href: '/users', label: 'Users', icon: UserCog },
       { href: '/settings', label: 'Settings', icon: Settings },
@@ -110,6 +115,12 @@ export function Sidebar({ user }: SidebarProps) {
     return email.slice(0, 2).toUpperCase()
   }
 
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+
+  const visibleSections = navSections.filter(
+    (section) => !section.adminOnly || isAdmin
+  )
+
   return (
     <aside
       className={cn(
@@ -123,14 +134,14 @@ export function Sidebar({ user }: SidebarProps) {
         collapsed ? 'justify-center' : ''
       )}>
         {/* Custom pin marker SVG with hole visible */}
-        <svg 
-          className="h-7 w-7 shrink-0" 
-          viewBox="0 0 24 24" 
+        <svg
+          className="h-7 w-7 shrink-0"
+          viewBox="0 0 24 24"
           fill="white"
         >
-          <path 
-            fillRule="evenodd" 
-            clipRule="evenodd" 
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
             d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
           />
         </svg>
@@ -144,7 +155,7 @@ export function Sidebar({ user }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-5">
-        {navSections.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.label}>
             {!collapsed && (
               <h3 className="text-[10px] font-semibold text-white/50 uppercase mb-2 px-3">
