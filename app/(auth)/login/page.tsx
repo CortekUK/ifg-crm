@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
-  Eye, 
-  EyeOff, 
-  Check, 
-  Mail, 
+import {
+  Eye,
+  EyeOff,
+  Check,
+  Mail,
   Lock,
   Users,
   BarChart3,
@@ -30,18 +31,27 @@ const features = [
   { icon: UserCheck, text: 'Team Collaboration' },
 ]
 
-export default function LoginPage() {
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_link: 'This link is invalid or has expired. Please request a new one.',
+  session_expired: 'Your session has expired. Please sign in again.',
+}
+
+function LoginContent() {
+  const searchParams = useSearchParams()
+  const urlError = searchParams.get('error')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(
+    urlError ? ERROR_MESSAGES[urlError] || urlError : null
+  )
   const [rememberMe, setRememberMe] = useState(false)
 
   async function handleSubmit(formData: FormData) {
     setIsLoading(true)
     setError(null)
-    
+
     const result = await login(formData)
-    
+
     if (result?.error) {
       setError(result.error)
       setIsLoading(false)
@@ -222,5 +232,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   )
 }
