@@ -332,6 +332,13 @@ export function SmartDealModal({
             campaignName: item.campaignName || undefined,
           })
 
+          // Move reply out of Matched tab by updating match_status
+          const replyTable = type === 'email' ? 'email_replies' : 'sms_messages'
+          await supabase
+            .from(replyTable)
+            .update({ match_status: 'deal_created' })
+            .eq('id', item.id)
+
           dealCount++
         } catch (dealError) {
           console.error('Error creating deal:', dealError)

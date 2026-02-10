@@ -4,7 +4,7 @@ import type { Profile } from './pipelines'
 
 export type SMSDirection = 'inbound' | 'outbound'
 export type SMSIntent = 'positive' | 'negative' | 'neutral' | 'question' | 'unknown'
-export type SMSMatchStatus = 'auto_matched' | 'manually_matched' | 'unmatched' | 'spam'
+export type SMSMatchStatus = 'auto_matched' | 'manually_matched' | 'unmatched' | 'spam' | 'deal_created'
 export type SMSFollowUpStatus = 'open' | 'in_progress' | 'completed'
 
 export interface SMSMessage {

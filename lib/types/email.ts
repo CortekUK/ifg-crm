@@ -3,7 +3,7 @@ import type { Campaign } from './campaigns'
 import type { Profile, Pipeline } from './pipelines'
 
 export type EmailIntent = 'positive' | 'negative' | 'neutral' | 'question' | 'unknown'
-export type EmailMatchStatus = 'auto_matched' | 'manually_matched' | 'unmatched' | 'spam'
+export type EmailMatchStatus = 'auto_matched' | 'manually_matched' | 'unmatched' | 'spam' | 'deal_created'
 export type EmailFollowUpStatus = 'open' | 'in_progress' | 'completed'
 
 export interface EmailReply {
