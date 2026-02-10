@@ -34,33 +34,36 @@ export function CallsBookedCard() {
         return { thisWeek: 0, thisMonth: 0, trend: 0 }
       }
 
-      // Calls booked this week (deals that moved to meeting stage this week)
-      const { count: thisWeek } = await supabase
+      // Fetch stage_changed activities from this month onwards (covers all 3 ranges)
+      const { data: activities } = await supabase
         .from('deal_activities')
-        .select('*', { count: 'exact', head: true })
-        .eq('activity_type', 'stage_changed')
-        .gte('created_at', startOfWeek.toISOString())
-        .filter('new_value->stage_id', 'in', `(${meetingStageIds.map(id => `"${id}"`).join(',')})`)
-
-      // Calls booked this month
-      const { count: thisMonth } = await supabase
-        .from('deal_activities')
-        .select('*', { count: 'exact', head: true })
-        .eq('activity_type', 'stage_changed')
-        .gte('created_at', startOfMonth.toISOString())
-        .filter('new_value->stage_id', 'in', `(${meetingStageIds.map(id => `"${id}"`).join(',')})`)
-
-      // Calls booked last month
-      const { count: lastMonth } = await supabase
-        .from('deal_activities')
-        .select('*', { count: 'exact', head: true })
+        .select('created_at, new_value')
         .eq('activity_type', 'stage_changed')
         .gte('created_at', startOfLastMonth.toISOString())
-        .lte('created_at', endOfLastMonth.toISOString())
-        .filter('new_value->stage_id', 'in', `(${meetingStageIds.map(id => `"${id}"`).join(',')})`)
 
-      const trend = lastMonth && lastMonth > 0
-        ? Math.round(((thisMonth || 0) - lastMonth) / lastMonth * 100)
+      // Filter client-side for meeting stage transitions
+      const meetingActivities = (activities || []).filter((a) => {
+        const stageId = (a.new_value as Record<string, unknown>)?.stage_id
+        return typeof stageId === 'string' && meetingStageIds.includes(stageId)
+      })
+
+      const thisWeek = meetingActivities.filter(
+        (a) => new Date(a.created_at) >= startOfWeek
+      ).length
+
+      const thisMonth = meetingActivities.filter(
+        (a) => new Date(a.created_at) >= startOfMonth
+      ).length
+
+      const lastMonth = meetingActivities.filter(
+        (a) => {
+          const d = new Date(a.created_at)
+          return d >= startOfLastMonth && d <= endOfLastMonth
+        }
+      ).length
+
+      const trend = lastMonth > 0
+        ? Math.round((thisMonth - lastMonth) / lastMonth * 100)
         : 0
 
       return {

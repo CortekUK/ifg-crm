@@ -24,7 +24,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
           .from('sms_messages')
           .select('*', { count: 'exact', head: true })
           .eq('direction', 'inbound')
-          .eq('follow_up_status', 'needed')
+          .eq('follow_up_status', 'open')
 
         if (error) {
           console.error('SMS follow-up count error:', error)
@@ -37,7 +37,7 @@ export function FollowUpsWidget({ type }: FollowUpsWidgetProps) {
         const { count, error } = await supabase
           .from('email_replies')
           .select('*', { count: 'exact', head: true })
-          .eq('follow_up_status', 'needed')
+          .eq('follow_up_status', 'open')
 
         if (error) {
           console.error('Email follow-up count error:', error)
