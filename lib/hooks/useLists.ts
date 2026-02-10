@@ -292,6 +292,11 @@ export function useAddContactsToList() {
       queryClient.invalidateQueries({ queryKey: ['list', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-contacts', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
+      // Invalidate player queries since players = contacts in lists
+      queryClient.invalidateQueries({ queryKey: ['players'] })
+      queryClient.invalidateQueries({ queryKey: ['player-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['distinct-positions'] })
+      queryClient.invalidateQueries({ queryKey: ['distinct-countries'] })
       // Invalidate contact-lists for all affected contacts
       variables.contactIds.forEach((contactId) => {
         queryClient.invalidateQueries({ queryKey: ['contact-lists', contactId] })
@@ -319,6 +324,11 @@ export function useRemoveContactFromList() {
       queryClient.invalidateQueries({ queryKey: ['list', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-contacts', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
+      // Invalidate player queries since players = contacts in lists
+      queryClient.invalidateQueries({ queryKey: ['players'] })
+      queryClient.invalidateQueries({ queryKey: ['player-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['distinct-positions'] })
+      queryClient.invalidateQueries({ queryKey: ['distinct-countries'] })
       // Invalidate contact-lists for the affected contact
       queryClient.invalidateQueries({ queryKey: ['contact-lists', variables.contactId] })
     },
@@ -344,6 +354,11 @@ export function useBulkRemoveContactsFromList() {
       queryClient.invalidateQueries({ queryKey: ['list', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-contacts', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
+      // Invalidate player queries since players = contacts in lists
+      queryClient.invalidateQueries({ queryKey: ['players'] })
+      queryClient.invalidateQueries({ queryKey: ['player-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['distinct-positions'] })
+      queryClient.invalidateQueries({ queryKey: ['distinct-countries'] })
       // Invalidate contact-lists for all affected contacts
       variables.contactIds.forEach((contactId) => {
         queryClient.invalidateQueries({ queryKey: ['contact-lists', contactId] })
