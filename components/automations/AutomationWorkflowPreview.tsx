@@ -95,21 +95,21 @@ export function AutomationWorkflowPreview({
   const getStepIconColor = (stepType: AutomationStep['step_type']) => {
     switch (stepType) {
       case 'send_email':
-        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
+        return 'bg-blue-100 dark:bg-blue-900 text-blue-600'
       case 'wait':
-        return 'bg-slate-100 text-slate-600'
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-600'
       case 'send_sms':
-        return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600'
+        return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600'
       case 'move_to_stage':
-        return 'bg-orange-100 dark:bg-orange-900/50 text-orange-600'
+        return 'bg-orange-100 dark:bg-orange-900 text-orange-600'
       case 'create_deal':
-        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600'
+        return 'bg-purple-100 dark:bg-purple-900 text-purple-600'
       case 'notify':
-        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600'
+        return 'bg-amber-100 dark:bg-amber-900 text-amber-600'
       case 'create_portal_account':
-        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600'
+        return 'bg-cyan-100 dark:bg-cyan-900 text-cyan-600'
       default:
-        return 'bg-slate-100 text-slate-600'
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-600'
     }
   }
 
@@ -134,7 +134,7 @@ export function AutomationWorkflowPreview({
       <div className="relative">
         <div className="absolute left-[19px] top-[44px] w-0.5 h-[calc(100%-12px)] bg-slate-200" />
         <div className="flex items-start gap-4 pb-4">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-slate-800 text-white shadow-sm">
+          <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-slate-800 text-white shadow-sm">
             <Zap className="h-4 w-4" />
           </div>
           <div className="flex-1 pt-2">
@@ -162,7 +162,7 @@ export function AutomationWorkflowPreview({
           <div className="flex items-start gap-4 pb-4">
             <div
               className={cn(
-                'w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm',
+                'relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm',
                 getStepIconColor(step.step_type)
               )}
             >
@@ -308,7 +308,7 @@ export function AutomationWorkflowPreview({
       {(automation.stop_on_stage_ids?.length || automation.exit_on_reply || automation.config?.stop_on_payment) && (
         <div className="relative">
           <div className="flex items-start gap-4 pt-1 pb-4">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/50 text-green-600 shadow-sm">
+            <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900 text-green-600 shadow-sm">
               <CheckCircle2 className="h-4 w-4" />
             </div>
             <div className="flex-1 pt-0.5">
