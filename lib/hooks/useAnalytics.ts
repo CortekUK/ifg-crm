@@ -452,14 +452,13 @@ export function useAnalytics(dateRange: string = '30d', pipelineId: string | nul
 
       try {
         // Get deal stage history to calculate conversions and time
-        let historyQuery = supabase
+        // Note: deal_stage_history table may not exist yet
+        const { data: stageHistory, error: historyError } = await supabase
           .from('deal_stage_history')
           .select('deal_id, from_stage_id, to_stage_id, changed_at, deal:deals(pipeline_id)')
           .order('changed_at', { ascending: true })
 
-        const { data: stageHistory } = await historyQuery
-
-        if (stageHistory && stageHistory.length > 0) {
+        if (!historyError && stageHistory && stageHistory.length > 0) {
           // Get stage info for mapping
           let stagesQuery = supabase
             .from('pipeline_stages')
