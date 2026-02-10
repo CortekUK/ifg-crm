@@ -447,112 +447,11 @@ export function useAnalytics(dateRange: string = '30d', pipelineId: string | nul
       // =====================
       // STAGE CONVERSION RATES & AVG TIME PER STAGE
       // =====================
+      // TODO: Requires deal_stage_history table (not yet created).
+      // Once the table exists, re-enable this section to calculate
+      // stage conversion rates and average time per stage.
       const stageConversionRates: { fromStage: string; toStage: string; rate: number }[] = []
       const avgTimePerStage: { stage: string; avgDays: number }[] = []
-
-      try {
-        // Get deal stage history to calculate conversions and time
-        // Note: deal_stage_history table may not exist yet
-        const { data: stageHistory, error: historyError } = await supabase
-          .from('deal_stage_history')
-          .select('deal_id, from_stage_id, to_stage_id, changed_at, deal:deals(pipeline_id)')
-          .order('changed_at', { ascending: true })
-
-        if (!historyError && stageHistory && stageHistory.length > 0) {
-          // Get stage info for mapping
-          let stagesQuery = supabase
-            .from('pipeline_stages')
-            .select('id, name, display_order, pipeline_id')
-            .order('display_order')
-
-          if (pipelineId) {
-            stagesQuery = stagesQuery.eq('pipeline_id', pipelineId)
-          }
-
-          const { data: allStages } = await stagesQuery
-          const stageMap = new Map(allStages?.map(s => [s.id, s]) || [])
-
-          // Filter history by pipeline if needed
-          const filteredHistory = pipelineId
-            ? stageHistory.filter(h => (h.deal as any)?.pipeline_id === pipelineId)
-            : stageHistory
-
-          // Calculate conversion rates between sequential stages
-          const transitionCounts: Record<string, { from: number; to: number }> = {}
-
-          for (const transition of filteredHistory) {
-            if (!transition.from_stage_id || !transition.to_stage_id) continue
-            const fromStage = stageMap.get(transition.from_stage_id)
-            const toStage = stageMap.get(transition.to_stage_id)
-            if (!fromStage || !toStage) continue
-
-            const key = `${fromStage.name}|${toStage.name}`
-            if (!transitionCounts[key]) {
-              transitionCounts[key] = { from: 0, to: 0 }
-            }
-            transitionCounts[key].to++
-          }
-
-          // Count total deals at each stage (as denominator for conversion)
-          for (const stage of pipelineFunnel) {
-            for (const key of Object.keys(transitionCounts)) {
-              if (key.startsWith(`${stage.stage}|`)) {
-                transitionCounts[key].from = stage.count
-              }
-            }
-          }
-
-          // Build conversion rates
-          for (const [key, counts] of Object.entries(transitionCounts)) {
-            const [fromStage, toStage] = key.split('|')
-            const rate = counts.from > 0 ? (counts.to / counts.from) * 100 : 0
-            if (rate > 0) {
-              stageConversionRates.push({ fromStage, toStage, rate: Math.round(rate) })
-            }
-          }
-
-          // Calculate average time per stage
-          const timePerStage: Record<string, number[]> = {}
-          const dealTimes: Record<string, Date> = {}
-
-          for (const transition of filteredHistory) {
-            const dealId = transition.deal_id
-            const changedAt = new Date(transition.changed_at)
-
-            if (transition.from_stage_id) {
-              const fromStage = stageMap.get(transition.from_stage_id)
-              if (fromStage && dealTimes[`${dealId}-${transition.from_stage_id}`]) {
-                const enteredAt = dealTimes[`${dealId}-${transition.from_stage_id}`]
-                const daysInStage = (changedAt.getTime() - enteredAt.getTime()) / (1000 * 60 * 60 * 24)
-
-                if (!timePerStage[fromStage.name]) {
-                  timePerStage[fromStage.name] = []
-                }
-                timePerStage[fromStage.name].push(daysInStage)
-              }
-            }
-
-            if (transition.to_stage_id) {
-              dealTimes[`${dealId}-${transition.to_stage_id}`] = changedAt
-            }
-          }
-
-          // Calculate averages
-          for (const [stageName, times] of Object.entries(timePerStage)) {
-            const avg = times.reduce((a, b) => a + b, 0) / times.length
-            avgTimePerStage.push({ stage: stageName, avgDays: Math.round(avg * 10) / 10 })
-          }
-
-          // Sort by stage order
-          avgTimePerStage.sort((a, b) => {
-            const aIndex = pipelineFunnel.findIndex(s => s.stage === a.stage)
-            const bIndex = pipelineFunnel.findIndex(s => s.stage === b.stage)
-            return aIndex - bIndex
-          })
-        }
-      } catch (e) {
-        console.warn('Failed to fetch stage metrics:', e)
-      }
 
       // Revenue by month
       const { data: monthlyPayments } = await supabase
