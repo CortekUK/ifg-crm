@@ -16,6 +16,7 @@ interface PlayerFiltersProps {
   onFiltersChange: (filters: PlayerFiltersType) => void
   positions: string[]
   countries: string[]
+  userId?: string | null
 }
 
 const currentYear = new Date().getFullYear()
@@ -26,9 +27,26 @@ export function PlayerFilters({
   onFiltersChange,
   positions,
   countries,
+  userId,
 }: PlayerFiltersProps) {
   return (
     <div className="flex flex-col lg:flex-row gap-4 flex-wrap">
+      {/* Owner Filter */}
+      {userId && (
+        <Select
+          value={filters.ownerId || 'all'}
+          onValueChange={(v) => onFiltersChange({ ...filters, ownerId: v })}
+        >
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="All Players" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Players</SelectItem>
+            <SelectItem value={userId}>My Players</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+
       {/* Search */}
       <div className="relative flex-1 min-w-[200px] max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

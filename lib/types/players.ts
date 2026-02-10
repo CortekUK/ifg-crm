@@ -13,6 +13,7 @@ export interface PlayerFilters {
   country?: string | 'all'
   position?: string | 'all'
   status?: 'active' | 'unsubscribed' | 'all'
+  ownerId?: string | 'all'
 }
 
 export interface PlayerStats {

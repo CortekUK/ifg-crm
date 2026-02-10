@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlayersPageHeader } from '@/components/players/PlayersPageHeader'
 import { PlayerStats } from '@/components/players/PlayerStats'
 import { PlayerFilters } from '@/components/players/PlayerFilters'
@@ -16,6 +16,7 @@ import {
   useDistinctCountries,
 } from '@/lib/hooks/usePlayers'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { createClient } from '@/lib/supabase/client'
 import type { PlayerFilters as PlayerFiltersType, Player } from '@/lib/types/players'
 
 export default function PlayersPage() {
@@ -24,6 +25,14 @@ export default function PlayersPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUserId(data.user.id)
+    })
+  }, [])
 
   // Debounce search
   const debouncedFilters = {
@@ -58,7 +67,26 @@ export default function PlayersPage() {
   }
 
   const handleExport = () => {
-    console.log('Export clicked')
+    if (players.length === 0) return
+    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'Position', 'Graduation Year', 'Gender']
+    const rows = players.map((p) => [
+      p.first_name || '',
+      p.last_name || '',
+      p.email || '',
+      p.phone || '',
+      p.country || '',
+      p.position || '',
+      p.graduation_year?.toString() || '',
+      p.gender || '',
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `players-export-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -87,6 +115,7 @@ export default function PlayersPage() {
         onFiltersChange={setFilters}
         positions={positions}
         countries={countries}
+        userId={userId}
       />
 
       {/* Players Grid or Table */}

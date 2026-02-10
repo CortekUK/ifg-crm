@@ -48,6 +48,9 @@ export function usePlayers(filters?: PlayerFilters) {
       if (filters?.status && filters.status !== 'all') {
         query = query.eq('subscription_status', filters.status)
       }
+      if (filters?.ownerId && filters.ownerId !== 'all') {
+        query = query.eq('owner_id', filters.ownerId)
+      }
 
       query = query.order('created_at', { ascending: false })
 
