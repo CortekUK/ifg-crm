@@ -46,6 +46,11 @@ export function useUsersAndInvites() {
   const usersQuery = useUsers()
   const invitesQuery = useUserInvites()
 
+  // Emails with pending invites — used to hide the auto-created profile row
+  const pendingEmails = new Set(
+    (invitesQuery.data || []).map((i) => i.email.toLowerCase())
+  )
+
   const combined: UserOrInvite[] = [
     // Map pending invites first (show at top)
     ...(invitesQuery.data || []).map((invite): UserOrInvite => ({
@@ -64,24 +69,26 @@ export function useUsersAndInvites() {
       expires_at: invite.expires_at,
       pipeline_assignments: invite.pipeline_ids || [],
     })),
-    // Then existing users
-    ...(usersQuery.data || []).map((user): UserOrInvite => ({
-      id: user.id,
-      email: user.email,
-      full_name: user.full_name,
-      role: user.role,
-      title: user.title,
-      sport: user.sport,
-      calendly_url: user.calendly_url,
-      zoom_url: user.zoom_url,
-      phone: user.phone,
-      avatar_url: user.avatar_url,
-      is_active: user.is_active,
-      created_at: user.created_at,
-      last_login_at: user.last_login_at,
-      is_invite: false,
-      pipeline_assignments: user.pipeline_assignments || [],
-    })),
+    // Then existing users (excluding those with a pending invite to avoid duplicates)
+    ...(usersQuery.data || [])
+      .filter((user) => !pendingEmails.has(user.email.toLowerCase()))
+      .map((user): UserOrInvite => ({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        title: user.title,
+        sport: user.sport,
+        calendly_url: user.calendly_url,
+        zoom_url: user.zoom_url,
+        phone: user.phone,
+        avatar_url: user.avatar_url,
+        is_active: user.is_active,
+        created_at: user.created_at,
+        last_login_at: user.last_login_at,
+        is_invite: false,
+        pipeline_assignments: user.pipeline_assignments || [],
+      })),
   ]
 
   return {
