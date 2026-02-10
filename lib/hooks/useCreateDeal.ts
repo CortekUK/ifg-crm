@@ -71,26 +71,15 @@ export function useCreateDeal() {
         activityDescription = `Deal created from import`
       }
 
-      // Log the activity with campaign reference if available
-      const activityData: Record<string, unknown> = {
-        deal_id: deal.id,
-        activity_type: 'deal_created',
-        description: activityDescription,
-        performed_by_id: ownerId,
-      }
-
-      // Store campaign reference in metadata if available
-      if (campaignId) {
-        activityData.metadata = JSON.stringify({
-          source,
-          campaign_id: campaignId,
-          campaign_name: campaignName,
-        })
-      }
-
+      // Log the activity
       const { error: activityError } = await supabase
         .from('deal_activities')
-        .insert(activityData)
+        .insert({
+          deal_id: deal.id,
+          activity_type: 'deal_created',
+          description: activityDescription,
+          performed_by_id: ownerId,
+        })
 
       if (activityError) {
         console.error('Failed to log deal creation activity:', activityError)
