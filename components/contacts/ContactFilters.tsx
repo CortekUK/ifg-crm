@@ -24,6 +24,8 @@ interface ContactFiltersProps {
   onCountryFilterChange?: (value: string) => void
   recruiterFilter?: string
   onRecruiterFilterChange?: (value: string) => void
+  tagFilter?: string
+  onTagFilterChange?: (value: string) => void
   onClearFilters: () => void
 }
 
@@ -38,6 +40,8 @@ export function ContactFilters({
   onCountryFilterChange,
   recruiterFilter = '',
   onRecruiterFilterChange,
+  tagFilter = '',
+  onTagFilterChange,
   onClearFilters,
 }: ContactFiltersProps) {
   const supabase = createClient()
@@ -72,6 +76,19 @@ export function ContactFilters({
     },
   })
 
+  // Fetch tags
+  const { data: tags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tags')
+        .select('*')
+        .order('name', { ascending: true })
+      if (error) throw error
+      return data || []
+    },
+  })
+
   // Fetch recruiters (portal_users/profiles)
   const { data: recruiters = [] } = useQuery({
     queryKey: ['recruiters-filter'],
@@ -85,7 +102,7 @@ export function ContactFilters({
     },
   })
 
-  const hasFilters = search || statusFilter || programmeFilter || countryFilter || recruiterFilter
+  const hasFilters = search || statusFilter || programmeFilter || countryFilter || recruiterFilter || tagFilter
 
   return (
     <div className="flex flex-col sm:flex-row gap-4">
@@ -163,6 +180,24 @@ export function ContactFilters({
             {recruiters.map((recruiter) => (
               <SelectItem key={recruiter.id} value={recruiter.id}>
                 {recruiter.full_name || recruiter.email}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Tag Filter */}
+        <Select
+          value={tagFilter}
+          onValueChange={onTagFilterChange || (() => {})}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="All Tags" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Tags</SelectItem>
+            {tags.map((tag) => (
+              <SelectItem key={tag.id} value={tag.id}>
+                {tag.name}
               </SelectItem>
             ))}
           </SelectContent>

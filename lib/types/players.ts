@@ -14,6 +14,9 @@ export interface PlayerFilters {
   position?: string | 'all'
   status?: 'active' | 'unsubscribed' | 'all'
   ownerId?: string | 'all'
+  tagId?: string | 'all'
+  page?: number
+  pageSize?: number
 }
 
 export interface PlayerStats {

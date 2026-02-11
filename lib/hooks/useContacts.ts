@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Contact, ContactTag, UseContactsParams } from '@/lib/types/contacts'
 
+// PostgREST has URL length limits; chunk .in() to avoid exceeding them
+const IN_CHUNK_SIZE = 200
+
 export function useContacts(params?: UseContactsParams) {
   const supabase = createClient()
 
@@ -32,12 +35,32 @@ export function useContacts(params?: UseContactsParams) {
           .not('contact_id', 'is', null)
 
         const recruiterContactIds = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
-        
+
         if (contactIdsFromDeals) {
           // Intersect with pipeline filter
           contactIdsFromDeals = contactIdsFromDeals.filter(id => recruiterContactIds.includes(id))
         } else {
           contactIdsFromDeals = recruiterContactIds
+        }
+
+        if (contactIdsFromDeals.length === 0) {
+          return { contacts: [], total: 0 }
+        }
+      }
+
+      // Filter by tag
+      if (params?.filters?.tag_id && params.filters.tag_id !== 'all') {
+        const { data: tagEntries } = await supabase
+          .from('contact_tags')
+          .select('contact_id')
+          .eq('tag_id', params.filters.tag_id)
+
+        const tagContactIds = [...new Set((tagEntries || []).map(e => e.contact_id))] as string[]
+
+        if (contactIdsFromDeals) {
+          contactIdsFromDeals = contactIdsFromDeals.filter(id => tagContactIds.includes(id))
+        } else {
+          contactIdsFromDeals = tagContactIds
         }
 
         if (contactIdsFromDeals.length === 0) {
@@ -92,7 +115,35 @@ export function useContacts(params?: UseContactsParams) {
       const { data, error, count } = await query
 
       if (error) throw error
-      return { contacts: data || [], total: count || 0 }
+
+      const contacts = data || []
+
+      // Batch-fetch tags for all returned contacts
+      if (contacts.length > 0) {
+        const ids = contacts.map((c) => c.id)
+        const { data: tagData } = await supabase
+          .from('contact_tags')
+          .select('contact_id, tag:tags(id, name, color, category)')
+          .in('contact_id', ids)
+
+        if (tagData) {
+          const tagsByContact = new Map<string, ContactTag[]>()
+          for (const row of tagData) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tag = (row as any).tag as ContactTag | null
+            if (tag) {
+              const existing = tagsByContact.get(row.contact_id) || []
+              existing.push(tag)
+              tagsByContact.set(row.contact_id, existing)
+            }
+          }
+          for (const contact of contacts) {
+            contact.tags = tagsByContact.get(contact.id) || []
+          }
+        }
+      }
+
+      return { contacts, total: count || 0 }
     },
   })
 }
@@ -142,7 +193,8 @@ export function useCreateContact() {
       const { data: allContactsList } = await supabase
         .from('lists')
         .select('id')
-        .eq('name', 'All Contacts Everyone')
+        .ilike('name', '%all contacts%everyone%')
+        .limit(1)
         .single()
 
       if (allContactsList && data) {

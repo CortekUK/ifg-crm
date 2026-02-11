@@ -9,22 +9,28 @@ import { PlayersTable } from '@/components/players/PlayersTable'
 import { PlayerDetailSheet } from '@/components/players/PlayerDetailSheet'
 import { AddPlayerModal } from '@/components/players/AddPlayerModal'
 import { EditPlayerModal } from '@/components/players/EditPlayerModal'
+import { ImportCSVModal } from '@/components/players/ImportCSVModal'
 import {
   usePlayers,
   usePlayerStats,
   useDistinctPositions,
   useDistinctCountries,
 } from '@/lib/hooks/usePlayers'
+import { useTags } from '@/lib/hooks/useContacts'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { createClient } from '@/lib/supabase/client'
 import type { PlayerFilters as PlayerFiltersType, Player } from '@/lib/types/players'
 
 export default function PlayersPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [filters, setFilters] = useState<PlayerFiltersType>({})
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -35,9 +41,23 @@ export default function PlayersPage() {
   }, [])
 
   // Debounce search
+  const debouncedSearch = useDebouncedValue(filters.search || '', 300)
   const debouncedFilters = {
     ...filters,
-    search: useDebouncedValue(filters.search || '', 300),
+    search: debouncedSearch,
+    page,
+    pageSize,
+  }
+
+  // Reset page when filters change
+  const handleFiltersChange = (newFilters: PlayerFiltersType) => {
+    setFilters(newFilters)
+    setPage(1)
+  }
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize)
+    setPage(1)
   }
 
   // Fetch data
@@ -45,8 +65,10 @@ export default function PlayersPage() {
   const { data: stats, isLoading: statsLoading } = usePlayerStats()
   const { data: positions = [] } = useDistinctPositions()
   const { data: countries = [] } = useDistinctCountries()
+  const { data: tags = [] } = useTags()
 
   const players = data?.players || []
+  const total = data?.total || 0
 
   const handleViewProfile = (player: Player) => {
     setSelectedPlayer(player)
@@ -63,7 +85,7 @@ export default function PlayersPage() {
   }
 
   const handleImport = () => {
-    console.log('Import CSV clicked')
+    setImportModalOpen(true)
   }
 
   const handleExport = () => {
@@ -112,10 +134,11 @@ export default function PlayersPage() {
       {/* Filters */}
       <PlayerFilters
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={handleFiltersChange}
         positions={positions}
         countries={countries}
         userId={userId}
+        tags={tags}
       />
 
       {/* Players Grid or Table */}
@@ -134,6 +157,18 @@ export default function PlayersPage() {
           onViewProfile={handleViewProfile}
           onEmailClick={handleEmailClick}
           onSMSClick={handleSMSClick}
+        />
+      )}
+
+      {/* Pagination */}
+      {total > 0 && (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          label="players"
         />
       )}
 
@@ -159,6 +194,13 @@ export default function PlayersPage() {
         player={editingPlayer}
         isOpen={!!editingPlayer}
         onClose={() => setEditingPlayer(null)}
+      />
+
+      {/* Import CSV Modal */}
+      <ImportCSVModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        requireList
       />
     </div>
   )

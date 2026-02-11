@@ -7,7 +7,7 @@ import { ContactsPageHeader } from '@/components/contacts/ContactsPageHeader'
 import { ContactStats } from '@/components/contacts/ContactStats'
 import { ContactFilters } from '@/components/contacts/ContactFilters'
 import { ContactsTable } from '@/components/contacts/ContactsTable'
-import { ContactsTablePagination } from '@/components/contacts/ContactsTablePagination'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { CreateContactModal } from '@/components/contacts/CreateContactModal'
 import { EditContactModal } from '@/components/contacts/EditContactModal'
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet'
@@ -18,9 +18,9 @@ import type { Contact } from '@/lib/types/contacts'
 import { ErrorState } from '@/components/ui/error-state'
 
 export default function ContactsPage() {
-  // Pagination state - default 20 per page
+  // Pagination state
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(25)
 
   // Filter state
   const [search, setSearch] = useState('')
@@ -28,6 +28,7 @@ export default function ContactsPage() {
   const [programmeFilter, setProgrammeFilter] = useState('')
   const [countryFilter, setCountryFilter] = useState('')
   const [recruiterFilter, setRecruiterFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
 
   // Sort state
   const [sortBy, setSortBy] = useState('created_at')
@@ -50,6 +51,7 @@ export default function ContactsPage() {
     ...(programmeFilter && programmeFilter !== 'all' && { pipeline_id: programmeFilter }),
     ...(countryFilter && countryFilter !== 'all' && { country: countryFilter }),
     ...(recruiterFilter && recruiterFilter !== 'all' && { recruiter_id: recruiterFilter }),
+    ...(tagFilter && tagFilter !== 'all' && { tag_id: tagFilter }),
   }
 
   // Fetch contacts
@@ -106,6 +108,7 @@ export default function ContactsPage() {
     setProgrammeFilter('')
     setCountryFilter('')
     setRecruiterFilter('')
+    setTagFilter('')
     setPage(1)
   }, [])
 
@@ -171,6 +174,11 @@ export default function ContactsPage() {
           setRecruiterFilter(value)
           setPage(1)
         }}
+        tagFilter={tagFilter}
+        onTagFilterChange={(value) => {
+          setTagFilter(value)
+          setPage(1)
+        }}
         onClearFilters={handleClearFilters}
       />
 
@@ -215,12 +223,13 @@ export default function ContactsPage() {
 
       {/* Pagination */}
       {total > 0 && (
-        <ContactsTablePagination
+        <TablePagination
           page={page}
           pageSize={pageSize}
           total={total}
           onPageChange={setPage}
           onPageSizeChange={handlePageSizeChange}
+          label="contacts"
         />
       )}
 

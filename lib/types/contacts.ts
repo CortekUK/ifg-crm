@@ -59,6 +59,7 @@ export interface UseContactsParams {
     source?: string
     pipeline_id?: string
     recruiter_id?: string
+    tag_id?: string
   }
 }
 

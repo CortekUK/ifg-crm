@@ -66,6 +66,7 @@ export function PlayersTable({
               <TableHead>Club</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>GPA</TableHead>
+              <TableHead>Tags</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -81,6 +82,7 @@ export function PlayersTable({
                 <TableCell><Skeleton className="h-5 w-28" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-10" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-8 w-8" /></TableCell>
               </TableRow>
@@ -116,6 +118,7 @@ export function PlayersTable({
             <TableHead>Club</TableHead>
             <TableHead>Location</TableHead>
             <TableHead>GPA</TableHead>
+            <TableHead>Tags</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
@@ -187,6 +190,35 @@ export function PlayersTable({
                 {/* GPA */}
                 <TableCell className="text-sm">
                   {player.gpa ? player.gpa.toFixed(2) : '—'}
+                </TableCell>
+
+                {/* Tags */}
+                <TableCell>
+                  {player.tags && player.tags.length > 0 ? (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {player.tags.slice(0, 2).map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          className="text-xs"
+                          style={{
+                            backgroundColor: `${tag.color}20`,
+                            color: tag.color,
+                            borderColor: tag.color,
+                          }}
+                        >
+                          {tag.name}
+                        </Badge>
+                      ))}
+                      {player.tags.length > 2 && (
+                        <span className="text-xs text-muted-foreground">
+                          +{player.tags.length - 2}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
                 </TableCell>
 
                 {/* Status */}

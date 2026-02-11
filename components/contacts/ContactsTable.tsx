@@ -36,6 +36,7 @@ const columns = [
   { key: 'phone', label: 'Phone', sortable: false },
   { key: 'graduation_year', label: 'Grad Year', sortable: true, sortKey: 'graduation_year' },
   { key: 'country', label: 'Country', sortable: true, sortKey: 'country' },
+  { key: 'tags', label: 'Tags', sortable: false },
   { key: 'source', label: 'Source', sortable: true, sortKey: 'source' },
   { key: 'created_at', label: 'Date Created', sortable: true, sortKey: 'created_at' },
   { key: 'status', label: 'Status', sortable: true, sortKey: 'subscription_status' },
@@ -123,6 +124,7 @@ export function ContactsTable({
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-16" /></TableCell>
               </TableRow>
@@ -205,6 +207,33 @@ export function ContactsTable({
               </TableCell>
               <TableCell>{contact.graduation_year || '-'}</TableCell>
               <TableCell>{contact.country || '-'}</TableCell>
+              <TableCell>
+                {contact.tags && contact.tags.length > 0 ? (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {contact.tags.slice(0, 2).map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant="secondary"
+                        className="text-xs"
+                        style={{
+                          backgroundColor: `${tag.color}20`,
+                          color: tag.color,
+                          borderColor: tag.color,
+                        }}
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                    {contact.tags.length > 2 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{contact.tags.length - 2}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  '-'
+                )}
+              </TableCell>
               <TableCell>
                 <Badge variant="outline" className="font-normal">
                   {formatSource(contact.source)}

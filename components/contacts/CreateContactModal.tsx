@@ -241,7 +241,8 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
         const { data: allContactsList } = await supabase
           .from('lists')
           .select('id')
-          .eq('name', 'All Contacts Everyone')
+          .ilike('name', '%all contacts%everyone%')
+          .limit(1)
           .single()
 
         if (allContactsList) {

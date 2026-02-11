@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { Search } from 'lucide-react'
 import type { PlayerFilters as PlayerFiltersType } from '@/lib/types/players'
+import type { ContactTag } from '@/lib/types/contacts'
 
 interface PlayerFiltersProps {
   filters: PlayerFiltersType
@@ -17,6 +18,7 @@ interface PlayerFiltersProps {
   positions: string[]
   countries: string[]
   userId?: string | null
+  tags?: ContactTag[]
 }
 
 const currentYear = new Date().getFullYear()
@@ -28,6 +30,7 @@ export function PlayerFilters({
   positions,
   countries,
   userId,
+  tags = [],
 }: PlayerFiltersProps) {
   return (
     <div className="flex flex-col lg:flex-row gap-4 flex-wrap">
@@ -150,6 +153,26 @@ export function PlayerFilters({
           <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
         </SelectContent>
       </Select>
+
+      {/* Tags */}
+      {tags.length > 0 && (
+        <Select
+          value={filters.tagId || 'all'}
+          onValueChange={(v) => onFiltersChange({ ...filters, tagId: v })}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="All Tags" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Tags</SelectItem>
+            {tags.map((tag) => (
+              <SelectItem key={tag.id} value={tag.id}>
+                {tag.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </div>
   )
 }

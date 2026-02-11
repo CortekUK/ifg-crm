@@ -1,6 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Player, PlayerFilters, PlayerStats, PlayerDeal } from '@/lib/types/players'
+import type { ContactTag } from '@/lib/types/contacts'
+
+// PostgREST has URL length limits; chunk .in() to avoid exceeding them
+const IN_CHUNK_SIZE = 200
+// Supabase returns max 1000 rows per request; paginate to get all
+const PAGE_SIZE = 1000
+
+async function fetchAllPlayerIds(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+  const allIds: string[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('contact_lists')
+      .select('contact_id')
+      .range(from, from + PAGE_SIZE - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) break
+    allIds.push(...data.map((e) => e.contact_id))
+    if (data.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return [...new Set(allIds)]
+}
 
 export function usePlayers(filters?: PlayerFilters) {
   const supabase = createClient()
@@ -9,55 +33,124 @@ export function usePlayers(filters?: PlayerFilters) {
     queryKey: ['players', filters],
     queryFn: async () => {
       // Players = contacts that belong to at least one list
-      // First get distinct contact IDs from contact_lists
-      const { data: listEntries, error: listError } = await supabase
-        .from('contact_lists')
-        .select('contact_id')
-
-      if (listError) throw listError
-
-      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
+      let playerIds = await fetchAllPlayerIds(supabase)
 
       if (playerIds.length === 0) {
         return { players: [], total: 0 }
       }
 
-      let query = supabase
-        .from('contacts')
-        .select('*', { count: 'exact' })
-        .in('id', playerIds)
+      // Filter by tag if specified
+      if (filters?.tagId && filters.tagId !== 'all') {
+        const { data: tagEntries, error: tagError } = await supabase
+          .from('contact_tags')
+          .select('contact_id')
+          .eq('tag_id', filters.tagId)
 
-      // Apply filters
-      if (filters?.search) {
-        query = query.or(
-          `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`
+        if (tagError) throw tagError
+        const tagContactIds = new Set((tagEntries || []).map((e) => e.contact_id))
+        playerIds = playerIds.filter((id) => tagContactIds.has(id))
+        if (playerIds.length === 0) {
+          return { players: [], total: 0 }
+        }
+      }
+
+      // Chunk playerIds to avoid PostgREST URL length limits
+      const buildQuery = (ids: string[]) => {
+        let q = supabase
+          .from('contacts')
+          .select('*', { count: 'exact' })
+          .in('id', ids)
+
+        if (filters?.search) {
+          q = q.or(
+            `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`
+          )
+        }
+        if (filters?.graduationYear && filters.graduationYear !== 'all') {
+          q = q.eq('graduation_year', filters.graduationYear)
+        }
+        if (filters?.gender && filters.gender !== 'all') {
+          q = q.eq('gender', filters.gender)
+        }
+        if (filters?.country && filters.country !== 'all') {
+          q = q.eq('country', filters.country)
+        }
+        if (filters?.position && filters.position !== 'all') {
+          q = q.eq('position', filters.position)
+        }
+        if (filters?.status && filters.status !== 'all') {
+          q = q.eq('subscription_status', filters.status)
+        }
+        if (filters?.ownerId && filters.ownerId !== 'all') {
+          q = q.eq('owner_id', filters.ownerId)
+        }
+
+        return q.order('created_at', { ascending: false })
+      }
+
+      let players: Player[] = []
+      let totalCount = 0
+
+      // Run chunked queries in parallel
+      const chunks: string[][] = []
+      for (let c = 0; c < playerIds.length; c += IN_CHUNK_SIZE) {
+        chunks.push(playerIds.slice(c, c + IN_CHUNK_SIZE))
+      }
+
+      const results = await Promise.all(chunks.map((chunk) => buildQuery(chunk)))
+      for (const { data, error, count } of results) {
+        if (error) throw error
+        players.push(...(data || []))
+        totalCount += (count || 0)
+      }
+
+      // Sort combined results
+      players.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+      // Apply pagination after combining & sorting
+      if (filters?.page && filters?.pageSize) {
+        const from = (filters.page - 1) * filters.pageSize
+        players = players.slice(from, from + filters.pageSize)
+      }
+
+      // Batch-fetch tags for all returned players (also chunked)
+      if (players.length > 0) {
+        const tagsByContact = new Map<string, ContactTag[]>()
+        const idChunks: string[][] = []
+        const allIds = players.map((p) => p.id)
+        for (let c = 0; c < allIds.length; c += IN_CHUNK_SIZE) {
+          idChunks.push(allIds.slice(c, c + IN_CHUNK_SIZE))
+        }
+
+        const tagResults = await Promise.all(
+          idChunks.map((chunk) =>
+            supabase
+              .from('contact_tags')
+              .select('contact_id, tag:tags(id, name, color, category)')
+              .in('contact_id', chunk)
+          )
         )
-      }
-      if (filters?.graduationYear && filters.graduationYear !== 'all') {
-        query = query.eq('graduation_year', filters.graduationYear)
-      }
-      if (filters?.gender && filters.gender !== 'all') {
-        query = query.eq('gender', filters.gender)
-      }
-      if (filters?.country && filters.country !== 'all') {
-        query = query.eq('country', filters.country)
-      }
-      if (filters?.position && filters.position !== 'all') {
-        query = query.eq('position', filters.position)
-      }
-      if (filters?.status && filters.status !== 'all') {
-        query = query.eq('subscription_status', filters.status)
-      }
-      if (filters?.ownerId && filters.ownerId !== 'all') {
-        query = query.eq('owner_id', filters.ownerId)
+
+        for (const { data: tagData } of tagResults) {
+          if (tagData) {
+            for (const row of tagData) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const tag = (row as any).tag as ContactTag | null
+              if (tag) {
+                const existing = tagsByContact.get(row.contact_id) || []
+                existing.push(tag)
+                tagsByContact.set(row.contact_id, existing)
+              }
+            }
+          }
+        }
+
+        for (const player of players) {
+          player.tags = tagsByContact.get(player.id) || []
+        }
       }
 
-      query = query.order('created_at', { ascending: false })
-
-      const { data, error, count } = await query
-
-      if (error) throw error
-      return { players: data || [], total: count || 0 }
+      return { players, total: totalCount }
     },
   })
 }
@@ -93,13 +186,7 @@ export function usePlayerStats() {
     queryKey: ['player-stats'],
     queryFn: async () => {
       // Players = contacts that belong to at least one list
-      const { data: listEntries } = await supabase
-        .from('contact_lists')
-        .select('contact_id')
-
-      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
-
-      // Total players
+      const playerIds = await fetchAllPlayerIds(supabase)
       const totalPlayers = playerIds.length
 
       if (totalPlayers === 0) {
@@ -111,32 +198,42 @@ export function usePlayerStats() {
         }
       }
 
-      // Active in pipeline (players with deals)
-      const { count: activeInPipeline } = await supabase
-        .from('deals')
-        .select('contact_id', { count: 'exact', head: true })
-        .in('contact_id', playerIds)
+      // Chunk playerIds for queries
+      const chunks: string[][] = []
+      for (let c = 0; c < playerIds.length; c += IN_CHUNK_SIZE) {
+        chunks.push(playerIds.slice(c, c + IN_CHUNK_SIZE))
+      }
 
-      // Graduating this year (2026)
+      // Active in pipeline (players with deals)
+      const pipelineResults = await Promise.all(
+        chunks.map((chunk) =>
+          supabase.from('deals').select('contact_id', { count: 'exact', head: true }).in('contact_id', chunk)
+        )
+      )
+      const activeInPipeline = pipelineResults.reduce((sum, r) => sum + (r.count || 0), 0)
+
+      // Graduating this year
       const currentYear = new Date().getFullYear()
-      const { count: graduatingThisYear } = await supabase
-        .from('contacts')
-        .select('*', { count: 'exact', head: true })
-        .in('id', playerIds)
-        .eq('graduation_year', currentYear)
+      const gradResults = await Promise.all(
+        chunks.map((chunk) =>
+          supabase.from('contacts').select('*', { count: 'exact', head: true }).in('id', chunk).eq('graduation_year', currentYear)
+        )
+      )
+      const graduatingThisYear = gradResults.reduce((sum, r) => sum + (r.count || 0), 0)
 
       // US Players
-      const { count: usPlayers } = await supabase
-        .from('contacts')
-        .select('*', { count: 'exact', head: true })
-        .in('id', playerIds)
-        .eq('country', 'United States')
+      const usResults = await Promise.all(
+        chunks.map((chunk) =>
+          supabase.from('contacts').select('*', { count: 'exact', head: true }).in('id', chunk).eq('country', 'United States')
+        )
+      )
+      const usPlayersCount = usResults.reduce((sum, r) => sum + (r.count || 0), 0)
 
       return {
         totalPlayers,
-        activeInPipeline: activeInPipeline || 0,
-        graduatingThisYear: graduatingThisYear || 0,
-        usPlayers: usPlayers || 0,
+        activeInPipeline,
+        graduatingThisYear,
+        usPlayers: usPlayersCount,
       }
     },
   })
@@ -193,25 +290,27 @@ export function useDistinctPositions() {
   return useQuery<string[]>({
     queryKey: ['distinct-positions'],
     queryFn: async () => {
-      // Get player IDs (contacts in at least one list)
-      const { data: listEntries } = await supabase
-        .from('contact_lists')
-        .select('contact_id')
-
-      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
+      const playerIds = await fetchAllPlayerIds(supabase)
       if (playerIds.length === 0) return []
 
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('position')
-        .in('id', playerIds)
-        .not('position', 'is', null)
+      const chunks: string[][] = []
+      for (let c = 0; c < playerIds.length; c += IN_CHUNK_SIZE) {
+        chunks.push(playerIds.slice(c, c + IN_CHUNK_SIZE))
+      }
 
-      if (error) throw error
+      const results = await Promise.all(
+        chunks.map((chunk) =>
+          supabase.from('contacts').select('position').in('id', chunk).not('position', 'is', null)
+        )
+      )
 
-      // Get unique positions
-      const positions = [...new Set(data?.map((d) => d.position).filter(Boolean) || [])]
-      return positions.sort()
+      const allPositions: string[] = []
+      for (const { data, error } of results) {
+        if (error) throw error
+        allPositions.push(...(data?.map((d) => d.position).filter(Boolean) || []))
+      }
+
+      return [...new Set(allPositions)].sort()
     },
   })
 }
@@ -222,25 +321,27 @@ export function useDistinctCountries() {
   return useQuery<string[]>({
     queryKey: ['distinct-countries'],
     queryFn: async () => {
-      // Get player IDs (contacts in at least one list)
-      const { data: listEntries } = await supabase
-        .from('contact_lists')
-        .select('contact_id')
-
-      const playerIds = [...new Set((listEntries || []).map((e) => e.contact_id))]
+      const playerIds = await fetchAllPlayerIds(supabase)
       if (playerIds.length === 0) return []
 
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('country')
-        .in('id', playerIds)
-        .not('country', 'is', null)
+      const chunks: string[][] = []
+      for (let c = 0; c < playerIds.length; c += IN_CHUNK_SIZE) {
+        chunks.push(playerIds.slice(c, c + IN_CHUNK_SIZE))
+      }
 
-      if (error) throw error
+      const results = await Promise.all(
+        chunks.map((chunk) =>
+          supabase.from('contacts').select('country').in('id', chunk).not('country', 'is', null)
+        )
+      )
 
-      // Get unique countries
-      const countries = [...new Set(data?.map((d) => d.country).filter(Boolean) || [])]
-      return countries.sort()
+      const allCountries: string[] = []
+      for (const { data, error } of results) {
+        if (error) throw error
+        allCountries.push(...(data?.map((d) => d.country).filter(Boolean) || []))
+      }
+
+      return [...new Set(allCountries)].sort()
     },
   })
 }
