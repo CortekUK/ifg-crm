@@ -97,6 +97,12 @@ export function useContacts(params?: UseContactsParams) {
       if (params?.filters?.country && params.filters.country !== 'all') {
         query = query.eq('country', params.filters.country)
       }
+      if (params?.filters?.position && params.filters.position !== 'all') {
+        query = query.eq('position', params.filters.position)
+      }
+      if (params?.filters?.owner_id && params.filters.owner_id !== 'all') {
+        query = query.eq('owner_id', params.filters.owner_id)
+      }
 
       // Apply sorting
       if (params?.sortBy) {
@@ -278,7 +284,23 @@ export function useContactDeals(contactId: string | null) {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return data || []
+      if (!data || data.length === 0) return []
+
+      // Fetch owners separately to avoid FK ambiguity
+      const ownerIds = [...new Set(data.map(d => d.deal_owner_id).filter(Boolean))]
+      let ownersMap = new Map<string, { id: string; full_name: string; email: string }>()
+      if (ownerIds.length > 0) {
+        const { data: owners } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', ownerIds)
+        ownersMap = new Map(owners?.map(o => [o.id, { id: o.id, full_name: o.full_name || '', email: o.email || '' }]) || [])
+      }
+
+      return data.map(deal => ({
+        ...deal,
+        owner: deal.deal_owner_id ? ownersMap.get(deal.deal_owner_id) || null : null,
+      }))
     },
     enabled: !!contactId,
   })

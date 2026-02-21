@@ -26,7 +26,17 @@ interface ContactFiltersProps {
   onRecruiterFilterChange?: (value: string) => void
   tagFilter?: string
   onTagFilterChange?: (value: string) => void
+  positionFilter?: string
+  onPositionFilterChange?: (value: string) => void
+  ownerFilter?: string
+  onOwnerFilterChange?: (value: string) => void
+  graduationYearFilter?: string
+  onGraduationYearFilterChange?: (value: string) => void
+  genderFilter?: string
+  onGenderFilterChange?: (value: string) => void
+  userId?: string | null
   onClearFilters: () => void
+  trailing?: React.ReactNode
 }
 
 export function ContactFilters({
@@ -42,7 +52,17 @@ export function ContactFilters({
   onRecruiterFilterChange,
   tagFilter = '',
   onTagFilterChange,
+  positionFilter = '',
+  onPositionFilterChange,
+  ownerFilter = '',
+  onOwnerFilterChange,
+  graduationYearFilter = '',
+  onGraduationYearFilterChange,
+  genderFilter = '',
+  onGenderFilterChange,
+  userId,
   onClearFilters,
+  trailing,
 }: ContactFiltersProps) {
   const supabase = createClient()
 
@@ -70,7 +90,6 @@ export function ContactFilters({
         .not('country', 'is', null)
         .not('country', 'eq', '')
       if (error) throw error
-      // Get unique countries
       const uniqueCountries = [...new Set(data?.map(c => c.country).filter(Boolean))]
       return uniqueCountries.sort() as string[]
     },
@@ -89,7 +108,7 @@ export function ContactFilters({
     },
   })
 
-  // Fetch recruiters (portal_users/profiles)
+  // Fetch recruiters (profiles)
   const { data: recruiters = [] } = useQuery({
     queryKey: ['recruiters-filter'],
     queryFn: async () => {
@@ -102,15 +121,36 @@ export function ContactFilters({
     },
   })
 
-  const hasFilters = search || statusFilter || programmeFilter || countryFilter || recruiterFilter || tagFilter
+  // Fetch distinct positions
+  const { data: positions = [] } = useQuery({
+    queryKey: ['contacts-positions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('position')
+        .not('position', 'is', null)
+        .not('position', 'eq', '')
+      if (error) throw error
+      const unique = [...new Set(data?.map(c => c.position).filter(Boolean))]
+      return unique.sort() as string[]
+    },
+  })
+
+  // Generate graduation year options (current year - 2 to current year + 6)
+  const currentYear = new Date().getFullYear()
+  const gradYears = Array.from({ length: 9 }, (_, i) => currentYear - 2 + i)
+
+  const hasFilters = search || statusFilter || programmeFilter || countryFilter ||
+    recruiterFilter || tagFilter || positionFilter || ownerFilter ||
+    graduationYearFilter || genderFilter
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4">
+    <div className="space-y-3">
       {/* Search Input */}
-      <div className="relative flex-1 max-w-md">
+      <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by name or email..."
+          placeholder="Search by name, email, or phone..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9"
@@ -118,10 +158,23 @@ export function ContactFilters({
       </div>
 
       {/* Filter Dropdowns */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Owner / My Contacts Filter */}
+        {userId && onOwnerFilterChange && (
+          <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
+            <SelectTrigger className="w-[150px] h-9">
+              <SelectValue placeholder="All Contacts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Contacts</SelectItem>
+              <SelectItem value={userId}>My Contacts</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Status Filter */}
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[130px] h-9">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
@@ -132,11 +185,11 @@ export function ContactFilters({
         </Select>
 
         {/* Programme Filter */}
-        <Select 
-          value={programmeFilter} 
+        <Select
+          value={programmeFilter}
           onValueChange={onProgrammeFilterChange || (() => {})}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[150px] h-9">
             <SelectValue placeholder="All Programmes" />
           </SelectTrigger>
           <SelectContent>
@@ -150,11 +203,11 @@ export function ContactFilters({
         </Select>
 
         {/* Country Filter */}
-        <Select 
-          value={countryFilter} 
+        <Select
+          value={countryFilter}
           onValueChange={onCountryFilterChange || (() => {})}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[140px] h-9">
             <SelectValue placeholder="All Countries" />
           </SelectTrigger>
           <SelectContent>
@@ -167,12 +220,69 @@ export function ContactFilters({
           </SelectContent>
         </Select>
 
+        {/* Position Filter */}
+        {onPositionFilterChange && (
+          <Select
+            value={positionFilter}
+            onValueChange={onPositionFilterChange}
+          >
+            <SelectTrigger className="w-[140px] h-9">
+              <SelectValue placeholder="All Positions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Positions</SelectItem>
+              {positions.map((pos) => (
+                <SelectItem key={pos} value={pos}>
+                  {pos}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Graduation Year Filter */}
+        {onGraduationYearFilterChange && (
+          <Select
+            value={graduationYearFilter}
+            onValueChange={onGraduationYearFilterChange}
+          >
+            <SelectTrigger className="w-[145px] h-9">
+              <SelectValue placeholder="All Grad Years" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Grad Years</SelectItem>
+              {gradYears.map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Gender Filter */}
+        {onGenderFilterChange && (
+          <Select
+            value={genderFilter}
+            onValueChange={onGenderFilterChange}
+          >
+            <SelectTrigger className="w-[130px] h-9">
+              <SelectValue placeholder="All Genders" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Genders</SelectItem>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Recruiter Filter */}
-        <Select 
-          value={recruiterFilter} 
+        <Select
+          value={recruiterFilter}
           onValueChange={onRecruiterFilterChange || (() => {})}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[140px] h-9">
             <SelectValue placeholder="All Recruiters" />
           </SelectTrigger>
           <SelectContent>
@@ -190,7 +300,7 @@ export function ContactFilters({
           value={tagFilter}
           onValueChange={onTagFilterChange || (() => {})}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[130px] h-9">
             <SelectValue placeholder="All Tags" />
           </SelectTrigger>
           <SelectContent>
@@ -209,11 +319,18 @@ export function ContactFilters({
             variant="ghost"
             size="sm"
             onClick={onClearFilters}
-            className="text-muted-foreground"
+            className="text-muted-foreground h-9"
           >
             <X className="h-4 w-4 mr-1" />
-            Clear filters
+            Clear
           </Button>
+        )}
+
+        {/* Trailing content (e.g. column toggle) */}
+        {trailing && (
+          <div className="ml-auto">
+            {trailing}
+          </div>
         )}
       </div>
     </div>

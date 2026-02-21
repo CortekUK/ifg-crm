@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -11,17 +12,22 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { RotateCcw, ArrowRight } from 'lucide-react'
 import type { ResettableEnrollment } from '@/lib/hooks/useAutomationEnrollments'
 
 interface ResetAutomationModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirmReset: () => void
-  onConfirmKeep: () => void
+  onConfirmReset: (sendAsUserId?: string | null) => void
+  onConfirmKeep: (sendAsUserId?: string | null) => void
   enrollments: ResettableEnrollment[]
   targetStageName: string
   isResetting?: boolean
+  isSuperAdmin?: boolean
+  currentUserId?: string
+  currentUserName?: string
 }
 
 export function ResetAutomationModal({
@@ -32,12 +38,23 @@ export function ResetAutomationModal({
   enrollments,
   targetStageName,
   isResetting = false,
+  isSuperAdmin = false,
+  currentUserId,
+  currentUserName,
 }: ResetAutomationModalProps) {
+  const [sendAsMe, setSendAsMe] = useState(false)
   const automationNames = enrollments.map(e => e.automation_name)
   const uniqueNames = [...new Set(automationNames)]
 
+  const getSendAsUserId = () => sendAsMe && currentUserId ? currentUserId : null
+
+  const handleClose = () => {
+    setSendAsMe(false)
+    onClose()
+  }
+
   return (
-    <AlertDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <AlertDialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <AlertDialogContent className="max-w-lg">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -63,13 +80,25 @@ export function ResetAutomationModal({
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {isSuperAdmin && currentUserName && (
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox
+              id="send-as-me-reset"
+              checked={sendAsMe}
+              onCheckedChange={(checked) => setSendAsMe(checked === true)}
+            />
+            <Label htmlFor="send-as-me-reset" className="text-sm cursor-pointer">
+              Send emails as {currentUserName}
+            </Label>
+          </div>
+        )}
         <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-3 mt-4">
-          <AlertDialogCancel onClick={onClose} disabled={isResetting} className="mt-0">
+          <AlertDialogCancel onClick={handleClose} disabled={isResetting} className="mt-0">
             Cancel
           </AlertDialogCancel>
           <Button
             variant="outline"
-            onClick={onConfirmKeep}
+            onClick={() => onConfirmKeep(getSendAsUserId())}
             disabled={isResetting}
             className="gap-2"
           >
@@ -77,7 +106,7 @@ export function ResetAutomationModal({
             Skip Restart
           </Button>
           <AlertDialogAction
-            onClick={onConfirmReset}
+            onClick={() => onConfirmReset(getSendAsUserId())}
             disabled={isResetting}
             className="gap-2 bg-amber-600 hover:bg-amber-700"
           >

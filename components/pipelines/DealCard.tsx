@@ -25,6 +25,7 @@ interface DealCardProps {
   index: number
   onClick?: () => void
   isDragDisabled?: boolean
+  compact?: boolean
 }
 
 // Colour palette for avatar backgrounds
@@ -78,7 +79,7 @@ function getStatusColor(deal: Deal): { color: string; label: string } {
   return { color: 'bg-red-500', label: 'Stale - needs attention' }
 }
 
-export function DealCard({ deal, index, onClick, isDragDisabled }: DealCardProps) {
+export function DealCard({ deal, index, onClick, isDragDisabled, compact = false }: DealCardProps) {
   const contact = deal.contact
   const contactName = contact
     ? `${contact.first_name} ${contact.last_name}`
@@ -101,62 +102,75 @@ export function DealCard({ deal, index, onClick, isDragDisabled }: DealCardProps
             : provided.draggableProps.style?.transition,
         }
 
-        return (
-        <HoverCard openDelay={500} closeDelay={100}>
-          <HoverCardTrigger asChild>
+        const cardContent = (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            style={style}
+            onClick={onClick}
+            className={cn(
+              'group relative bg-card rounded-lg border cursor-pointer',
+              'hover:shadow-md hover:border-primary/30',
+              'transition-[shadow,border-color] duration-200',
+              snapshot.isDragging && 'shadow-xl border-primary/50 z-50',
+              snapshot.isDropAnimating && 'shadow-md',
+              compact ? 'p-2 mb-1' : 'p-3 mb-2 hover:-translate-y-0.5'
+            )}
+          >
+            {/* Status Indicator Bar */}
             <div
-              ref={provided.innerRef}
-              {...provided.draggableProps}
-              {...provided.dragHandleProps}
-              style={style}
-              onClick={onClick}
               className={cn(
-                'group relative bg-card rounded-lg border p-3 mb-2 cursor-pointer',
-                'hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5',
-                'transition-[shadow,border-color] duration-200',
-                snapshot.isDragging && 'shadow-xl border-primary/50 z-50',
-                snapshot.isDropAnimating && 'shadow-md'
+                'absolute left-0 rounded-full transition-all',
+                status.color,
+                compact ? 'top-2 bottom-2 w-0.5' : 'top-3 bottom-3 w-1'
               )}
-            >
-              {/* Status Indicator Bar */}
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        'absolute left-0 top-3 bottom-3 w-1 rounded-full transition-all',
-                        status.color
-                      )}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="text-xs">
-                    {status.label}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            />
 
-              {/* Quick Actions - Visible on Hover */}
+            {/* Quick Actions - Visible on Hover (hidden in compact) */}
+            {!compact && (
               <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <QuickActions deal={deal} onView={onClick} />
               </div>
+            )}
 
-              {/* Main Content */}
-              <div className="flex items-start gap-3 pl-2">
-                <Avatar className={cn('h-10 w-10 ring-2 ring-background', avatarColour)}>
-                  <AvatarFallback className="text-white text-xs font-semibold bg-transparent">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1 min-w-0 pr-16 group-hover:pr-28">
-                  <p className="font-medium text-sm truncate leading-tight">{contactName}</p>
-                  <p className="text-base font-semibold text-green-600 mt-0.5">
-                    {formatCurrency(deal.deal_value)}
-                  </p>
-                </div>
+            {/* Main Content */}
+            <div className={cn(
+              'flex items-center',
+              compact ? 'gap-2 pl-1.5' : 'gap-3 pl-2 items-start'
+            )}>
+              <Avatar className={cn(
+                'ring-2 ring-background flex-shrink-0',
+                avatarColour,
+                compact ? 'h-6 w-6' : 'h-10 w-10'
+              )}>
+                <AvatarFallback className={cn(
+                  "text-white font-semibold bg-transparent",
+                  compact ? "text-[9px]" : "text-xs"
+                )}>
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className={cn(
+                "flex-1 min-w-0",
+                !compact && "pr-16 group-hover:pr-28"
+              )}>
+                <p className={cn(
+                  "font-medium truncate leading-tight",
+                  compact ? "text-[11px]" : "text-sm"
+                )}>{contactName}</p>
+                <p className={cn(
+                  "font-semibold text-green-600",
+                  compact ? "text-[11px]" : "text-base mt-0.5"
+                )}>
+                  {formatCurrency(deal.deal_value)}
+                </p>
               </div>
+            </div>
 
-              {/* Metadata Row */}
+            {/* Metadata Row - hidden in compact */}
+            {!compact && (
               <div className="flex items-center gap-3 mt-3 pl-2 text-muted-foreground">
                 {/* Graduation Year */}
                 {contact?.graduation_year && (
@@ -223,18 +237,25 @@ export function DealCard({ deal, index, onClick, isDragDisabled }: DealCardProps
                   {formatRelativeTime(deal.created_at)}
                 </span>
               </div>
-            </div>
-          </HoverCardTrigger>
-          
-          <HoverCardContent
-            side="right"
-            align="start"
-            className="w-80 p-4"
-            sideOffset={8}
-          >
-            <DealCardPreview deal={deal} />
-          </HoverCardContent>
-        </HoverCard>
+            )}
+          </div>
+        )
+
+        return (
+          <HoverCard openDelay={compact ? 300 : 500} closeDelay={100}>
+            <HoverCardTrigger asChild>
+              {cardContent}
+            </HoverCardTrigger>
+
+            <HoverCardContent
+              side="right"
+              align="start"
+              className="w-80 p-4"
+              sideOffset={8}
+            >
+              <DealCardPreview deal={deal} />
+            </HoverCardContent>
+          </HoverCard>
         )
       }}
     </Draggable>

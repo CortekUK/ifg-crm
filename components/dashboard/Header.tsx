@@ -30,7 +30,6 @@ interface HeaderProps {
 const pageTitles: Record<string, string> = {
   '/dashboard': 'DASHBOARD',
   '/contacts': 'CONTACTS',
-  '/players': 'PLAYERS',
   '/pipelines': 'PIPELINES',
   '/replies': 'REPLIES',
   '/sms-replies': 'REPLIES', // Redirect legacy route

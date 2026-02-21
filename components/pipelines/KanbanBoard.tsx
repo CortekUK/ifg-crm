@@ -1,7 +1,7 @@
 'use client'
 
+import { useCallback, useEffect, useRef } from 'react'
 import { DragDropContext, DropResult } from '@hello-pangea/dnd'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { KanbanColumn } from './KanbanColumn'
@@ -14,6 +14,7 @@ interface KanbanBoardProps {
   deals: Deal[]
   pipelineId: string | null
   isLoading: boolean
+  zoom?: number
   onDragEnd: (result: DropResult) => void
   onAddClick: (stage: PipelineStage) => void
   onDealClick?: (deal: Deal) => void
@@ -97,6 +98,7 @@ export function KanbanBoard({
   deals,
   pipelineId,
   isLoading,
+  zoom = 1,
   onDragEnd,
   onAddClick,
   onDealClick,
@@ -110,13 +112,60 @@ export function KanbanBoard({
     getColumnSort,
   } = useColumnPreferences(pipelineId)
 
+  // Auto-scroll refs
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef<number | null>(null)
+  const mouseXRef = useRef(0)
+
+  // Track mouse position globally
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { mouseXRef.current = e.clientX }
+    window.addEventListener('mousemove', handler)
+    return () => window.removeEventListener('mousemove', handler)
+  }, [])
+
+  const startAutoScroll = useCallback(() => {
+    const scroll = () => {
+      const container = scrollRef.current
+      if (!container) return
+
+      const rect = container.getBoundingClientRect()
+      const edge = 100
+      const maxSpeed = 20
+      const x = mouseXRef.current
+
+      if (x > rect.left && x < rect.left + edge) {
+        const intensity = Math.max(0, 1 - (x - rect.left) / edge)
+        container.scrollLeft -= maxSpeed * intensity
+      } else if (x < rect.right && x > rect.right - edge) {
+        const intensity = Math.max(0, 1 - (rect.right - x) / edge)
+        container.scrollLeft += maxSpeed * intensity
+      }
+
+      rafRef.current = requestAnimationFrame(scroll)
+    }
+    rafRef.current = requestAnimationFrame(scroll)
+  }, [])
+
+  const stopAutoScroll = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+  }, [])
+
+  const handleDragEnd = useCallback((result: DropResult) => {
+    stopAutoScroll()
+    onDragEnd(result)
+  }, [onDragEnd, stopAutoScroll])
+
   // Group deals by stage
   const stageIdSet = new Set(stages.map(s => s.id))
   const dealsByStage = stages.reduce<Record<string, Deal[]>>((acc, stage) => {
     acc[stage.id] = deals.filter((deal) => deal.current_stage_id === stage.id)
     return acc
   }, {})
-  
+
   // Put unmatched deals in the first stage column so they're visible
   if (stages.length > 0) {
     const unmatchedDeals = deals.filter(d => !stageIdSet.has(d.current_stage_id))
@@ -134,10 +183,14 @@ export function KanbanBoard({
     return <EmptyState />
   }
 
+  const columnWidth = Math.round(320 * zoom)
+  const gap = Math.round(16 * zoom)
+  const compact = zoom < 0.8
+
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex gap-4 pb-4">
+    <DragDropContext onDragStart={startAutoScroll} onDragEnd={handleDragEnd}>
+      <div ref={scrollRef} className="w-full overflow-x-auto pb-4">
+        <div className="flex" style={{ gap }}>
           {stages.map((stage) => (
             <KanbanColumn
               key={stage.id}
@@ -150,11 +203,12 @@ export function KanbanBoard({
               onAddClick={onAddClick}
               onDealClick={onDealClick}
               canMoveDeal={canMoveDeal}
+              columnWidth={columnWidth}
+              compact={compact}
             />
           ))}
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
     </DragDropContext>
   )
 }

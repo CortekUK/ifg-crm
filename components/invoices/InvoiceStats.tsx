@@ -77,7 +77,7 @@ export function InvoiceStats({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((stat, i) => {
           const config = colourConfig[stat.colour]
           return (
@@ -85,16 +85,16 @@ export function InvoiceStats({
               'relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4',
               config.border
             )}>
-              <div className={cn(
-                'absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent pointer-events-none',
-                config.gradient
-              )} />
-              <CardContent className="relative z-10 p-5">
-                <div className="flex items-start justify-between mb-3">
+            <div className={cn(
+              'absolute inset-x-0 top-0 h-12 bg-gradient-to-b to-transparent pointer-events-none',
+              config.gradient
+            )} />
+              <CardContent className="relative z-10 px-2.5 py-1">
+                <div className="flex items-start justify-between mb-0">
                   <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <Skeleton className="h-8 w-8 rounded-full" />
                 </div>
-                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-7 w-20" />
               </CardContent>
             </Card>
           )
@@ -104,7 +104,7 @@ export function InvoiceStats({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       {stats.map((stat) => {
         const Icon = stat.icon
         const config = colourConfig[stat.colour]
@@ -114,19 +114,19 @@ export function InvoiceStats({
             config.border
           )}>
             <div className={cn(
-              'absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent pointer-events-none',
+              'absolute inset-x-0 top-0 h-12 bg-gradient-to-b to-transparent pointer-events-none',
               config.gradient
             )} />
-            <CardContent className="relative z-10 p-5">
-              <div className="flex items-start justify-between mb-3">
+            <CardContent className="relative z-10 px-2.5 py-1">
+              <div className="flex items-start justify-between mb-0">
                 <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-100 uppercase">
                   {stat.label}
                 </p>
-                <div className={cn('p-2.5 rounded-full', config.iconBg)}>
-                  <Icon className={cn('h-5 w-5', config.iconColour)} />
+                <div className={cn('p-1 rounded-full', config.iconBg)}>
+                  <Icon className={cn('h-4 w-4', config.iconColour)} />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
             </CardContent>
           </Card>
         )

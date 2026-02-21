@@ -29,16 +29,16 @@ export function StatsCard({ title, value, icon: Icon, trend, colour = 'blue', is
   if (isLoading) {
     return (
       <Card className={cn(
-        'p-6 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 bg-white dark:bg-slate-900',
+        'px-2.5 py-1 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 bg-white dark:bg-slate-900',
         colours.border
       )}>
         <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-4 w-32" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-14" />
+            <Skeleton className="h-3 w-28" />
           </div>
-          <Skeleton className="h-11 w-11 rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-full" />
         </div>
       </Card>
     )
@@ -49,13 +49,13 @@ export function StatsCard({ title, value, icon: Icon, trend, colour = 'blue', is
 
   return (
     <Card className={cn(
-      'p-6 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 bg-white dark:bg-slate-900',
+      'px-2.5 py-1 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 bg-white dark:bg-slate-900',
       colours.border
     )}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-300 uppercase">{title}</p>
-          <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">{value}</p>
+          <p className="font-oswald text-[11px] font-medium text-blue-900 dark:text-blue-300 uppercase">{title}</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{value}</p>
           {trend && (
             <div className="flex items-center gap-1 mt-1">
               {isPositive && <TrendingUp className="h-4 w-4 text-green-500" />}
@@ -71,8 +71,8 @@ export function StatsCard({ title, value, icon: Icon, trend, colour = 'blue', is
             </div>
           )}
         </div>
-        <div className={cn('p-3 rounded-full', colours.bg)}>
-          <Icon className={cn('h-5 w-5', colours.text)} />
+        <div className={cn('p-1 rounded-full', colours.bg)}>
+          <Icon className={cn('h-4 w-4', colours.text)} />
         </div>
       </div>
     </Card>

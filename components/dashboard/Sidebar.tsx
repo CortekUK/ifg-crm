@@ -15,7 +15,6 @@ import {
 import {
   LayoutDashboard,
   Users,
-  UserCheck,
   GitBranch,
   MessageSquare,
   Mail,
@@ -53,7 +52,6 @@ const navSections = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/contacts', label: 'Contacts', icon: Users },
-      { href: '/players', label: 'Players', icon: UserCheck },
       { href: '/pipelines', label: 'Pipelines', icon: GitBranch },
       { href: '/replies', label: 'Replies', icon: MessageSquare },
     ],

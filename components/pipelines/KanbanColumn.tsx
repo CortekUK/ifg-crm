@@ -23,6 +23,8 @@ interface KanbanColumnProps {
   onAddClick: (stage: PipelineStage) => void
   onDealClick?: (deal: Deal) => void
   canMoveDeal?: (deal: Deal) => boolean
+  columnWidth?: number
+  compact?: boolean
 }
 
 function sortDeals(deals: Deal[], sortBy: SortOption): Deal[] {
@@ -70,6 +72,8 @@ export function KanbanColumn({
   onAddClick,
   onDealClick,
   canMoveDeal,
+  columnWidth = 320,
+  compact = false,
 }: KanbanColumnProps) {
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
   
@@ -116,27 +120,34 @@ export function KanbanColumn({
   }
 
   return (
-    <div className="flex flex-col w-80 flex-shrink-0 rounded-xl border border-border/50 bg-card shadow-sm">
+    <div
+      className="flex flex-col flex-shrink-0 rounded-xl border border-border/50 bg-card shadow-sm"
+      style={{ width: columnWidth }}
+    >
       {/* Column Header */}
       <div
-        className="sticky top-0 z-10 px-3 py-3 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 rounded-t-xl"
+        className={cn(
+          "sticky top-0 z-10 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 rounded-t-xl",
+          compact ? "px-2 py-2" : "px-3 py-3"
+        )}
         style={{ borderLeftColor: stage.color, borderLeftWidth: 3 }}
       >
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-sm flex-1 truncate">{stage.name}</h3>
-          
-          <Badge 
-            variant="secondary" 
+        <div className="flex items-center gap-1.5">
+          <h3 className={cn("font-semibold flex-1 truncate", compact ? "text-xs" : "text-sm")}>{stage.name}</h3>
+
+          <Badge
+            variant="secondary"
             className={cn(
-              "text-xs font-medium tabular-nums",
+              "font-medium tabular-nums",
+              compact ? "text-[10px] px-1 py-0" : "text-xs",
               deals.length > 10 && "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
               deals.length > 20 && "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
             )}
           >
-            <Users className="h-3 w-3 mr-1" />
+            {!compact && <Users className="h-3 w-3 mr-1" />}
             {formatNumber(deals.length)}
           </Badge>
-          
+
           {onSortChange && onToggleCollapse && (
             <ColumnControls
               stage={stage}
@@ -148,48 +159,59 @@ export function KanbanColumn({
             />
           )}
         </div>
-        
-        <div className="flex items-center gap-1 mt-1.5 text-muted-foreground">
-          <PoundSterling className="h-3 w-3" />
-          <span className="text-xs font-medium">{formatCurrency(totalValue)}</span>
-        </div>
+
+        {!compact && (
+          <div className="flex items-center gap-1 mt-1.5 text-muted-foreground">
+            <PoundSterling className="h-3 w-3" />
+            <span className="text-xs font-medium">{formatCurrency(totalValue)}</span>
+          </div>
+        )}
       </div>
 
       {/* Add Button */}
-      <div className="px-2 pt-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full justify-start border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 text-slate-600 dark:text-slate-400"
-          onClick={() => onAddClick(stage)}
-        >
-          <Plus className="h-4 w-4 mr-1.5" />
-          Add Deal
-        </Button>
-      </div>
+      {!compact && (
+        <div className="px-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 text-slate-600 dark:text-slate-400"
+            onClick={() => onAddClick(stage)}
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add Deal
+          </Button>
+        </div>
+      )}
 
       {/* Cards Container */}
       <Droppable droppableId={stage.id}>
         {(provided, snapshot) => (
-          <ScrollArea className="flex-1 px-2 pb-2">
+          <ScrollArea className={cn("flex-1 pb-2", compact ? "px-1" : "px-2")}>
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
               className={cn(
-                'min-h-[200px] pt-2 rounded-lg',
+                'min-h-[120px] pt-2 rounded-lg',
                 'transition-[background-color,box-shadow] duration-300 ease-out',
                 snapshot.isDraggingOver && 'bg-primary/5 ring-2 ring-dashed ring-primary/30'
               )}
             >
               {sortedDeals.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                  <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                    <Users className="h-5 w-5 text-muted-foreground/50" />
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-1">No deals yet</p>
-                  <p className="text-xs text-muted-foreground/70">
-                    Drag a deal here or click Add
-                  </p>
+                <div className={cn(
+                  "flex flex-col items-center justify-center text-center",
+                  compact ? "py-4 px-2" : "py-8 px-4"
+                )}>
+                  {!compact && (
+                    <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                      <Users className="h-5 w-5 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  <p className={cn("text-muted-foreground", compact ? "text-[10px]" : "text-sm mb-1")}>No deals yet</p>
+                  {!compact && (
+                    <p className="text-xs text-muted-foreground/70">
+                      Drag a deal here or click Add
+                    </p>
+                  )}
                 </div>
               ) : (
                 sortedDeals.map((deal, index) => (
@@ -199,6 +221,7 @@ export function KanbanColumn({
                     index={index}
                     onClick={onDealClick ? () => onDealClick(deal) : undefined}
                     isDragDisabled={canMoveDeal ? !canMoveDeal(deal) : false}
+                    compact={compact}
                   />
                 ))
               )}

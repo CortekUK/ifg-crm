@@ -215,12 +215,10 @@ export function useImportContacts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       queryClient.invalidateQueries({ queryKey: ['contact-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['players'] })
-      queryClient.invalidateQueries({ queryKey: ['player-stats'] })
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['distinct-positions'] })
-      queryClient.invalidateQueries({ queryKey: ['distinct-countries'] })
+      queryClient.invalidateQueries({ queryKey: ['contacts-positions'] })
+      queryClient.invalidateQueries({ queryKey: ['contacts-countries'] })
     },
   })
 }

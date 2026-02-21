@@ -69,12 +69,12 @@ export function StatsCard({
         'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm border-l-4',
         config.border
       )}>
-        <CardContent className="p-5">
-          <div className="flex items-start justify-between mb-3">
+        <CardContent className="px-2.5 py-1">
+          <div className="flex items-start justify-between mb-1">
             <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-8 w-8 rounded-full" />
           </div>
-          <Skeleton className="h-9 w-20 mb-2" />
+          <Skeleton className="h-7 w-20 mb-2" />
           <Skeleton className="h-4 w-32" />
         </CardContent>
       </Card>
@@ -86,17 +86,17 @@ export function StatsCard({
       'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow transition-shadow border-l-4',
       config.border
     )}>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-3">
+      <CardContent className="px-2.5 py-1">
+        <div className="flex items-start justify-between mb-1">
           <p className="font-oswald text-xs font-medium text-blue-900 dark:text-blue-100 uppercase">
             {title}
           </p>
-          <div className={cn('p-2.5 rounded-full', config.iconBg)}>
+          <div className={cn('p-1 rounded-full', config.iconBg)}>
             <Icon className={cn('h-5 w-5', config.iconColour)} />
           </div>
         </div>
 
-        <p className="text-3xl font-bold text-gray-900 dark:text-white">{value}</p>
+        <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
 
         {trend !== undefined && trendLabel && (
           <div className="flex items-center gap-1.5 text-sm mt-2">

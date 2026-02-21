@@ -24,6 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { TemplateSearchSelect } from '@/components/ui/template-search-select'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Mail,
@@ -782,7 +783,8 @@ export function ConfigureAutomationModal({
 
                                 <div className="flex-1">
                                   {step.step_type === 'send_email' && (
-                                    <Select
+                                    <TemplateSearchSelect
+                                      templates={templates}
                                       value={
                                         formData.config.emails?.find(
                                           (e) => e.step === emailIndex
@@ -791,20 +793,9 @@ export function ConfigureAutomationModal({
                                       onValueChange={(value) =>
                                         updateEmailTemplate(emailIndex, value)
                                       }
-                                    >
-                                      <SelectTrigger className="h-9">
-                                        <SelectValue
-                                          placeholder={`Select Email ${emailIndex + 1} template`}
-                                        />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {templates.map((template) => (
-                                          <SelectItem key={template.id} value={template.id}>
-                                            {template.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                      placeholder={`Select Email ${emailIndex + 1} template`}
+                                      className="h-9"
+                                    />
                                   )}
 
                                   {step.step_type === 'wait' && (

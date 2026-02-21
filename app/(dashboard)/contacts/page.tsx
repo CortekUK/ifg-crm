@@ -1,23 +1,33 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContactsPageHeader } from '@/components/contacts/ContactsPageHeader'
 import { ContactStats } from '@/components/contacts/ContactStats'
 import { ContactFilters } from '@/components/contacts/ContactFilters'
 import { ContactsTable } from '@/components/contacts/ContactsTable'
+import { ContactsGrid } from '@/components/contacts/ContactsGrid'
+import { ColumnToggle, getStoredColumns, storeColumns } from '@/components/contacts/ColumnToggle'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { CreateContactModal } from '@/components/contacts/CreateContactModal'
 import { EditContactModal } from '@/components/contacts/EditContactModal'
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet'
+import { ImportCSVModal } from '@/components/contacts/ImportCSVModal'
 import { useContacts } from '@/lib/hooks/useContacts'
 import { useContactStats } from '@/lib/hooks/useContactStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { createClient } from '@/lib/supabase/client'
 import type { Contact } from '@/lib/types/contacts'
 import { ErrorState } from '@/components/ui/error-state'
 
 export default function ContactsPage() {
+  // View mode
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
+
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(getStoredColumns)
+
   // Pagination state
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
@@ -29,6 +39,10 @@ export default function ContactsPage() {
   const [countryFilter, setCountryFilter] = useState('')
   const [recruiterFilter, setRecruiterFilter] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [positionFilter, setPositionFilter] = useState('')
+  const [ownerFilter, setOwnerFilter] = useState('')
+  const [graduationYearFilter, setGraduationYearFilter] = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
 
   // Sort state
   const [sortBy, setSortBy] = useState('created_at')
@@ -39,10 +53,20 @@ export default function ContactsPage() {
 
   // Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
 
-  // Debounce search to avoid too many API calls
+  // Current user ID
+  const [userId, setUserId] = useState<string | null>(null)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUserId(data.user.id)
+    })
+  }, [])
+
+  // Debounce search
   const debouncedSearch = useDebouncedValue(search, 300)
 
   // Build filters object
@@ -52,6 +76,10 @@ export default function ContactsPage() {
     ...(countryFilter && countryFilter !== 'all' && { country: countryFilter }),
     ...(recruiterFilter && recruiterFilter !== 'all' && { recruiter_id: recruiterFilter }),
     ...(tagFilter && tagFilter !== 'all' && { tag_id: tagFilter }),
+    ...(positionFilter && positionFilter !== 'all' && { position: positionFilter }),
+    ...(ownerFilter && ownerFilter !== 'all' && { owner_id: ownerFilter }),
+    ...(graduationYearFilter && graduationYearFilter !== 'all' && { graduation_year: parseInt(graduationYearFilter) }),
+    ...(genderFilter && genderFilter !== 'all' && { gender: genderFilter }),
   }
 
   // Fetch contacts
@@ -109,13 +137,17 @@ export default function ContactsPage() {
     setCountryFilter('')
     setRecruiterFilter('')
     setTagFilter('')
+    setPositionFilter('')
+    setOwnerFilter('')
+    setGraduationYearFilter('')
+    setGenderFilter('')
     setPage(1)
   }, [])
 
   // Handle page size change
   const handlePageSizeChange = useCallback((newPageSize: number) => {
     setPageSize(newPageSize)
-    setPage(1) // Reset to first page
+    setPage(1)
   }, [])
 
   // Handle row click
@@ -123,10 +155,60 @@ export default function ContactsPage() {
     setSelectedContact(contact)
   }, [])
 
+  // Handle column toggle
+  const handleColumnToggle = useCallback((columns: string[]) => {
+    setVisibleColumns(columns)
+    storeColumns(columns)
+  }, [])
+
+  // Handle export
+  const handleExport = useCallback(() => {
+    if (contacts.length === 0) return
+    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'Position', 'Club', 'Graduation Year', 'Gender', 'GPA', 'Source']
+    const rows = contacts.map((c) => [
+      c.first_name || '',
+      c.last_name || '',
+      c.email || '',
+      c.phone || '',
+      c.country || '',
+      c.position || '',
+      c.club_name || '',
+      c.graduation_year?.toString() || '',
+      c.gender || '',
+      c.gpa?.toString() || '',
+      c.source || '',
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [contacts])
+
+  // Grid view handlers
+  const handleEmailClick = useCallback((contact: Contact) => {
+    window.location.href = `mailto:${contact.email}`
+  }, [])
+
+  const handleSMSClick = useCallback((contact: Contact) => {
+    if (contact.phone) {
+      window.location.href = `sms:${contact.phone}`
+    }
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <ContactsPageHeader onAddContact={() => setCreateModalOpen(true)} />
+      <ContactsPageHeader
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onAddContact={() => setCreateModalOpen(true)}
+        onImportClick={() => setImportModalOpen(true)}
+        onExportClick={handleExport}
+      />
 
       {/* Stats */}
       <ContactStats
@@ -179,7 +261,34 @@ export default function ContactsPage() {
           setTagFilter(value)
           setPage(1)
         }}
+        positionFilter={positionFilter}
+        onPositionFilterChange={(value) => {
+          setPositionFilter(value)
+          setPage(1)
+        }}
+        ownerFilter={ownerFilter}
+        onOwnerFilterChange={(value) => {
+          setOwnerFilter(value)
+          setPage(1)
+        }}
+        graduationYearFilter={graduationYearFilter}
+        onGraduationYearFilterChange={(value) => {
+          setGraduationYearFilter(value)
+          setPage(1)
+        }}
+        genderFilter={genderFilter}
+        onGenderFilterChange={(value) => {
+          setGenderFilter(value)
+          setPage(1)
+        }}
+        userId={userId}
         onClearFilters={handleClearFilters}
+        trailing={viewMode === 'list' ? (
+          <ColumnToggle
+            visibleColumns={visibleColumns}
+            onToggle={handleColumnToggle}
+          />
+        ) : undefined}
       />
 
       {/* Selection Summary */}
@@ -208,18 +317,29 @@ export default function ContactsPage() {
         />
       )}
 
-      {/* Table */}
-      <ContactsTable
-        contacts={contacts}
-        isLoading={isLoading}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-        selectedIds={selectedIds}
-        onSelectChange={handleSelectChange}
-        onSelectAll={handleSelectAll}
-        onRowClick={handleRowClick}
-      />
+      {/* Grid or Table View */}
+      {viewMode === 'grid' ? (
+        <ContactsGrid
+          contacts={contacts}
+          isLoading={isLoading}
+          onViewProfile={handleRowClick}
+          onEmailClick={handleEmailClick}
+          onSMSClick={handleSMSClick}
+        />
+      ) : (
+        <ContactsTable
+          contacts={contacts}
+          isLoading={isLoading}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          selectedIds={selectedIds}
+          onSelectChange={handleSelectChange}
+          onSelectAll={handleSelectAll}
+          onRowClick={handleRowClick}
+          visibleColumns={visibleColumns}
+        />
+      )}
 
       {/* Pagination */}
       {total > 0 && (
@@ -255,6 +375,12 @@ export default function ContactsPage() {
         contact={editingContact}
         isOpen={!!editingContact}
         onClose={() => setEditingContact(null)}
+      />
+
+      {/* Import CSV Modal */}
+      <ImportCSVModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
       />
     </div>
   )

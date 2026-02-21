@@ -2,24 +2,24 @@
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { Users } from 'lucide-react'
-import { PlayerCard } from './PlayerCard'
-import type { Player } from '@/lib/types/players'
+import { ContactCard } from './ContactCard'
+import type { Contact } from '@/lib/types/contacts'
 
-interface PlayersGridProps {
-  players: Player[]
+interface ContactsGridProps {
+  contacts: Contact[]
   isLoading: boolean
-  onViewProfile: (player: Player) => void
-  onEmailClick: (player: Player) => void
-  onSMSClick: (player: Player) => void
+  onViewProfile: (contact: Contact) => void
+  onEmailClick: (contact: Contact) => void
+  onSMSClick: (contact: Contact) => void
 }
 
-export function PlayersGrid({
-  players,
+export function ContactsGrid({
+  contacts,
   isLoading,
   onViewProfile,
   onEmailClick,
   onSMSClick,
-}: PlayersGridProps) {
+}: ContactsGridProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -49,13 +49,13 @@ export function PlayersGrid({
     )
   }
 
-  if (players.length === 0) {
+  if (contacts.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
         <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No players found</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No contacts found</h3>
         <p className="text-muted-foreground">
-          Try adjusting your filters or add a new player.
+          Try adjusting your filters or add a new contact.
         </p>
       </div>
     )
@@ -63,10 +63,10 @@ export function PlayersGrid({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {players.map((player) => (
-        <PlayerCard
-          key={player.id}
-          player={player}
+      {contacts.map((contact) => (
+        <ContactCard
+          key={contact.id}
+          contact={contact}
           onViewProfile={onViewProfile}
           onEmailClick={onEmailClick}
           onSMSClick={onSMSClick}

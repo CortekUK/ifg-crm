@@ -62,6 +62,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MoreVertical, Pause, Play, MessageCircle } from 'lucide-react'
 import { LogReplyModal } from './LogReplyModal'
+import { AddDealFromContactSheet } from './AddDealFromContactSheet'
 import { OwnerSelect } from '@/components/ui/owner-select'
 
 interface ContactDetailSheetProps {
@@ -126,6 +127,7 @@ export function ContactDetailSheet({
   const [isAddListOpen, setIsAddListOpen] = useState(false)
   const [isAddTagOpen, setIsAddTagOpen] = useState(false)
   const [isLogReplyOpen, setIsLogReplyOpen] = useState(false)
+  const [isAddDealOpen, setIsAddDealOpen] = useState(false)
   const [isEditingOwner, setIsEditingOwner] = useState(false)
   const [newNoteContent, setNewNoteContent] = useState('')
 
@@ -862,15 +864,34 @@ export function ContactDetailSheet({
                 <div className="text-center py-12">
                   <PoundSterling className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
                   <p className="text-muted-foreground">No deals yet</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setIsAddDealOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Deal
+                  </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-green-700 dark:text-green-300">Total Pipeline Value</span>
-                      <span className="text-xl font-bold text-green-700 dark:text-green-300">{formatCurrency(totalDealsValue)}</span>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border bg-slate-50 dark:bg-slate-800/50 p-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">Total</p>
+                        <Badge variant="secondary" className="text-xs">{deals.length} deal{deals.length !== 1 ? 's' : ''}</Badge>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(totalDealsValue)}</p>
                     </div>
-                    <p className="text-xs text-green-600 mt-1">{deals.length} deal{deals.length !== 1 ? 's' : ''}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsAddDealOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Deal
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     {deals.map((deal) => (
@@ -880,23 +901,17 @@ export function ContactDetailSheet({
                         style={{ borderLeftWidth: 4, borderLeftColor: deal.stage?.color || '#e2e8f0' }}
                       >
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{deal.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="secondary" className="text-xs" style={{
-                                backgroundColor: deal.stage?.color ? `${deal.stage.color}15` : undefined,
-                                color: deal.stage?.color,
-                              }}>
-                                {deal.stage?.name}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">{deal.pipeline?.name}</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-green-600">{formatCurrency(deal.deal_value || 0)}</p>
-                            <p className="text-xs text-muted-foreground">{formatTimeAgo(deal.created_at)}</p>
-                          </div>
+                          <p className="font-medium">{deal.pipeline?.name || 'Unknown Pipeline'}</p>
+                          <Badge variant="secondary" className="text-xs" style={{
+                            backgroundColor: deal.stage?.color ? `${deal.stage.color}15` : undefined,
+                            color: deal.stage?.color,
+                          }}>
+                            {deal.stage?.name}
+                          </Badge>
                         </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {formatCurrency(deal.deal_value || 0)} · {deal.owner?.full_name || 'Unassigned'} · {formatDate(deal.created_at)}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -1130,13 +1145,21 @@ export function ContactDetailSheet({
         </SheetFooter>
 
         {contact && (
-          <LogReplyModal
-            isOpen={isLogReplyOpen}
-            onClose={() => setIsLogReplyOpen(false)}
-            contactId={contact.id}
-            contactName={`${contact.first_name} ${contact.last_name}`}
-            contactEmail={contact.email || ''}
-          />
+          <>
+            <LogReplyModal
+              isOpen={isLogReplyOpen}
+              onClose={() => setIsLogReplyOpen(false)}
+              contactId={contact.id}
+              contactName={`${contact.first_name} ${contact.last_name}`}
+              contactEmail={contact.email || ''}
+            />
+            <AddDealFromContactSheet
+              isOpen={isAddDealOpen}
+              onClose={() => setIsAddDealOpen(false)}
+              contactId={contact.id}
+              contactName={`${contact.first_name} ${contact.last_name}`}
+            />
+          </>
         )}
       </SheetContent>
     </Sheet>

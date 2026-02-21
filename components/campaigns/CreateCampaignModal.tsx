@@ -40,6 +40,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TemplateSearchSelect } from '@/components/ui/template-search-select'
 import {
   Mail,
   MessageSquare,
@@ -1053,18 +1054,12 @@ export function CreateCampaignModal({
                       <TabsContent value="template" className="space-y-4 mt-4">
                         <div className="space-y-2">
                           <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Template</Label>
-                          <Select value={templateId} onValueChange={setTemplateId}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a template" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {templates.map((template) => (
-                                <SelectItem key={template.id} value={template.id}>
-                                  {template.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <TemplateSearchSelect
+                            templates={templates}
+                            value={templateId}
+                            onValueChange={setTemplateId}
+                            placeholder="Select a template"
+                          />
                         </div>
                       </TabsContent>
 

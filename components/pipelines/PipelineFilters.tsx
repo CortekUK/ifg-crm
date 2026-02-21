@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, X, LayoutGrid, List } from 'lucide-react'
+import { Search, X, LayoutGrid, List, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Deal } from '@/lib/types/pipelines'
 import type { ViewMode } from '@/lib/hooks/usePipelineViewPreference'
@@ -26,6 +26,10 @@ interface PipelineFiltersProps {
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
   userId?: string | null
+  zoom?: number
+  onZoomChange?: (zoom: number) => void
+  isFullscreen?: boolean
+  onFullscreenToggle?: () => void
 }
 
 export function PipelineFilters({
@@ -39,6 +43,10 @@ export function PipelineFilters({
   viewMode,
   onViewModeChange,
   userId,
+  zoom = 1,
+  onZoomChange,
+  isFullscreen = false,
+  onFullscreenToggle,
 }: PipelineFiltersProps) {
   // Extract unique owners from deals
   const owners = useMemo(() => {
@@ -140,6 +148,33 @@ export function PipelineFilters({
         </div>
       </div>
 
+      {/* Zoom Controls - only in kanban mode */}
+      {viewMode === 'kanban' && onZoomChange && (
+        <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted/50">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => onZoomChange(Math.max(0.5, zoom - 0.1))}
+            disabled={zoom <= 0.5}
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-xs font-medium text-muted-foreground w-10 text-center tabular-nums">
+            {Math.round(zoom * 100)}%
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => onZoomChange(Math.min(1, zoom + 0.1))}
+            disabled={zoom >= 1}
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       {/* View Toggle */}
       <div className="flex items-center border rounded-lg p-1 bg-muted/50">
         <Button
@@ -165,6 +200,22 @@ export function PipelineFilters({
           <List className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Fullscreen Toggle */}
+      {viewMode === 'kanban' && onFullscreenToggle && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={onFullscreenToggle}
+        >
+          {isFullscreen ? (
+            <Minimize2 className="h-4 w-4" />
+          ) : (
+            <Maximize2 className="h-4 w-4" />
+          )}
+        </Button>
+      )}
     </div>
   )
 }

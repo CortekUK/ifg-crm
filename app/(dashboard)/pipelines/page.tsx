@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { DropResult } from '@hello-pangea/dnd'
 import { PipelinesPageHeader } from '@/components/pipelines/PipelinesPageHeader'
 import { PipelineFilters } from '@/components/pipelines/PipelineFilters'
@@ -14,6 +14,7 @@ import { CreatePipelineModal } from '@/components/pipelines/CreatePipelineModal'
 import { PipelineSettingsModal } from '@/components/pipelines/PipelineSettingsModal'
 import { ResetAutomationModal } from '@/components/pipelines/ResetAutomationModal'
 import { StopAutomationModal } from '@/components/pipelines/StopAutomationModal'
+import { SendAsConfirmModal } from '@/components/pipelines/SendAsConfirmModal'
 import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
@@ -23,8 +24,10 @@ import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage, Deal, Pipeline } from '@/lib/types/pipelines'
 import { ErrorState } from '@/components/ui/error-state'
+import { cn } from '@/lib/utils'
 
 const PIPELINE_STORAGE_KEY = 'ifg-crm-selected-pipeline'
+const KANBAN_ZOOM_KEY = 'ifg-crm-kanban-zoom'
 
 export default function PipelinesPage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
@@ -32,7 +35,20 @@ export default function PipelinesPage() {
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [userId, setUserId] = useState<string | null>(null)
-  
+  const [zoom, setZoom] = useState(1)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Exit fullscreen on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isFullscreen])
+
   // Modal state
   const [addDealModalOpen, setAddDealModalOpen] = useState(false)
   const [selectedStage, setSelectedStage] = useState<PipelineStage | null>(null)
@@ -60,6 +76,15 @@ export default function PipelinesPage() {
     enrollments: { id: string; automation_id: string; automation_name: string }[]
   } | null>(null)
 
+  // Send-as confirm modal state (super admin first enrollment)
+  const [sendAsModalOpen, setSendAsModalOpen] = useState(false)
+  const [pendingSendAsMove, setPendingSendAsMove] = useState<{
+    dealId: string
+    newStageId: string
+    oldStageName?: string
+    newStageName?: string
+  } | null>(null)
+
   // Fetch current user (with role)
   const { data: currentUser } = useCurrentUser()
   useEffect(() => {
@@ -69,6 +94,7 @@ export default function PipelinesPage() {
   }, [currentUser?.id])
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+  const isSuperAdmin = currentUser?.role === 'super_admin'
 
   // Fetch pipelines
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines()
@@ -93,11 +119,15 @@ export default function PipelinesPage() {
   // View mode preference (kanban or list)
   const { viewMode, setViewMode } = usePipelineViewPreference()
 
-  // Load selected pipeline from localStorage on mount
+  // Load selected pipeline and zoom from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(PIPELINE_STORAGE_KEY)
     if (stored) {
       setSelectedPipelineId(stored)
+    }
+    const storedZoom = localStorage.getItem(KANBAN_ZOOM_KEY)
+    if (storedZoom) {
+      setZoom(parseFloat(storedZoom))
     }
   }, [])
 
@@ -118,6 +148,13 @@ export default function PipelinesPage() {
   const handlePipelineChange = useCallback((pipelineId: string) => {
     setSelectedPipelineId(pipelineId)
     localStorage.setItem(PIPELINE_STORAGE_KEY, pipelineId)
+  }, [])
+
+  // Save zoom level to localStorage
+  const handleZoomChange = useCallback((newZoom: number) => {
+    const rounded = Math.round(newZoom * 10) / 10
+    setZoom(rounded)
+    localStorage.setItem(KANBAN_ZOOM_KEY, rounded.toString())
   }, [])
 
   // Filter deals by search, owner, and status
@@ -183,6 +220,48 @@ export default function PipelinesPage() {
     [moveDeal, selectedPipelineId, userId]
   )
 
+  // Patch send_as_user_id on newly created enrollment(s) for a deal
+  const patchEnrollmentSendAs = useCallback(
+    async (dealId: string, targetStageId: string, sendAsUserId: string) => {
+      const supabase = createClient()
+
+      // Find automations for the target stage
+      const { data: automations } = await supabase
+        .from('automations')
+        .select('id')
+        .eq('trigger_stage_id', targetStageId)
+        .eq('pipeline_id', selectedPipelineId)
+        .eq('is_active', true)
+
+      if (!automations || automations.length === 0) return
+
+      const automationIds = automations.map(a => a.id)
+
+      // Retry up to 3 times with increasing delays (enrollment created by DB trigger)
+      const delays = [200, 400, 600]
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, delays[attempt]))
+
+        const { data: enrollments } = await supabase
+          .from('automation_enrollments')
+          .select('id')
+          .eq('deal_id', dealId)
+          .in('automation_id', automationIds)
+          .eq('status', 'active')
+
+        if (enrollments && enrollments.length > 0) {
+          await supabase
+            .from('automation_enrollments')
+            .update({ send_as_user_id: sendAsUserId })
+            .in('id', enrollments.map(e => e.id))
+          return
+        }
+      }
+      console.warn('Could not find enrollment to patch send_as_user_id')
+    },
+    [selectedPipelineId]
+  )
+
   // Core stage change logic - checks for automations and shows modals if needed
   const handleStageChange = useCallback(
     async (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => {
@@ -232,6 +311,18 @@ export default function PipelinesPage() {
         }
       }
 
+      // No existing enrollment but target stage has automations - show SendAs modal for super admins
+      if (automations && automations.length > 0 && isSuperAdmin) {
+        setPendingSendAsMove({
+          dealId,
+          newStageId,
+          oldStageName: oldStage?.name,
+          newStageName: newStage?.name,
+        })
+        setSendAsModalOpen(true)
+        return
+      }
+
       // No trigger stage automations to restart, but check if deal has active automations
       // that might need to be stopped (moving AWAY from where automation is running)
       const { data: activeEnrollments } = await supabase
@@ -268,7 +359,7 @@ export default function PipelinesPage() {
       // No automations to worry about, proceed with move
       executeMoveDeals(dealId, newStageId, oldStage?.name, newStage?.name)
     },
-    [executeMoveDeals, selectedPipelineId]
+    [executeMoveDeals, selectedPipelineId, isSuperAdmin]
   )
 
   // Check if current user can move a specific deal
@@ -318,7 +409,7 @@ export default function PipelinesPage() {
   )
 
   // Handle reset modal - restart automation
-  const handleResetAndMove = useCallback(async () => {
+  const handleResetAndMove = useCallback(async (sendAsUserId?: string | null) => {
     if (!pendingMove) return
 
     const supabase = createClient()
@@ -341,6 +432,11 @@ export default function PipelinesPage() {
       pendingMove.newStageName
     )
 
+    // If super admin chose to send as themselves, patch the new enrollment
+    if (sendAsUserId) {
+      patchEnrollmentSendAs(pendingMove.dealId, pendingMove.newStageId, sendAsUserId)
+    }
+
     toast({
       title: 'Automation restarted',
       description: 'The automation sequence will restart from the beginning',
@@ -348,18 +444,25 @@ export default function PipelinesPage() {
 
     setResetModalOpen(false)
     setPendingMove(null)
-  }, [pendingMove, executeMoveDeals])
+  }, [pendingMove, executeMoveDeals, patchEnrollmentSendAs])
 
   // Handle reset modal - move without restarting
-  const handleMoveWithoutReset = useCallback(() => {
+  const handleMoveWithoutReset = useCallback((sendAsUserId?: string | null) => {
     if (!pendingMove) return
 
     // Mark enrollments as 'active' so they won't be re-enrolled by the trigger
     // This keeps the current progress
     const supabase = createClient()
+
+    // If super admin chose to send as themselves, also patch send_as_user_id
+    const updatePayload: Record<string, unknown> = { status: 'active' }
+    if (sendAsUserId) {
+      updatePayload.send_as_user_id = sendAsUserId
+    }
+
     supabase
       .from('automation_enrollments')
-      .update({ status: 'active' })
+      .update(updatePayload)
       .in('id', pendingMove.enrollments.map(e => e.id))
       .then(() => {
         executeMoveDeals(
@@ -408,10 +511,19 @@ export default function PipelinesPage() {
   }, [pendingStopMove, executeMoveDeals])
 
   // Handle stop modal - keep running and move
-  const handleKeepRunningAndMove = useCallback(() => {
+  const handleKeepRunningAndMove = useCallback((sendAsUserId?: string | null) => {
     if (!pendingStopMove) return
 
-    // Just move the deal, don't stop the automation
+    // If super admin chose to send as themselves, update existing enrollment
+    if (sendAsUserId) {
+      const supabase = createClient()
+      supabase
+        .from('automation_enrollments')
+        .update({ send_as_user_id: sendAsUserId })
+        .in('id', pendingStopMove.enrollments.map(e => e.id))
+    }
+
+    // Move the deal, don't stop the automation
     executeMoveDeals(
       pendingStopMove.dealId,
       pendingStopMove.newStageId,
@@ -422,6 +534,26 @@ export default function PipelinesPage() {
     setStopModalOpen(false)
     setPendingStopMove(null)
   }, [pendingStopMove, executeMoveDeals])
+
+  // Handle send-as confirm modal (super admin first enrollment)
+  const handleSendAsConfirm = useCallback(async (sendAsUserId: string | null) => {
+    if (!pendingSendAsMove) return
+
+    executeMoveDeals(
+      pendingSendAsMove.dealId,
+      pendingSendAsMove.newStageId,
+      pendingSendAsMove.oldStageName,
+      pendingSendAsMove.newStageName
+    )
+
+    // If super admin chose to send as themselves, patch the new enrollment
+    if (sendAsUserId) {
+      patchEnrollmentSendAs(pendingSendAsMove.dealId, pendingSendAsMove.newStageId, sendAsUserId)
+    }
+
+    setSendAsModalOpen(false)
+    setPendingSendAsMove(null)
+  }, [pendingSendAsMove, executeMoveDeals, patchEnrollmentSendAs])
 
   // Handle add click from column
   const handleAddClick = useCallback((stage: PipelineStage) => {
@@ -456,18 +588,23 @@ export default function PipelinesPage() {
   const isLoading = pipelinesLoading || stagesLoading || dealsLoading
 
   return (
-    <div className="space-y-6">
+    <div className={cn(
+      'space-y-6',
+      isFullscreen && 'fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 p-6 overflow-auto'
+    )}>
       {/* Page Header with Pipeline Selector */}
-      <PipelinesPageHeader
-        pipelines={pipelines}
-        selectedPipelineId={selectedPipelineId}
-        onPipelineChange={handlePipelineChange}
-        onOpenSettings={() => setSettingsModalOpen(true)}
-        onOpenCreate={() => setCreatePipelineModalOpen(true)}
-        onAddDeal={handleAddDealFromHeader}
-        isLoading={pipelinesLoading}
-        dealCounts={dealCounts}
-      />
+      {!isFullscreen && (
+        <PipelinesPageHeader
+          pipelines={pipelines}
+          selectedPipelineId={selectedPipelineId}
+          onPipelineChange={handlePipelineChange}
+          onOpenSettings={() => setSettingsModalOpen(true)}
+          onOpenCreate={() => setCreatePipelineModalOpen(true)}
+          onAddDeal={handleAddDealFromHeader}
+          isLoading={pipelinesLoading}
+          dealCounts={dealCounts}
+        />
+      )}
 
       {/* Filters */}
       <PipelineFilters
@@ -481,10 +618,14 @@ export default function PipelinesPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         userId={userId}
+        zoom={zoom}
+        onZoomChange={handleZoomChange}
+        isFullscreen={isFullscreen}
+        onFullscreenToggle={() => setIsFullscreen((prev) => !prev)}
       />
 
       {/* Stats */}
-      <PipelineStats deals={filteredDeals} lastUpdated={lastUpdated} />
+      {!isFullscreen && <PipelineStats deals={filteredDeals} lastUpdated={lastUpdated} />}
 
       {/* Error State - only show if there are no deals */}
       {dealsError && deals.length === 0 && (
@@ -504,6 +645,7 @@ export default function PipelinesPage() {
           deals={filteredDeals}
           pipelineId={selectedPipelineId}
           isLoading={isLoading && !stages.length}
+          zoom={zoom}
           onDragEnd={handleDragEnd}
           onAddClick={handleAddClick}
           onDealClick={handleDealClick}
@@ -571,6 +713,9 @@ export default function PipelinesPage() {
           enrollments={pendingMove.enrollments}
           targetStageName={pendingMove.newStageName || 'new stage'}
           isResetting={resetEnrollments.isPending}
+          isSuperAdmin={isSuperAdmin}
+          currentUserId={currentUser?.id}
+          currentUserName={currentUser?.full_name || undefined}
         />
       )}
 
@@ -586,6 +731,24 @@ export default function PipelinesPage() {
           onConfirmKeepRunning={handleKeepRunningAndMove}
           enrollments={pendingStopMove.enrollments}
           targetStageName={pendingStopMove.newStageName || 'new stage'}
+          isSuperAdmin={isSuperAdmin}
+          currentUserId={currentUser?.id}
+          currentUserName={currentUser?.full_name || undefined}
+        />
+      )}
+
+      {/* Send As Confirm Modal (super admin first enrollment) */}
+      {pendingSendAsMove && currentUser && (
+        <SendAsConfirmModal
+          isOpen={sendAsModalOpen}
+          onClose={() => {
+            setSendAsModalOpen(false)
+            setPendingSendAsMove(null)
+          }}
+          onConfirm={handleSendAsConfirm}
+          currentUserId={currentUser.id}
+          currentUserName={currentUser.full_name || 'Me'}
+          targetStageName={pendingSendAsMove.newStageName || 'new stage'}
         />
       )}
     </div>

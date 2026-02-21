@@ -44,6 +44,7 @@ interface AutomationEnrollment {
   current_step_id: string | null
   status: 'active' | 'completed' | 'stopped' | 'paused'
   next_step_at: string | null
+  send_as_user_id: string | null
 }
 
 interface Deal {
@@ -368,7 +369,8 @@ async function processQueue(
       deal_id,
       current_step_id,
       status,
-      next_step_at
+      next_step_at,
+      send_as_user_id
     `)
     .eq('status', 'active')
     .lte('next_step_at', now)
@@ -606,18 +608,18 @@ async function processEmailStep(
       return
     }
 
-    // Fetch owner separately - check both deal_owner_id and owner_id columns
+    // Fetch sender profile - use send_as_user_id override if set, otherwise deal owner
     let owner: { id: string; email: string; full_name: string } | null = null
-    const ownerId = deal.deal_owner_id || deal.owner_id
-    if (ownerId) {
+    const senderId = enrollment.send_as_user_id || deal.deal_owner_id || deal.owner_id
+    if (senderId) {
       const { data: ownerData, error: ownerError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
-        .eq('id', ownerId)
+        .eq('id', senderId)
         .single()
 
       if (ownerError) {
-        console.log(`Warning: Failed to fetch owner ${ownerId}: ${ownerError.message}`)
+        console.log(`Warning: Failed to fetch sender ${senderId}: ${ownerError.message}`)
       } else {
         owner = ownerData
       }

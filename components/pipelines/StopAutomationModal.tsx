@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -11,6 +12,8 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { StopCircle, Play } from 'lucide-react'
 
 interface ActiveEnrollment {
@@ -23,10 +26,13 @@ interface StopAutomationModalProps {
   isOpen: boolean
   onClose: () => void
   onConfirmStop: () => void
-  onConfirmKeepRunning: () => void
+  onConfirmKeepRunning: (sendAsUserId?: string | null) => void
   enrollments: ActiveEnrollment[]
   targetStageName: string
   isStopping?: boolean
+  isSuperAdmin?: boolean
+  currentUserId?: string
+  currentUserName?: string
 }
 
 export function StopAutomationModal({
@@ -37,12 +43,21 @@ export function StopAutomationModal({
   enrollments,
   targetStageName,
   isStopping = false,
+  isSuperAdmin = false,
+  currentUserId,
+  currentUserName,
 }: StopAutomationModalProps) {
+  const [sendAsMe, setSendAsMe] = useState(false)
   const automationNames = enrollments.map(e => e.automation_name)
   const uniqueNames = [...new Set(automationNames)]
 
+  const handleClose = () => {
+    setSendAsMe(false)
+    onClose()
+  }
+
   return (
-    <AlertDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <AlertDialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <AlertDialogContent className="max-w-lg">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -68,13 +83,25 @@ export function StopAutomationModal({
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {isSuperAdmin && currentUserName && (
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox
+              id="send-as-me-stop"
+              checked={sendAsMe}
+              onCheckedChange={(checked) => setSendAsMe(checked === true)}
+            />
+            <Label htmlFor="send-as-me-stop" className="text-sm cursor-pointer">
+              Send emails as {currentUserName}
+            </Label>
+          </div>
+        )}
         <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-3 mt-4">
-          <AlertDialogCancel onClick={onClose} disabled={isStopping} className="mt-0">
+          <AlertDialogCancel onClick={handleClose} disabled={isStopping} className="mt-0">
             Cancel
           </AlertDialogCancel>
           <Button
             variant="outline"
-            onClick={onConfirmKeepRunning}
+            onClick={() => onConfirmKeepRunning(sendAsMe && currentUserId ? currentUserId : null)}
             disabled={isStopping}
             className="gap-2"
           >
