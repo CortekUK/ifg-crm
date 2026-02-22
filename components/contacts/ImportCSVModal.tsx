@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Upload, FileText, CheckCircle2, AlertTriangle, ArrowLeft, ArrowRight, Loader2, Plus } from 'lucide-react'
-import { parseCSV, autoMapColumns, validateRow, CONTACT_FIELDS, type RowValidationError } from '@/lib/utils/csv'
+import { parseCSV, autoMapColumns, validateRow, hasNameMapping, CONTACT_FIELDS, type RowValidationError } from '@/lib/utils/csv'
 import { useImportContacts, type DuplicateStrategy, type ImportResult } from '@/lib/hooks/useImportContacts'
 import { Input } from '@/components/ui/input'
 import { useLists, useCreateList } from '@/lib/hooks/useLists'
@@ -139,14 +139,23 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
   }
 
   const goToStep3 = () => {
-    // Check required fields are mapped
     const mappedFields = new Set(Object.values(mapping))
-    const missingRequired = CONTACT_FIELDS.filter((f) => f.required && !mappedFields.has(f.key))
 
-    if (missingRequired.length > 0) {
+    // Email is always required
+    if (!mappedFields.has('email')) {
       toast({
-        title: 'Missing required fields',
-        description: `Please map: ${missingRequired.map((f) => f.label).join(', ')}`,
+        title: 'Missing required field',
+        description: 'Please map the Email column.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Need either Full Name OR (First Name + Last Name)
+    if (!hasNameMapping(mapping)) {
+      toast({
+        title: 'Missing name field',
+        description: 'Please map either Full Name, or both First Name and Last Name.',
         variant: 'destructive',
       })
       return

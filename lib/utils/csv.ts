@@ -69,8 +69,9 @@ export interface ContactField {
 }
 
 export const CONTACT_FIELDS: ContactField[] = [
-  { key: 'first_name', label: 'First Name', required: true },
-  { key: 'last_name', label: 'Last Name', required: true },
+  { key: '__full_name__', label: 'Full Name', required: false },
+  { key: 'first_name', label: 'First Name', required: false },
+  { key: 'last_name', label: 'Last Name', required: false },
   { key: 'email', label: 'Email', required: true },
   { key: 'phone', label: 'Phone', required: false },
   { key: 'date_of_birth', label: 'Date of Birth', required: false },
@@ -92,50 +93,172 @@ export const CONTACT_FIELDS: ContactField[] = [
 ]
 
 const HEADER_ALIASES: Record<string, string[]> = {
-  first_name: ['first name', 'firstname', 'first', 'fname', 'given name'],
-  last_name: ['last name', 'lastname', 'last', 'lname', 'surname', 'family name'],
-  email: ['email', 'email address', 'e-mail'],
-  phone: ['phone', 'phone number', 'telephone', 'tel', 'mobile', 'cell'],
-  date_of_birth: ['date of birth', 'dob', 'birthday', 'birth date', 'birthdate'],
-  graduation_year: ['graduation year', 'grad year', 'class', 'class year', 'class of', 'year of entry', 'expected year of entry'],
-  gender: ['gender', 'sex'],
-  country: ['country', 'nation', 'home country', 'country of residence', 'nationality'],
-  state: ['state', 'province', 'region', 'us state'],
-  city: ['city', 'town'],
-  club_name: ['club name', 'club', 'team', 'team name', 'current club', 'organization'],
-  position: ['position', 'pos', 'playing position', 'football position'],
-  gpa: ['gpa', 'grade point average'],
-  parent_name: ['parent name', 'guardian name', 'guardian', 'parent/guardian', "parent/guardians full name", 'parent/guardian name'],
-  parent_email: ['parent email', 'parent e-mail', 'guardian email', 'parent/guardian email'],
-  parent_phone: ['parent phone', 'parent tel', 'guardian phone', "parent/guardians phone number", "parent's number", "parents number"],
-  source_detail: ['id', 'external id', 'source', 'source detail', 'how did you hear about us', 'website source', 'website scoring'],
-  subscription_status: ['status', 'subscription status', 'sub status'],
-  __tags__: ['tags', 'tag'],
-  notes: ['notes', 'note', 'comments', 'comment', 'questions/queries'],
+  __full_name__: [
+    'full name', 'fullname', 'name', 'contact name', 'player name',
+    'student name', 'athlete name', 'client name',
+  ],
+  first_name: [
+    'first name', 'firstname', 'first', 'fname', 'given name',
+    'contact first name', 'player first name',
+  ],
+  last_name: [
+    'last name', 'lastname', 'last', 'lname', 'surname', 'family name',
+    'contact last name', 'player last name',
+  ],
+  email: [
+    'email', 'email address', 'e-mail', 'e-mail address',
+    'contact email', 'player email', 'student email',
+    'email (required to import)', 'primary email',
+  ],
+  phone: [
+    'phone', 'phone number', 'telephone', 'tel', 'mobile', 'cell',
+    'cell phone', 'mobile number', 'mobile phone', 'contact phone',
+    'phone (mobile)', 'phone (home)', 'primary phone',
+    'player phone', 'student phone', 'players phone number',
+    'contact number', 'tel number',
+  ],
+  date_of_birth: [
+    'date of birth', 'dob', 'birthday', 'birth date', 'birthdate',
+    'date of birth (dd/mm/yyyy)', 'date of birth (mm/dd/yyyy)',
+    'birth_date', 'born',
+  ],
+  graduation_year: [
+    'graduation year', 'grad year', 'class', 'class year', 'class of',
+    'year of entry', 'expected year of entry', 'entry year',
+    'graduation', 'grad', 'year of graduation', 'expected graduation',
+    'hs grad year', 'high school graduation year',
+    'year', 'intake year', 'cohort', 'cohort year',
+  ],
+  gender: ['gender', 'sex', 'male/female'],
+  country: [
+    'country', 'nation', 'home country', 'country of residence', 'nationality',
+    'country/region', 'country name', 'country of origin',
+    'players country', "player's country",
+    'location country', 'residence country',
+  ],
+  state: [
+    'state', 'province', 'region', 'us state',
+    'state/province', 'state/region', 'county',
+  ],
+  city: [
+    'city', 'town', 'hometown', 'home town', 'home city',
+    'city/town', 'location', 'location city',
+  ],
+  club_name: [
+    'club name', 'club', 'team', 'team name', 'current club', 'organization',
+    'organisation', 'current team', 'club/team', 'academy',
+    'club/academy', 'school', 'university', 'college',
+    'high school', 'institution', 'previous club',
+  ],
+  position: [
+    'position', 'pos', 'playing position', 'football position',
+    'primary position', 'player position', 'preferred position',
+  ],
+  gpa: [
+    'gpa', 'grade point average', 'grade', 'grades',
+    'academic score', 'sat score', 'act score',
+  ],
+  parent_name: [
+    'parent name', 'guardian name', 'guardian', 'parent/guardian',
+    "parent/guardians full name", 'parent/guardian name',
+    "parent's name", 'parents name', 'mother name', 'father name',
+    'emergency contact', 'emergency contact name',
+    'guardian full name',
+  ],
+  parent_email: [
+    'parent email', 'parent e-mail', 'guardian email', 'parent/guardian email',
+    "parent's email", 'parents email', "parent/guardian's email",
+    'guardian e-mail', 'emergency contact email',
+  ],
+  parent_phone: [
+    'parent phone', 'parent tel', 'guardian phone',
+    "parent/guardians phone number", "parent's number", "parents number",
+    'parent mobile', 'guardian mobile', 'parent/guardian phone',
+    "parent's phone", 'parents phone', 'emergency contact phone',
+    'guardian phone number',
+  ],
+  source_detail: [
+    'id', 'external id', 'source', 'source detail',
+    'how did you hear about us', 'website source', 'website scoring',
+    'lead source', 'referral source', 'campaign source',
+    'utm source', 'utm_source', 'acquisition source',
+    'how did you find us', 'heard about us',
+  ],
+  subscription_status: [
+    'subscription status', 'sub status', 'email status',
+    'opt in', 'opt-in', 'opted in', 'consent',
+    'email opt in', 'marketing consent', 'subscribed',
+  ],
+  __tags__: [
+    'tags', 'tag', 'labels', 'label', 'categories', 'category',
+    'groups', 'group', 'segments', 'segment',
+    'active campaign tags', 'contact tags',
+  ],
+  notes: [
+    'notes', 'note', 'comments', 'comment',
+    'questions/queries', 'additional info', 'additional information',
+    'remarks', 'description', 'bio', 'about',
+  ],
 }
 
 /**
- * Auto-map CSV headers to contact field keys using fuzzy matching.
+ * Normalize a header string for matching: lowercase, strip punctuation, collapse whitespace.
+ */
+function normalizeHeader(header: string): string {
+  return header
+    .toLowerCase()
+    .trim()
+    .replace(/^\*+/, '')
+    .replace(/[?!.,:;]+$/, '')
+    .replace(/[''`]/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Auto-map CSV headers to contact field keys.
+ * Uses exact alias matching first, then falls back to contains-based fuzzy matching.
  */
 export function autoMapColumns(csvHeaders: string[]): Record<number, string> {
   const mapping: Record<number, string> = {}
   const used = new Set<string>()
 
+  // Pass 1: exact alias match
   csvHeaders.forEach((header, index) => {
-    // Strip leading *, trailing punctuation, and whitespace for matching
-    // e.g. "*How did you hear about us?" → "how did you hear about us"
-    const normalized = header
-      .toLowerCase()
-      .trim()
-      .replace(/^\*+/, '')
-      .replace(/[?!.]+$/, '')
-      .replace(/['']/g, "'")
-      .trim()
+    const normalized = normalizeHeader(header)
 
     for (const [fieldKey, aliases] of Object.entries(HEADER_ALIASES)) {
       if (used.has(fieldKey)) continue
 
-      if (aliases.includes(normalized) || normalized === fieldKey.replace(/_/g, ' ') || normalized === fieldKey) {
+      if (
+        aliases.includes(normalized) ||
+        normalized === fieldKey.replace(/_/g, ' ') ||
+        normalized === fieldKey
+      ) {
+        mapping[index] = fieldKey
+        used.add(fieldKey)
+        break
+      }
+    }
+  })
+
+  // Pass 2: fuzzy — check if any alias is contained within the header or vice versa
+  csvHeaders.forEach((header, index) => {
+    if (mapping[index]) return // already mapped
+    const normalized = normalizeHeader(header)
+    if (!normalized) return
+
+    for (const [fieldKey, aliases] of Object.entries(HEADER_ALIASES)) {
+      if (used.has(fieldKey)) continue
+
+      const matched = aliases.some((alias) => {
+        // Skip very short aliases for contains matching to avoid false positives
+        if (alias.length < 4) return false
+        return normalized.includes(alias) || alias.includes(normalized)
+      })
+
+      if (matched) {
         mapping[index] = fieldKey
         used.add(fieldKey)
         break
@@ -155,6 +278,14 @@ export interface RowValidationError {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
+ * Check whether the mapping has a name source: either first_name+last_name or __full_name__.
+ */
+export function hasNameMapping(mapping: Record<number, string>): boolean {
+  const fields = new Set(Object.values(mapping))
+  return fields.has('__full_name__') || (fields.has('first_name') && fields.has('last_name'))
+}
+
+/**
  * Validate a single row against the column mapping.
  * Returns null if valid, or an error object.
  */
@@ -168,11 +299,18 @@ export function validateRow(
     mapped[fieldKey] = row[Number(colIdx)] || ''
   }
 
-  // Check required fields
-  for (const field of CONTACT_FIELDS) {
-    if (field.required && !mapped[field.key]?.trim()) {
-      return { row: rowIndex, field: field.key, message: `${field.label} is required` }
-    }
+  // Email is always required
+  if (!mapped.email?.trim()) {
+    return { row: rowIndex, field: 'email', message: 'Email is required' }
+  }
+
+  // Need either full_name OR (first_name AND last_name)
+  const hasFullName = mapped.__full_name__?.trim()
+  const hasFirstName = mapped.first_name?.trim()
+  const hasLastName = mapped.last_name?.trim()
+
+  if (!hasFullName && !hasFirstName && !hasLastName) {
+    return { row: rowIndex, field: 'first_name', message: 'Name is required (Full Name, or First + Last Name)' }
   }
 
   // Validate email format
@@ -183,8 +321,8 @@ export function validateRow(
   // Validate graduation_year
   if (mapped.graduation_year) {
     const yr = parseInt(mapped.graduation_year, 10)
-    if (isNaN(yr) || yr < 2000 || yr > 2040) {
-      return { row: rowIndex, field: 'graduation_year', message: 'Graduation year must be between 2000-2040' }
+    if (isNaN(yr) || yr < 1950 || yr > 2040) {
+      return { row: rowIndex, field: 'graduation_year', message: 'Graduation year must be between 1950-2040' }
     }
   }
 
@@ -197,6 +335,20 @@ export function validateRow(
   }
 
   return null
+}
+
+/**
+ * Split a full name into first and last name parts.
+ */
+function splitFullName(fullName: string): { first_name: string; last_name: string } {
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length === 0) return { first_name: '', last_name: '' }
+  if (parts.length === 1) return { first_name: parts[0], last_name: '' }
+  // Last word is last name, everything else is first name
+  return {
+    first_name: parts.slice(0, -1).join(' '),
+    last_name: parts[parts.length - 1],
+  }
 }
 
 /**
@@ -213,15 +365,28 @@ export function buildContactFromRow(
     if (!value) continue
 
     // Skip special fields handled elsewhere
-    if (fieldKey.startsWith('__')) continue
+    if (fieldKey === '__tags__') continue
+
+    // Handle full name → split into first_name / last_name
+    if (fieldKey === '__full_name__') {
+      const { first_name, last_name } = splitFullName(value)
+      // Only set if not already mapped from dedicated columns
+      if (!contact.first_name && first_name) contact.first_name = first_name
+      if (!contact.last_name && last_name) contact.last_name = last_name
+      continue
+    }
 
     switch (fieldKey) {
-      case 'graduation_year':
-        contact[fieldKey] = parseInt(value, 10)
+      case 'graduation_year': {
+        const yr = parseInt(value, 10)
+        if (!isNaN(yr)) contact[fieldKey] = yr
         break
-      case 'gpa':
-        contact[fieldKey] = parseFloat(value)
+      }
+      case 'gpa': {
+        const gpa = parseFloat(value)
+        if (!isNaN(gpa)) contact[fieldKey] = gpa
         break
+      }
       case 'gender': {
         const g = value.toLowerCase()
         if (g === 'male' || g === 'm') contact[fieldKey] = 'male'
@@ -230,8 +395,17 @@ export function buildContactFromRow(
       }
       case 'subscription_status': {
         const s = value.toLowerCase()
-        if (s === 'active' || s === 'subscribed') contact[fieldKey] = 'subscribed'
-        else if (s === 'unsubscribed' || s === 'inactive') contact[fieldKey] = 'unsubscribed'
+        if (s === 'active' || s === 'subscribed' || s === 'yes' || s === '1' || s === 'true' || s === 'opted in') {
+          contact[fieldKey] = 'subscribed'
+        } else if (s === 'unsubscribed' || s === 'inactive' || s === 'no' || s === '0' || s === 'false' || s === 'opted out') {
+          contact[fieldKey] = 'unsubscribed'
+        }
+        break
+      }
+      case 'date_of_birth': {
+        // Try to normalise common date formats to YYYY-MM-DD
+        const parsed = parseDateValue(value)
+        if (parsed) contact[fieldKey] = parsed
         break
       }
       default:
@@ -239,12 +413,53 @@ export function buildContactFromRow(
     }
   }
 
+  // Ensure first_name and last_name have fallback values
+  if (!contact.first_name) contact.first_name = ''
+  if (!contact.last_name) contact.last_name = ''
+
   return contact
 }
 
 /**
+ * Try to parse a date string into YYYY-MM-DD format.
+ * Handles: DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, DD-MM-YYYY, etc.
+ */
+function parseDateValue(value: string): string | null {
+  // Already in ISO format
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10)
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY (common in UK/EU)
+  const ddmmyyyy = value.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
+  if (ddmmyyyy) {
+    const [, a, b, year] = ddmmyyyy
+    const day = parseInt(a, 10)
+    const month = parseInt(b, 10)
+    // If first number > 12, it must be DD/MM
+    if (day > 12) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    }
+    // If second number > 12, it must be MM/DD
+    if (month > 12) {
+      return `${year}-${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}`
+    }
+    // Ambiguous — assume DD/MM (UK format, more common for football)
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+
+  // Try native Date parse as last resort
+  const d = new Date(value)
+  if (!isNaN(d.getTime()) && d.getFullYear() > 1900) {
+    return d.toISOString().slice(0, 10)
+  }
+
+  return null
+}
+
+/**
  * Extract tag names from a CSV row if __tags__ is mapped.
- * Tags in Active Campaign exports are comma-separated.
+ * Tags can be comma-separated, semicolon-separated, or pipe-separated.
  */
 export function extractTagsFromRow(
   row: string[],
@@ -254,7 +469,8 @@ export function extractTagsFromRow(
     if (fieldKey === '__tags__') {
       const value = (row[Number(colIdx)] || '').trim()
       if (!value) return []
-      return value.split(',').map((t) => t.trim()).filter(Boolean)
+      // Support comma, semicolon, and pipe as separators
+      return value.split(/[,;|]/).map((t) => t.trim()).filter(Boolean)
     }
   }
   return []
