@@ -219,48 +219,48 @@ function normalizeHeader(header: string): string {
 /**
  * Auto-map CSV headers to contact field keys.
  * Uses exact alias matching first, then falls back to contains-based fuzzy matching.
+ * Multiple CSV columns CAN map to the same field — buildContactFromRow uses the first
+ * non-empty value, so duplicate mappings act as fallbacks (e.g. "Home Country",
+ * "Country", "Country of Residence", "Nationality" all map to country).
  */
 export function autoMapColumns(csvHeaders: string[]): Record<number, string> {
   const mapping: Record<number, string> = {}
-  const used = new Set<string>()
+  const primaryUsed = new Set<string>()
 
-  // Pass 1: exact alias match
+  // Pass 1: exact alias match — first match becomes "primary", subsequent duplicates still map
   csvHeaders.forEach((header, index) => {
     const normalized = normalizeHeader(header)
 
     for (const [fieldKey, aliases] of Object.entries(HEADER_ALIASES)) {
-      if (used.has(fieldKey)) continue
-
       if (
         aliases.includes(normalized) ||
         normalized === fieldKey.replace(/_/g, ' ') ||
         normalized === fieldKey
       ) {
         mapping[index] = fieldKey
-        used.add(fieldKey)
+        primaryUsed.add(fieldKey)
         break
       }
     }
   })
 
-  // Pass 2: fuzzy — check if any alias is contained within the header or vice versa
+  // Pass 2: fuzzy — only for columns not yet mapped, and only for fields with no mapping at all
   csvHeaders.forEach((header, index) => {
     if (mapping[index]) return // already mapped
     const normalized = normalizeHeader(header)
     if (!normalized) return
 
     for (const [fieldKey, aliases] of Object.entries(HEADER_ALIASES)) {
-      if (used.has(fieldKey)) continue
+      if (primaryUsed.has(fieldKey)) continue // already has at least one mapping
 
       const matched = aliases.some((alias) => {
-        // Skip very short aliases for contains matching to avoid false positives
         if (alias.length < 4) return false
         return normalized.includes(alias) || alias.includes(normalized)
       })
 
       if (matched) {
         mapping[index] = fieldKey
-        used.add(fieldKey)
+        primaryUsed.add(fieldKey)
         break
       }
     }
@@ -294,9 +294,13 @@ export function validateRow(
   mapping: Record<number, string>,
   rowIndex: number
 ): RowValidationError | null {
+  // Build mapped values — for duplicate field mappings, use the first non-empty value
   const mapped: Record<string, string> = {}
   for (const [colIdx, fieldKey] of Object.entries(mapping)) {
-    mapped[fieldKey] = row[Number(colIdx)] || ''
+    const val = (row[Number(colIdx)] || '').trim()
+    if (!mapped[fieldKey] || (!mapped[fieldKey].trim() && val)) {
+      mapped[fieldKey] = val
+    }
   }
 
   // Email is always required
@@ -370,11 +374,14 @@ export function buildContactFromRow(
     // Handle full name → split into first_name / last_name
     if (fieldKey === '__full_name__') {
       const { first_name, last_name } = splitFullName(value)
-      // Only set if not already mapped from dedicated columns
       if (!contact.first_name && first_name) contact.first_name = first_name
       if (!contact.last_name && last_name) contact.last_name = last_name
       continue
     }
+
+    // Skip if this field already has a value (multiple columns can map to the same field;
+    // the first non-empty value wins)
+    if (contact[fieldKey] !== undefined) continue
 
     switch (fieldKey) {
       case 'graduation_year': {
@@ -403,7 +410,6 @@ export function buildContactFromRow(
         break
       }
       case 'date_of_birth': {
-        // Try to normalise common date formats to YYYY-MM-DD
         const parsed = parseDateValue(value)
         if (parsed) contact[fieldKey] = parsed
         break
@@ -460,18 +466,28 @@ function parseDateValue(value: string): string | null {
 /**
  * Extract tag names from a CSV row if __tags__ is mapped.
  * Tags can be comma-separated, semicolon-separated, or pipe-separated.
+ * Merges tags from all columns mapped to __tags__.
  */
 export function extractTagsFromRow(
   row: string[],
   mapping: Record<number, string>
 ): string[] {
+  const allTags: string[] = []
   for (const [colIdx, fieldKey] of Object.entries(mapping)) {
     if (fieldKey === '__tags__') {
       const value = (row[Number(colIdx)] || '').trim()
-      if (!value) return []
+      if (!value) continue
       // Support comma, semicolon, and pipe as separators
-      return value.split(/[,;|]/).map((t) => t.trim()).filter(Boolean)
+      const tags = value.split(/[,;|]/).map((t) => t.trim()).filter(Boolean)
+      allTags.push(...tags)
     }
   }
-  return []
+  // Deduplicate (case-insensitive)
+  const seen = new Set<string>()
+  return allTags.filter((tag) => {
+    const lower = tag.toLowerCase()
+    if (seen.has(lower)) return false
+    seen.add(lower)
+    return true
+  })
 }
