@@ -270,7 +270,17 @@ export default function AutomationsPage() {
           pipeline_id: editingAutomation.pipeline_id,
           trigger_stage_id: editingAutomation.trigger_stage_id,
           stop_on_stage_ids: editingAutomation.stop_on_stage_ids,
-          config: editingAutomation.config ?? null,
+          config: {
+            ...(editingAutomation.config || {}),
+            // Populate emails from existing steps so template IDs are preserved on save
+            emails: editingAutomation.steps
+              ?.sort((a: { step_order: number }, b: { step_order: number }) => a.step_order - b.step_order)
+              .filter((s: { step_type: string }) => s.step_type === 'send_email')
+              .map((s: { email_template_id: string | null }, i: number) => ({
+                step: i,
+                template_id: s.email_template_id || '',
+              })) || [],
+          },
         } : null}
       />
 

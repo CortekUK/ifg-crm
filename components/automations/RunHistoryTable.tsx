@@ -32,6 +32,7 @@ interface RunHistoryTableProps {
 }
 
 const statusConfig = {
+  pending: { label: 'Pending', className: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300' },
   sent: { label: 'Sent', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
   failed: { label: 'Failed', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
   skipped: { label: 'Skipped', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },

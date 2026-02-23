@@ -151,7 +151,7 @@ export interface AutomationLog {
   enrollment_id: string
   step_id: string
   deal_id: string
-  status: 'sent' | 'failed' | 'skipped'
+  status: 'pending' | 'sent' | 'failed' | 'skipped'
   sent_at: string
   error_message: string | null
   email_message_id: string | null

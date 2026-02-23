@@ -387,7 +387,36 @@ async function processQueue(
 
   for (const enrollment of enrollments) {
     try {
+      // ============================================
+      // Handle NULL current_step_id - attempt recovery
+      // ============================================
       if (!enrollment.current_step_id) {
+        // Fetch first step of the automation to reset
+        const { data: firstStep } = await supabase
+          .from('automation_steps')
+          .select('id, delay_days, delay_hours')
+          .eq('automation_id', enrollment.automation_id)
+          .order('step_order', { ascending: true })
+          .limit(1)
+          .single()
+
+        if (firstStep) {
+          const nextStepAt = calculateNextStepTime(firstStep as AutomationStep)
+          await supabase
+            .from('automation_enrollments')
+            .update({
+              current_step_id: firstStep.id,
+              next_step_at: nextStepAt.toISOString(),
+            })
+            .eq('id', enrollment.id)
+          console.log(`Recovered enrollment ${enrollment.id} - reset to first step`)
+          summary.errors.push(`Recovered enrollment ${enrollment.id} with NULL current_step_id`)
+        } else {
+          // No steps exist - stop the enrollment
+          await stopEnrollment(supabase, enrollment, 'Automation has no steps')
+          summary.enrollmentsStopped++
+          console.log(`Stopped enrollment ${enrollment.id} - automation has no steps`)
+        }
         continue
       }
 
@@ -408,119 +437,133 @@ async function processQueue(
       }
 
       // ============================================
-      // CHECK DEAL STATUS - Stop if deal is won or lost
+      // Post-lock processing wrapped in try/catch
+      // On error, release lock by setting a retry time
       // ============================================
-      const { data: deal, error: dealError } = await supabase
-        .from('deals')
-        .select('status')
-        .eq('id', enrollment.deal_id)
-        .single()
+      try {
+        // ============================================
+        // CHECK DEAL STATUS - Stop if deal is won or lost
+        // ============================================
+        const { data: deal, error: dealError } = await supabase
+          .from('deals')
+          .select('status')
+          .eq('id', enrollment.deal_id)
+          .single()
 
-      if (dealError) {
-        summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError.message}`)
-        continue
-      }
-
-      if (deal?.status === 'won') {
-        // Stop enrollment - deal was won
-        await stopEnrollment(supabase, enrollment, 'Deal marked as won')
-        summary.enrollmentsStopped++
-        console.log(`Stopped enrollment ${enrollment.id} - deal was won`)
-        continue
-      }
-
-      if (deal?.status === 'lost') {
-        // Stop enrollment - deal was lost
-        await stopEnrollment(supabase, enrollment, 'Deal marked as lost')
-        summary.enrollmentsStopped++
-        console.log(`Stopped enrollment ${enrollment.id} - deal was lost`)
-        continue
-      }
-
-      // Get current step details
-      const { data: currentStep, error: stepError } = await supabase
-        .from('automation_steps')
-        .select('*')
-        .eq('id', enrollment.current_step_id)
-        .single()
-
-      if (stepError || !currentStep) {
-        summary.errors.push(`Failed to fetch step ${enrollment.current_step_id}: ${stepError?.message}`)
-        continue
-      }
-
-      // Process based on step type
-      switch (currentStep.step_type) {
-        case 'send_email':
-          await processEmailStep(supabase, enrollment, currentStep, summary)
-          break
-
-        case 'wait':
-          // Wait steps just advance to next step
-          break
-
-        case 'move_to_stage':
-          await processMoveToStageStep(supabase, enrollment, currentStep, summary)
-          break
-
-        case 'send_sms':
-          // Log SMS for later implementation
-          await logStepExecution(supabase, enrollment, currentStep, 'sent')
-          break
-
-        case 'create_deal':
-          // Deal creation handled by form submission trigger
-          break
-      }
-
-      summary.stepsProcessed++
-
-      // Find next step
-      const { data: nextStep, error: nextStepError } = await supabase
-        .from('automation_steps')
-        .select('*')
-        .eq('automation_id', enrollment.automation_id)
-        .eq('step_order', currentStep.step_order + 1)
-        .single()
-
-      if (nextStepError && nextStepError.code !== 'PGRST116') {
-        // PGRST116 = no rows returned (no next step)
-        summary.errors.push(`Failed to fetch next step: ${nextStepError.message}`)
-        continue
-      }
-
-      if (nextStep) {
-        // Calculate next execution time based on step delays
-        const nextStepAt = calculateNextStepTime(nextStep)
-
-        // Update enrollment with next step
-        const { error: updateError } = await supabase
-          .from('automation_enrollments')
-          .update({
-            current_step_id: nextStep.id,
-            next_step_at: nextStepAt.toISOString(),
-          })
-          .eq('id', enrollment.id)
-
-        if (updateError) {
-          summary.errors.push(`Failed to update enrollment ${enrollment.id}: ${updateError.message}`)
+        if (dealError) {
+          summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError.message}`)
+          throw new Error(`Failed to fetch deal: ${dealError.message}`)
         }
-      } else {
-        // No next step - mark as completed
-        const { error: completeError } = await supabase
-          .from('automation_enrollments')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            next_step_at: null,
-          })
-          .eq('id', enrollment.id)
 
-        if (completeError) {
-          summary.errors.push(`Failed to complete enrollment ${enrollment.id}: ${completeError.message}`)
+        if (deal?.status === 'won') {
+          // Stop enrollment - deal was won
+          await stopEnrollment(supabase, enrollment, 'Deal marked as won')
+          summary.enrollmentsStopped++
+          console.log(`Stopped enrollment ${enrollment.id} - deal was won`)
+          continue
+        }
+
+        if (deal?.status === 'lost') {
+          // Stop enrollment - deal was lost
+          await stopEnrollment(supabase, enrollment, 'Deal marked as lost')
+          summary.enrollmentsStopped++
+          console.log(`Stopped enrollment ${enrollment.id} - deal was lost`)
+          continue
+        }
+
+        // Get current step details
+        const { data: currentStep, error: stepError } = await supabase
+          .from('automation_steps')
+          .select('*')
+          .eq('id', enrollment.current_step_id)
+          .single()
+
+        if (stepError || !currentStep) {
+          summary.errors.push(`Failed to fetch step ${enrollment.current_step_id}: ${stepError?.message}`)
+          throw new Error(`Failed to fetch step: ${stepError?.message}`)
+        }
+
+        // Process based on step type
+        switch (currentStep.step_type) {
+          case 'send_email':
+            await processEmailStep(supabase, enrollment, currentStep, summary)
+            break
+
+          case 'wait':
+            // Wait steps just advance to next step
+            break
+
+          case 'move_to_stage':
+            await processMoveToStageStep(supabase, enrollment, currentStep, summary)
+            break
+
+          case 'send_sms':
+            // Log SMS for later implementation
+            await logStepExecution(supabase, enrollment, currentStep, 'sent')
+            break
+
+          case 'create_deal':
+            // Deal creation handled by form submission trigger
+            break
+        }
+
+        summary.stepsProcessed++
+
+        // Find next step
+        const { data: nextStep, error: nextStepError } = await supabase
+          .from('automation_steps')
+          .select('*')
+          .eq('automation_id', enrollment.automation_id)
+          .eq('step_order', currentStep.step_order + 1)
+          .single()
+
+        if (nextStepError && nextStepError.code !== 'PGRST116') {
+          // PGRST116 = no rows returned (no next step)
+          summary.errors.push(`Failed to fetch next step: ${nextStepError.message}`)
+          throw new Error(`Failed to fetch next step: ${nextStepError.message}`)
+        }
+
+        if (nextStep) {
+          // Calculate next execution time based on step delays
+          const nextStepAt = calculateNextStepTime(nextStep)
+
+          // Update enrollment with next step
+          const { error: updateError } = await supabase
+            .from('automation_enrollments')
+            .update({
+              current_step_id: nextStep.id,
+              next_step_at: nextStepAt.toISOString(),
+            })
+            .eq('id', enrollment.id)
+
+          if (updateError) {
+            summary.errors.push(`Failed to update enrollment ${enrollment.id}: ${updateError.message}`)
+          }
         } else {
-          summary.enrollmentsCompleted++
+          // No next step - mark as completed
+          const { error: completeError } = await supabase
+            .from('automation_enrollments')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              next_step_at: null,
+            })
+            .eq('id', enrollment.id)
+
+          if (completeError) {
+            summary.errors.push(`Failed to complete enrollment ${enrollment.id}: ${completeError.message}`)
+          } else {
+            summary.enrollmentsCompleted++
+          }
         }
+      } catch (lockErr) {
+        // Release lock by setting retry time (5 minutes from now)
+        const retryAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+        console.error(`Error processing enrollment ${enrollment.id}, scheduling retry at ${retryAt}:`, lockErr)
+        await supabase
+          .from('automation_enrollments')
+          .update({ next_step_at: retryAt })
+          .eq('id', enrollment.id)
       }
     } catch (err) {
       summary.errors.push(`Error processing enrollment ${enrollment.id}: ${err}`)
@@ -547,14 +590,14 @@ async function processEmailStep(
 
     const enrolledAt = enrollmentData?.enrolled_at
 
-    // Check if email was already sent for this enrollment + step IN THIS CYCLE
+    // Check if email was already sent (or is pending) for this enrollment + step IN THIS CYCLE
     // (logs from before the current enrolled_at are from previous cycles and should be ignored)
     let logQuery = supabase
       .from('automation_logs')
       .select('id')
       .eq('enrollment_id', enrollment.id)
       .eq('step_id', step.id)
-      .eq('status', 'sent')
+      .in('status', ['sent', 'pending'])
 
     if (enrolledAt) {
       logQuery = logQuery.gte('sent_at', enrolledAt)
@@ -587,11 +630,11 @@ async function processEmailStep(
     }
 
     // Fetch contact separately using contact_id
-    let contact: { id: string; email: string; first_name: string; last_name: string } | null = null
+    let contact: { id: string; email: string; first_name: string; last_name: string; phone: string | null; country: string | null; position: string | null; club_name: string | null; graduation_year: number | null; gender: string | null; gpa: number | null; parent_name: string | null; parent_email: string | null; sport: string | null } | null = null
     if (deal.contact_id) {
       const { data: contactData, error: contactError } = await supabase
         .from('contacts')
-        .select('id, email, first_name, last_name')
+        .select('id, email, first_name, last_name, phone, country, position, club_name, graduation_year, gender, gpa, parent_name, parent_email, sport')
         .eq('id', deal.contact_id)
         .single()
 
@@ -609,12 +652,12 @@ async function processEmailStep(
     }
 
     // Fetch sender profile - use send_as_user_id override if set, otherwise deal owner
-    let owner: { id: string; email: string; full_name: string } | null = null
+    let owner: { id: string; email: string; full_name: string; phone: string | null; title: string | null; calendly_url: string | null; email_signature: string | null; avatar_url: string | null } | null = null
     const senderId = enrollment.send_as_user_id || deal.deal_owner_id || deal.owner_id
     if (senderId) {
       const { data: ownerData, error: ownerError } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, full_name, phone, title, calendly_url, email_signature, avatar_url')
         .eq('id', senderId)
         .single()
 
@@ -639,12 +682,31 @@ async function processEmailStep(
     }
 
     // Replace merge tags in subject and body
-    const mergeData = {
+    const mergeData: Record<string, string | number | boolean | null | undefined> = {
+      // Contact fields
       first_name: contact.first_name || '',
       last_name: contact.last_name || '',
+      email: contact.email || '',
+      phone: contact.phone || null,
+      country: contact.country || null,
+      position: contact.position || null,
+      club_name: contact.club_name || null,
+      graduation_year: contact.graduation_year || null,
+      gender: contact.gender || null,
+      gpa: contact.gpa || null,
+      sport: contact.sport || null,
+      parent_name: contact.parent_name || null,
+      parent_email: contact.parent_email || null,
+      // Deal fields
+      deal_title: deal.title || '',
+      // Owner fields
       deal_owner_name: owner?.full_name || 'The Team',
       deal_owner_email: owner?.email || '',
-      deal_title: deal.title || '',
+      deal_owner_phone: owner?.phone || null,
+      deal_owner_title: owner?.title || null,
+      deal_owner_calendly: owner?.calendly_url || null,
+      deal_owner_signature: owner?.email_signature || null,
+      deal_owner_photo: owner?.avatar_url || null,
     }
 
     const subject = replaceMergeTags(template.subject, mergeData)
@@ -663,14 +725,15 @@ async function processEmailStep(
     // Get the from email (in Resend test mode, must use onboarding@resend.dev)
     const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
 
-    // Log step execution first (to get the log id)
+    // Log step execution as 'pending' first (to get the log id)
+    // Updated to 'sent' after successful send, or 'failed' on error
     const { data: logEntry, error: logError } = await supabase
       .from('automation_logs')
       .insert({
         enrollment_id: enrollment.id,
         step_id: step.id,
         deal_id: enrollment.deal_id,
-        status: 'sent',
+        status: 'pending',
         log_type: 'email_sent',
         sent_at: new Date().toISOString(),
       })
@@ -736,6 +799,14 @@ async function processEmailStep(
 
     const messageId = emailData?.id || null
 
+    // Update log entry to 'sent' after successful send
+    if (logEntry?.id) {
+      await supabase
+        .from('automation_logs')
+        .update({ status: 'sent' })
+        .eq('id', logEntry.id)
+    }
+
     // Log successful send to email_sends table
     await supabase.from('email_sends').insert({
       tracking_id: trackingId,
@@ -760,17 +831,89 @@ async function processEmailStep(
 
 /**
  * Replace merge tags in email content
+ * Supports: {{field}}, {{field|fallback}}, {{#if field}}...{{/if}}, {{#unless field}}...{{/unless}}
  */
-function replaceMergeTags(content: string, data: Record<string, string>): string {
+function replaceMergeTags(content: string, data: Record<string, string | number | boolean | null | undefined>): string {
+  if (!content) return ''
+
   let result = content
 
-  // Replace {{tag_name}} patterns
-  for (const [key, value] of Object.entries(data)) {
-    const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'gi')
-    result = result.replace(regex, value)
-  }
+  // Process conditional blocks first
+  result = processConditionalBlocks(result, data)
+
+  // Then replace simple tags (with optional fallback)
+  result = replaceSimpleTags(result, data)
 
   return result
+}
+
+/**
+ * Process conditional blocks: {{#if}}, {{#unless}}, equals/not_equals/contains
+ */
+function processConditionalBlocks(template: string, data: Record<string, string | number | boolean | null | undefined>): string {
+  let result = template
+
+  // {{#if field_name equals "value"}}content{{/if}}
+  const equalsPattern = /\{\{#if\s+(\w+)\s+equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
+  result = result.replace(equalsPattern, (_, fieldName, expectedValue, content) => {
+    const actualValue = data[fieldName]
+    return actualValue === expectedValue ? content : ''
+  })
+
+  // {{#if field_name not_equals "value"}}content{{/if}}
+  const notEqualsPattern = /\{\{#if\s+(\w+)\s+not_equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
+  result = result.replace(notEqualsPattern, (_, fieldName, expectedValue, content) => {
+    const actualValue = data[fieldName]
+    return actualValue !== expectedValue ? content : ''
+  })
+
+  // {{#if field_name contains "value"}}content{{/if}}
+  const containsPattern = /\{\{#if\s+(\w+)\s+contains\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
+  result = result.replace(containsPattern, (_, fieldName, value, content) => {
+    const fieldValue = String(data[fieldName] || '')
+    return fieldValue.toLowerCase().includes(value.toLowerCase()) ? content : ''
+  })
+
+  // {{#if field_name}}content{{/if}}
+  const truthyPattern = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/gi
+  result = result.replace(truthyPattern, (_, fieldName, content) => {
+    const value = data[fieldName]
+    return value && value !== '' ? content : ''
+  })
+
+  // {{#unless field_name}}content{{/unless}}
+  const unlessPattern = /\{\{#unless\s+(\w+)\}\}([\s\S]*?)\{\{\/unless\}\}/gi
+  result = result.replace(unlessPattern, (_, fieldName, content) => {
+    const value = data[fieldName]
+    return !value || value === '' ? content : ''
+  })
+
+  return result
+}
+
+/**
+ * Replace simple merge tags: {{field_name}} or {{field_name|fallback}}
+ */
+function replaceSimpleTags(template: string, data: Record<string, string | number | boolean | null | undefined>): string {
+  const tagPattern = /\{\{(\w+)(?:\|([^}]+))?\}\}/g
+
+  return template.replace(tagPattern, (_, fieldName, fallback) => {
+    const value = data[fieldName]
+
+    if (value !== null && value !== undefined && value !== '') {
+      // Format currency values
+      if (typeof value === 'number') {
+        return new Intl.NumberFormat('en-GB', {
+          style: 'currency',
+          currency: 'GBP',
+          minimumFractionDigits: 0,
+        }).format(value)
+      }
+      return String(value)
+    }
+
+    return fallback !== undefined ? fallback : ''
+  })
 }
 
 /**

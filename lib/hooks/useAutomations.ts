@@ -400,9 +400,12 @@ export function useCreateAutomation() {
         .insert({
           name: input.name,
           description: input.description || null,
+          automation_type: input.automation_type || null,
           pipeline_id: input.pipeline_id || null,
           trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],
+          config: input.config || null,
+          exit_on_reply: input.config?.exit_on_reply ?? true,
           is_active: false, // Paused by default
         })
         .select()
@@ -446,9 +449,12 @@ export function useUpdateAutomation() {
         .update({
           name: input.name,
           description: input.description || null,
+          automation_type: input.automation_type || null,
           pipeline_id: input.pipeline_id || null,
           trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],
+          config: input.config || null,
+          exit_on_reply: input.config?.exit_on_reply ?? true,
         })
         .eq('id', input.id)
         .select()
@@ -456,27 +462,53 @@ export function useUpdateAutomation() {
 
       if (automationError) throw automationError
 
-      // Delete existing steps
-      const { error: deleteError } = await supabase
-        .from('automation_steps')
-        .delete()
-        .eq('automation_id', input.id)
-
-      if (deleteError) throw deleteError
-
-      // Build and insert new steps
-      const steps = buildAutomationSteps(
+      // Build new steps from config
+      const newSteps = buildAutomationSteps(
         input.id,
         input.automation_type,
         input.config
       )
 
-      if (steps.length > 0) {
-        const { error: stepsError } = await supabase
-          .from('automation_steps')
-          .insert(steps)
+      // Get existing steps to update in-place (preserves IDs and FK references)
+      const { data: existingSteps } = await supabase
+        .from('automation_steps')
+        .select('id, step_order')
+        .eq('automation_id', input.id)
+        .order('step_order')
 
-        if (stepsError) throw stepsError
+      // Update existing steps or insert new ones
+      for (const newStep of newSteps) {
+        const existing = existingSteps?.find((s) => s.step_order === newStep.step_order)
+        if (existing) {
+          // Update existing step in-place (preserves step ID)
+          const { automation_id: _aid, ...updateFields } = newStep
+          const { error } = await supabase
+            .from('automation_steps')
+            .update(updateFields)
+            .eq('id', existing.id)
+          if (error) throw error
+        } else {
+          // Insert new step
+          const { error } = await supabase
+            .from('automation_steps')
+            .insert(newStep)
+          if (error) throw error
+        }
+      }
+
+      // Delete excess steps (if new config has fewer steps)
+      if (existingSteps && newSteps.length > 0) {
+        const maxNewOrder = Math.max(...newSteps.map((s) => s.step_order))
+        const excessIds = existingSteps
+          .filter((s) => s.step_order > maxNewOrder)
+          .map((s) => s.id)
+        if (excessIds.length > 0) {
+          const { error } = await supabase
+            .from('automation_steps')
+            .delete()
+            .in('id', excessIds)
+          if (error) throw error
+        }
       }
 
       return automation
@@ -496,25 +528,7 @@ export function useDeleteAutomation() {
 
   return useMutation({
     mutationFn: async (automationId: string) => {
-      // Delete logs first (they reference steps)
-      await supabase
-        .from('automation_logs')
-        .delete()
-        .eq('enrollment_id', automationId)
-
-      // Delete enrollments
-      await supabase
-        .from('automation_enrollments')
-        .delete()
-        .eq('automation_id', automationId)
-
-      // Delete steps
-      await supabase
-        .from('automation_steps')
-        .delete()
-        .eq('automation_id', automationId)
-
-      // Delete the automation
+      // Delete the automation - FK CASCADE handles steps, enrollments, and logs
       const { error } = await supabase
         .from('automations')
         .delete()

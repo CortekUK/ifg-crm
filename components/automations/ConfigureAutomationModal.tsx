@@ -846,6 +846,13 @@ export function ConfigureAutomationModal({
                           )
                         })}
                       </div>
+
+                      {!formData.config.emails?.some(e => e.template_id) && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-2">
+                          <AlertTriangle className="h-3 w-3" />
+                          Select at least one email template to enable saving
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
@@ -1066,9 +1073,11 @@ export function ConfigureAutomationModal({
               <Button
                 onClick={handleSave}
                 disabled={
-                  !formData.name || 
-                  !formData.pipeline_id || 
-                  (selectedTemplate?.type !== 'deal_creation' && !formData.trigger_stage_id)
+                  !formData.name ||
+                  !formData.pipeline_id ||
+                  (selectedTemplate?.type !== 'deal_creation' && !formData.trigger_stage_id) ||
+                  (selectedTemplate?.configurable.emails &&
+                    !formData.config.emails?.some(e => e.template_id))
                 }
                 className="bg-blue-600 hover:bg-blue-700"
               >
