@@ -37,6 +37,13 @@ export interface Contact {
   email_subscribed: boolean
   sms_subscribed: boolean
   notes: string | null
+  football_background: string | null
+  academic_background: string | null
+  degree_choice: string | null
+  football_highlights: string | null
+  preferred_programme: string | null
+  job_title: string | null
+  custom_fields: Record<string, string> | null
   owner_id: string | null
   owner?: ContactOwner | null
   tags?: ContactTag[]

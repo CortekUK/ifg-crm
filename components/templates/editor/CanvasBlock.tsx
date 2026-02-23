@@ -16,6 +16,7 @@ import { HTMLBlock } from './blocks/HTMLBlock'
 import { ColumnsBlock } from './blocks/ColumnsBlock'
 import { ConditionalBlock } from './blocks/ConditionalBlock'
 import { RecruiterSignatureBlock } from './blocks/RecruiterSignatureBlock'
+import { FileBlock } from './blocks/FileBlock'
 import type { EditorBlock } from '@/lib/templates/editor-types'
 
 interface CanvasBlockProps {
@@ -128,6 +129,14 @@ export function CanvasBlock({
       case 'recruiter_signature':
         return (
           <RecruiterSignatureBlock
+            content={blockContent}
+            isSelected={isSelected}
+            onUpdate={onUpdate}
+          />
+        )
+      case 'file':
+        return (
+          <FileBlock
             content={blockContent}
             isSelected={isSelected}
             onUpdate={onUpdate}

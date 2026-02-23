@@ -28,6 +28,12 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: 'source', label: 'Source' },
   { key: 'created_at', label: 'Date Created' },
   { key: 'status', label: 'Status' },
+  { key: 'football_background', label: 'Football BG' },
+  { key: 'academic_background', label: 'Academic BG' },
+  { key: 'degree_choice', label: 'Degree' },
+  { key: 'football_highlights', label: 'Highlights' },
+  { key: 'preferred_programme', label: 'Programme' },
+  { key: 'job_title', label: 'Job Title' },
 ]
 
 export const DEFAULT_VISIBLE_COLUMNS = [
@@ -57,9 +63,10 @@ export function storeColumns(columns: string[]) {
 interface ColumnToggleProps {
   visibleColumns: string[]
   onToggle: (columns: string[]) => void
+  customColumns?: ColumnDef[]
 }
 
-export function ColumnToggle({ visibleColumns, onToggle }: ColumnToggleProps) {
+export function ColumnToggle({ visibleColumns, onToggle, customColumns = [] }: ColumnToggleProps) {
   const handleToggle = (key: string, checked: boolean) => {
     const next = checked
       ? [...visibleColumns, key]
@@ -92,6 +99,24 @@ export function ColumnToggle({ visibleColumns, onToggle }: ColumnToggleProps) {
               {col.label}
             </label>
           ))}
+          {customColumns.length > 0 && (
+            <>
+              <div className="border-t my-2" />
+              <p className="text-xs font-medium text-muted-foreground mb-1">Custom Fields</p>
+              {customColumns.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center gap-2 text-sm cursor-pointer"
+                >
+                  <Checkbox
+                    checked={visibleColumns.includes(col.key)}
+                    onCheckedChange={(checked) => handleToggle(col.key, checked as boolean)}
+                  />
+                  {col.label}
+                </label>
+              ))}
+            </>
+          )}
         </div>
       </PopoverContent>
     </Popover>

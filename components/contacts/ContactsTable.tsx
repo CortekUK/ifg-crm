@@ -28,6 +28,7 @@ interface ContactsTableProps {
   onSelectAll: (checked: boolean) => void
   onRowClick?: (contact: Contact) => void
   visibleColumns?: string[]
+  customColumns?: { key: string; label: string }[]
 }
 
 const ALL_TABLE_COLUMNS = [
@@ -43,6 +44,12 @@ const ALL_TABLE_COLUMNS = [
   { key: 'source', label: 'Source', sortable: true, sortKey: 'source' },
   { key: 'created_at', label: 'Date Created', sortable: true, sortKey: 'created_at' },
   { key: 'status', label: 'Status', sortable: true, sortKey: 'subscription_status' },
+  { key: 'football_background', label: 'Football BG', sortable: false },
+  { key: 'academic_background', label: 'Academic BG', sortable: false },
+  { key: 'degree_choice', label: 'Degree', sortable: false },
+  { key: 'football_highlights', label: 'Highlights', sortable: false },
+  { key: 'preferred_programme', label: 'Programme', sortable: false },
+  { key: 'job_title', label: 'Job Title', sortable: false },
 ]
 
 const DEFAULT_VISIBLE = [
@@ -60,8 +67,13 @@ export function ContactsTable({
   onSelectAll,
   onRowClick,
   visibleColumns = DEFAULT_VISIBLE,
+  customColumns = [],
 }: ContactsTableProps) {
-  const columns = ALL_TABLE_COLUMNS.filter((col) => visibleColumns.includes(col.key))
+  const allColumns = [
+    ...ALL_TABLE_COLUMNS,
+    ...customColumns.map((c) => ({ key: c.key, label: c.label, sortable: false as const, sortKey: undefined as string | undefined })),
+  ]
+  const columns = allColumns.filter((col) => visibleColumns.includes(col.key))
   const allSelected = contacts.length > 0 && selectedIds.size === contacts.length
   const someSelected = selectedIds.size > 0 && selectedIds.size < contacts.length
 
@@ -192,7 +204,21 @@ export function ContactsTable({
             </div>
           </div>
         )
+      case 'football_background':
+      case 'academic_background':
+      case 'degree_choice':
+      case 'football_highlights':
+      case 'preferred_programme':
+      case 'job_title': {
+        const val = contact[columnKey as keyof Contact] as string | null
+        return val ? <span className="max-w-[200px] truncate block" title={val}>{val}</span> : '-'
+      }
       default:
+        if (columnKey.startsWith('custom_') && contact.custom_fields) {
+          const key = columnKey.slice(7)
+          const cfVal = contact.custom_fields[key]
+          return cfVal ? <span className="max-w-[200px] truncate block" title={cfVal}>{cfVal}</span> : '-'
+        }
         return '-'
     }
   }

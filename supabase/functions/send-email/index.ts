@@ -274,12 +274,12 @@ async function fetchMergeDataForDeal(
   }
 
   // Fetch owner separately (check both deal_owner_id and owner_id)
-  let owner: { full_name: string; email: string; phone: string; calendly_url: string; email_signature: string } | null = null
+  let owner: { full_name: string; email: string; phone: string; calendly_url: string; email_signature: string; title: string; avatar_url: string } | null = null
   const ownerId = deal.deal_owner_id || deal.owner_id
   if (ownerId) {
     const { data: ownerData } = await supabase
       .from('profiles')
-      .select('full_name, email, phone, calendly_url, email_signature')
+      .select('full_name, email, phone, calendly_url, email_signature, title, avatar_url')
       .eq('id', ownerId)
       .single()
     owner = ownerData
@@ -326,6 +326,8 @@ async function fetchMergeDataForDeal(
     deal_owner_phone: owner?.phone || null,
     deal_owner_calendly: owner?.calendly_url || null,
     deal_owner_signature: owner?.email_signature || null,
+    deal_owner_title: owner?.title || null,
+    deal_owner_photo: owner?.avatar_url || null,
   }
 }
 
@@ -391,7 +393,14 @@ function processConditionalBlocks(template: string, data: MergeTagData): string 
     const actualValue = data[fieldName]
     return actualValue !== expectedValue ? content : ''
   })
-  
+
+  // {{#if field_name contains "value"}}content{{/if}}
+  const containsPattern = /\{\{#if\s+(\w+)\s+contains\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
+  result = result.replace(containsPattern, (_, fieldName, value, content) => {
+    const fieldValue = String(data[fieldName] || '')
+    return fieldValue.toLowerCase().includes(value.toLowerCase()) ? content : ''
+  })
+
   // {{#if field_name}}content{{/if}}
   const truthyPattern = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/gi
   result = result.replace(truthyPattern, (_, fieldName, content) => {

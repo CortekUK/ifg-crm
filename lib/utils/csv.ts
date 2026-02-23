@@ -90,6 +90,12 @@ export const CONTACT_FIELDS: ContactField[] = [
   { key: 'subscription_status', label: 'Subscription Status', required: false },
   { key: '__tags__', label: 'Tags', required: false },
   { key: 'notes', label: 'Notes', required: false },
+  { key: 'football_background', label: 'Football Background', required: false },
+  { key: 'academic_background', label: 'Academic Background', required: false },
+  { key: 'degree_choice', label: 'Degree Choice', required: false },
+  { key: 'football_highlights', label: 'Football Highlights', required: false },
+  { key: 'preferred_programme', label: 'Preferred Programme', required: false },
+  { key: 'job_title', label: 'Job Title', required: false },
 ]
 
 const HEADER_ALIASES: Record<string, string[]> = {
@@ -198,6 +204,24 @@ const HEADER_ALIASES: Record<string, string[]> = {
     'notes', 'note', 'comments', 'comment',
     'questions/queries', 'additional info', 'additional information',
     'remarks', 'description', 'bio', 'about',
+  ],
+  football_background: [
+    'football background', 'football bio', 'football experience', 'playing background',
+  ],
+  academic_background: [
+    'academic background', 'academic bio', 'academic experience', 'education background', 'education',
+  ],
+  degree_choice: [
+    'degree choice', 'degree', 'course', 'course choice', 'subject', 'major',
+  ],
+  football_highlights: [
+    'football highlights', 'highlights', 'highlight reel', 'highlight video', 'video',
+  ],
+  preferred_programme: [
+    'preferred programme', 'programme', 'program', 'preferred program',
+  ],
+  job_title: [
+    'job title', 'occupation', 'role', 'profession',
   ],
 }
 
@@ -461,6 +485,48 @@ function parseDateValue(value: string): string | null {
   }
 
   return null
+}
+
+/**
+ * Normalize a CSV header into a snake_case key for custom_fields JSONB storage.
+ * "*Last open date" → "last_open_date"
+ */
+function normalizeCustomFieldKey(header: string): string {
+  return header
+    .replace(/^\*+/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+/**
+ * Build a custom_fields object from unmapped CSV columns.
+ * Any column NOT in the mapping and NOT in skippedColumns is stored with its normalized header as key.
+ * Returns null if no custom fields found.
+ */
+export function buildCustomFields(
+  row: string[],
+  headers: string[],
+  mapping: Record<number, string>,
+  skippedColumns: number[] = []
+): Record<string, string> | null {
+  const mappedIndexes = new Set(Object.keys(mapping).map(Number))
+  const skippedIndexes = new Set(skippedColumns)
+  const result: Record<string, string> = {}
+
+  for (let i = 0; i < headers.length; i++) {
+    if (mappedIndexes.has(i) || skippedIndexes.has(i)) continue
+    const value = (row[i] || '').trim()
+    if (!value) continue
+    const key = normalizeCustomFieldKey(headers[i])
+    if (key) {
+      result[key] = value
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null
 }
 
 /**

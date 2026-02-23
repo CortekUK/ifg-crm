@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { buildContactFromRow, extractTagsFromRow } from '@/lib/utils/csv'
+import { buildContactFromRow, extractTagsFromRow, buildCustomFields } from '@/lib/utils/csv'
 
 export type DuplicateStrategy = 'skip' | 'update'
 
 export interface ImportOptions {
   rows: string[][]
   mapping: Record<number, string>
+  headers: string[]
+  skippedColumns?: number[]
   listId: string | null
   duplicateStrategy: DuplicateStrategy
   onProgress?: (processed: number, total: number) => void
@@ -28,7 +30,7 @@ export function useImportContacts() {
 
   return useMutation({
     mutationFn: async (options: ImportOptions): Promise<ImportResult> => {
-      const { rows, mapping, listId, duplicateStrategy, onProgress } = options
+      const { rows, mapping, headers, skippedColumns = [], listId, duplicateStrategy, onProgress } = options
       const result: ImportResult = { total: rows.length, created: 0, updated: 0, skipped: 0, errors: [] }
       let processed = 0
 
@@ -55,10 +57,28 @@ export function useImportContacts() {
           // Upsert individually to track which row produced which contact ID
           for (let j = 0; j < batch.length; j++) {
             const rowIdx = i + j
-            const record = {
-              ...buildContactFromRow(batch[j], mapping),
+            const contactFields = buildContactFromRow(batch[j], mapping)
+            const customFields = buildCustomFields(batch[j], headers, mapping, skippedColumns)
+            const record: Record<string, unknown> = {
+              ...contactFields,
+              ...(customFields ? { custom_fields: customFields } : {}),
               source: 'csv_import' as const,
               sport: 'football' as const,
+            }
+
+            // Merge custom_fields with existing on update
+            if (customFields) {
+              const email = contactFields.email as string
+              if (email) {
+                const { data: existing } = await supabase
+                  .from('contacts')
+                  .select('custom_fields')
+                  .eq('email', email)
+                  .single()
+                if (existing?.custom_fields) {
+                  record.custom_fields = { ...existing.custom_fields, ...customFields }
+                }
+              }
             }
 
             const { data: single, error: singleErr } = await supabase
@@ -85,8 +105,10 @@ export function useImportContacts() {
           for (let j = 0; j < batch.length; j++) {
             const rowIdx = i + j
             const contactFields = buildContactFromRow(batch[j], mapping)
+            const customFields = buildCustomFields(batch[j], headers, mapping, skippedColumns)
             const record = {
               ...contactFields,
+              ...(customFields ? { custom_fields: customFields } : {}),
               source: 'csv_import' as const,
               sport: 'football' as const,
             }

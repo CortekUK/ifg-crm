@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContactsPageHeader } from '@/components/contacts/ContactsPageHeader'
@@ -97,6 +97,18 @@ export default function ContactsPage() {
 
   const contacts = data?.contacts || []
   const total = data?.total || 0
+
+  // Discover custom field keys from loaded contacts
+  const customFieldColumns = useMemo(() => {
+    const keys = new Set<string>()
+    contacts.forEach((c) => {
+      if (c.custom_fields) Object.keys(c.custom_fields).forEach((k) => keys.add(k))
+    })
+    return [...keys].sort().map((k) => ({
+      key: `custom_${k}`,
+      label: k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    }))
+  }, [contacts])
 
   // Handle sorting
   const handleSort = useCallback((column: string) => {
@@ -287,6 +299,7 @@ export default function ContactsPage() {
           <ColumnToggle
             visibleColumns={visibleColumns}
             onToggle={handleColumnToggle}
+            customColumns={customFieldColumns}
           />
         ) : undefined}
       />
@@ -338,6 +351,7 @@ export default function ContactsPage() {
           onSelectAll={handleSelectAll}
           onRowClick={handleRowClick}
           visibleColumns={visibleColumns}
+          customColumns={customFieldColumns}
         />
       )}
 

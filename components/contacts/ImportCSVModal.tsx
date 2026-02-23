@@ -40,6 +40,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
   const [headers, setHeaders] = useState<string[]>([])
   const [rows, setRows] = useState<string[][]>([])
   const [mapping, setMapping] = useState<Record<number, string>>({})
+  const [skippedColumns, setSkippedColumns] = useState<Set<number>>(new Set())
   const [listId, setListId] = useState<string | null>(null)
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('skip')
   const [validationErrors, setValidationErrors] = useState<RowValidationError[]>([])
@@ -60,6 +61,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
     setHeaders([])
     setRows([])
     setMapping({})
+    setSkippedColumns(new Set())
     setListId(null)
     setCreatingList(false)
     setNewListName('')
@@ -116,21 +118,44 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
   }
 
   const handleMappingChange = (colIndex: number, fieldKey: string) => {
-    setMapping((prev) => {
-      const next = { ...prev }
-      if (fieldKey === '__skip__') {
+    if (fieldKey === '__skip__') {
+      // Explicitly skip — don't map and don't save as custom field
+      setMapping((prev) => {
+        const next = { ...prev }
         delete next[colIndex]
-      } else {
-        // Remove any other column mapped to this field
+        return next
+      })
+      setSkippedColumns((prev) => new Set(prev).add(colIndex))
+    } else if (fieldKey === '__custom__') {
+      // Save as custom field — remove from mapping and skipped
+      setMapping((prev) => {
+        const next = { ...prev }
+        delete next[colIndex]
+        return next
+      })
+      setSkippedColumns((prev) => {
+        const next = new Set(prev)
+        next.delete(colIndex)
+        return next
+      })
+    } else {
+      // Map to a specific field
+      setMapping((prev) => {
+        const next = { ...prev }
         for (const key of Object.keys(next)) {
           if (next[Number(key)] === fieldKey) {
             delete next[Number(key)]
           }
         }
         next[colIndex] = fieldKey
-      }
-      return next
-    })
+        return next
+      })
+      setSkippedColumns((prev) => {
+        const next = new Set(prev)
+        next.delete(colIndex)
+        return next
+      })
+    }
   }
 
   const goToStep2 = () => {
@@ -180,6 +205,8 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
       const result = await importMutation.mutateAsync({
         rows: validRows,
         mapping,
+        headers,
+        skippedColumns: [...skippedColumns],
         listId,
         duplicateStrategy,
         onProgress: (processed, total) => {
@@ -378,7 +405,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
           {step === 2 && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Map each CSV column to a contact field. Columns auto-mapped where possible.
+                Map each CSV column to a contact field. Unmapped columns are automatically saved as custom fields.
               </p>
               <div className="space-y-2">
                 {/* Sort: mapped columns first, then unmapped */}
@@ -396,13 +423,16 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                     <div className="text-muted-foreground">→</div>
                     <div className="flex-1">
                       <Select
-                        value={mapping[index] || '__skip__'}
+                        value={mapping[index] || (skippedColumns.has(index) ? '__skip__' : '__custom__')}
                         onValueChange={(v) => handleMappingChange(index, v)}
                       >
                         <SelectTrigger className="h-9">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__custom__">
+                            <span className="text-blue-600">Save as custom field</span>
+                          </SelectItem>
                           <SelectItem value="__skip__">
                             <span className="text-muted-foreground">Skip this column</span>
                           </SelectItem>
@@ -422,6 +452,22 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                 ))}
               </div>
 
+              {/* Unmapped columns info */}
+              {(() => {
+                const customCount = headers.filter((_, i) => !mapping[i] && !skippedColumns.has(i)).length
+                const skipCount = skippedColumns.size
+                return (customCount > 0 || skipCount > 0) ? (
+                  <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      {customCount > 0 && <>{customCount} column{customCount !== 1 ? 's' : ''} will be saved as custom fields.</>}
+                      {customCount > 0 && skipCount > 0 && ' '}
+                      {skipCount > 0 && <>{skipCount} column{skipCount !== 1 ? 's' : ''} will be skipped.</>}
+                    </p>
+                  </div>
+                ) : null
+              })()}
+
               {/* Preview first 3 rows */}
               {rows.length > 0 && (
                 <div className="mt-4">
@@ -432,7 +478,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                         <tr className="bg-muted/50">
                           {headers.map((h, i) => (
                             <th key={i} className="px-2 py-1.5 text-left font-medium whitespace-nowrap">
-                              {mapping[i] ? CONTACT_FIELDS.find((f) => f.key === mapping[i])?.label || h : <span className="text-muted-foreground line-through">{h}</span>}
+                              {mapping[i] ? CONTACT_FIELDS.find((f) => f.key === mapping[i])?.label || h : skippedColumns.has(i) ? <span className="text-muted-foreground line-through">{h}</span> : <span className="text-blue-600 italic">{h}</span>}
                             </th>
                           ))}
                         </tr>
@@ -441,7 +487,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                         {rows.slice(0, 3).map((row, i) => (
                           <tr key={i} className="border-t">
                             {row.map((cell, j) => (
-                              <td key={j} className={`px-2 py-1.5 whitespace-nowrap ${!mapping[j] ? 'text-muted-foreground' : ''}`}>
+                              <td key={j} className={`px-2 py-1.5 whitespace-nowrap ${!mapping[j] ? (skippedColumns.has(j) ? 'text-muted-foreground/50 line-through' : 'text-blue-600/70') : ''}`}>
                                 {cell || <span className="text-muted-foreground/50">—</span>}
                               </td>
                             ))}
@@ -516,6 +562,12 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                       <p><span className="text-muted-foreground">List:</span> {lists.find((l) => l.id === listId)?.name}</p>
                     )}
                     <p><span className="text-muted-foreground">Fields mapped:</span> {Object.keys(mapping).length} of {headers.length}</p>
+                    {(() => {
+                      const customCount = headers.filter((_, i) => !mapping[i] && !skippedColumns.has(i)).length
+                      return customCount > 0 ? (
+                        <p><span className="text-muted-foreground">Custom fields:</span> {customCount} column{customCount !== 1 ? 's' : ''} saved as custom fields</p>
+                      ) : null
+                    })()}
                   </div>
 
                   {validationErrors.length > 0 && (

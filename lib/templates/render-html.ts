@@ -8,6 +8,10 @@ import type {
   VideoBlockContent,
   SocialBlockContent,
   HTMLBlockContent,
+  ColumnsBlockContent,
+  ConditionalBlockContent,
+  RecruiterSignatureBlockContent,
+  FileBlockContent,
 } from './editor-types'
 
 export function renderBlocksToHTML(blocks: EditorBlock[]): string {
@@ -97,13 +101,24 @@ function renderBlock(block: EditorBlock): string {
       return renderSocialBlock(block.content as SocialBlockContent)
     case 'html':
       return renderHTMLBlock(block.content as HTMLBlockContent)
+    case 'columns':
+      return renderColumnsBlock(block.content as ColumnsBlockContent)
+    case 'conditional':
+      return renderConditionalBlock(block.content as ConditionalBlockContent)
+    case 'recruiter_signature':
+      return renderRecruiterSignatureBlock(block.content as RecruiterSignatureBlockContent)
+    case 'file':
+      return renderFileBlock(block.content as FileBlockContent)
     default:
       return ''
   }
 }
 
 function renderTextBlock(content: TextBlockContent): string {
-  const fontSize = content.fontSize === 'small' ? '14px' : content.fontSize === 'large' ? '18px' : '16px'
+  const fontSize = content.fontSize === 'small' ? '14px'
+    : content.fontSize === 'large' ? '18px'
+    : content.fontSize === 'xlarge' ? '24px'
+    : '16px'
   const bgStyle = content.backgroundColor ? `background-color: ${content.backgroundColor};` : ''
 
   return `
@@ -124,7 +139,7 @@ function renderImageBlock(content: ImageBlockContent): string {
     `
   }
 
-  const widthStyle = content.width === 'full' ? 'width: 100%;' : `width: ${content.width}px; max-width: 100%;`
+  const widthStyle = content.width === 'auto' ? '' : `width: ${content.width}%; max-width: 100%;`
   const img = `<img src="${content.src}" alt="${content.alt}" style="${widthStyle} height: auto; display: block;" />`
 
   const imageContent = content.linkUrl ? `<a href="${content.linkUrl}" target="_blank">${img}</a>` : img
@@ -141,7 +156,7 @@ function renderButtonBlock(content: ButtonBlockContent): string {
 
   return `
     <div style="text-align: ${content.alignment}; padding-top: ${content.paddingTop}px; padding-bottom: ${content.paddingBottom}px;">
-      <a href="${content.url}" target="_blank" style="${widthStyle} background-color: ${content.backgroundColor}; color: ${content.textColor}; padding: 12px 24px; text-decoration: none; border-radius: ${content.borderRadius}px; font-weight: bold; font-size: 16px;">
+      <a href="${content.url}" target="_blank" style="${widthStyle} background-color: ${content.backgroundColor}; color: ${content.textColor}; padding: ${content.paddingY || 12}px ${content.paddingX || 24}px; text-decoration: none; border-radius: ${content.borderRadius}px; font-weight: bold; font-size: 16px;">
         ${content.text}
       </a>
     </div>
@@ -174,15 +189,33 @@ function renderVideoBlock(content: VideoBlockContent): string {
 
   // Extract video ID and generate thumbnail
   const thumbnailUrl = content.thumbnailUrl || getVideoThumbnail(content.url)
-  const widthStyle = content.width === 'full' ? 'width: 100%;' : `width: ${content.width}px; max-width: 100%;`
+  const videoWidth = content.width === 'full' ? '100%' : `${content.width}px`
 
   return `
     <div style="text-align: ${content.alignment}; padding: 10px 0;">
-      <a href="${content.url}" target="_blank" style="display: inline-block; position: relative;">
-        <img src="${thumbnailUrl}" alt="Video thumbnail" style="${widthStyle} height: auto; display: block;" />
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background-color: rgba(0,0,0,0.7); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-          <span style="color: white; font-size: 24px; margin-left: 4px;">▶</span>
-        </div>
+      <a href="${content.url}" target="_blank" style="text-decoration: none;">
+        <!--[if mso]>
+        <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:338px;">
+          <v:fill type="frame" src="${thumbnailUrl}" />
+          <v:textbox inset="0,0,0,0" style="mso-fit-shape-to-text:true">
+        <![endif]-->
+        <table cellpadding="0" cellspacing="0" border="0" width="${videoWidth}" style="max-width: ${videoWidth}; background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;">
+          <tr>
+            <td align="center" valign="middle" style="padding: 60px 0; text-align: center;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" valign="middle" width="60" height="60" style="width: 60px; height: 60px; background-color: #000000; border-radius: 50%; text-align: center; vertical-align: middle; font-size: 24px; color: #ffffff; opacity: 0.8;">
+                    &#9654;
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]>
+          </v:textbox>
+        </v:rect>
+        <![endif]-->
       </a>
     </div>
   `
@@ -233,6 +266,134 @@ function renderSocialBlock(content: SocialBlockContent): string {
 
 function renderHTMLBlock(content: HTMLBlockContent): string {
   return content.code || ''
+}
+
+function renderColumnsBlock(content: ColumnsBlockContent): string {
+  const gap = content.gap || 20
+  const halfGap = Math.floor(gap / 2)
+  const widths = content.columnWidths || (content.columns === 3 ? [33, 33, 34] : [50, 50])
+
+  const renderColumnBlocks = (blocks: EditorBlock[]): string => {
+    if (!blocks || blocks.length === 0) {
+      return '<p style="margin: 0; color: #9ca3af; font-size: 14px;">Empty column</p>'
+    }
+    return blocks.map((block) => renderBlock(block)).join('')
+  }
+
+  const leftTd = `<td style="width: ${widths[0]}%; vertical-align: top; padding-right: ${halfGap}px;">${renderColumnBlocks(content.leftBlocks)}</td>`
+
+  let centerTd = ''
+  if (content.columns === 3 && content.centerBlocks) {
+    centerTd = `<td style="width: ${widths[1]}%; vertical-align: top; padding-left: ${halfGap}px; padding-right: ${halfGap}px;">${renderColumnBlocks(content.centerBlocks)}</td>`
+  }
+
+  const rightTd = `<td style="width: ${widths[content.columns === 3 ? 2 : 1]}%; vertical-align: top; padding-left: ${halfGap}px;">${renderColumnBlocks(content.rightBlocks)}</td>`
+
+  return `
+    <div style="padding-top: ${content.paddingTop || 0}px; padding-bottom: ${content.paddingBottom || 0}px;">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="table-layout: fixed;">
+        <tr>
+          ${leftTd}
+          ${centerTd}
+          ${rightTd}
+        </tr>
+      </table>
+    </div>
+  `
+}
+
+function renderConditionalBlock(content: ConditionalBlockContent): string {
+  if (!content.children || content.children.length === 0) return ''
+
+  const childrenHtml = content.children.map((block) => renderBlock(block)).join('')
+  const field = content.conditionField
+  const operator = content.conditionOperator
+  const value = content.conditionValue
+
+  return `
+    <div style="padding-top: ${content.paddingTop || 0}px; padding-bottom: ${content.paddingBottom || 0}px;">
+      {{#if ${field} ${operator} "${value}"}}${childrenHtml}{{/if}}
+    </div>
+  `
+}
+
+function renderRecruiterSignatureBlock(content: RecruiterSignatureBlockContent): string {
+  const photoSizeMap = { small: 40, medium: 60, large: 80 }
+  const photoSize = photoSizeMap[content.photoSize] || 60
+
+  const nameHtml = content.showName
+    ? `{{#if deal_owner_name}}<p style="margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: #111827;">{{deal_owner_name}}</p>{{/if}}`
+    : ''
+
+  const titleHtml = content.showTitle
+    ? `{{#if deal_owner_title}}<p style="margin: 0 0 2px 0; font-size: 14px; color: #6b7280;">{{deal_owner_title}}</p>{{/if}}`
+    : ''
+
+  const emailHtml = content.showEmail
+    ? `{{#if deal_owner_email}}<p style="margin: 0 0 2px 0; font-size: 14px;"><a href="mailto:{{deal_owner_email}}" style="color: #3b82f6; text-decoration: none;">{{deal_owner_email}}</a></p>{{/if}}`
+    : ''
+
+  const phoneHtml = content.showPhone
+    ? `{{#if deal_owner_phone}}<p style="margin: 0 0 2px 0; font-size: 14px; color: #374151;">{{deal_owner_phone}}</p>{{/if}}`
+    : ''
+
+  const calendlyHtml = content.showCalendly
+    ? `{{#if deal_owner_calendly}}<p style="margin: 4px 0 0 0;"><a href="{{deal_owner_calendly}}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 14px;">Book a meeting</a></p>{{/if}}`
+    : ''
+
+  const detailsHtml = `${nameHtml}${titleHtml}${emailHtml}${phoneHtml}${calendlyHtml}`
+
+  if (content.layout === 'inline' && content.showPhoto) {
+    const photoHtml = `{{#if deal_owner_photo}}<img src="{{deal_owner_photo}}" alt="{{deal_owner_name}}" style="width: ${photoSize}px; height: ${photoSize}px; border-radius: 50%; display: block;" />{{/if}}`
+
+    return `
+      <div style="text-align: ${content.alignment}; padding-top: ${content.paddingTop}px; padding-bottom: ${content.paddingBottom}px;">
+        <table cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="vertical-align: top; padding-right: 12px;">
+              ${photoHtml}
+            </td>
+            <td style="vertical-align: top;">
+              ${detailsHtml}
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  }
+
+  // Stacked layout (or inline without photo)
+  const photoHtml = content.showPhoto
+    ? `{{#if deal_owner_photo}}<img src="{{deal_owner_photo}}" alt="{{deal_owner_name}}" style="width: ${photoSize}px; height: ${photoSize}px; border-radius: 50%; display: block; margin-bottom: 8px;${content.alignment === 'center' ? ' margin-left: auto; margin-right: auto;' : ''}" />{{/if}}`
+    : ''
+
+  return `
+    <div style="text-align: ${content.alignment}; padding-top: ${content.paddingTop}px; padding-bottom: ${content.paddingBottom}px;">
+      ${photoHtml}
+      ${detailsHtml}
+    </div>
+  `
+}
+
+function renderFileBlock(content: FileBlockContent): string {
+  if (!content.fileUrl) return ''
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const formattedSize = formatFileSize(content.fileSize || 0)
+
+  return `
+    <div style="text-align: ${content.alignment || 'left'}; padding-top: ${content.paddingTop || 10}px; padding-bottom: ${content.paddingBottom || 10}px;">
+      <a href="${content.fileUrl}" target="_blank" style="display: inline-block; padding: 12px 16px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px; text-decoration: none; color: #374151; font-family: Arial, Helvetica, sans-serif;">
+        &#128206; <strong>${content.fileName || 'Attachment'}</strong>
+        <span style="color: #9ca3af; font-size: 12px; margin-left: 4px;">(${formattedSize})</span>
+      </a>
+    </div>
+  `
 }
 
 export function replaceVariables(

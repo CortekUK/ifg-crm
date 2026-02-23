@@ -321,10 +321,10 @@ export function ContactDetailSheet({
                 {contact.first_name} {contact.last_name}
               </SheetTitle>
               <SheetDescription className="mt-1 flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1">
-                  <div
+                <span className="inline-flex items-center gap-1">
+                  <span
                     className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
                       contact.email_subscribed !== false
                         ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
                         : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
@@ -332,10 +332,10 @@ export function ContactDetailSheet({
                   >
                     {contact.email_subscribed !== false ? <Mail className="h-3 w-3" /> : <MailX className="h-3 w-3" />}
                     Email
-                  </div>
-                  <div
+                  </span>
+                  <span
                     className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
                       contact.sms_subscribed !== false
                         ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
                         : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
@@ -343,8 +343,8 @@ export function ContactDetailSheet({
                   >
                     {contact.sms_subscribed !== false ? <MessageCircle className="h-3 w-3" /> : <MessageSquareOff className="h-3 w-3" />}
                     SMS
-                  </div>
-                </div>
+                  </span>
+                </span>
                 {contact.graduation_year && (
                   <span className="text-muted-foreground">Class of {contact.graduation_year}</span>
                 )}
@@ -570,6 +570,72 @@ export function ContactDetailSheet({
                         <span className="text-sm font-medium">{contact.gpa}</span>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Information */}
+              {(contact.football_background || contact.academic_background || contact.degree_choice || contact.football_highlights || contact.preferred_programme || contact.job_title) && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    Additional Information
+                  </h3>
+                  <div className="space-y-3">
+                    {contact.football_background && (
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm text-slate-500 shrink-0">Football BG</span>
+                        <span className="text-sm font-medium text-right ml-4">{contact.football_background}</span>
+                      </div>
+                    )}
+                    {contact.academic_background && (
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm text-slate-500 shrink-0">Academic BG</span>
+                        <span className="text-sm font-medium text-right ml-4">{contact.academic_background}</span>
+                      </div>
+                    )}
+                    {contact.degree_choice && (
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm text-slate-500 shrink-0">Degree</span>
+                        <span className="text-sm font-medium text-right ml-4">{contact.degree_choice}</span>
+                      </div>
+                    )}
+                    {contact.football_highlights && (
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm text-slate-500 shrink-0">Highlights</span>
+                        <span className="text-sm font-medium text-right ml-4">{contact.football_highlights}</span>
+                      </div>
+                    )}
+                    {contact.preferred_programme && (
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm text-slate-500 shrink-0">Programme</span>
+                        <span className="text-sm font-medium text-right ml-4">{contact.preferred_programme}</span>
+                      </div>
+                    )}
+                    {contact.job_title && (
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm text-slate-500 shrink-0">Job Title</span>
+                        <span className="text-sm font-medium text-right ml-4">{contact.job_title}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom Fields */}
+              {contact.custom_fields && Object.keys(contact.custom_fields).length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    Custom Fields
+                  </h3>
+                  <div className="space-y-3">
+                    {Object.entries(contact.custom_fields).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => (
+                      <div key={key} className="flex items-start justify-between">
+                        <span className="text-sm text-slate-500 shrink-0">
+                          {key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </span>
+                        <span className="text-sm font-medium text-right ml-4 break-words max-w-[60%]">{value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

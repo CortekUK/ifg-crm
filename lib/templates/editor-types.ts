@@ -1,4 +1,4 @@
-export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature'
+export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature' | 'file'
 
 export interface EditorBlock {
   id: string
@@ -19,6 +19,7 @@ export type BlockContent =
   | ColumnsBlockContent
   | ConditionalBlockContent
   | RecruiterSignatureBlockContent
+  | FileBlockContent
 
 export interface TextBlockContent {
   html: string
@@ -119,6 +120,16 @@ export interface RecruiterSignatureBlockContent {
   layout: 'stacked' | 'inline' // stacked = vertical, inline = photo left + details right
   alignment: 'left' | 'center' | 'right'
   photoSize: 'small' | 'medium' | 'large' // 40px, 60px, 80px
+  paddingTop: number
+  paddingBottom: number
+}
+
+export interface FileBlockContent {
+  fileName: string
+  fileUrl: string
+  fileSize: number
+  fileType: string
+  alignment: 'left' | 'center' | 'right'
   paddingTop: number
   paddingBottom: number
 }
@@ -249,6 +260,15 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
     paddingTop: 20,
     paddingBottom: 10,
   } as RecruiterSignatureBlockContent,
+  file: {
+    fileName: '',
+    fileUrl: '',
+    fileSize: 0,
+    fileType: '',
+    alignment: 'left',
+    paddingTop: 10,
+    paddingBottom: 10,
+  } as FileBlockContent,
 }
 
 export const templateVariables = [

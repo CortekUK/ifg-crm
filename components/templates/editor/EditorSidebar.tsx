@@ -53,6 +53,7 @@ import {
   Columns,
   GitBranch,
   UserCircle,
+  Paperclip,
   Save,
   Trash2,
   Loader2,
@@ -80,6 +81,7 @@ const blockItems: { type: BlockType; icon: React.ElementType; label: string; sec
   { type: 'video', icon: Play, label: 'Video', section: 'basic' },
   { type: 'social', icon: Share2, label: 'Social', section: 'basic' },
   { type: 'html', icon: Code, label: 'HTML', section: 'basic' },
+  { type: 'file', icon: Paperclip, label: 'File', section: 'basic' },
   // Layout blocks
   { type: 'columns', icon: Columns, label: 'Columns', section: 'layout' },
   // Advanced blocks
@@ -509,6 +511,72 @@ export function EditorSidebar({
                       onChange={(e) => onUpdateBlock(selectedBlock.id, { height: parseInt(e.target.value) })}
                       className="h-9 text-sm"
                     />
+                  </div>
+                </div>
+              )}
+
+              {selectedBlock.type === 'file' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">File</Label>
+                    {(selectedBlock.content as { fileUrl?: string }).fileUrl ? (
+                      <div className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                        <Paperclip className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                        <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1">
+                          {(selectedBlock.content as { fileName?: string }).fileName || 'File'}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">No file uploaded. Click the block to upload.</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Alignment</Label>
+                    <div className="flex gap-1">
+                      {(['left', 'center', 'right'] as const).map((align) => (
+                        <Button
+                          key={align}
+                          size="sm"
+                          variant={(selectedBlock.content as { alignment?: string }).alignment === align ? 'default' : 'outline'}
+                          className={cn(
+                            'flex-1',
+                            (selectedBlock.content as { alignment?: string }).alignment === align && 'bg-blue-600'
+                          )}
+                          onClick={() => onUpdateBlock(selectedBlock.id, { alignment: align })}
+                        >
+                          {align === 'left' && <AlignLeft className="h-4 w-4" />}
+                          {align === 'center' && <AlignCenter className="h-4 w-4" />}
+                          {align === 'right' && <AlignRight className="h-4 w-4" />}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600 dark:text-slate-400">Padding (px)</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-xs text-slate-500">Top</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={(selectedBlock.content as { paddingTop?: number }).paddingTop || 10}
+                          onChange={(e) => onUpdateBlock(selectedBlock.id, { paddingTop: parseInt(e.target.value) || 0 })}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-xs text-slate-500">Bottom</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={(selectedBlock.content as { paddingBottom?: number }).paddingBottom || 10}
+                          onChange={(e) => onUpdateBlock(selectedBlock.id, { paddingBottom: parseInt(e.target.value) || 0 })}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
