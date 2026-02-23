@@ -186,6 +186,31 @@ export default function PipelinesPage() {
     return true
   })
 
+  // Trigger automation processing immediately after deal move
+  const triggerAutomationProcessing = useCallback(async () => {
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!supabaseUrl || !session?.access_token) return
+
+      // Small delay to let the DB trigger create the enrollment first
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      await fetch(`${supabaseUrl}/functions/v1/process-automations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+      })
+    } catch (err) {
+      // Non-critical — cron will pick it up as fallback
+      console.log('Automation trigger (non-critical):', err)
+    }
+  }, [])
+
   // Execute the move deal mutation
   const executeMoveDeals = useCallback(
     (dealId: string, newStageId: string, oldStageName?: string, newStageName?: string) => {
@@ -206,6 +231,8 @@ export default function PipelinesPage() {
               title: 'Deal moved',
               description: `Moved to ${newStageName || 'new stage'}`,
             })
+            // Trigger automation processing immediately
+            triggerAutomationProcessing()
           },
           onError: (error) => {
             toast({
@@ -217,7 +244,7 @@ export default function PipelinesPage() {
         }
       )
     },
-    [moveDeal, selectedPipelineId, userId]
+    [moveDeal, selectedPipelineId, userId, triggerAutomationProcessing]
   )
 
   // Patch send_as_user_id on newly created enrollment(s) for a deal

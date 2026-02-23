@@ -28,7 +28,17 @@ export function ImageBlock({ content, isSelected, onUpdate }: ImageBlockProps) {
     if (!file.type.startsWith('image/')) {
       toast({
         title: 'Invalid file type',
-        description: 'Please upload an image file.',
+        description: 'Please upload an image file (PNG, JPG, GIF, or WebP).',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Block SVG — not supported by most email clients
+    if (file.type === 'image/svg+xml') {
+      toast({
+        title: 'SVG not supported in emails',
+        description: 'Please upload a PNG, JPG, GIF, or WebP image instead. SVG files are blocked by most email clients.',
         variant: 'destructive',
       })
       return

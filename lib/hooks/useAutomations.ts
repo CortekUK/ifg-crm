@@ -400,8 +400,8 @@ export function useCreateAutomation() {
         .insert({
           name: input.name,
           description: input.description || null,
-          pipeline_id: input.pipeline_id,
-          trigger_stage_id: input.trigger_stage_id,
+          pipeline_id: input.pipeline_id || null,
+          trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],
           is_active: false, // Paused by default
         })
@@ -446,8 +446,8 @@ export function useUpdateAutomation() {
         .update({
           name: input.name,
           description: input.description || null,
-          pipeline_id: input.pipeline_id,
-          trigger_stage_id: input.trigger_stage_id,
+          pipeline_id: input.pipeline_id || null,
+          trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],
         })
         .eq('id', input.id)

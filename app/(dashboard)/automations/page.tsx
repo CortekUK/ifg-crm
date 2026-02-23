@@ -173,11 +173,13 @@ export default function AutomationsPage() {
       }
       setIsCreateModalOpen(false)
       setEditingAutomation(null)
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to save automation:', error)
+      const message = error instanceof Error ? error.message
+        : (error as { message?: string })?.message || 'Unknown error'
       toast({
         title: 'Error',
-        description: 'Failed to save automation. Please try again.',
+        description: `Failed to save automation: ${message}`,
         variant: 'destructive',
       })
     }
