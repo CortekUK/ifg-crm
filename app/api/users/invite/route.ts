@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     // Get admin client
     const supabaseAdmin = getSupabaseAdmin()
 
-    // Check if user already exists
+    // Check if user already exists in profiles
     const { data: existingUser } = await supabaseAdmin
       .from('profiles')
       .select('id')
@@ -67,20 +67,32 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingUser) {
-      return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 })
+      // Check if this is an unconfirmed user (from a previous failed invite)
+      // by looking at their auth record
+      if (hasServiceRoleKey()) {
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(existingUser.id)
+        const identities = authUser?.user?.identities
+        const hasCompletedSetup = identities && identities.length > 0
+
+        if (!hasCompletedSetup) {
+          // User never signed in — clean up old auth user + profile for re-invite
+          await supabaseAdmin.auth.admin.deleteUser(existingUser.id)
+          // Explicitly delete the orphaned profile (no FK cascade from auth.users)
+          await supabaseAdmin.from('profiles').delete().eq('id', existingUser.id)
+        } else {
+          return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 })
+        }
+      } else {
+        return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 })
+      }
     }
 
-    // Check if invite already exists
-    const { data: existingInvite } = await supabaseAdmin
+    // Clean up any old pending invites for this email
+    await supabaseAdmin
       .from('user_invites')
-      .select('id')
+      .delete()
       .eq('email', email)
       .eq('status', 'pending')
-      .single()
-
-    if (existingInvite) {
-      return NextResponse.json({ error: 'An invitation has already been sent to this email' }, { status: 400 })
-    }
 
     // Create invite record
     const { data: invite, error: inviteError } = await supabaseAdmin

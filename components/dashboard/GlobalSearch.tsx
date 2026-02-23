@@ -133,6 +133,7 @@ export function GlobalSearch() {
                           key={`${result.type}-${result.id}`}
                           value={`${result.type}-${result.id}`}
                           onSelect={() => handleSelect(result)}
+                          onClick={() => handleSelect(result)}
                           className="flex items-center gap-3 px-3 py-2 cursor-pointer"
                         >
                           <div className={cn('p-1.5 rounded', config.color)}>

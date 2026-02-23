@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContactsPageHeader } from '@/components/contacts/ContactsPageHeader'
 import { ContactStats } from '@/components/contacts/ContactStats'
@@ -21,7 +22,10 @@ import { createClient } from '@/lib/supabase/client'
 import type { Contact } from '@/lib/types/contacts'
 import { ErrorState } from '@/components/ui/error-state'
 
-export default function ContactsPage() {
+function ContactsPageContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
   // View mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
 
@@ -65,6 +69,16 @@ export default function ContactsPage() {
       if (data.user) setUserId(data.user.id)
     })
   }, [])
+
+  // Handle URL ?id= param from global search
+  useEffect(() => {
+    const contactId = searchParams.get('id')
+    if (contactId) {
+      setSelectedContact({ id: contactId } as Contact)
+      // Clean the URL without triggering navigation
+      router.replace('/contacts', { scroll: false })
+    }
+  }, [searchParams, router])
 
   // Debounce search
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -397,5 +411,13 @@ export default function ContactsPage() {
         onClose={() => setImportModalOpen(false)}
       />
     </div>
+  )
+}
+
+export default function ContactsPage() {
+  return (
+    <Suspense>
+      <ContactsPageContent />
+    </Suspense>
   )
 }

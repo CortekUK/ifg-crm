@@ -136,7 +136,7 @@ export default function SetPasswordPage() {
       </div>
 
       {/* Right Side - Set Password Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white dark:bg-slate-900">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
@@ -147,7 +147,7 @@ export default function SetPasswordPage() {
           </div>
 
           <div className="text-center lg:text-left mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               SET YOUR PASSWORD
             </h2>
             <p className="text-gray-500">
