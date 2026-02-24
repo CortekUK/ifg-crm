@@ -385,14 +385,14 @@ export function DealDetailSheet({
         <div className="flex-1 overflow-y-auto">
           {/* Upcoming Meeting Banner */}
           {upcomingCalendlyEvent && (
-            <div className="mx-6 mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="mx-6 mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                     <Video className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-green-900">{upcomingCalendlyEvent.location || 'Meeting'} scheduled</p>
+                    <p className="font-medium text-green-900 dark:text-green-100">{upcomingCalendlyEvent.location || 'Meeting'} scheduled</p>
                     <p className="text-sm text-green-700 dark:text-green-300">
                       {formatDate(upcomingCalendlyEvent.start_time)} at{' '}
                       {new Date(upcomingCalendlyEvent.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
@@ -673,15 +673,15 @@ export function DealDetailSheet({
                       return (
                         <div key={enrollment.id} className={cn(
                           'flex items-center justify-between p-3 rounded-lg border',
-                          enrollment.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                          enrollment.status === 'paused' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                         )}>
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-sm">{name}</span>
                               <Badge variant="outline" className={cn(
                                 'text-[10px]',
-                                enrollment.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
-                                enrollment.status === 'paused' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                enrollment.status === 'active' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800' :
+                                enrollment.status === 'paused' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
                                 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
                               )}>
                                 {enrollment.status === 'active' && <Zap className="h-2.5 w-2.5 mr-0.5" />}
@@ -739,8 +739,8 @@ export function DealDetailSheet({
                     <span className="text-sm text-slate-500 dark:text-slate-400">Time in Stage</span>
                     <span className={cn(
                       'text-sm font-medium px-2 py-0.5 rounded',
-                      deal.time_in_stage !== undefined && deal.time_in_stage > 30 ? 'bg-red-100 dark:bg-red-900/50 text-red-700' :
-                      deal.time_in_stage !== undefined && deal.time_in_stage > 7 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700' : 'bg-slate-100 text-slate-700'
+                      deal.time_in_stage !== undefined && deal.time_in_stage > 30 ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' :
+                      deal.time_in_stage !== undefined && deal.time_in_stage > 7 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                     )}>
                       {deal.time_in_stage !== undefined
                         ? deal.time_in_stage < 1 ? 'Less than 1 day'
@@ -797,7 +797,7 @@ export function DealDetailSheet({
                         <CalendarComponent mode="single" selected={deal.forecasted_close_date ? new Date(deal.forecasted_close_date) : undefined} onSelect={handleSaveForecastedDate} initialFocus />
                         {deal.forecasted_close_date && (
                           <div className="p-2 border-t">
-                            <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleSaveForecastedDate(undefined)}>Clear date</Button>
+                            <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => handleSaveForecastedDate(undefined)}>Clear date</Button>
                           </div>
                         )}
                       </PopoverContent>

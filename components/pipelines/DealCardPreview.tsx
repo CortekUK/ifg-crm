@@ -103,8 +103,8 @@ export function DealCardPreview({ deal }: DealCardPreviewProps) {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-md bg-blue-50">
-            <Calendar className="h-3.5 w-3.5 text-blue-600" />
+          <div className="p-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30">
+            <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">In Pipeline</p>
@@ -116,11 +116,11 @@ export function DealCardPreview({ deal }: DealCardPreviewProps) {
           <div className="flex items-center gap-2">
             <div className={cn(
               'p-1.5 rounded-md',
-              deal.time_in_stage > 14 ? 'bg-amber-50' : 'bg-slate-50'
+              deal.time_in_stage > 14 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-slate-50 dark:bg-slate-800'
             )}>
               <Clock className={cn(
                 'h-3.5 w-3.5',
-                deal.time_in_stage > 14 ? 'text-amber-600' : 'text-slate-600'
+                deal.time_in_stage > 14 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'
               )} />
             </div>
             <div>
@@ -134,11 +134,11 @@ export function DealCardPreview({ deal }: DealCardPreviewProps) {
           <div className="flex items-center gap-2">
             <div className={cn(
               'p-1.5 rounded-md',
-              deal.win_probability >= 50 ? 'bg-green-50' : 'bg-red-50'
+              deal.win_probability >= 50 ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30'
             )}>
               <TrendingUp className={cn(
                 'h-3.5 w-3.5',
-                deal.win_probability >= 50 ? 'text-green-600' : 'text-red-600'
+                deal.win_probability >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               )} />
             </div>
             <div>
@@ -150,8 +150,8 @@ export function DealCardPreview({ deal }: DealCardPreviewProps) {
 
         {deal.owner && (
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-purple-50">
-              <User className="h-3.5 w-3.5 text-purple-600" />
+            <div className="p-1.5 rounded-md bg-purple-50 dark:bg-purple-900/30">
+              <User className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Owner</p>

@@ -358,7 +358,7 @@ export function AddDealModal({
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                           onClick={() => {
                             setForecastedCloseDate(undefined)
                             setDatePickerOpen(false)

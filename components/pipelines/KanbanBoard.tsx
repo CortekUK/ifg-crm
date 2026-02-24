@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { DragDropContext, DropResult } from '@hello-pangea/dnd'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -160,20 +160,24 @@ export function KanbanBoard({
   }, [onDragEnd, stopAutoScroll])
 
   // Group deals by stage
-  const stageIdSet = new Set(stages.map(s => s.id))
-  const dealsByStage = stages.reduce<Record<string, Deal[]>>((acc, stage) => {
-    acc[stage.id] = deals.filter((deal) => deal.current_stage_id === stage.id)
-    return acc
-  }, {})
+  const dealsByStage = useMemo(() => {
+    const stageIdSet = new Set(stages.map(s => s.id))
+    const grouped = stages.reduce<Record<string, Deal[]>>((acc, stage) => {
+      acc[stage.id] = deals.filter((deal) => deal.current_stage_id === stage.id)
+      return acc
+    }, {})
 
-  // Put unmatched deals in the first stage column so they're visible
-  if (stages.length > 0) {
-    const unmatchedDeals = deals.filter(d => !stageIdSet.has(d.current_stage_id))
-    if (unmatchedDeals.length > 0) {
-      const firstStageId = stages[0].id
-      dealsByStage[firstStageId] = [...(dealsByStage[firstStageId] || []), ...unmatchedDeals]
+    // Put unmatched deals in the first stage column so they're visible
+    if (stages.length > 0) {
+      const unmatchedDeals = deals.filter(d => !stageIdSet.has(d.current_stage_id))
+      if (unmatchedDeals.length > 0) {
+        const firstStageId = stages[0].id
+        grouped[firstStageId] = [...(grouped[firstStageId] || []), ...unmatchedDeals]
+      }
     }
-  }
+
+    return grouped
+  }, [stages, deals])
 
   if (isLoading || !prefsLoaded) {
     return <LoadingSkeleton />
