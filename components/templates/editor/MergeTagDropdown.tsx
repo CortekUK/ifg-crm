@@ -94,7 +94,7 @@ export function MergeTagDropdown({ onInsert, className, variant = 'default' }: M
                     <button
                       key={variable.value}
                       onClick={() => handleInsert(variable.value)}
-                      className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group"
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm text-gray-900 dark:text-white">
@@ -124,9 +124,9 @@ export function MergeTagDropdown({ onInsert, className, variant = 'default' }: M
           )}
         </div>
         
-        <div className="p-2 border-t bg-gray-50">
+        <div className="p-2 border-t bg-gray-50 dark:bg-slate-800">
           <p className="text-xs text-muted-foreground">
-            Tip: Use <code className="bg-gray-200 px-1 rounded">{'{{tag|fallback}}'}</code> for fallback values
+            Tip: Use <code className="bg-gray-200 dark:bg-slate-700 px-1 rounded">{'{{tag|fallback}}'}</code> for fallback values
           </p>
         </div>
       </PopoverContent>

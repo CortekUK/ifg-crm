@@ -11,7 +11,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -19,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, History } from 'lucide-react'
+import { History } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/format'
 import type { AutomationLog, AutomationFilters, Automation } from '@/lib/types/automations'
 
@@ -156,7 +155,7 @@ export function RunHistoryTable({
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
+                          <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs">
                             {getInitials(contact?.first_name, contact?.last_name)}
                           </AvatarFallback>
                         </Avatar>

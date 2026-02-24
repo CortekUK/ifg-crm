@@ -213,7 +213,7 @@ export function EnrollContactModal({
             </div>
           ) : filteredDeals.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4">
-              <Users className="h-10 w-10 text-gray-300 mb-3" />
+              <Users className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
               <p className="text-sm text-muted-foreground text-center">
                 {search
                   ? 'No contacts found matching your search.'
@@ -227,13 +227,13 @@ export function EnrollContactModal({
               {/* Select All */}
               {filteredDeals.length > 0 && (
                 <div
-                  className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b bg-slate-50"
+                  className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b bg-slate-50 dark:bg-slate-800"
                   onClick={handleSelectAll}
                 >
                   <Checkbox
                     checked={selectedDealIds.size === filteredDeals.length && filteredDeals.length > 0}
                   />
-                  <span className="text-sm font-medium text-gray-600">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     Select all ({filteredDeals.length})
                   </span>
                 </div>
@@ -250,7 +250,7 @@ export function EnrollContactModal({
                   >
                     <Checkbox checked={selectedDealIds.has(dealData.id)} />
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
+                      <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs">
                         {getInitials(dealData)}
                       </AvatarFallback>
                     </Avatar>

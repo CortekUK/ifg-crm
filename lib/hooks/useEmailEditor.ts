@@ -54,13 +54,9 @@ export function useEmailEditor(templateId?: string) {
 
   // Load template if editing
   useEffect(() => {
-    console.log('🚀 useEffect triggered, templateId:', templateId)
-    
     if (templateId) {
-      console.log('📥 Calling loadTemplate for ID:', templateId)
       loadTemplate(templateId)
     } else {
-      console.log('🆕 Initializing new template')
       // Initialise with default state
       const initialState: EditorState = { blocks: [], settings: defaultTemplateSettings }
       setHistory([initialState])
@@ -81,32 +77,21 @@ export function useEmailEditor(templateId?: string) {
 
       if (error) throw error
 
-      console.log('🔍 Loading template:', id)
-      console.log('📄 Template data:', data)
-
       if (data) {
         // Parse blocks from body_json or create empty array
         let loadedBlocks: EditorBlock[] = []
         if (data.body_json) {
           try {
-            console.log('📦 body_json type:', typeof data.body_json)
-            console.log('📦 body_json value:', data.body_json)
-            
             // body_json might already be an object (JSONB) or a string
             if (typeof data.body_json === 'string') {
               loadedBlocks = JSON.parse(data.body_json)
             } else {
               loadedBlocks = data.body_json as EditorBlock[]
             }
-            
-            console.log('✅ Loaded blocks:', loadedBlocks.length, loadedBlocks)
           } catch (parseError) {
-            console.error('❌ Failed to parse body_json:', parseError)
-            console.log('Raw body_json:', data.body_json)
+            console.error('Failed to parse body_json:', parseError)
             loadedBlocks = []
           }
-        } else {
-          console.log('⚠️ No body_json found')
         }
 
         const loadedSettings: TemplateSettings = {
@@ -118,8 +103,6 @@ export function useEmailEditor(templateId?: string) {
           fixedFromEmail: data.fixed_from_email || '',
           category: data.category || 'campaign',
         }
-
-        console.log('⚙️ Loaded settings:', loadedSettings)
 
         setBlocks(loadedBlocks)
         setSettings(loadedSettings)

@@ -158,7 +158,7 @@ export function AddContactsToListModal({
             </div>
           ) : contacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4">
-              <Users className="h-10 w-10 text-gray-300 mb-3" />
+              <Users className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
               <p className="text-sm text-muted-foreground text-center">
                 No contacts found matching your search.
               </p>
@@ -252,7 +252,7 @@ export function AddContactsToListModal({
                 >
                   <Checkbox checked={selectedIds.has(contact.id)} />
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
+                    <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs">
                       {getInitials(contact)}
                     </AvatarFallback>
                   </Avatar>

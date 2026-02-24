@@ -101,7 +101,7 @@ export function ListsTable({
               <TableCell>
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                    <Users className="h-4 w-4 text-blue-600" />
+                    <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <span className="font-medium text-gray-900 dark:text-white">{list.name}</span>
                 </div>

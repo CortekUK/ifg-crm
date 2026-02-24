@@ -284,7 +284,7 @@ export function AutomationDetailSheet({
                     variant="outline"
                     size="sm"
                     onClick={() => setShowDeleteDialog(true)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -335,7 +335,7 @@ export function AutomationDetailSheet({
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                            <Users className="h-4 w-4 text-blue-600" />
+                            <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeEnrollments.length}</p>
@@ -346,8 +346,8 @@ export function AutomationDetailSheet({
 
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-amber-100 rounded-lg">
-                            <Clock className="h-4 w-4 text-amber-600" />
+                          <div className="p-2.5 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
+                            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalInQueue}</p>
@@ -358,8 +358,8 @@ export function AutomationDetailSheet({
 
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-green-100 rounded-lg">
-                            <Send className="h-4 w-4 text-green-600" />
+                          <div className="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                            <Send className="h-4 w-4 text-green-600 dark:text-green-400" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
@@ -370,8 +370,8 @@ export function AutomationDetailSheet({
 
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-purple-100 rounded-lg">
-                            <Eye className="h-4 w-4 text-purple-600" />
+                          <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                            <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{avgOpenRate.toFixed(1)}%</p>
@@ -382,8 +382,8 @@ export function AutomationDetailSheet({
 
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-green-100 rounded-lg">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <div className="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedEnrollments.length}</p>
@@ -394,8 +394,8 @@ export function AutomationDetailSheet({
 
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-red-100 rounded-lg">
-                            <XCircle className="h-4 w-4 text-red-600" />
+                          <div className="p-2.5 bg-red-100 dark:bg-red-900/50 rounded-lg">
+                            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{stoppedEnrollments.length}</p>
@@ -474,7 +474,7 @@ export function AutomationDetailSheet({
                     </div>
                     {activeEnrollments.length === 0 ? (
                       <div className="text-center py-8">
-                        <Users className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                        <Users className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                         <p className="text-sm text-muted-foreground">
                           No contacts currently enrolled
                         </p>
@@ -583,7 +583,7 @@ export function AutomationDetailSheet({
                             : deal?.title || 'Unknown'
 
                           return (
-                            <Card key={enrollment.id} className="border-amber-200 bg-amber-50/50">
+                            <Card key={enrollment.id} className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20">
                               <CardContent className="p-3">
                                 <div className="flex items-center gap-3">
                                   <Avatar className="h-9 w-9">
@@ -654,7 +654,7 @@ export function AutomationDetailSheet({
                           return (
                             <div
                               key={enrollment.id}
-                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100"
+                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700"
                             >
                               <Avatar className="h-7 w-7">
                                 <AvatarFallback className="bg-green-100 dark:bg-green-900/50 text-green-600 text-xs">
@@ -692,7 +692,7 @@ export function AutomationDetailSheet({
                           return (
                             <div
                               key={enrollment.id}
-                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100"
+                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700"
                             >
                               <Avatar className="h-7 w-7">
                                 <AvatarFallback className="bg-red-100 dark:bg-red-900/50 text-red-600 text-xs">

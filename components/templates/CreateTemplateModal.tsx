@@ -289,7 +289,7 @@ export function CreateTemplateModal({
                       <Badge
                         key={variable.value}
                         variant="outline"
-                        className="cursor-pointer hover:bg-blue-50 hover:border-blue-300"
+                        className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 dark:hover:border-blue-700"
                         onClick={() => handleInsertVariable(variable.value)}
                       >
                         {variable.label}

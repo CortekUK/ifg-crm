@@ -215,27 +215,27 @@ export function ConfigureAutomationModal({
   const getTemplateColor = (type: AutomationType) => {
     switch (type) {
       case 'deal_creation':
-        return 'bg-green-100 dark:bg-green-900/50 text-green-600'
+        return 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400'
       case 'initial_contact':
-        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
+        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
       case 'follow_up':
-        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600'
+        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400'
       case 'application_received':
-        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600'
+        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-400'
       case 'interview_reminder':
-        return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600'
+        return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
       case 'post_interview':
-        return 'bg-teal-100 dark:bg-teal-900/50 text-teal-600'
+        return 'bg-teal-100 dark:bg-teal-900/50 text-teal-600 dark:text-teal-400'
       case 'deposit_invoice':
-        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600'
+        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
       case 'payment_overdue':
-        return 'bg-red-100 dark:bg-red-900/50 text-red-600'
+        return 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'
       case 'welcome_sequence':
-        return 'bg-pink-100 dark:bg-pink-900/50 text-pink-600'
+        return 'bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400'
       case 'pre_departure':
-        return 'bg-sky-100 dark:bg-sky-900/50 text-sky-600'
+        return 'bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400'
       default:
-        return 'bg-gray-100 dark:bg-gray-800 text-gray-600'
+        return 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
     }
   }
 
@@ -758,7 +758,7 @@ export function ConfigureAutomationModal({
                           return (
                             <div key={index} className="relative">
                               {index < selectedTemplate.default_steps.length - 1 && (
-                                <div className="absolute left-[17px] top-[44px] w-0.5 h-[calc(100%-8px)] bg-gray-200" />
+                                <div className="absolute left-[17px] top-[44px] w-0.5 h-[calc(100%-8px)] bg-gray-200 dark:bg-gray-700" />
                               )}
 
                               <div className="flex items-center gap-3">
@@ -766,10 +766,10 @@ export function ConfigureAutomationModal({
                                   className={cn(
                                     'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
                                     step.step_type === 'send_email'
-                                      ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
+                                      ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
                                       : step.step_type === 'wait'
-                                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-600'
-                                      : 'bg-orange-100 dark:bg-orange-900/50 text-orange-600'
+                                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                      : 'bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400'
                                   )}
                                 >
                                   {step.step_type === 'send_email' ? (

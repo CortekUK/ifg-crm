@@ -111,7 +111,7 @@ export function TemplateCard({
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={() => onDelete(template)}
-              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+              className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/30"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete

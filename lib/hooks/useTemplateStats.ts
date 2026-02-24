@@ -14,28 +14,17 @@ export function useTemplateStats() {
   return useQuery({
     queryKey: ['template-stats'],
     queryFn: async (): Promise<TemplateStats> => {
-      // Total templates
-      const { count: totalTemplates } = await supabase
-        .from('email_templates')
-        .select('*', { count: 'exact', head: true })
-
-      // Automation templates
-      const { count: automationTemplates } = await supabase
-        .from('email_templates')
-        .select('*', { count: 'exact', head: true })
-        .eq('category', 'automation')
-
-      // Campaign templates
-      const { count: campaignTemplates } = await supabase
-        .from('email_templates')
-        .select('*', { count: 'exact', head: true })
-        .eq('category', 'campaign')
-
-      // Count active automations
-      const { count: activeAutomations } = await supabase
-        .from('automations')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
+      const [
+        { count: totalTemplates },
+        { count: automationTemplates },
+        { count: campaignTemplates },
+        { count: activeAutomations },
+      ] = await Promise.all([
+        supabase.from('email_templates').select('*', { count: 'exact', head: true }),
+        supabase.from('email_templates').select('*', { count: 'exact', head: true }).eq('category', 'automation'),
+        supabase.from('email_templates').select('*', { count: 'exact', head: true }).eq('category', 'campaign'),
+        supabase.from('automations').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      ])
 
       return {
         totalTemplates: totalTemplates || 0,

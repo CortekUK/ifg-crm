@@ -90,20 +90,20 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="p-4 border-b border-slate-200 bg-white shrink-0">
+        <DialogHeader className="p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
               Email Preview
             </DialogTitle>
             <div className="flex items-center gap-4">
               {/* View Mode Toggle */}
-              <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+              <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
                     'h-8 px-3',
-                    viewMode === 'desktop' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-200'
+                    viewMode === 'desktop' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                   )}
                   onClick={() => setViewMode('desktop')}
                 >
@@ -115,7 +115,7 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
                   size="sm"
                   className={cn(
                     'h-8 px-3',
-                    viewMode === 'mobile' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-200'
+                    viewMode === 'mobile' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                   )}
                   onClick={() => setViewMode('mobile')}
                 >
@@ -167,7 +167,7 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
                 variant="ghost" 
                 size="icon" 
                 onClick={onClose}
-                className="text-slate-500 hover:text-slate-700"
+                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -176,7 +176,7 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
         </DialogHeader>
 
         {/* Preview Content */}
-        <div className="flex-1 overflow-auto bg-slate-100 p-8">
+        <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-900 p-8">
           <div className="flex justify-center">
             <div
               className={cn(

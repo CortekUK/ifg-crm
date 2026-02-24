@@ -68,18 +68,18 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
   }
 
   return (
-    <div className="w-[400px] border-l border-slate-200 bg-white flex flex-col h-full">
+    <div className="w-[400px] border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col h-full">
       {/* Preview Header */}
-      <div className="p-4 border-b border-slate-200 space-y-4 shrink-0">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 shrink-0">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">Preview</h3>
-          <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
             <Button
               variant="ghost"
               size="sm"
               className={cn(
                 'h-7 w-7 p-0',
-                viewMode === 'desktop' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-200'
+                viewMode === 'desktop' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
               onClick={() => setViewMode('desktop')}
             >
@@ -90,7 +90,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
               size="sm"
               className={cn(
                 'h-7 w-7 p-0',
-                viewMode === 'mobile' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:bg-slate-200'
+                viewMode === 'mobile' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
               onClick={() => setViewMode('mobile')}
             >
@@ -100,7 +100,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs text-slate-500">Test Data</Label>
+          <Label className="text-xs text-slate-500 dark:text-slate-400">Test Data</Label>
           <Select value={selectedContactId} onValueChange={setSelectedContactId}>
             <SelectTrigger className="h-9 text-sm">
               <SelectValue />
@@ -117,7 +117,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
       </div>
 
       {/* Preview Content - Scrollable area */}
-      <div className="flex-1 overflow-auto p-4 bg-slate-50">
+      <div className="flex-1 overflow-auto p-4 bg-slate-50 dark:bg-slate-800">
         <div
           className={cn(
             'mx-auto bg-white rounded-lg shadow-lg overflow-hidden',
@@ -158,7 +158,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
       </div>
 
       {/* Send Test Email */}
-      <div className="p-4 border-t border-slate-200 bg-white shrink-0">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
         <Button 
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           onClick={handleSendTestEmail}
@@ -166,7 +166,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
           <Send className="h-4 w-4 mr-2" />
           Send Test Email
         </Button>
-        <p className="text-xs text-slate-500 text-center mt-2">
+        <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-2">
           Send to your logged-in email address
         </p>
       </div>

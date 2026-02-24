@@ -151,7 +151,7 @@ export function CanvasBlock({
     <div
       className={cn(
         'group relative mb-2 rounded-lg transition-all border-2',
-        isSelected && 'border-blue-500 shadow-md bg-blue-50/30',
+        isSelected && 'border-blue-500 shadow-md bg-blue-50/30 dark:bg-blue-900/20',
         isDragging && 'shadow-lg opacity-90 border-blue-400',
         !isSelected && !isDragging && 'border-transparent hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
       )}
@@ -168,7 +168,7 @@ export function CanvasBlock({
         className={cn(
           'absolute left-0 top-0 bottom-0 w-7 flex items-center justify-center rounded-l-lg',
           'cursor-grab active:cursor-grabbing transition-all',
-          isSelected ? 'bg-blue-100 opacity-100' : 'opacity-0 group-hover:opacity-100 hover:bg-slate-100'
+          isSelected ? 'bg-blue-100 dark:bg-blue-900/50 opacity-100' : 'opacity-0 group-hover:opacity-100 hover:bg-slate-100 dark:hover:bg-slate-800'
         )}
       >
         <GripVertical className={cn(
@@ -187,18 +187,18 @@ export function CanvasBlock({
         <Button
           variant="secondary"
           size="sm"
-          className="h-6 w-6 p-0 bg-white shadow-sm border border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+          className="h-6 w-6 p-0 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-500"
           onClick={(e) => {
             e.stopPropagation()
             onDuplicate()
           }}
         >
-          <Copy className="h-3 w-3 text-slate-600" />
+          <Copy className="h-3 w-3 text-slate-600 dark:text-slate-400" />
         </Button>
         <Button
           variant="secondary"
           size="sm"
-          className="h-6 w-6 p-0 bg-white shadow-sm border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+          className="h-6 w-6 p-0 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-600 hover:bg-red-50 dark:hover:bg-red-900/30 hover:border-red-200 dark:hover:border-red-800 hover:text-red-600"
           onClick={(e) => {
             e.stopPropagation()
             onDelete()

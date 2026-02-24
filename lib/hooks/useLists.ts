@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { List, ListWithContacts, ListFilters, CreateListInput, UpdateListInput, ListStats, ListContact } from '@/lib/types/lists'
+import type { List, ListWithContacts, ListFilters, CreateListInput, UpdateListInput, ListStats } from '@/lib/types/lists'
 
 export function useLists(filters?: ListFilters) {
   const supabase = createClient()
@@ -63,28 +63,30 @@ export function useList(listId: string | null) {
     queryFn: async () => {
       if (!listId) return null
 
-      // Get list details
-      const { data: list, error: listError } = await supabase
-        .from('lists')
-        .select('*')
-        .eq('id', listId)
-        .single()
+      // Fetch list details and contacts in parallel
+      const [listResult, contactsResult] = await Promise.all([
+        supabase
+          .from('lists')
+          .select('*')
+          .eq('id', listId)
+          .single(),
+        supabase
+          .from('contact_lists')
+          .select(`
+            contact_id,
+            list_id,
+            added_at,
+            contact:contacts(*)
+          `)
+          .eq('list_id', listId)
+          .order('added_at', { ascending: false }),
+      ])
 
-      if (listError) throw listError
+      if (listResult.error) throw listResult.error
+      if (contactsResult.error) throw contactsResult.error
 
-      // Get contacts in this list
-      const { data: listContacts, error: contactsError } = await supabase
-        .from('contact_lists')
-        .select(`
-          contact_id,
-          list_id,
-          added_at,
-          contact:contacts(*)
-        `)
-        .eq('list_id', listId)
-        .order('added_at', { ascending: false })
-
-      if (contactsError) throw contactsError
+      const list = listResult.data
+      const listContacts = contactsResult.data
 
       return {
         ...list,
@@ -143,15 +145,10 @@ export function useListStats() {
   return useQuery<ListStats>({
     queryKey: ['list-stats'],
     queryFn: async () => {
-      // Get total lists count
-      const { count: totalLists } = await supabase
+      // Get all lists with count in a single query
+      const { data: lists, count: totalLists } = await supabase
         .from('lists')
-        .select('*', { count: 'exact', head: true })
-
-      // Get all lists with their contact counts
-      const { data: lists } = await supabase
-        .from('lists')
-        .select('id, name')
+        .select('id, name', { count: 'exact' })
 
       const listIds = lists?.map((l) => l.id) || []
 

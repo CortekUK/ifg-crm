@@ -295,7 +295,7 @@ export function ListDetailSheet({
                   </div>
                 ) : contacts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 px-6">
-                    <Users className="h-12 w-12 text-gray-300 mb-4" />
+                    <Users className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />
                     <p className="text-muted-foreground text-center">
                       {search ? 'No contacts match your search.' : 'No contacts in this list yet.'}
                     </p>
@@ -351,7 +351,7 @@ export function ListDetailSheet({
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-xs">
+                                  <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs">
                                     {getInitials(contact)}
                                   </AvatarFallback>
                                 </Avatar>

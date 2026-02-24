@@ -14,28 +14,17 @@ export function useAutomationStats() {
   return useQuery({
     queryKey: ['automation-stats'],
     queryFn: async (): Promise<AutomationStats> => {
-      // Total automations
-      const { count: totalAutomations } = await supabase
-        .from('automations')
-        .select('*', { count: 'exact', head: true })
-
-      // Active automations
-      const { count: active } = await supabase
-        .from('automations')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-
-      // Paused automations
-      const { count: paused } = await supabase
-        .from('automations')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', false)
-
-      // Total enrolled (active enrollments across all automations)
-      const { count: totalEnrolled } = await supabase
-        .from('automation_enrollments')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
+      const [
+        { count: totalAutomations },
+        { count: active },
+        { count: paused },
+        { count: totalEnrolled },
+      ] = await Promise.all([
+        supabase.from('automations').select('*', { count: 'exact', head: true }),
+        supabase.from('automations').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('automations').select('*', { count: 'exact', head: true }).eq('is_active', false),
+        supabase.from('automation_enrollments').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      ])
 
       return {
         totalAutomations: totalAutomations || 0,

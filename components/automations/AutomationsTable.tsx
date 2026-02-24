@@ -192,25 +192,25 @@ export function AutomationsTable({
   const getTypeIconColor = (type: string | undefined) => {
     switch (type) {
       case 'deal_creation':
-        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600'
+        return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400'
       case 'initial_contact':
       case 'follow_up':
-        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
+        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
       case 'application_received':
-        return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600'
+        return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400'
       case 'interview_reminder':
       case 'post_interview':
-        return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600'
+        return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
       case 'deposit_invoice':
-        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600'
+        return 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
       case 'payment_overdue':
-        return 'bg-red-100 dark:bg-red-900/50 text-red-600'
+        return 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'
       case 'welcome_sequence':
-        return 'bg-green-100 dark:bg-green-900/50 text-green-600'
+        return 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400'
       case 'pre_departure':
-        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600'
+        return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-400'
       default:
-        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
+        return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
     }
   }
 
@@ -319,9 +319,9 @@ export function AutomationsTable({
                         Duplicate
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => onDelete(automation)}
-                        className="text-red-600 focus:text-red-600"
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/30"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete

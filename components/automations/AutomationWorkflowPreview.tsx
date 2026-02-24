@@ -7,10 +7,6 @@ import {
   Mail,
   Clock,
   ArrowRight,
-  Send,
-  Eye,
-  MousePointer,
-  Users,
   Zap,
   Plus,
   CheckCircle2,
@@ -95,21 +91,21 @@ export function AutomationWorkflowPreview({
   const getStepIconColor = (stepType: AutomationStep['step_type']) => {
     switch (stepType) {
       case 'send_email':
-        return 'bg-blue-100 dark:bg-blue-900 text-blue-600'
+        return 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400'
       case 'wait':
-        return 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
       case 'send_sms':
-        return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600'
+        return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400'
       case 'move_to_stage':
-        return 'bg-orange-100 dark:bg-orange-900 text-orange-600'
+        return 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400'
       case 'create_deal':
-        return 'bg-purple-100 dark:bg-purple-900 text-purple-600'
+        return 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400'
       case 'notify':
-        return 'bg-amber-100 dark:bg-amber-900 text-amber-600'
+        return 'bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-400'
       case 'create_portal_account':
-        return 'bg-cyan-100 dark:bg-cyan-900 text-cyan-600'
+        return 'bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-400'
       default:
-        return 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
     }
   }
 
@@ -132,7 +128,7 @@ export function AutomationWorkflowPreview({
     <div className={cn('space-y-0', compact && 'space-y-0')}>
       {/* Trigger */}
       <div className="relative">
-        <div className="absolute left-[19px] top-[44px] w-0.5 h-[calc(100%-12px)] bg-slate-200" />
+        <div className="absolute left-[19px] top-[44px] w-0.5 h-[calc(100%-12px)] bg-slate-200 dark:bg-slate-700" />
         <div className="flex items-start gap-4 pb-4">
           <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-slate-800 text-white shadow-sm">
             <Zap className="h-4 w-4" />
@@ -156,7 +152,7 @@ export function AutomationWorkflowPreview({
         <div key={step.id} className="relative">
           {/* Connector line */}
           {index < sortedSteps.length - 1 && (
-            <div className="absolute left-[19px] top-[44px] w-0.5 h-[calc(100%-12px)] bg-slate-200" />
+            <div className="absolute left-[19px] top-[44px] w-0.5 h-[calc(100%-12px)] bg-slate-200 dark:bg-slate-700" />
           )}
 
           <div className="flex items-start gap-4 pb-4">
@@ -350,7 +346,7 @@ export function AutomationWorkflowPreview({
       {/* Automation ends indicator */}
       <div className="flex items-center gap-4 pt-1 pl-1">
         <div className="w-8 flex justify-center">
-          <div className="w-3 h-3 rounded-full bg-slate-300" />
+          <div className="w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-600" />
         </div>
         <span className="text-xs text-muted-foreground font-medium">Automation ends</span>
       </div>

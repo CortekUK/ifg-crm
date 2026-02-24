@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { EditorHeader } from './EditorHeader'
 import { EditorSidebar } from './EditorSidebar'
@@ -20,8 +20,6 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
   const router = useRouter()
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const deleteTemplateMutation = useDeleteTemplate()
-
-  console.log('📝 EmailEditorPage rendered with templateId:', templateId)
 
   const {
     blocks,
@@ -44,13 +42,6 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
     canRedo,
     saveTemplate,
   } = useEmailEditor(templateId)
-
-  console.log('📊 Editor state - blocks:', blocks.length, 'isLoading:', isLoading, 'settings:', settings.name)
-
-  // Log when blocks change
-  useEffect(() => {
-    console.log('🔄 Blocks state changed:', blocks.length, blocks)
-  }, [blocks])
 
   const handleClose = () => {
     router.push('/templates')
@@ -118,7 +109,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white dark:bg-slate-900">
       {/* Header */}
       <EditorHeader
         name={settings.name}

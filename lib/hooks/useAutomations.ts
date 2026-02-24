@@ -41,18 +41,22 @@ export function useAutomations() {
         return []
       }
 
-      // Fetch trigger stages separately to avoid FK issues
+      // Fetch trigger stages and enrollment counts in parallel
       const triggerStageIds = data
         .map((a) => a.trigger_stage_id)
         .filter((id): id is string => !!id)
-
-      // Fetch enrollment counts for all automations
       const automationIds = data.map((a) => a.id)
-      const { data: enrollmentCounts } = await supabase
-        .from('automation_enrollments')
-        .select('automation_id')
-        .in('automation_id', automationIds)
-        .eq('status', 'active')
+
+      const [{ data: enrollmentCounts }, stagesResult] = await Promise.all([
+        supabase
+          .from('automation_enrollments')
+          .select('automation_id')
+          .in('automation_id', automationIds)
+          .eq('status', 'active'),
+        triggerStageIds.length > 0
+          ? supabase.from('pipeline_stages').select('id, name').in('id', triggerStageIds)
+          : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      ])
 
       // Count enrollments per automation
       const enrollmentCountMap = new Map<string, number>()
@@ -61,16 +65,7 @@ export function useAutomations() {
         enrollmentCountMap.set(e.automation_id, count + 1)
       })
 
-      // Fetch stages if we have trigger stage IDs
-      let stageMap = new Map<string, { id: string; name: string }>()
-      if (triggerStageIds.length > 0) {
-        const { data: stages } = await supabase
-          .from('pipeline_stages')
-          .select('id, name')
-          .in('id', triggerStageIds)
-
-        stageMap = new Map(stages?.map((s) => [s.id, s]) || [])
-      }
+      const stageMap = new Map(stagesResult.data?.map((s) => [s.id, s]) || [])
 
       return data.map((automation) => ({
         ...automation,
@@ -214,25 +209,27 @@ export function useAutomationStats(automationId: string | null) {
     queryFn: async () => {
       if (!automationId) return null
 
-      // Get enrollment counts
-      const { count: enrolledCount } = await supabase
-        .from('automation_enrollments')
-        .select('*', { count: 'exact', head: true })
-        .eq('automation_id', automationId)
-        .eq('status', 'active')
-
-      const { count: completedCount } = await supabase
-        .from('automation_enrollments')
-        .select('*', { count: 'exact', head: true })
-        .eq('automation_id', automationId)
-        .eq('status', 'completed')
-
-      // Get log counts
-      const { count: sentCount } = await supabase
-        .from('automation_logs')
-        .select('*, step:automation_steps!inner(automation_id)', { count: 'exact', head: true })
-        .eq('step.automation_id', automationId)
-        .eq('status', 'sent')
+      const [
+        { count: enrolledCount },
+        { count: completedCount },
+        { count: sentCount },
+      ] = await Promise.all([
+        supabase
+          .from('automation_enrollments')
+          .select('*', { count: 'exact', head: true })
+          .eq('automation_id', automationId)
+          .eq('status', 'active'),
+        supabase
+          .from('automation_enrollments')
+          .select('*', { count: 'exact', head: true })
+          .eq('automation_id', automationId)
+          .eq('status', 'completed'),
+        supabase
+          .from('automation_logs')
+          .select('*, step:automation_steps!inner(automation_id)', { count: 'exact', head: true })
+          .eq('step.automation_id', automationId)
+          .eq('status', 'sent'),
+      ])
 
       return {
         enrolled: enrolledCount || 0,
