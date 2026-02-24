@@ -81,7 +81,8 @@ export async function DELETE(
       return NextResponse.json({ error: `Failed to delete user: ${authError.message}` }, { status: 500 })
     }
 
-    // Clean up: delete the profile row since auth user is gone
+    // Clean up: delete invite records and profile row since auth user is gone
+    await supabaseAdmin.from('user_invites').delete().eq('email', targetUser.email)
     await supabaseAdmin.from('profiles').delete().eq('id', userId)
 
     return NextResponse.json({

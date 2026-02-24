@@ -87,12 +87,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clean up any old pending invites for this email
+    // Clean up any old invites for this email (all statuses — user may have been deleted and re-invited)
     await supabaseAdmin
       .from('user_invites')
       .delete()
       .eq('email', email)
-      .eq('status', 'pending')
 
     // Create invite record
     const { data: invite, error: inviteError } = await supabaseAdmin
