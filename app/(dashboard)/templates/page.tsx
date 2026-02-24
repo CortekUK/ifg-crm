@@ -6,6 +6,7 @@ import { TemplatesPageHeader } from '@/components/templates/TemplatesPageHeader'
 import { TemplateStats } from '@/components/templates/TemplateStats'
 import { TemplateFilters } from '@/components/templates/TemplateFilters'
 import { TemplatesGrid } from '@/components/templates/TemplatesGrid'
+import { TemplatesTable } from '@/components/templates/TemplatesTable'
 import { DeleteTemplateDialog } from '@/components/templates/DeleteTemplateDialog'
 import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal'
 import { useTemplates, useDeleteTemplate, useDuplicateTemplate } from '@/lib/hooks/useTemplates'
@@ -18,6 +19,7 @@ import { ErrorState } from '@/components/ui/error-state'
 export default function TemplatesPage() {
   const router = useRouter()
   const [filters, setFilters] = useState<TemplateFiltersType>({})
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
@@ -118,8 +120,13 @@ export default function TemplatesPage() {
         isLoading={statsLoading}
       />
 
-      {/* Filters */}
-      <TemplateFilters filters={filters} onFiltersChange={setFilters} />
+      {/* Filters + View Toggle */}
+      <TemplateFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {/* Error State */}
       {error && (
@@ -132,15 +139,26 @@ export default function TemplatesPage() {
         />
       )}
 
-      {/* Templates Grid */}
-      <TemplatesGrid
-        templates={templates}
-        isLoading={isLoading}
-        onEdit={handleEdit}
-        onDelete={handleDeleteClick}
-        onDuplicate={handleDuplicate}
-        onPreview={handlePreview}
-      />
+      {/* Templates Grid or Table */}
+      {viewMode === 'grid' ? (
+        <TemplatesGrid
+          templates={templates}
+          isLoading={isLoading}
+          onEdit={handleEdit}
+          onDelete={handleDeleteClick}
+          onDuplicate={handleDuplicate}
+          onPreview={handlePreview}
+        />
+      ) : (
+        <TemplatesTable
+          templates={templates}
+          isLoading={isLoading}
+          onEdit={handleEdit}
+          onDelete={handleDeleteClick}
+          onDuplicate={handleDuplicate}
+          onPreview={handlePreview}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <DeleteTemplateDialog
