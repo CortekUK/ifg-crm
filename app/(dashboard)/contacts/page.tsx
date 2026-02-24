@@ -15,12 +15,34 @@ import { CreateContactModal } from '@/components/contacts/CreateContactModal'
 import { EditContactModal } from '@/components/contacts/EditContactModal'
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet'
 import { ImportCSVModal } from '@/components/contacts/ImportCSVModal'
-import { useContacts } from '@/lib/hooks/useContacts'
+import { useContacts, useBulkDeleteContacts, useBulkUpdateContactSubscription } from '@/lib/hooks/useContacts'
 import { useContactStats } from '@/lib/hooks/useContactStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { useAddContactsToList, useLists } from '@/lib/hooks/useLists'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from '@/lib/hooks/use-toast'
 import type { Contact } from '@/lib/types/contacts'
 import { ErrorState } from '@/components/ui/error-state'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Download, Trash2, MailCheck, MailX, ListPlus, ChevronDown, Loader2 } from 'lucide-react'
 
 function ContactsPageContent() {
   const searchParams = useSearchParams()
@@ -60,6 +82,7 @@ function ContactsPageContent() {
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
 
   // Current user ID
   const [userId, setUserId] = useState<string | null>(null)
@@ -108,6 +131,12 @@ function ContactsPageContent() {
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useContactStats()
+
+  // Bulk actions
+  const bulkDelete = useBulkDeleteContacts()
+  const bulkUpdateSubscription = useBulkUpdateContactSubscription()
+  const addContactsToList = useAddContactsToList()
+  const { data: lists = [] } = useLists()
 
   const contacts = data?.contacts || []
   const total = data?.total || 0
@@ -225,6 +254,61 @@ function ContactsPageContent() {
     }
   }, [])
 
+  // Bulk action handlers
+  const handleBulkExport = useCallback(() => {
+    const selected = contacts.filter((c) => selectedIds.has(c.id))
+    if (selected.length === 0) return
+    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'Position', 'Club', 'Graduation Year', 'Gender', 'GPA', 'Source']
+    const rows = selected.map((c) => [
+      c.first_name || '', c.last_name || '', c.email || '', c.phone || '',
+      c.country || '', c.position || '', c.club_name || '',
+      c.graduation_year?.toString() || '', c.gender || '', c.gpa?.toString() || '', c.source || '',
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `contacts-selected-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: 'Exported', description: `${selected.length} contact(s) exported to CSV.` })
+  }, [contacts, selectedIds])
+
+  const handleBulkDelete = useCallback(async () => {
+    try {
+      await bulkDelete.mutateAsync(Array.from(selectedIds))
+      toast({ title: 'Contacts deleted', description: `${selectedIds.size} contact(s) deleted.` })
+      setSelectedIds(new Set())
+      setBulkDeleteDialogOpen(false)
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete contacts.', variant: 'destructive' })
+    }
+  }, [selectedIds, bulkDelete])
+
+  const handleBulkSubscriptionChange = useCallback(async (status: string) => {
+    try {
+      await bulkUpdateSubscription.mutateAsync({ contactIds: Array.from(selectedIds), status })
+      toast({
+        title: status === 'subscribed' ? 'Subscribed' : 'Unsubscribed',
+        description: `${selectedIds.size} contact(s) updated.`,
+      })
+      setSelectedIds(new Set())
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update contacts.', variant: 'destructive' })
+    }
+  }, [selectedIds, bulkUpdateSubscription])
+
+  const handleBulkAddToList = useCallback(async (listId: string, listName: string) => {
+    try {
+      await addContactsToList.mutateAsync({ listId, contactIds: Array.from(selectedIds) })
+      toast({ title: 'Added to list', description: `${selectedIds.size} contact(s) added to "${listName}".` })
+      setSelectedIds(new Set())
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add contacts to list.', variant: 'destructive' })
+    }
+  }, [selectedIds, addContactsToList])
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -318,17 +402,80 @@ function ContactsPageContent() {
         ) : undefined}
       />
 
-      {/* Selection Summary */}
+      {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-            {selectedIds.size} contact{selectedIds.size !== 1 ? 's' : ''} selected
-          </span>
+        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+            {selectedIds.size} selected
+          </Badge>
+
+          <div className="flex items-center gap-2 flex-1">
+            {/* Export Selected */}
+            <Button variant="outline" size="sm" onClick={handleBulkExport}>
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </Button>
+
+            {/* Add to List */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={addContactsToList.isPending}>
+                  {addContactsToList.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ListPlus className="h-4 w-4 mr-1" />}
+                  Add to List
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
+                {lists.length === 0 ? (
+                  <DropdownMenuItem disabled>No lists available</DropdownMenuItem>
+                ) : (
+                  lists.map((list) => (
+                    <DropdownMenuItem key={list.id} onClick={() => handleBulkAddToList(list.id, list.name)}>
+                      {list.name}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Subscription Status */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={bulkUpdateSubscription.isPending}>
+                  {bulkUpdateSubscription.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MailCheck className="h-4 w-4 mr-1" />}
+                  Subscription
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => handleBulkSubscriptionChange('subscribed')}>
+                  <MailCheck className="h-4 w-4 mr-2 text-green-600" />
+                  Subscribe
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkSubscriptionChange('unsubscribed')}>
+                  <MailX className="h-4 w-4 mr-2 text-red-600" />
+                  Unsubscribe
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Delete */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+              onClick={() => setBulkDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          </div>
+
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline shrink-0"
           >
-            Clear selection
+            Clear
           </button>
         </div>
       )}
@@ -410,6 +557,36 @@ function ContactsPageContent() {
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
       />
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} contact{selectedIds.size !== 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected contacts and all their associated data
+              (deals, invoices, activities). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={bulkDelete.isPending}
+            >
+              {bulkDelete.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete All'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

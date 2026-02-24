@@ -9,6 +9,7 @@ import { TemplatesGrid } from '@/components/templates/TemplatesGrid'
 import { TemplatesTable } from '@/components/templates/TemplatesTable'
 import { DeleteTemplateDialog } from '@/components/templates/DeleteTemplateDialog'
 import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal'
+import { ImportHTMLModal } from '@/components/templates/ImportHTMLModal'
 import { useTemplates, useDeleteTemplate, useDuplicateTemplate } from '@/lib/hooks/useTemplates'
 import { useTemplateStats } from '@/lib/hooks/useTemplateStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
@@ -22,6 +23,7 @@ export default function TemplatesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
 
   // Debounce search
@@ -97,10 +99,7 @@ export default function TemplatesPage() {
   }
 
   const handleImport = () => {
-    toast({
-      title: 'Coming soon',
-      description: 'HTML import functionality will be available in a future update.',
-    })
+    setImportModalOpen(true)
   }
 
   return (
@@ -174,6 +173,15 @@ export default function TemplatesPage() {
         template={selectedTemplate}
         open={previewModalOpen}
         onOpenChange={setPreviewModalOpen}
+      />
+
+      {/* Import HTML Modal */}
+      <ImportHTMLModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={(templateId) => {
+          router.push(`/templates/editor?id=${templateId}`)
+        }}
       />
     </div>
   )

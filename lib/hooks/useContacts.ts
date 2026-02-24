@@ -265,6 +265,48 @@ export function useUpdateContact() {
   })
 }
 
+export function useBulkDeleteContacts() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (contactIds: string[]) => {
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .in('id', contactIds)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      queryClient.invalidateQueries({ queryKey: ['contact-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+      queryClient.invalidateQueries({ queryKey: ['list-stats'] })
+    },
+  })
+}
+
+export function useBulkUpdateContactSubscription() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ contactIds, status }: { contactIds: string[]; status: string }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ subscription_status: status })
+        .in('id', contactIds)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      queryClient.invalidateQueries({ queryKey: ['contact-stats'] })
+    },
+  })
+}
+
 export function useContactDeals(contactId: string | null) {
   const supabase = createClient()
 
