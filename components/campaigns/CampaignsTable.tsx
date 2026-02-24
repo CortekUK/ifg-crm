@@ -168,15 +168,15 @@ export function CampaignsTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"><Checkbox disabled /></TableHead>
-              <TableHead>Campaign</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Pipeline</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Recipients</TableHead>
-              <TableHead>Delivered</TableHead>
-              <TableHead>Open Rate</TableHead>
-              <TableHead>Click Rate</TableHead>
-              <TableHead>Sent Date</TableHead>
+              <TableHead className="min-w-[200px]">Campaign</TableHead>
+              <TableHead className="w-[80px]">Type</TableHead>
+              <TableHead className="w-[100px]">Pipeline</TableHead>
+              <TableHead className="w-[90px]">Status</TableHead>
+              <TableHead className="w-[80px] text-center">Recipients</TableHead>
+              <TableHead className="w-[80px] text-center">Delivered</TableHead>
+              <TableHead className="w-[80px] text-center">Open Rate</TableHead>
+              <TableHead className="w-[80px] text-center">Click Rate</TableHead>
+              <TableHead className="w-[100px]">Sent Date</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
@@ -226,15 +226,15 @@ export function CampaignsTable({
                   onCheckedChange={(checked) => onSelectAll(checked === true)}
                 />
               </TableHead>
-              <TableHead>Campaign</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Pipeline</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Recipients</TableHead>
-              <TableHead>Delivered</TableHead>
-              <TableHead>Open Rate</TableHead>
-              <TableHead>Click Rate</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead className="min-w-[200px]">Campaign</TableHead>
+              <TableHead className="w-[80px]">Type</TableHead>
+              <TableHead className="w-[100px]">Pipeline</TableHead>
+              <TableHead className="w-[90px]">Status</TableHead>
+              <TableHead className="w-[80px] text-center">Recipients</TableHead>
+              <TableHead className="w-[80px] text-center">Delivered</TableHead>
+              <TableHead className="w-[80px] text-center">Open Rate</TableHead>
+              <TableHead className="w-[80px] text-center">Click Rate</TableHead>
+              <TableHead className="w-[100px]">Date</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
@@ -392,14 +392,14 @@ export function CampaignsTable({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-muted-foreground text-center">
                     {campaign.status === 'sending' || campaign.status === 'sent'
                       ? formatNumber(campaign.total_recipients || recipients)
                       : formatNumber(recipients)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{deliveredDisplay}</TableCell>
-                  <TableCell className="text-muted-foreground">{openRate}</TableCell>
-                  <TableCell className="text-muted-foreground">{clickRate}</TableCell>
+                  <TableCell className="text-muted-foreground text-center">{deliveredDisplay}</TableCell>
+                  <TableCell className="text-muted-foreground text-center">{openRate}</TableCell>
+                  <TableCell className="text-muted-foreground text-center">{clickRate}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {campaign.sent_at
                       ? formatDate(campaign.sent_at)
