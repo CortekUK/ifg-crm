@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import {
   Table,
   TableBody,
@@ -18,9 +19,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Eye, Pencil, Trash2, Users, ListIcon } from 'lucide-react'
+import { MoreHorizontal, Eye, Pencil, Trash2, Users, ListIcon, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
+import { cn } from '@/lib/utils'
 import type { List } from '@/lib/types/lists'
+
+type SortField = 'name' | 'contact_count' | 'created_at'
+type SortDir = 'asc' | 'desc'
 
 interface ListsTableProps {
   lists: List[]
@@ -30,6 +35,13 @@ interface ListsTableProps {
   onDelete: (list: List) => void
 }
 
+function SortIcon({ field, activeField, dir }: { field: SortField; activeField: SortField; dir: SortDir }) {
+  if (field !== activeField) return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+  return dir === 'asc'
+    ? <ArrowUp className="h-3.5 w-3.5" />
+    : <ArrowDown className="h-3.5 w-3.5" />
+}
+
 export function ListsTable({
   lists,
   isLoading,
@@ -37,6 +49,37 @@ export function ListsTable({
   onEdit,
   onDelete,
 }: ListsTableProps) {
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir(field === 'name' ? 'asc' : 'desc')
+    }
+  }
+
+  const sortedLists = useMemo(() => {
+    const sorted = [...lists]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name)
+          break
+        case 'contact_count':
+          cmp = (a.contact_count || 0) - (b.contact_count || 0)
+          break
+        case 'created_at':
+          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [lists, sortField, sortDir])
   if (isLoading) {
     return (
       <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
@@ -83,15 +126,27 @@ export function ListsTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead>
+              <button onClick={() => toggleSort('name')} className={cn("flex items-center gap-1 hover:text-foreground transition-colors", sortField === 'name' && "text-foreground")}>
+                Name <SortIcon field="name" activeField={sortField} dir={sortDir} />
+              </button>
+            </TableHead>
             <TableHead>Description</TableHead>
-            <TableHead className="text-right">Contacts</TableHead>
-            <TableHead>Created</TableHead>
+            <TableHead className="text-right">
+              <button onClick={() => toggleSort('contact_count')} className={cn("flex items-center gap-1 ml-auto hover:text-foreground transition-colors", sortField === 'contact_count' && "text-foreground")}>
+                Contacts <SortIcon field="contact_count" activeField={sortField} dir={sortDir} />
+              </button>
+            </TableHead>
+            <TableHead>
+              <button onClick={() => toggleSort('created_at')} className={cn("flex items-center gap-1 hover:text-foreground transition-colors", sortField === 'created_at' && "text-foreground")}>
+                Created <SortIcon field="created_at" activeField={sortField} dir={sortDir} />
+              </button>
+            </TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {lists.map((list) => (
+          {sortedLists.map((list) => (
             <TableRow
               key={list.id}
               className="cursor-pointer hover:bg-muted/50"
