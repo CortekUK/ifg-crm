@@ -26,6 +26,7 @@ import type { User, UserRole, UserOrInvite } from '@/lib/types/users'
 interface UsersTableProps {
   users: UserOrInvite[]
   isLoading: boolean
+  hasActiveFilters?: boolean
   onEdit: (user: User) => void
   onDeactivate: (user: User) => void
   onDelete: (user: User) => void
@@ -42,6 +43,7 @@ const roleConfig: Record<UserRole, { label: string; className: string }> = {
 export function UsersTable({
   users,
   isLoading,
+  hasActiveFilters,
   onEdit,
   onDeactivate,
   onDelete,
@@ -96,9 +98,13 @@ export function UsersTable({
     return (
       <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No users yet</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+          {hasActiveFilters ? 'No users match your filters' : 'No users yet'}
+        </h3>
         <p className="text-muted-foreground">
-          Invite your first team member to get started.
+          {hasActiveFilters
+            ? 'Try adjusting your search or filter criteria.'
+            : 'Invite your first team member to get started.'}
         </p>
       </div>
     )

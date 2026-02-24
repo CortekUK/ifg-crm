@@ -97,7 +97,8 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
     }
   }
 
-  const isValid = formData.fullName && formData.email
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+  const isValid = formData.fullName && formData.email && isValidEmail
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -141,6 +142,9 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
                     onChange={(e) => handleChange('email', e.target.value)}
                     placeholder="john@example.com"
                   />
+                  {formData.email && !isValidEmail && (
+                    <p className="text-xs text-red-500">Please enter a valid email address.</p>
+                  )}
                 </div>
               </div>
 

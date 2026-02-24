@@ -7,16 +7,33 @@ import { UsersTable } from '@/components/users/UsersTable'
 import { InviteUserModal } from '@/components/users/InviteUserModal'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { DeleteUserModal } from '@/components/users/DeleteUserModal'
-import { useUsersAndInvites, useUpdateUser, useDeleteUser } from '@/lib/hooks/useUsers'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Loader2 } from 'lucide-react'
+import { useUsersAndInvites, useUpdateUser, useDeleteUser, useInviteUser } from '@/lib/hooks/useUsers'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 import type { User, UserOrInvite } from '@/lib/types/users'
 
+type ConfirmAction =
+  | { type: 'deactivate'; user: User }
+  | { type: 'cancel-invite'; invite: UserOrInvite }
+
 export default function UsersPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
+  const [isConfirmLoading, setIsConfirmLoading] = useState(false)
   const [filters, setFilters] = useState<UsersFiltersState>({
     search: '',
     role: 'all',
@@ -26,10 +43,13 @@ export default function UsersPage() {
   const { data: usersAndInvites = [], isLoading, refetch } = useUsersAndInvites()
   const updateUser = useUpdateUser()
   const deleteUser = useDeleteUser()
+  const inviteUser = useInviteUser()
   const supabase = createClient()
 
   // Debounce search
   const debouncedSearch = useDebouncedValue(filters.search, 300)
+
+  const hasActiveFilters = debouncedSearch !== '' || filters.role !== 'all' || filters.status !== 'all'
 
   // Filter users based on search, role, and status
   const filteredUsers = useMemo(() => {
@@ -60,24 +80,60 @@ export default function UsersPage() {
     setEditingUser(user)
   }
 
-  const handleDeactivate = async (user: User) => {
-    const action = user.is_active ? 'deactivate' : 'activate'
-    if (confirm(`Are you sure you want to ${action} ${user.full_name || user.email}?`)) {
-      try {
+  const handleDeactivate = (user: User) => {
+    setConfirmAction({ type: 'deactivate', user })
+  }
+
+  const handleCancelInvite = (invite: UserOrInvite) => {
+    if (!invite.is_invite) return
+    setConfirmAction({ type: 'cancel-invite', invite })
+  }
+
+  const handleResendInvite = async (invite: UserOrInvite) => {
+    if (!invite.is_invite) return
+
+    try {
+      // Re-invite by calling the invite API (will clean up old invite and create new one)
+      await inviteUser.mutateAsync({
+        email: invite.email,
+        fullName: invite.full_name || '',
+        role: invite.role,
+        title: invite.title || undefined,
+        pipelineIds: invite.pipeline_assignments,
+      })
+
+      toast({
+        title: 'Invitation resent',
+        description: `A new invitation has been sent to ${invite.email}.`,
+      })
+    } catch (error) {
+      console.error('Failed to resend invite:', error)
+      toast({
+        title: 'Failed to resend invitation',
+        description: error instanceof Error ? error.message : 'An error occurred while resending the invitation.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return
+
+    setIsConfirmLoading(true)
+    try {
+      if (confirmAction.type === 'deactivate') {
+        const { user } = confirmAction
+        const action = user.is_active ? 'deactivated' : 'activated'
         await updateUser.mutateAsync({
           userId: user.id,
           updates: { is_active: !user.is_active },
         })
-      } catch (error) {
-        console.error(`Failed to ${action} user:`, error)
-      }
-    }
-  }
-
-  const handleCancelInvite = async (invite: UserOrInvite) => {
-    if (!invite.is_invite) return
-    if (confirm(`Are you sure you want to cancel the invitation for ${invite.email}?`)) {
-      try {
+        toast({
+          title: `User ${action}`,
+          description: `${user.full_name || user.email} has been ${action}.`,
+        })
+      } else if (confirmAction.type === 'cancel-invite') {
+        const { invite } = confirmAction
         const { error } = await supabase
           .from('user_invites')
           .delete()
@@ -90,14 +146,20 @@ export default function UsersPage() {
           description: `The invitation for ${invite.email} has been cancelled.`,
         })
         refetch()
-      } catch (error) {
-        console.error('Failed to cancel invite:', error)
-        toast({
-          title: 'Failed to cancel invitation',
-          description: 'An error occurred while cancelling the invitation.',
-          variant: 'destructive',
-        })
       }
+    } catch (error) {
+      console.error('Action failed:', error)
+      const errorMsg = confirmAction.type === 'deactivate'
+        ? 'Failed to update user status.'
+        : 'Failed to cancel invitation.'
+      toast({
+        title: 'Action failed',
+        description: error instanceof Error ? error.message : errorMsg,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsConfirmLoading(false)
+      setConfirmAction(null)
     }
   }
 
@@ -125,6 +187,19 @@ export default function UsersPage() {
     }
   }
 
+  // Build confirm dialog content
+  const confirmTitle = confirmAction?.type === 'deactivate'
+    ? confirmAction.user.is_active ? 'Deactivate User' : 'Activate User'
+    : 'Cancel Invitation'
+
+  const confirmDescription = confirmAction?.type === 'deactivate'
+    ? confirmAction.user.is_active
+      ? `Are you sure you want to deactivate ${confirmAction.user.full_name || confirmAction.user.email}? They will no longer be able to access the system.`
+      : `Are you sure you want to activate ${confirmAction.user.full_name || confirmAction.user.email}? They will regain access to the system.`
+    : confirmAction?.type === 'cancel-invite'
+      ? `Are you sure you want to cancel the invitation for ${confirmAction.invite.email}?`
+      : ''
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -137,9 +212,11 @@ export default function UsersPage() {
       <UsersTable
         users={filteredUsers}
         isLoading={isLoading}
+        hasActiveFilters={hasActiveFilters}
         onEdit={handleEdit}
         onDeactivate={handleDeactivate}
         onDelete={handleDelete}
+        onResendInvite={handleResendInvite}
         onCancelInvite={handleCancelInvite}
       />
 
@@ -164,6 +241,36 @@ export default function UsersPage() {
         onClose={() => setDeletingUser(null)}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* Deactivate / Cancel Invite Confirmation */}
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isConfirmLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmAction}
+              disabled={isConfirmLoading}
+              className={confirmAction?.type === 'cancel-invite' || (confirmAction?.type === 'deactivate' && confirmAction.user.is_active)
+                ? 'bg-red-600 hover:bg-red-700'
+                : ''
+              }
+            >
+              {isConfirmLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Confirm'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

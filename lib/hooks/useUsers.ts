@@ -140,10 +140,10 @@ export function useUpdateUser() {
 
   return useMutation({
     mutationFn: async ({ userId, updates }: { userId: string; updates: Record<string, unknown> }) => {
-      // Filter out undefined values and pipeline_assignments (handled separately)
+      // Filter out undefined values
       const dbUpdates: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(updates)) {
-        if (value !== undefined && key !== 'pipeline_assignments') {
+        if (value !== undefined) {
           dbUpdates[key] = value
         }
       }
@@ -154,21 +154,6 @@ export function useUpdateUser() {
         .eq('id', userId)
 
       if (error) throw error
-
-      // Handle pipeline assignments separately if needed
-      // This would typically be stored in a junction table
-      if (updates.pipeline_assignments) {
-        // For now, we store in the profiles table as a JSON array
-        // In a production app, this might be a separate table
-        const { error: assignError } = await supabase
-          .from('profiles')
-          .update({ pipeline_assignments: updates.pipeline_assignments })
-          .eq('id', userId)
-
-        if (assignError) {
-          console.warn('Could not update pipeline assignments:', assignError.message)
-        }
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
