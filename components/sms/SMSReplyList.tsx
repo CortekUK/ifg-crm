@@ -1,6 +1,14 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -108,12 +116,12 @@ export function SMSReplyList({
 
   const SortIcon = ({ column }: { column: SortKey }) => {
     if (sortBy !== column) {
-      return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />
+      return <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/50" />
     }
     return sortOrder === 'asc' ? (
-      <ArrowUp className="ml-1 h-3 w-3" />
+      <ArrowUp className="ml-1 h-3.5 w-3.5" />
     ) : (
-      <ArrowDown className="ml-1 h-3 w-3" />
+      <ArrowDown className="ml-1 h-3.5 w-3.5" />
     )
   }
 
@@ -130,22 +138,22 @@ export function SMSReplyList({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {columns.map((col) => (
-                <th key={col.key} className={cn('px-3 py-2 text-left text-xs font-medium text-muted-foreground', col.className)}>
+                <TableHead key={col.key} className={col.className}>
                   {col.label}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {Array.from({ length: 6 }).map((_, i) => (
-              <tr key={i} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
-                <td className="pl-4 pr-2 py-2.5"><Skeleton className="h-4 w-4" /></td>
-                <td className="px-3 py-2.5">
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <Skeleton className="h-7 w-7 rounded-full" />
                     <div className="space-y-1">
@@ -153,17 +161,17 @@ export function SMSReplyList({
                       <Skeleton className="h-2.5 w-20" />
                     </div>
                   </div>
-                </td>
-                <td className="px-3 py-2.5"><Skeleton className="h-3 w-64" /></td>
-                <td className="px-3 py-2.5"><Skeleton className="h-5 w-14" /></td>
-                <td className="px-3 py-2.5"><Skeleton className="h-3 w-20" /></td>
-                <td className="px-3 py-2.5"><Skeleton className="h-5 w-16" /></td>
-                <td className="px-3 py-2.5"><Skeleton className="h-3 w-16" /></td>
-                <td className="pl-2 pr-4 py-2.5"><Skeleton className="h-7 w-20" /></td>
-              </tr>
+                </TableCell>
+                <TableCell><Skeleton className="h-3 w-64" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-14" /></TableCell>
+                <TableCell><Skeleton className="h-3 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-3 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-7 w-20" /></TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     )
   }
@@ -171,7 +179,7 @@ export function SMSReplyList({
   if (messages.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
-        <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+        <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No messages</h3>
         <p className="text-muted-foreground">{emptyMessage}</p>
       </div>
@@ -180,18 +188,16 @@ export function SMSReplyList({
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {columns.map((col) => (
-                <th
+                <TableHead
                   key={col.key}
                   className={cn(
-                    'px-3 py-2.5 text-left text-xs font-medium text-muted-foreground',
-                    col.sortable && 'cursor-pointer select-none hover:text-foreground',
                     col.className,
-                    col.key === 'checkbox' && 'pl-4 pr-2'
+                    col.sortable && 'cursor-pointer select-none hover:bg-muted/50'
                   )}
                   onClick={() => col.sortable && handleSort(col.key as SortKey)}
                 >
@@ -206,11 +212,11 @@ export function SMSReplyList({
                       {col.sortable && <SortIcon column={col.key as SortKey} />}
                     </div>
                   )}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {sortedMessages.map((message) => (
               <SMSReplyCard
                 key={message.id}
@@ -224,8 +230,8 @@ export function SMSReplyList({
                 onSelectChange={onSelectChange}
               />
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Load More Button */}

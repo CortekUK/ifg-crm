@@ -1,5 +1,6 @@
 'use client'
 
+import { TableRow, TableCell } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -53,16 +54,16 @@ export function EmailReplyCard({
   const displayName = reply.from_name || reply.from_email
 
   return (
-    <tr
+    <TableRow
       className={cn(
-        'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer',
+        'cursor-pointer',
         isSpam && 'opacity-60',
         selected && 'bg-blue-50/50 dark:bg-blue-900/20'
       )}
       onClick={() => onViewFull(reply)}
     >
       {/* Checkbox */}
-      <td className="pl-4 pr-2 py-2.5 w-10" onClick={(e) => e.stopPropagation()}>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         {selectable && !isSpam ? (
           <Checkbox
             checked={selected}
@@ -70,13 +71,13 @@ export function EmailReplyCard({
             aria-label={`Select reply from ${displayName}`}
           />
         ) : null}
-      </td>
+      </TableCell>
 
       {/* From */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         <div className="flex items-center gap-2.5">
           <Avatar className="h-7 w-7 shrink-0">
-            <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 text-[10px]">
+            <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[10px]">
               {getInitials(reply.from_name, reply.from_email)}
             </AvatarFallback>
           </Avatar>
@@ -91,45 +92,45 @@ export function EmailReplyCard({
             )}
           </div>
         </div>
-      </td>
+      </TableCell>
 
       {/* Subject & Preview */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         <p className={cn('text-sm font-medium truncate max-w-[280px]', isSpam && 'line-through')}>
           {reply.subject || '(No subject)'}
         </p>
         <p className={cn('text-[11px] text-muted-foreground truncate max-w-[280px]', isSpam && 'line-through')}>
           {reply.body_preview || '(No content)'}
         </p>
-      </td>
+      </TableCell>
 
       {/* Intent */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         <Badge className={cn('text-[10px] font-medium', intentInfo.className)}>
           {intentInfo.label}
         </Badge>
-      </td>
+      </TableCell>
 
       {/* Campaign */}
-      <td className="px-3 py-2.5 text-sm text-muted-foreground">
+      <TableCell className="text-sm text-muted-foreground">
         {reply.campaign ? (
           <span className="truncate block max-w-[120px]">{reply.campaign.name}</span>
         ) : (
           <span className="text-muted-foreground/50">—</span>
         )}
-      </td>
+      </TableCell>
 
       {/* Pipeline */}
-      <td className="px-3 py-2.5 text-sm text-muted-foreground">
+      <TableCell className="text-sm text-muted-foreground">
         {reply.campaign?.pipeline ? (
           <span className="truncate block max-w-[100px]">{reply.campaign.pipeline.name}</span>
         ) : (
           <span className="text-muted-foreground/50">—</span>
         )}
-      </td>
+      </TableCell>
 
       {/* Status */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         {!isMatched && !isSpam && (
           <Badge variant="outline" className="text-[10px] bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
             Unmatched
@@ -145,15 +146,15 @@ export function EmailReplyCard({
             Spam
           </Badge>
         )}
-      </td>
+      </TableCell>
 
       {/* Date */}
-      <td className="px-3 py-2.5 text-[11px] text-muted-foreground whitespace-nowrap">
+      <TableCell className="text-xs text-muted-foreground">
         {formatRelativeTime(reply.created_at)}
-      </td>
+      </TableCell>
 
       {/* Actions */}
-      <td className="pl-2 pr-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           <Button
             variant="ghost"
@@ -200,7 +201,7 @@ export function EmailReplyCard({
             </Button>
           )}
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }

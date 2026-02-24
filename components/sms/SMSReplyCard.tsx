@@ -1,5 +1,6 @@
 'use client'
 
+import { TableRow, TableCell } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -54,16 +55,16 @@ export function SMSReplyCard({
     : formatPhoneNumber(message.phone_number)
 
   return (
-    <tr
+    <TableRow
       className={cn(
-        'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer',
+        'cursor-pointer',
         isSpam && 'opacity-60',
         selected && 'bg-blue-50/50 dark:bg-blue-900/20'
       )}
       onClick={() => onViewFull(message)}
     >
       {/* Checkbox */}
-      <td className="pl-4 pr-2 py-2.5 w-10" onClick={(e) => e.stopPropagation()}>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         {selectable && !isSpam ? (
           <Checkbox
             checked={selected}
@@ -71,14 +72,14 @@ export function SMSReplyCard({
             aria-label={`Select message from ${displayName}`}
           />
         ) : null}
-      </td>
+      </TableCell>
 
       {/* From */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         <div className="flex items-center gap-2.5">
           {message.contact ? (
             <Avatar className="h-7 w-7 shrink-0">
-              <AvatarFallback className="bg-purple-100 dark:bg-purple-900/50 text-purple-600 text-[10px]">
+              <AvatarFallback className="bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 text-[10px]">
                 {getInitials(message.contact.first_name, message.contact.last_name)}
               </AvatarFallback>
             </Avatar>
@@ -98,33 +99,33 @@ export function SMSReplyCard({
             )}
           </div>
         </div>
-      </td>
+      </TableCell>
 
       {/* Message */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         <p className={cn('text-sm truncate max-w-[320px]', isSpam && 'line-through')}>
           {message.content}
         </p>
-      </td>
+      </TableCell>
 
       {/* Intent */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         <Badge className={cn('text-[10px] font-medium', intentInfo.className)}>
           {intentInfo.label}
         </Badge>
-      </td>
+      </TableCell>
 
       {/* Pipeline */}
-      <td className="px-3 py-2.5 text-sm text-muted-foreground">
+      <TableCell className="text-sm text-muted-foreground">
         {message.pipeline ? (
           <span className="truncate block max-w-[100px]">{message.pipeline.name}</span>
         ) : (
           <span className="text-muted-foreground/50">—</span>
         )}
-      </td>
+      </TableCell>
 
       {/* Status */}
-      <td className="px-3 py-2.5">
+      <TableCell>
         {!isMatched && !isSpam && (
           <Badge variant="outline" className="text-[10px] bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
             Unmatched
@@ -140,15 +141,15 @@ export function SMSReplyCard({
             Spam
           </Badge>
         )}
-      </td>
+      </TableCell>
 
       {/* Date */}
-      <td className="px-3 py-2.5 text-[11px] text-muted-foreground whitespace-nowrap">
+      <TableCell className="text-xs text-muted-foreground">
         {formatRelativeTime(message.created_at)}
-      </td>
+      </TableCell>
 
       {/* Actions */}
-      <td className="pl-2 pr-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           <Button
             variant="ghost"
@@ -195,7 +196,7 @@ export function SMSReplyCard({
             </Button>
           )}
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
