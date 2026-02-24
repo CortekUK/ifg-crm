@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
 // Email Replies Components
-import { EmailReplyStats } from '@/components/email/EmailReplyStats'
 import { EmailReplyTabs } from '@/components/email/EmailReplyTabs'
 import { EmailReplyList } from '@/components/email/EmailReplyList'
 import { EmailDetailSheet } from '@/components/email/EmailDetailSheet'
@@ -17,7 +16,6 @@ import { MatchEmailModal } from '@/components/email/MatchEmailModal'
 import { useEmailReplies, useEmailReplyCounts } from '@/lib/hooks/useEmailReplies'
 
 // SMS Replies Components
-import { SMSReplyStats } from '@/components/sms/SMSReplyStats'
 import { SMSReplyTabs } from '@/components/sms/SMSReplyTabs'
 import { SMSReplyList } from '@/components/sms/SMSReplyList'
 import { SMSDetailSheet } from '@/components/sms/SMSDetailSheet'

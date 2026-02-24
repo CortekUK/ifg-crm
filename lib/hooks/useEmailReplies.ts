@@ -102,45 +102,44 @@ export function useEmailReplyCounts() {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      // Count unmatched
-      const { count: unmatched } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .eq('match_status', 'unmatched')
-
-      // Count matched
-      const { count: matched } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .in('match_status', ['auto_matched', 'manually_matched'])
-
-      // Count spam
-      const { count: spam } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .eq('match_status', 'spam')
-
-      // Count today's replies
-      const { count: todayCount } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', today.toISOString())
-
-      // Count by intent
-      const { count: positive } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .eq('ai_intent', 'positive')
-
-      const { count: negative } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .eq('ai_intent', 'negative')
-
-      const { count: question } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .eq('ai_intent', 'question')
+      const [
+        { count: unmatched },
+        { count: matched },
+        { count: spam },
+        { count: todayCount },
+        { count: positive },
+        { count: negative },
+        { count: question },
+      ] = await Promise.all([
+        supabase
+          .from('email_replies')
+          .select('*', { count: 'exact', head: true })
+          .eq('match_status', 'unmatched'),
+        supabase
+          .from('email_replies')
+          .select('*', { count: 'exact', head: true })
+          .in('match_status', ['auto_matched', 'manually_matched']),
+        supabase
+          .from('email_replies')
+          .select('*', { count: 'exact', head: true })
+          .eq('match_status', 'spam'),
+        supabase
+          .from('email_replies')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', today.toISOString()),
+        supabase
+          .from('email_replies')
+          .select('*', { count: 'exact', head: true })
+          .eq('ai_intent', 'positive'),
+        supabase
+          .from('email_replies')
+          .select('*', { count: 'exact', head: true })
+          .eq('ai_intent', 'negative'),
+        supabase
+          .from('email_replies')
+          .select('*', { count: 'exact', head: true })
+          .eq('ai_intent', 'question'),
+      ])
 
       return {
         unmatched: unmatched || 0,

@@ -18,6 +18,7 @@ import {
   GitBranch,
   Sparkles,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { formatDateLong, formatRelativeTime, formatPhoneNumber } from '@/lib/utils/format'
 import type { SMSMessage, SMSIntent } from '@/lib/types/sms'
 
@@ -47,6 +48,8 @@ export function SMSDetailSheet({
   isOpen,
   onClose,
 }: SMSDetailSheetProps) {
+  const router = useRouter()
+
   if (!message) return null
 
   const intent = message.ai_intent || 'unknown'
@@ -158,7 +161,12 @@ export function SMSDetailSheet({
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         {message.contact.first_name} {message.contact.last_name}
                       </span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onClick={() => router.push(`/contacts?id=${message.contact!.id}`)}
+                      >
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
                     </div>

@@ -158,7 +158,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
         {isLoading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100">
+              <div key={i} className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-700">
                 <div className="flex justify-between mb-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-7 w-16" />
@@ -184,7 +184,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
                 return (
                   <div
                     key={message.id}
-                    className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
+                    className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 dark:hover:border-slate-600 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 min-w-0">
@@ -228,7 +228,7 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
                 return (
                   <div
                     key={email.id}
-                    className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors"
+                    className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 dark:hover:border-slate-600 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 min-w-0">

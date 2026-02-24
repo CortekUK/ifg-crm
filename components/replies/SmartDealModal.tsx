@@ -225,7 +225,10 @@ export function SmartDealModal({
     }))
   }, [eligible, selectedIds, pipelines])
 
-  const selectedCount = eligible.filter((item) => selectedIds.has(item.id)).length
+  const selectedCount = useMemo(
+    () => eligible.filter((item) => selectedIds.has(item.id)).length,
+    [eligible, selectedIds]
+  )
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {

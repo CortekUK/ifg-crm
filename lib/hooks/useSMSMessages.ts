@@ -48,60 +48,57 @@ export function useSMSMessageCounts() {
   return useQuery<SMSMessageCounts>({
     queryKey: ['sms-message-counts'],
     queryFn: async () => {
-      // Get unmatched count
-      const { count: unmatchedCount } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .eq('match_status', 'unmatched')
-
-      // Get matched count
-      const { count: matchedCount } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .in('match_status', ['auto_matched', 'manually_matched'])
-
-      // Get spam count
-      const { count: spamCount } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .eq('match_status', 'spam')
-
-      // Get today's count
       const startOfDay = new Date()
       startOfDay.setHours(0, 0, 0, 0)
 
-      const { count: todayCount } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .gte('created_at', startOfDay.toISOString())
-
-      // Get positive intent count
-      const { count: positiveCount } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .eq('ai_intent', 'positive')
-        .eq('match_status', 'unmatched')
-
-      // Get negative intent count
-      const { count: negativeCount } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .eq('ai_intent', 'negative')
-        .eq('match_status', 'unmatched')
-
-      // Get question intent count
-      const { count: questionCount } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'inbound')
-        .eq('ai_intent', 'question')
-        .eq('match_status', 'unmatched')
+      const [
+        { count: unmatchedCount },
+        { count: matchedCount },
+        { count: spamCount },
+        { count: todayCount },
+        { count: positiveCount },
+        { count: negativeCount },
+        { count: questionCount },
+      ] = await Promise.all([
+        supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound')
+          .eq('match_status', 'unmatched'),
+        supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound')
+          .in('match_status', ['auto_matched', 'manually_matched']),
+        supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound')
+          .eq('match_status', 'spam'),
+        supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound')
+          .gte('created_at', startOfDay.toISOString()),
+        supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound')
+          .eq('ai_intent', 'positive')
+          .eq('match_status', 'unmatched'),
+        supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound')
+          .eq('ai_intent', 'negative')
+          .eq('match_status', 'unmatched'),
+        supabase
+          .from('sms_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('direction', 'inbound')
+          .eq('ai_intent', 'question')
+          .eq('match_status', 'unmatched'),
+      ])
 
       return {
         unmatched: unmatchedCount || 0,
