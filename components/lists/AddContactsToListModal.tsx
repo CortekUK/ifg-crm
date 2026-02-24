@@ -156,6 +156,13 @@ export function AddContactsToListModal({
                 </div>
               ))}
             </div>
+          ) : !debouncedSearch || debouncedSearch.length < 2 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Search className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+              <p className="text-sm text-muted-foreground text-center">
+                Type a name or email to search contacts.
+              </p>
+            </div>
           ) : contacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Users className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />

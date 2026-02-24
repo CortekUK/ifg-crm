@@ -9,15 +9,7 @@ export function useSearchContacts(search: string) {
     queryKey: ['contacts-search', search || '__recent__'],
     queryFn: async () => {
       if (!search || search.length < 2) {
-        // Show recent contacts when no search query
-        const { data, error } = await supabase
-          .from('contacts')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(50)
-
-        if (error) throw error
-        return data || []
+        return []
       }
 
       // Split search into words so "Alex Mattes" matches first_name=Alex AND last_name=Mattes
