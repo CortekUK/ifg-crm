@@ -404,26 +404,31 @@ function ContactsPageContent() {
 
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 dark:bg-blue-700 rounded-lg shadow-sm">
-          <span className="text-sm font-medium text-white tabular-nums">
-            {selectedIds.size} selected
+        <div className="flex items-center gap-1 px-3 py-2 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-600 text-xs font-semibold px-2.5 py-0.5 mr-1">
+            {selectedIds.size}
+          </Badge>
+          <span className="text-sm font-medium text-blue-900 dark:text-blue-100 mr-2">
+            selected
           </span>
 
-          <div className="w-px h-5 bg-blue-400/40 mx-1" />
+          <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
 
           {/* Export Selected */}
-          <Button variant="ghost" size="sm" onClick={handleBulkExport} className="text-white hover:bg-blue-500 dark:hover:bg-blue-600">
+          <Button variant="ghost" size="sm" onClick={handleBulkExport} className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50">
             <Download className="h-4 w-4 mr-1.5" />
             Export
           </Button>
 
+          <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
+
           {/* Add to List */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" disabled={addContactsToList.isPending} className="text-white hover:bg-blue-500 dark:hover:bg-blue-600">
+              <Button variant="ghost" size="sm" disabled={addContactsToList.isPending} className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50">
                 {addContactsToList.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <ListPlus className="h-4 w-4 mr-1.5" />}
                 Add to List
-                <ChevronDown className="h-3 w-3 ml-1 opacity-70" />
+                <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
@@ -439,13 +444,15 @@ function ContactsPageContent() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
+
           {/* Subscription Status */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" disabled={bulkUpdateSubscription.isPending} className="text-white hover:bg-blue-500 dark:hover:bg-blue-600">
+              <Button variant="ghost" size="sm" disabled={bulkUpdateSubscription.isPending} className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50">
                 {bulkUpdateSubscription.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <MailCheck className="h-4 w-4 mr-1.5" />}
                 Subscription
-                <ChevronDown className="h-3 w-3 ml-1 opacity-70" />
+                <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -460,13 +467,13 @@ function ContactsPageContent() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="w-px h-5 bg-blue-400/40 mx-1" />
+          <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
 
           {/* Delete */}
           <Button
             variant="ghost"
             size="sm"
-            className="text-red-200 hover:text-white hover:bg-red-600/80"
+            className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50"
             onClick={() => setBulkDeleteDialogOpen(true)}
           >
             <Trash2 className="h-4 w-4 mr-1.5" />
@@ -479,7 +486,7 @@ function ContactsPageContent() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-blue-200 hover:text-white hover:bg-blue-500 dark:hover:bg-blue-600"
+            className="h-7 w-7 text-blue-400 dark:text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
             onClick={() => setSelectedIds(new Set())}
           >
             <X className="h-4 w-4" />
