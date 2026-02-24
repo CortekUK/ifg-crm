@@ -273,6 +273,65 @@ export async function POST(request: NextRequest) {
         console.log(`Unhandled Resend event type: ${event.type}`)
     }
 
+    // Roll up stats to the campaigns table
+    if (emailSend?.campaign_id && ['email.delivered', 'email.opened', 'email.clicked', 'email.bounced'].includes(event.type)) {
+      try {
+        // Count unique recipients per status from email_sends for this campaign
+        const campaignId = emailSend.campaign_id
+
+        // delivered = any email that got delivered (including those later opened/clicked)
+        // opened = any email opened (including those later clicked)
+        // clicked = any email with a link click
+        // bounced = any email that bounced
+        const [delivered, opened, clicked, bounced] = await Promise.all([
+          supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).not('delivered_at', 'is', null),
+          supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).not('opened_at', 'is', null),
+          supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).not('clicked_at', 'is', null),
+          supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).eq('status', 'bounced'),
+        ])
+
+        await supabase
+          .from('campaigns')
+          .update({
+            delivered_count: delivered.count || 0,
+            open_count: opened.count || 0,
+            click_count: clicked.count || 0,
+            bounce_count: bounced.count || 0,
+          })
+          .eq('id', campaignId)
+      } catch (err) {
+        console.error('Failed to update campaign stats:', err)
+      }
+    }
+
+    // Also update campaign_recipients status to match
+    if (emailSend?.campaign_id && event.data.email_id) {
+      const statusMap: Record<string, string> = {
+        'email.delivered': 'delivered',
+        'email.opened': 'opened',
+        'email.clicked': 'clicked',
+        'email.bounced': 'failed',
+      }
+      const recipientStatus = statusMap[event.type]
+      if (recipientStatus) {
+        try {
+          await supabase
+            .from('campaign_recipients')
+            .update({
+              status: recipientStatus,
+              ...(event.type === 'email.delivered' ? { delivered_at: event.created_at } : {}),
+              ...(event.type === 'email.opened' ? { opened_at: event.created_at } : {}),
+              ...(event.type === 'email.clicked' ? { clicked_at: event.created_at } : {}),
+              ...(event.type === 'email.bounced' ? { error_message: event.data.bounce?.message || 'Bounced' } : {}),
+            })
+            .eq('campaign_id', emailSend.campaign_id)
+            .eq('resend_message_id', event.data.email_id)
+        } catch (err) {
+          console.error('Failed to update campaign_recipients:', err)
+        }
+      }
+    }
+
     return NextResponse.json({ received: true })
 
   } catch (error) {
