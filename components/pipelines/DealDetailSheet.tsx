@@ -51,7 +51,7 @@ import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
-import { useUpdateDeal, useDealAutomations } from '@/lib/hooks/useDeals'
+import { useUpdateDeal, useDeal, useDealAutomations } from '@/lib/hooks/useDeals'
 import { formatDate, formatRelativeTime, formatCurrency, formatTimeAgo } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useDealActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
@@ -81,11 +81,15 @@ interface DealDetailSheetProps {
 }
 
 export function DealDetailSheet({
-  deal,
+  deal: dealProp,
   isOpen,
   onClose,
   userId,
 }: DealDetailSheetProps) {
+  // Use live query data so mutations (e.g. owner change) reflect instantly
+  const { data: liveDeal } = useDeal(dealProp?.id || null)
+  const deal = liveDeal || dealProp
+
   const [activeTab, setActiveTab] = useState('overview')
   const [newNote, setNewNote] = useState('')
   const [isEditingProbability, setIsEditingProbability] = useState(false)

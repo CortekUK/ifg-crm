@@ -48,25 +48,25 @@ export function SendAsConfirmModal({
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-3 mt-4">
-          <AlertDialogCancel onClick={onClose} className="mt-0">
-            Cancel
-          </AlertDialogCancel>
-          <Button
-            variant="outline"
-            onClick={() => onConfirm(null)}
-            className="gap-2"
-          >
-            <User className="h-4 w-4" />
-            Send as Deal Owner
-          </Button>
+        <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
           <Button
             onClick={() => onConfirm(currentUserId)}
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto"
           >
             <Mail className="h-4 w-4" />
             Send as {currentUserName}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => onConfirm(null)}
+            className="gap-2 w-full sm:w-auto"
+          >
+            <User className="h-4 w-4" />
+            Send as Deal Owner
+          </Button>
+          <AlertDialogCancel onClick={onClose} className="mt-0 w-full sm:w-auto">
+            Cancel
+          </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
