@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Pencil, UserX, ExternalLink, Users, Clock, RotateCw, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, UserX, Users, Clock, RotateCw, Trash2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import type { User, UserRole, UserOrInvite } from '@/lib/types/users'
 
@@ -69,7 +69,7 @@ export function UsersTable({
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Calendly</TableHead>
+
               <TableHead>Status</TableHead>
               <TableHead>Last Login</TableHead>
               <TableHead className="w-[70px]"></TableHead>
@@ -81,7 +81,6 @@ export function UsersTable({
                 <TableCell><Skeleton className="h-10 w-36" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-8 w-8" /></TableCell>
@@ -113,7 +112,6 @@ export function UsersTable({
             <TableHead>User</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
-            <TableHead>Calendly</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Last Login</TableHead>
             <TableHead className="w-[70px]"></TableHead>
@@ -162,22 +160,6 @@ export function UsersTable({
                 {/* Role */}
                 <TableCell>
                   <Badge className={role.className}>{role.label}</Badge>
-                </TableCell>
-
-                {/* Calendly */}
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  {user.calendly_url ? (
-                    <a
-                      href={user.calendly_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
-                    >
-                      Link <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
                 </TableCell>
 
                 {/* Status */}

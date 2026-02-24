@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, Send, Phone, Video, Calendar, Briefcase, GitBranch } from 'lucide-react'
+import { Loader2, Send, Briefcase, GitBranch } from 'lucide-react'
 import { useInviteUser } from '@/lib/hooks/useUsers'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { toast } from '@/lib/hooks/use-toast'
@@ -37,9 +37,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
     email: '',
     role: 'recruiter',
     title: '',
-    phone: '',
-    calendlyUrl: '',
-    zoomUrl: '',
     pipelineIds: [] as string[],
   })
 
@@ -54,9 +51,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         email: '',
         role: 'recruiter',
         title: '',
-        phone: '',
-        calendlyUrl: '',
-        zoomUrl: '',
         pipelineIds: [],
       })
     }
@@ -84,9 +78,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         fullName: formData.fullName,
         role: formData.role,
         title: formData.title || undefined,
-        phone: formData.phone || undefined,
-        calendlyUrl: formData.calendlyUrl || undefined,
-        zoomUrl: formData.zoomUrl || undefined,
         pipelineIds: formData.pipelineIds.length > 0 ? formData.pipelineIds : undefined,
       })
 
@@ -179,58 +170,6 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
                 />
                 <p className="text-xs text-muted-foreground">
                   Used in email signatures and profile display
-                </p>
-              </div>
-            </div>
-
-            {/* Contact & Links */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                Contact & Links
-              </h3>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  Phone Number
-                </Label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  placeholder="+44 7700 900123"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Available as {'{{deal_owner_phone}}'} in templates
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Calendly URL
-                </Label>
-                <Input
-                  value={formData.calendlyUrl}
-                  onChange={(e) => handleChange('calendlyUrl', e.target.value)}
-                  placeholder="https://calendly.com/your-link"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Available as {'{{deal_owner_calendly}}'} in templates
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <Video className="h-4 w-4" />
-                  Zoom Link
-                </Label>
-                <Input
-                  value={formData.zoomUrl}
-                  onChange={(e) => handleChange('zoomUrl', e.target.value)}
-                  placeholder="https://zoom.us/j/your-meeting-id"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Available as {'{{deal_owner_zoom}}'} in templates
                 </p>
               </div>
             </div>
