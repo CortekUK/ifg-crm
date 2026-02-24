@@ -31,6 +31,8 @@ interface ResendWebhookPayload {
 }
 
 export async function POST(request: NextRequest) {
+  const debug: Record<string, unknown> = {}
+
   try {
     const payload = await request.text()
 
@@ -46,30 +48,38 @@ export async function POST(request: NextRequest) {
           'svix-timestamp': request.headers.get('svix-timestamp') || '',
           'svix-signature': request.headers.get('svix-signature') || '',
         }
-        event = wh.verify(payload, svixHeaders) as unknown as ResendWebhookPayload
+        const verified = wh.verify(payload, svixHeaders)
+        debug.verified = true
+        debug.rawKeys = Object.keys(verified as object)
+        event = verified as unknown as ResendWebhookPayload
       } catch (err) {
         console.error('Webhook signature verification failed:', err)
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
       }
     } else {
       event = JSON.parse(payload)
+      debug.verified = false
     }
 
-    console.log(`Received Resend webhook: ${event.type}`, {
-      email_id: event.data.email_id,
-      to: event.data.to,
-    })
+    // Extract event type - Resend may put type at top level or we may need the svix header
+    const eventType = event.type || request.headers.get('svix-event-type') as ResendEventType
+    debug.eventType = eventType
+    debug.eventTypeFromBody = event.type
+    debug.eventTypeFromHeader = request.headers.get('svix-event-type')
+    debug.emailId = event.data?.email_id
+
+    if (!eventType) {
+      debug.error = 'No event type found'
+      return NextResponse.json({ received: true, debug })
+    }
 
     // Initialize Supabase client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Missing Supabase credentials')
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
+      debug.error = 'Missing Supabase credentials'
+      return NextResponse.json({ received: true, debug })
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -81,34 +91,36 @@ export async function POST(request: NextRequest) {
       .eq('resend_message_id', event.data.email_id)
       .single()
 
-    if (findError && findError.code !== 'PGRST116') {
-      console.error('Error finding email send:', findError)
-    }
+    debug.emailSendFound = !!emailSend
+    debug.emailSendId = emailSend?.id
+    debug.campaignId = emailSend?.campaign_id
+    if (findError) debug.findError = findError.message
 
     // Process based on event type
-    switch (event.type) {
+    switch (eventType) {
       case 'email.delivered':
         if (emailSend) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('email_sends')
             .update({
               status: 'delivered',
               delivered_at: event.created_at,
             })
             .eq('id', emailSend.id)
+          debug.updateError = updateError?.message || null
+          debug.action = 'delivered'
         }
         break
 
       case 'email.opened':
         if (emailSend) {
-          // Get current open count and increment
           const { data: currentEmail } = await supabase
             .from('email_sends')
             .select('open_count')
             .eq('id', emailSend.id)
             .single()
 
-          await supabase
+          const { error: updateError } = await supabase
             .from('email_sends')
             .update({
               status: 'opened',
@@ -116,19 +128,20 @@ export async function POST(request: NextRequest) {
               open_count: (currentEmail?.open_count || 0) + 1,
             })
             .eq('id', emailSend.id)
+          debug.updateError = updateError?.message || null
+          debug.action = 'opened'
         }
         break
 
       case 'email.clicked':
         if (emailSend) {
-          // Get current click count and increment
           const { data: currentEmailForClick } = await supabase
             .from('email_sends')
             .select('click_count')
             .eq('id', emailSend.id)
             .single()
 
-          await supabase
+          const { error: updateError } = await supabase
             .from('email_sends')
             .update({
               status: 'clicked',
@@ -136,8 +149,9 @@ export async function POST(request: NextRequest) {
               click_count: (currentEmailForClick?.click_count || 0) + 1,
             })
             .eq('id', emailSend.id)
+          debug.updateError = updateError?.message || null
+          debug.action = 'clicked'
 
-          // Log the click with URL if available
           if (event.data.click?.link) {
             try {
               await supabase.from('email_clicks').insert({
@@ -155,7 +169,7 @@ export async function POST(request: NextRequest) {
 
       case 'email.bounced':
         if (emailSend) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('email_sends')
             .update({
               status: 'bounced',
@@ -163,8 +177,9 @@ export async function POST(request: NextRequest) {
               error_message: event.data.bounce?.message || 'Email bounced',
             })
             .eq('id', emailSend.id)
+          debug.updateError = updateError?.message || null
+          debug.action = 'bounced'
 
-          // Mark contact email as invalid
           if (emailSend.recipient_contact_id) {
             await supabase
               .from('contacts')
@@ -172,7 +187,6 @@ export async function POST(request: NextRequest) {
               .eq('id', emailSend.recipient_contact_id)
           }
 
-          // Stop any active automation enrollments for this contact
           if (emailSend.automation_log_id) {
             const { data: log } = await supabase
               .from('automation_logs')
@@ -196,26 +210,26 @@ export async function POST(request: NextRequest) {
 
       case 'email.complained':
         if (emailSend) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('email_sends')
             .update({
               status: 'complained',
               error_message: 'Recipient marked as spam',
             })
             .eq('id', emailSend.id)
+          debug.updateError = updateError?.message || null
+          debug.action = 'complained'
 
-          // Mark contact as unsubscribed/do not contact
           if (emailSend.recipient_contact_id) {
             await supabase
               .from('contacts')
-              .update({ 
+              .update({
                 email_unsubscribed: true,
                 email_unsubscribed_at: event.created_at,
               })
               .eq('id', emailSend.recipient_contact_id)
           }
 
-          // Stop any active automation enrollments
           if (emailSend.automation_log_id) {
             const { data: log } = await supabase
               .from('automation_logs')
@@ -239,27 +253,20 @@ export async function POST(request: NextRequest) {
 
       case 'email.delivery_delayed':
         if (emailSend) {
-          await supabase
-            .from('email_sends')
-            .update({ status: 'delayed' })
-            .eq('id', emailSend.id)
+          // Note: 'delayed' not in CHECK constraint, use 'sent' to avoid constraint error
+          debug.action = 'delivery_delayed (no-op)'
         }
         break
 
       default:
-        console.log(`Unhandled Resend event type: ${event.type}`)
+        debug.action = `unhandled: ${eventType}`
     }
 
     // Roll up stats to the campaigns table
-    if (emailSend?.campaign_id && ['email.delivered', 'email.opened', 'email.clicked', 'email.bounced'].includes(event.type)) {
+    if (emailSend?.campaign_id && ['email.delivered', 'email.opened', 'email.clicked', 'email.bounced'].includes(eventType)) {
       try {
-        // Count unique recipients per status from email_sends for this campaign
         const campaignId = emailSend.campaign_id
 
-        // delivered = any email that got delivered (including those later opened/clicked)
-        // opened = any email opened (including those later clicked)
-        // clicked = any email with a link click
-        // bounced = any email that bounced
         const [delivered, opened, clicked, bounced] = await Promise.all([
           supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).not('delivered_at', 'is', null),
           supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).not('opened_at', 'is', null),
@@ -267,7 +274,7 @@ export async function POST(request: NextRequest) {
           supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).eq('status', 'bounced'),
         ])
 
-        await supabase
+        const { error: rollupError } = await supabase
           .from('campaigns')
           .update({
             delivered_count: delivered.count || 0,
@@ -276,8 +283,16 @@ export async function POST(request: NextRequest) {
             bounce_count: bounced.count || 0,
           })
           .eq('id', campaignId)
+
+        debug.rollup = {
+          delivered: delivered.count,
+          opened: opened.count,
+          clicked: clicked.count,
+          bounced: bounced.count,
+          error: rollupError?.message || null,
+        }
       } catch (err) {
-        console.error('Failed to update campaign stats:', err)
+        debug.rollupError = err instanceof Error ? err.message : 'Unknown'
       }
     }
 
@@ -289,17 +304,17 @@ export async function POST(request: NextRequest) {
         'email.clicked': 'clicked',
         'email.bounced': 'failed',
       }
-      const recipientStatus = statusMap[event.type]
+      const recipientStatus = statusMap[eventType]
       if (recipientStatus) {
         try {
           await supabase
             .from('campaign_recipients')
             .update({
               status: recipientStatus,
-              ...(event.type === 'email.delivered' ? { delivered_at: event.created_at } : {}),
-              ...(event.type === 'email.opened' ? { opened_at: event.created_at } : {}),
-              ...(event.type === 'email.clicked' ? { clicked_at: event.created_at } : {}),
-              ...(event.type === 'email.bounced' ? { error_message: event.data.bounce?.message || 'Bounced' } : {}),
+              ...(eventType === 'email.delivered' ? { delivered_at: event.created_at } : {}),
+              ...(eventType === 'email.opened' ? { opened_at: event.created_at } : {}),
+              ...(eventType === 'email.clicked' ? { clicked_at: event.created_at } : {}),
+              ...(eventType === 'email.bounced' ? { error_message: event.data.bounce?.message || 'Bounced' } : {}),
             })
             .eq('campaign_id', emailSend.campaign_id)
             .eq('resend_message_id', event.data.email_id)
@@ -309,12 +324,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ received: true })
+    return NextResponse.json({ received: true, debug })
 
   } catch (error) {
     console.error('Resend webhook error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Unknown error', debug },
       { status: 500 }
     )
   }
