@@ -26,28 +26,22 @@ export function useLists(filters?: ListFilters) {
 
       if (error) throw error
 
-      // Get contact counts for each list
-      const listIds = lists?.map((l) => l.id) || []
-      
-      if (listIds.length === 0) {
-        return []
-      }
+      if (!lists || lists.length === 0) return []
 
+      // Get contact counts via RPC (avoids Supabase default row limit)
       const { data: counts, error: countError } = await supabase
-        .from('contact_lists')
-        .select('list_id')
-        .in('list_id', listIds)
+        .rpc('get_list_contact_counts')
 
       if (countError) throw countError
 
-      // Calculate counts
+      // Build count map
       const countMap = new Map<string, number>()
-      counts?.forEach((c) => {
-        countMap.set(c.list_id, (countMap.get(c.list_id) || 0) + 1)
+      counts?.forEach((c: { list_id: string; contact_count: number }) => {
+        countMap.set(c.list_id, c.contact_count)
       })
 
       // Merge counts with lists
-      return (lists || []).map((list) => ({
+      return lists.map((list) => ({
         ...list,
         contact_count: countMap.get(list.id) || 0,
       }))
@@ -145,26 +139,21 @@ export function useListStats() {
   return useQuery<ListStats>({
     queryKey: ['list-stats'],
     queryFn: async () => {
-      // Get all lists with count in a single query
-      const { data: lists, count: totalLists } = await supabase
-        .from('lists')
-        .select('id, name', { count: 'exact' })
+      // Get all lists with count and contact counts in parallel
+      const [listsResult, countsResult] = await Promise.all([
+        supabase.from('lists').select('id, name', { count: 'exact' }),
+        supabase.rpc('get_list_contact_counts'),
+      ])
 
-      const listIds = lists?.map((l) => l.id) || []
+      const lists = listsResult.data
+      const totalLists = listsResult.count
 
-      // Get contact counts
-      const { data: counts } = await supabase
-        .from('contact_lists')
-        .select('list_id')
-        .in('list_id', listIds)
-
-      // Calculate counts per list
+      // Build count map
       const countMap = new Map<string, number>()
       let totalContacts = 0
-      counts?.forEach((c) => {
-        const currentCount = countMap.get(c.list_id) || 0
-        countMap.set(c.list_id, currentCount + 1)
-        totalContacts++
+      countsResult.data?.forEach((c: { list_id: string; contact_count: number }) => {
+        countMap.set(c.list_id, c.contact_count)
+        totalContacts += c.contact_count
       })
 
       // Find largest list
