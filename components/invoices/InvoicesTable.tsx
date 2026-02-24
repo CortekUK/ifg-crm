@@ -20,7 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Eye, Send, CheckCircle, Trash2, Receipt, FileDown } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { MoreHorizontal, Eye, Send, CheckCircle, Trash2, Receipt, FileDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,14 @@ const typeLabels: Record<InvoiceType, string> = {
   other: 'Other',
 }
 
+type InvoiceSortField = 'invoice_number' | 'amount' | 'status' | 'due_date' | 'sent_at' | 'paid_at'
+type SortDir = 'asc' | 'desc'
+
+function InvoiceSortIcon({ field, activeField, dir }: { field: InvoiceSortField; activeField: InvoiceSortField; dir: SortDir }) {
+  if (field !== activeField) return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+  return dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+}
+
 export function InvoicesTable({
   invoices,
   isLoading,
@@ -82,6 +91,49 @@ export function InvoicesTable({
     if (invoice.status === 'paid' || invoice.status === 'cancelled') return false
     return new Date(invoice.due_date) < new Date()
   }
+
+  const [sortField, setSortField] = useState<InvoiceSortField>('due_date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const toggleSort = (field: InvoiceSortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir(field === 'invoice_number' ? 'asc' : 'desc')
+    }
+  }
+
+  const sortedInvoices = useMemo(() => {
+    const sorted = [...invoices]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'invoice_number':
+          cmp = (a.invoice_number || '').localeCompare(b.invoice_number || '')
+          break
+        case 'amount':
+          cmp = a.amount - b.amount
+          break
+        case 'status': {
+          const statusOrder: Record<string, number> = { draft: 0, sent: 1, viewed: 2, overdue: 3, paid: 4, cancelled: 5 }
+          cmp = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0)
+          break
+        }
+        case 'due_date':
+          cmp = new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+          break
+        case 'sent_at':
+          cmp = (a.sent_at ? new Date(a.sent_at).getTime() : 0) - (b.sent_at ? new Date(b.sent_at).getTime() : 0)
+          break
+        case 'paid_at':
+          cmp = (a.paid_at ? new Date(a.paid_at).getTime() : 0) - (b.paid_at ? new Date(b.paid_at).getTime() : 0)
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [invoices, sortField, sortDir])
 
   const allSelected = invoices.length > 0 && selectedIds.length === invoices.length
   const someSelected = selectedIds.length > 0 && selectedIds.length < invoices.length
@@ -222,20 +274,44 @@ export function InvoicesTable({
                 onCheckedChange={(checked) => handleSelectAll(checked === true)}
               />
             </TableHead>
-            <TableHead className="w-[100px]">Invoice #</TableHead>
+            <TableHead className="w-[100px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('invoice_number')}>
+              <div className="flex items-center gap-1">
+                Invoice # <InvoiceSortIcon field="invoice_number" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="min-w-[140px]">Contact</TableHead>
             <TableHead className="w-[120px]">Programme</TableHead>
             <TableHead className="w-[100px]">Type</TableHead>
-            <TableHead className="w-[100px] text-right">Amount</TableHead>
-            <TableHead className="w-[90px]">Status</TableHead>
-            <TableHead className="w-[100px]">Due Date</TableHead>
-            <TableHead className="w-[100px]">Sent</TableHead>
-            <TableHead className="w-[100px]">Paid</TableHead>
+            <TableHead className="w-[100px] text-right cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('amount')}>
+              <div className="flex items-center justify-end gap-1">
+                Amount <InvoiceSortIcon field="amount" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
+            <TableHead className="w-[90px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('status')}>
+              <div className="flex items-center gap-1">
+                Status <InvoiceSortIcon field="status" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
+            <TableHead className="w-[100px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('due_date')}>
+              <div className="flex items-center gap-1">
+                Due Date <InvoiceSortIcon field="due_date" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
+            <TableHead className="w-[100px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('sent_at')}>
+              <div className="flex items-center gap-1">
+                Sent <InvoiceSortIcon field="sent_at" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
+            <TableHead className="w-[100px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('paid_at')}>
+              <div className="flex items-center gap-1">
+                Paid <InvoiceSortIcon field="paid_at" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {invoices.map((invoice) => {
+          {sortedInvoices.map((invoice) => {
             const status = statusConfig[invoice.status]
             const overdue = isOverdue(invoice)
 

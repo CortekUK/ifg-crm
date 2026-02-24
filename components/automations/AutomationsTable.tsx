@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -34,9 +35,13 @@ import {
   Receipt,
   AlertTriangle,
   PartyPopper,
-  Plane
+  Plane,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils/format'
+import { cn } from '@/lib/utils'
 import type { Automation } from '@/lib/types/automations'
 
 interface AutomationsTableProps {
@@ -49,6 +54,14 @@ interface AutomationsTableProps {
   onDelete: (automation: Automation) => void
 }
 
+type AutomationSortField = 'name' | 'enrolled' | 'last_run'
+type SortDir = 'asc' | 'desc'
+
+function AutomationSortIcon({ field, activeField, dir }: { field: AutomationSortField; activeField: AutomationSortField; dir: SortDir }) {
+  if (field !== activeField) return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+  return dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+}
+
 export function AutomationsTable({
   automations,
   isLoading,
@@ -58,6 +71,18 @@ export function AutomationsTable({
   onDuplicate,
   onDelete,
 }: AutomationsTableProps) {
+  const [sortField, setSortField] = useState<AutomationSortField>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const toggleSort = (field: AutomationSortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir(field === 'name' ? 'asc' : 'desc')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
@@ -214,23 +239,55 @@ export function AutomationsTable({
     }
   }
 
+  const sortedAutomations = useMemo(() => {
+    const sorted = [...automations]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name)
+          break
+        case 'enrolled':
+          cmp = (a.total_enrolled || 0) - (b.total_enrolled || 0)
+          break
+        case 'last_run':
+          cmp = (a.last_run_at ? new Date(a.last_run_at).getTime() : 0) - (b.last_run_at ? new Date(b.last_run_at).getTime() : 0)
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [automations, sortField, sortDir])
+
   return (
     <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="min-w-[200px]">Workflow</TableHead>
+            <TableHead className="min-w-[200px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('name')}>
+              <div className="flex items-center gap-1">
+                Workflow <AutomationSortIcon field="name" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="w-[120px]">Trigger</TableHead>
             <TableHead className="w-[110px]">Pipeline</TableHead>
             <TableHead className="w-[70px]">Status</TableHead>
-            <TableHead className="w-[80px] text-center">Enrolled</TableHead>
+            <TableHead className="w-[80px] text-center cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('enrolled')}>
+              <div className="flex items-center justify-center gap-1">
+                Enrolled <AutomationSortIcon field="enrolled" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="w-[80px] text-center">In Queue</TableHead>
-            <TableHead className="w-[130px]">Last Run</TableHead>
+            <TableHead className="w-[130px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('last_run')}>
+              <div className="flex items-center gap-1">
+                Last Run <AutomationSortIcon field="last_run" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {automations.map((automation) => {
+          {sortedAutomations.map((automation) => {
             const inQueue = getTotalInQueue(automation)
             
             return (

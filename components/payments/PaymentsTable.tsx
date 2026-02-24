@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useState, useMemo } from 'react'
 import {
   Eye,
   CreditCard,
@@ -20,7 +21,11 @@ import {
   Globe,
   CircleDot,
   Receipt,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Payment } from '@/lib/types/payments'
 
 interface PaymentsTableProps {
@@ -48,6 +53,14 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 const defaultMethod = { label: 'Other', icon: CircleDot }
 const defaultStatus = { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' }
 
+type PaymentSortField = 'date' | 'amount' | 'status'
+type SortDir = 'asc' | 'desc'
+
+function PaymentSortIcon({ field, activeField, dir }: { field: PaymentSortField; activeField: PaymentSortField; dir: SortDir }) {
+  if (field !== activeField) return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+  return dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+}
+
 export function PaymentsTable({
   payments,
   isLoading,
@@ -74,6 +87,18 @@ export function PaymentsTable({
 
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || '??'
+  }
+
+  const [sortField, setSortField] = useState<PaymentSortField>('date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const toggleSort = (field: PaymentSortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir('desc')
+    }
   }
 
   if (isLoading) {
@@ -127,23 +152,57 @@ export function PaymentsTable({
     )
   }
 
+  const sortedPayments = useMemo(() => {
+    const sorted = [...payments]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'date':
+          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+        case 'amount':
+          cmp = a.amount - b.amount
+          break
+        case 'status': {
+          const statusOrder: Record<string, number> = { pending: 0, successful: 1, failed: 2 }
+          cmp = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0)
+          break
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [payments, sortField, sortDir])
+
   return (
     <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[140px]">Date</TableHead>
+            <TableHead className="w-[140px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('date')}>
+              <div className="flex items-center gap-1">
+                Date <PaymentSortIcon field="date" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="min-w-[140px]">Contact</TableHead>
             <TableHead className="w-[100px]">Invoice #</TableHead>
-            <TableHead className="w-[100px] text-right">Amount</TableHead>
+            <TableHead className="w-[100px] text-right cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('amount')}>
+              <div className="flex items-center justify-end gap-1">
+                Amount <PaymentSortIcon field="amount" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="w-[110px]">Method</TableHead>
             <TableHead className="w-[120px]">Reference</TableHead>
-            <TableHead className="w-[90px]">Status</TableHead>
+            <TableHead className="w-[90px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('status')}>
+              <div className="flex items-center gap-1">
+                Status <PaymentSortIcon field="status" activeField={sortField} dir={sortDir} />
+              </div>
+            </TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {payments.map((payment) => {
+          {sortedPayments.map((payment) => {
             const method = methodConfig[payment.payment_method] || defaultMethod
             const status = statusConfig[payment.status] || defaultStatus
             const MethodIcon = method.icon

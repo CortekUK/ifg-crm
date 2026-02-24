@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2, Send, GitBranch } from 'lucide-react'
+import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2, Send, GitBranch, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -88,6 +88,14 @@ const statusConfig: Record<Campaign['status'], { label: string; className: strin
   failed: { label: 'Failed', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900' },
 }
 
+type CampaignSortField = 'name' | 'status' | 'recipients' | 'date'
+type SortDir = 'asc' | 'desc'
+
+function CampaignSortIcon({ field, activeField, dir }: { field: CampaignSortField; activeField: CampaignSortField; dir: SortDir }) {
+  if (field !== activeField) return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+  return dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+}
+
 export function CampaignsTable({
   campaigns,
   isLoading,
@@ -105,6 +113,46 @@ export function CampaignsTable({
   const deleteCampaign = useDeleteCampaign()
   const duplicateCampaign = useDuplicateCampaign()
   const cancelCampaign = useCancelCampaign()
+
+  const [sortField, setSortField] = useState<CampaignSortField>('date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const toggleSort = (field: CampaignSortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir(field === 'name' ? 'asc' : 'desc')
+    }
+  }
+
+  const sortedCampaigns = useMemo(() => {
+    const sorted = [...campaigns]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name)
+          break
+        case 'status': {
+          const statusOrder: Record<string, number> = { draft: 0, scheduled: 1, sending: 2, sent: 3, cancelled: 4, failed: 5 }
+          cmp = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0)
+          break
+        }
+        case 'recipients':
+          cmp = (a.total_recipients || a.recipient_count || 0) - (b.total_recipients || b.recipient_count || 0)
+          break
+        case 'date': {
+          const dateA = new Date(a.sent_at || a.scheduled_at || a.created_at).getTime()
+          const dateB = new Date(b.sent_at || b.scheduled_at || b.created_at).getTime()
+          cmp = dateA - dateB
+          break
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [campaigns, sortField, sortDir])
 
   const allSelected = campaigns.length > 0 && selectedIds.size === campaigns.length
   const someSelected = selectedIds.size > 0 && selectedIds.size < campaigns.length
@@ -226,20 +274,36 @@ export function CampaignsTable({
                   onCheckedChange={(checked) => onSelectAll(checked === true)}
                 />
               </TableHead>
-              <TableHead className="min-w-[200px]">Campaign</TableHead>
+              <TableHead className="min-w-[200px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('name')}>
+                <div className="flex items-center gap-1">
+                  Campaign <CampaignSortIcon field="name" activeField={sortField} dir={sortDir} />
+                </div>
+              </TableHead>
               <TableHead className="w-[80px]">Type</TableHead>
               <TableHead className="w-[100px]">Pipeline</TableHead>
-              <TableHead className="w-[90px]">Status</TableHead>
-              <TableHead className="w-[80px] text-center">Recipients</TableHead>
+              <TableHead className="w-[90px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('status')}>
+                <div className="flex items-center gap-1">
+                  Status <CampaignSortIcon field="status" activeField={sortField} dir={sortDir} />
+                </div>
+              </TableHead>
+              <TableHead className="w-[80px] text-center cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('recipients')}>
+                <div className="flex items-center justify-center gap-1">
+                  Recipients <CampaignSortIcon field="recipients" activeField={sortField} dir={sortDir} />
+                </div>
+              </TableHead>
               <TableHead className="w-[80px] text-center">Delivered</TableHead>
               <TableHead className="w-[80px] text-center">Open Rate</TableHead>
               <TableHead className="w-[80px] text-center">Click Rate</TableHead>
-              <TableHead className="w-[100px]">Date</TableHead>
+              <TableHead className="w-[100px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('date')}>
+                <div className="flex items-center gap-1">
+                  Date <CampaignSortIcon field="date" activeField={sortField} dir={sortDir} />
+                </div>
+              </TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {campaigns.map((campaign) => {
+            {sortedCampaigns.map((campaign) => {
               const status = statusConfig[campaign.status]
               // Calculate recipient count from lists or use stored count
               const recipientLists = campaign.recipient_lists || []
