@@ -42,7 +42,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Download, Trash2, MailCheck, MailX, ListPlus, ChevronDown, Loader2 } from 'lucide-react'
+import { Download, Trash2, MailCheck, MailX, ListPlus, ChevronDown, Loader2, X } from 'lucide-react'
 
 function ContactsPageContent() {
   const searchParams = useSearchParams()
@@ -404,79 +404,86 @@ function ContactsPageContent() {
 
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 dark:bg-blue-700 rounded-lg shadow-sm">
+          <span className="text-sm font-medium text-white tabular-nums">
             {selectedIds.size} selected
-          </Badge>
+          </span>
 
-          <div className="flex items-center gap-2 flex-1">
-            {/* Export Selected */}
-            <Button variant="outline" size="sm" onClick={handleBulkExport}>
-              <Download className="h-4 w-4 mr-1" />
-              Export
-            </Button>
+          <div className="w-px h-5 bg-blue-400/40 mx-1" />
 
-            {/* Add to List */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={addContactsToList.isPending}>
-                  {addContactsToList.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ListPlus className="h-4 w-4 mr-1" />}
-                  Add to List
-                  <ChevronDown className="h-3 w-3 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
-                {lists.length === 0 ? (
-                  <DropdownMenuItem disabled>No lists available</DropdownMenuItem>
-                ) : (
-                  lists.map((list) => (
-                    <DropdownMenuItem key={list.id} onClick={() => handleBulkAddToList(list.id, list.name)}>
-                      {list.name}
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {/* Export Selected */}
+          <Button variant="ghost" size="sm" onClick={handleBulkExport} className="text-white hover:bg-blue-500 dark:hover:bg-blue-600">
+            <Download className="h-4 w-4 mr-1.5" />
+            Export
+          </Button>
 
-            {/* Subscription Status */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={bulkUpdateSubscription.isPending}>
-                  {bulkUpdateSubscription.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MailCheck className="h-4 w-4 mr-1" />}
-                  Subscription
-                  <ChevronDown className="h-3 w-3 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => handleBulkSubscriptionChange('subscribed')}>
-                  <MailCheck className="h-4 w-4 mr-2 text-green-600" />
-                  Subscribe
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleBulkSubscriptionChange('unsubscribed')}>
-                  <MailX className="h-4 w-4 mr-2 text-red-600" />
-                  Unsubscribe
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {/* Add to List */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" disabled={addContactsToList.isPending} className="text-white hover:bg-blue-500 dark:hover:bg-blue-600">
+                {addContactsToList.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <ListPlus className="h-4 w-4 mr-1.5" />}
+                Add to List
+                <ChevronDown className="h-3 w-3 ml-1 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto">
+              {lists.length === 0 ? (
+                <DropdownMenuItem disabled>No lists available</DropdownMenuItem>
+              ) : (
+                lists.map((list) => (
+                  <DropdownMenuItem key={list.id} onClick={() => handleBulkAddToList(list.id, list.name)}>
+                    {list.name}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-            {/* Delete */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-              onClick={() => setBulkDeleteDialogOpen(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete
-            </Button>
-          </div>
+          {/* Subscription Status */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" disabled={bulkUpdateSubscription.isPending} className="text-white hover:bg-blue-500 dark:hover:bg-blue-600">
+                {bulkUpdateSubscription.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <MailCheck className="h-4 w-4 mr-1.5" />}
+                Subscription
+                <ChevronDown className="h-3 w-3 ml-1 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => handleBulkSubscriptionChange('subscribed')}>
+                <MailCheck className="h-4 w-4 mr-2 text-green-600" />
+                Subscribe
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBulkSubscriptionChange('unsubscribed')}>
+                <MailX className="h-4 w-4 mr-2 text-red-600" />
+                Unsubscribe
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline shrink-0"
+          <div className="w-px h-5 bg-blue-400/40 mx-1" />
+
+          {/* Delete */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-200 hover:text-white hover:bg-red-600/80"
+            onClick={() => setBulkDeleteDialogOpen(true)}
           >
-            Clear
-          </button>
+            <Trash2 className="h-4 w-4 mr-1.5" />
+            Delete
+          </Button>
+
+          <div className="flex-1" />
+
+          {/* Clear Selection */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-blue-200 hover:text-white hover:bg-blue-500 dark:hover:bg-blue-600"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       )}
 
