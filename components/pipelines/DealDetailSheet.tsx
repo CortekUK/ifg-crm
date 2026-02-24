@@ -686,7 +686,7 @@ export function DealDetailSheet({
                                 'text-[10px]',
                                 enrollment.status === 'active' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800' :
                                 enrollment.status === 'paused' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
-                                'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                                'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-500'
                               )}>
                                 {enrollment.status === 'active' && <Zap className="h-2.5 w-2.5 mr-0.5" />}
                                 {enrollment.status === 'paused' && <Pause className="h-2.5 w-2.5 mr-0.5" />}
