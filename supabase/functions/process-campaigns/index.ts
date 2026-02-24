@@ -231,6 +231,22 @@ async function processCampaign(
     }
   }
 
+  // Guard: reject campaigns with no email content
+  if (!emailBody) {
+    await supabase
+      .from('campaigns')
+      .update({
+        status: 'failed',
+        error_message: 'No email content — add a template or compose a body before sending.',
+        last_processed_at: new Date().toISOString(),
+      })
+      .eq('id', campaign.id)
+
+    summary.campaignsCompleted.push(campaign.id)
+    console.log(`Campaign ${campaign.id} failed: no email content`)
+    return
+  }
+
   // From email — always use FROM_EMAIL env var or Resend test domain
   // Campaign's from_email is stored for display/record but actual sending
   // must use a verified domain. Set FROM_EMAIL env var once a domain is verified.

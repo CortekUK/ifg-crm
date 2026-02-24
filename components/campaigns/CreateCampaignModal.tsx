@@ -417,6 +417,9 @@ export function CreateCampaignModal({
   const smsSegments = Math.ceil(smsContent.length / 160)
   const isValid = name.trim().length > 0
   const hasNoRecipients = selectedLists.length === 0 && selectedTags.length === 0 && selectedStages.length === 0
+  const hasNoContent = type === 'email'
+    ? emailContentMode === 'template' ? !templateId || templateId === 'scratch' : !emailBodyText.trim()
+    : !smsContent.trim()
   const isPending = createCampaign.isPending || updateCampaign.isPending || sendCampaign.isPending
 
   // Get preview content
@@ -1216,7 +1219,7 @@ export function CreateCampaignModal({
               {type === 'email' ? (
                 <Button
                   onClick={() => handleSubmit(false, !isScheduled)}
-                  disabled={!isValid || isPending || hasNoRecipients}
+                  disabled={!isValid || isPending || hasNoRecipients || hasNoContent}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {isPending ? (
