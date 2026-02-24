@@ -66,12 +66,10 @@ export function TemplateSearchSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 flex flex-col"
+        className="w-[--radix-popover-trigger-width] p-0"
         align="start"
-        collisionPadding={10}
-        style={{ maxHeight: 'var(--radix-popover-content-available-height, 300px)' }}
       >
-        <div className="flex items-center gap-2 border-b px-3 py-2 shrink-0">
+        <div className="flex items-center gap-2 border-b px-3 py-2">
           <Search className="h-4 w-4 shrink-0 opacity-50" />
           <Input
             ref={inputRef}
@@ -81,7 +79,7 @@ export function TemplateSearchSelect({
             className="h-8 border-0 p-0 shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain p-1">
+        <div className="max-h-[200px] overflow-y-auto overscroll-contain p-1">
           {filtered.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               No templates found.
