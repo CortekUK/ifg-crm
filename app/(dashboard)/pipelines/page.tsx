@@ -1,11 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { DropResult } from '@hello-pangea/dnd'
 import { PipelinesPageHeader } from '@/components/pipelines/PipelinesPageHeader'
 import { PipelineFilters } from '@/components/pipelines/PipelineFilters'
 import { PipelineStats } from '@/components/pipelines/PipelineStats'
-import { KanbanBoard } from '@/components/pipelines/KanbanBoard'
+
+// Disable SSR for KanbanBoard — @hello-pangea/dnd Droppable breaks after hydration
+const KanbanBoard = dynamic(
+  () => import('@/components/pipelines/KanbanBoard').then(m => m.KanbanBoard),
+  { ssr: false }
+)
 import { PipelineListView } from '@/components/pipelines/PipelineListView'
 import { usePipelineViewPreference } from '@/lib/hooks/usePipelineViewPreference'
 import { AddDealModal } from '@/components/pipelines/AddDealModal'
