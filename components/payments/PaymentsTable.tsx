@@ -82,13 +82,13 @@ export function PaymentsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Method</TableHead>
-              <TableHead>Reference</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="w-[140px]">Date</TableHead>
+              <TableHead className="min-w-[140px]">Contact</TableHead>
+              <TableHead className="w-[100px]">Invoice #</TableHead>
+              <TableHead className="w-[100px] text-right">Amount</TableHead>
+              <TableHead className="w-[110px]">Method</TableHead>
+              <TableHead className="w-[120px]">Reference</TableHead>
+              <TableHead className="w-[90px]">Status</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -132,13 +132,13 @@ export function PaymentsTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Invoice #</TableHead>
-            <TableHead>Amount</TableHead>
-            <TableHead>Method</TableHead>
-            <TableHead>Reference</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead className="w-[140px]">Date</TableHead>
+            <TableHead className="min-w-[140px]">Contact</TableHead>
+            <TableHead className="w-[100px]">Invoice #</TableHead>
+            <TableHead className="w-[100px] text-right">Amount</TableHead>
+            <TableHead className="w-[110px]">Method</TableHead>
+            <TableHead className="w-[120px]">Reference</TableHead>
+            <TableHead className="w-[90px]">Status</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -189,7 +189,7 @@ export function PaymentsTable({
                 </TableCell>
 
                 {/* Amount */}
-                <TableCell className="font-medium">
+                <TableCell className="text-right font-medium">
                   {formatCurrency(payment.amount)}
                 </TableCell>
 

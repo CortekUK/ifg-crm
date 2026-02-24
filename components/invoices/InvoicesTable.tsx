@@ -105,15 +105,15 @@ export function InvoicesTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40px]"><Checkbox disabled /></TableHead>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Programme</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Sent</TableHead>
-              <TableHead>Paid</TableHead>
+              <TableHead className="w-[100px]">Invoice #</TableHead>
+              <TableHead className="min-w-[140px]">Contact</TableHead>
+              <TableHead className="w-[120px]">Programme</TableHead>
+              <TableHead className="w-[100px]">Type</TableHead>
+              <TableHead className="w-[100px] text-right">Amount</TableHead>
+              <TableHead className="w-[90px]">Status</TableHead>
+              <TableHead className="w-[100px]">Due Date</TableHead>
+              <TableHead className="w-[100px]">Sent</TableHead>
+              <TableHead className="w-[100px]">Paid</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -222,15 +222,15 @@ export function InvoicesTable({
                 onCheckedChange={(checked) => handleSelectAll(checked === true)}
               />
             </TableHead>
-            <TableHead>Invoice #</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Programme</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Due Date</TableHead>
-            <TableHead>Sent</TableHead>
-            <TableHead>Paid</TableHead>
+            <TableHead className="w-[100px]">Invoice #</TableHead>
+            <TableHead className="min-w-[140px]">Contact</TableHead>
+            <TableHead className="w-[120px]">Programme</TableHead>
+            <TableHead className="w-[100px]">Type</TableHead>
+            <TableHead className="w-[100px] text-right">Amount</TableHead>
+            <TableHead className="w-[90px]">Status</TableHead>
+            <TableHead className="w-[100px]">Due Date</TableHead>
+            <TableHead className="w-[100px]">Sent</TableHead>
+            <TableHead className="w-[100px]">Paid</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>

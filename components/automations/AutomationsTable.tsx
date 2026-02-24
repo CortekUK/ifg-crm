@@ -68,10 +68,10 @@ export function AutomationsTable({
               <TableHead>Trigger</TableHead>
               <TableHead>Pipeline</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Enrolled</TableHead>
-              <TableHead className="text-right">In Queue</TableHead>
+              <TableHead className="w-[80px] text-center">Enrolled</TableHead>
+              <TableHead className="w-[80px] text-center">In Queue</TableHead>
               <TableHead>Last Run</TableHead>
-              <TableHead className="w-[70px]"></TableHead>
+              <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -219,14 +219,14 @@ export function AutomationsTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Workflow</TableHead>
-            <TableHead>Trigger</TableHead>
-            <TableHead>Pipeline</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Enrolled</TableHead>
-            <TableHead className="text-right">In Queue</TableHead>
-            <TableHead>Last Run</TableHead>
-            <TableHead className="w-[70px]"></TableHead>
+            <TableHead className="min-w-[200px]">Workflow</TableHead>
+            <TableHead className="w-[120px]">Trigger</TableHead>
+            <TableHead className="w-[110px]">Pipeline</TableHead>
+            <TableHead className="w-[70px]">Status</TableHead>
+            <TableHead className="w-[80px] text-center">Enrolled</TableHead>
+            <TableHead className="w-[80px] text-center">In Queue</TableHead>
+            <TableHead className="w-[130px]">Last Run</TableHead>
+            <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -274,12 +274,12 @@ export function AutomationsTable({
                 </TableCell>
 
                 {/* Enrolled */}
-                <TableCell className="text-right">
+                <TableCell className="text-center">
                   <span className="font-medium">{automation.total_enrolled || 0}</span>
                 </TableCell>
 
                 {/* In Queue */}
-                <TableCell className="text-right">
+                <TableCell className="text-center">
                   {inQueue > 0 ? (
                     <Badge variant="secondary" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                       <Clock className="h-3 w-3 mr-1" />

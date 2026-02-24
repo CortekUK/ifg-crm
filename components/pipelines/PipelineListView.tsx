@@ -57,15 +57,15 @@ interface PipelineListViewProps {
 type SortKey = 'contact' | 'stage' | 'value' | 'owner' | 'time_in_stage' | 'created' | 'status'
 type SortOrder = 'asc' | 'desc'
 
-const columns: { key: SortKey | 'actions'; label: string; sortable: boolean }[] = [
-  { key: 'contact', label: 'Contact', sortable: true },
-  { key: 'stage', label: 'Stage', sortable: true },
-  { key: 'value', label: 'Value', sortable: true },
-  { key: 'owner', label: 'Owner', sortable: true },
-  { key: 'time_in_stage', label: 'Time in Stage', sortable: true },
-  { key: 'created', label: 'Created', sortable: true },
-  { key: 'status', label: 'Status', sortable: true },
-  { key: 'actions', label: '', sortable: false },
+const columns: { key: SortKey | 'actions'; label: string; sortable: boolean; className?: string }[] = [
+  { key: 'contact', label: 'Contact', sortable: true, className: 'min-w-[180px]' },
+  { key: 'stage', label: 'Stage', sortable: true, className: 'w-[200px]' },
+  { key: 'value', label: 'Value', sortable: true, className: 'w-[100px] text-center' },
+  { key: 'owner', label: 'Owner', sortable: true, className: 'w-[140px]' },
+  { key: 'time_in_stage', label: 'Time in Stage', sortable: true, className: 'w-[120px] text-center' },
+  { key: 'created', label: 'Created', sortable: true, className: 'w-[100px]' },
+  { key: 'status', label: 'Status', sortable: true, className: 'w-[80px] text-center' },
+  { key: 'actions', label: '', sortable: false, className: 'w-12' },
 ]
 
 // Avatar color palette
@@ -263,6 +263,7 @@ export function PipelineListView({
               <TableHead
                 key={col.key}
                 className={cn(
+                  col.className,
                   col.sortable && 'cursor-pointer select-none hover:bg-muted/50'
                 )}
                 onClick={() => col.sortable && handleSort(col.key as SortKey)}
@@ -354,7 +355,7 @@ export function PipelineListView({
                 </TableCell>
 
                 {/* Value */}
-                <TableCell className="font-semibold text-green-600">
+                <TableCell className="font-semibold text-green-600 text-center">
                   {formatCurrency(deal.deal_value)}
                 </TableCell>
 
@@ -373,7 +374,7 @@ export function PipelineListView({
                 </TableCell>
 
                 {/* Time in Stage */}
-                <TableCell>
+                <TableCell className="text-center">
                   {deal.time_in_stage !== undefined ? (
                     <Badge
                       variant="secondary"
@@ -393,7 +394,7 @@ export function PipelineListView({
                 </TableCell>
 
                 {/* Status */}
-                <TableCell>
+                <TableCell className="text-center">
                   <Badge
                     variant="secondary"
                     className={cn(
