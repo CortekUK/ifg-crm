@@ -249,7 +249,7 @@ export default function PipelinesPage() {
 
   // Patch send_as_user_id on newly created enrollment(s) for a deal
   const patchEnrollmentSendAs = useCallback(
-    async (dealId: string, targetStageId: string, sendAsUserId: string) => {
+    async (dealId: string, targetStageId: string, sendAsUserId: string | null) => {
       const supabase = createClient()
 
       // Find automations for the target stage
@@ -459,10 +459,8 @@ export default function PipelinesPage() {
       pendingMove.newStageName
     )
 
-    // If super admin chose to send as themselves, patch the new enrollment
-    if (sendAsUserId) {
-      patchEnrollmentSendAs(pendingMove.dealId, pendingMove.newStageId, sendAsUserId)
-    }
+    // Always patch send_as_user_id (null = deal owner, string = override)
+    patchEnrollmentSendAs(pendingMove.dealId, pendingMove.newStageId, sendAsUserId ?? null)
 
     toast({
       title: 'Automation restarted',
@@ -481,10 +479,10 @@ export default function PipelinesPage() {
     // This keeps the current progress
     const supabase = createClient()
 
-    // If super admin chose to send as themselves, also patch send_as_user_id
-    const updatePayload: Record<string, unknown> = { status: 'active' }
-    if (sendAsUserId) {
-      updatePayload.send_as_user_id = sendAsUserId
+    // Always set send_as_user_id (null = deal owner, string = override)
+    const updatePayload: Record<string, unknown> = {
+      status: 'active',
+      send_as_user_id: sendAsUserId ?? null,
     }
 
     supabase
@@ -573,10 +571,8 @@ export default function PipelinesPage() {
       pendingSendAsMove.newStageName
     )
 
-    // If super admin chose to send as themselves, patch the new enrollment
-    if (sendAsUserId) {
-      patchEnrollmentSendAs(pendingSendAsMove.dealId, pendingSendAsMove.newStageId, sendAsUserId)
-    }
+    // Always patch send_as_user_id (null = deal owner, string = override)
+    patchEnrollmentSendAs(pendingSendAsMove.dealId, pendingSendAsMove.newStageId, sendAsUserId)
 
     setSendAsModalOpen(false)
     setPendingSendAsMove(null)
