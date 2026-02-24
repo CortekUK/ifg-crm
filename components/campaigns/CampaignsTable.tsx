@@ -173,6 +173,7 @@ export function CampaignsTable({
               <TableHead>Pipeline</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Recipients</TableHead>
+              <TableHead>Delivered</TableHead>
               <TableHead>Open Rate</TableHead>
               <TableHead>Click Rate</TableHead>
               <TableHead>Sent Date</TableHead>
@@ -187,6 +188,7 @@ export function CampaignsTable({
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-12" /></TableCell>
@@ -229,6 +231,7 @@ export function CampaignsTable({
               <TableHead>Pipeline</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Recipients</TableHead>
+              <TableHead>Delivered</TableHead>
               <TableHead>Open Rate</TableHead>
               <TableHead>Click Rate</TableHead>
               <TableHead>Date</TableHead>
@@ -244,11 +247,16 @@ export function CampaignsTable({
               const recipients = campaign.recipient_count || totalRecipients
               
               // Use actual stats if available, otherwise show placeholder
+              const deliveredCount = campaign.delivered_count || 0
+              const totalSent = campaign.total_recipients || recipients
+              const deliveredDisplay = campaign.status === 'sent' && totalSent > 0
+                ? `${deliveredCount}/${totalSent}`
+                : '-'
               const openRate = campaign.status === 'sent' && campaign.open_count !== undefined
-                ? `${((campaign.open_count / (campaign.delivered_count || 1)) * 100).toFixed(1)}%`
+                ? `${((campaign.open_count / (deliveredCount || 1)) * 100).toFixed(1)}%`
                 : campaign.status === 'sent' ? '-' : '-'
               const clickRate = campaign.status === 'sent' && campaign.click_count !== undefined
-                ? `${((campaign.click_count / (campaign.delivered_count || 1)) * 100).toFixed(1)}%`
+                ? `${((campaign.click_count / (deliveredCount || 1)) * 100).toFixed(1)}%`
                 : campaign.status === 'sent' ? '-' : '-'
 
               return (
@@ -389,6 +397,7 @@ export function CampaignsTable({
                       ? formatNumber(campaign.total_recipients || recipients)
                       : formatNumber(recipients)}
                   </TableCell>
+                  <TableCell className="text-muted-foreground">{deliveredDisplay}</TableCell>
                   <TableCell className="text-muted-foreground">{openRate}</TableCell>
                   <TableCell className="text-muted-foreground">{clickRate}</TableCell>
                   <TableCell className="text-muted-foreground">
