@@ -58,7 +58,6 @@ export function AnalyticsPageHeader({
               <SelectItem value="30d">Last 30 days</SelectItem>
               <SelectItem value="90d">Last 90 days</SelectItem>
               <SelectItem value="year">This Year</SelectItem>
-              <SelectItem value="custom">Custom</SelectItem>
             </SelectContent>
           </Select>
         </div>

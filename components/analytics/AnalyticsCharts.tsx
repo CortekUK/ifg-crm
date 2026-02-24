@@ -58,6 +58,13 @@ const defaultAvgTimePerStage = [
   { stage: 'No data', avgDays: 0 },
 ]
 
+const tooltipStyle = {
+  backgroundColor: 'var(--color-card, white)',
+  border: '1px solid var(--color-border, #E5E7EB)',
+  borderRadius: '8px',
+  color: 'var(--color-card-foreground, #1f2937)',
+}
+
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -125,11 +132,7 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
                 />
                 <YAxis tick={{ fontSize: 12 }} stroke="#9CA3AF" />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                  }}
+                  contentStyle={tooltipStyle}
                 />
                 <Line
                   type="monotone"
@@ -163,11 +166,7 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
                   width={80}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                  }}
+                  contentStyle={tooltipStyle}
                 />
                 <Bar dataKey="count" fill="#3B82F6" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -287,11 +286,7 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
                   tickFormatter={(value) => `£${value / 1000}k`}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                  }}
+                  contentStyle={tooltipStyle}
                   formatter={(value) => [formatCurrency(value as number), 'Revenue']}
                 />
                 <Bar dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} />
@@ -324,11 +319,7 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                  }}
+                  contentStyle={tooltipStyle}
                 />
                 <Legend
                   layout="vertical"
@@ -361,11 +352,7 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
                   width={100}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                  }}
+                  contentStyle={tooltipStyle}
                 />
                 <Bar dataKey="deals" fill="#8B5CF6" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -395,11 +382,7 @@ export function AnalyticsCharts({ isLoading, data }: AnalyticsChartsProps) {
                 />
                 <YAxis tick={{ fontSize: 12 }} stroke="#9CA3AF" />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                  }}
+                  contentStyle={tooltipStyle}
                 />
                 <Bar dataKey="enrolments" fill="#F59E0B" radius={[4, 4, 0, 0]} />
               </BarChart>

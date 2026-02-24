@@ -50,8 +50,9 @@ function getDateRange(range: string): { start: Date; end: Date; previousStart: D
     case '90d':
       start.setDate(end.getDate() - 90)
       break
-    case 'ytd':
+    case 'year':
       start.setMonth(0, 1)
+      start.setHours(0, 0, 0, 0)
       break
     default:
       start.setDate(end.getDate() - 30)
@@ -426,7 +427,7 @@ export function useAnalytics(dateRange: string = '30d', pipelineId: string | nul
             ? stagesData
             : [...new Map(stagesData.map(s => [s.name, s])).values()]
 
-          for (const stage of stageNames.slice(0, 8)) {
+          for (const stage of (pipelineId ? stageNames : stageNames.slice(0, 8))) {
             // Get all stage IDs with this name (for aggregation)
             const stageIds = stagesData
               .filter(s => s.name === stage.name)
@@ -453,22 +454,47 @@ export function useAnalytics(dateRange: string = '30d', pipelineId: string | nul
       const stageConversionRates: { fromStage: string; toStage: string; rate: number }[] = []
       const avgTimePerStage: { stage: string; avgDays: number }[] = []
 
-      // Revenue by month
-      const { data: monthlyPayments } = await supabase
-        .from('payments')
-        .select('amount, created_at')
-        .eq('status', 'successful')
-        .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 5)).toISOString())
-        .order('created_at')
+      // Revenue by month — respect pipeline filter
+      let monthlyPayments: { amount: number; created_at: string }[] = []
+      if (pipelineId) {
+        const { data } = await supabase
+          .from('payments')
+          .select('amount, created_at, invoice:invoices!inner(deal:deals!inner(pipeline_id))')
+          .eq('status', 'successful')
+          .eq('invoice.deal.pipeline_id', pipelineId)
+          .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 5)).toISOString())
+          .order('created_at')
+        monthlyPayments = (data as unknown as { amount: number; created_at: string }[]) || []
+      } else {
+        const { data } = await supabase
+          .from('payments')
+          .select('amount, created_at')
+          .eq('status', 'successful')
+          .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 5)).toISOString())
+          .order('created_at')
+        monthlyPayments = data || []
+      }
 
-      const revenueByMonth = groupPaymentsByMonth(monthlyPayments || [])
+      const revenueByMonth = groupPaymentsByMonth(monthlyPayments)
 
-      // Leads by source
-      const { data: sourcesData } = await supabase
-        .from('contacts')
-        .select('source')
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
+      // Leads by source — respect pipeline filter
+      let sourcesData: { source: string | null }[] = []
+      if (pipelineId) {
+        const { data } = await supabase
+          .from('contacts')
+          .select('source, deals!inner(pipeline_id)')
+          .eq('deals.pipeline_id', pipelineId)
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
+        sourcesData = (data as unknown as { source: string | null }[]) || []
+      } else {
+        const { data } = await supabase
+          .from('contacts')
+          .select('source')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
+        sourcesData = data || []
+      }
 
       const sourceColors: Record<string, string> = {
         'website_form': '#3B82F6',
@@ -491,39 +517,50 @@ export function useAnalytics(dateRange: string = '30d', pipelineId: string | nul
         color: sourceColors[name] || '#6B7280',
       }))
 
-      // Top recruiters
+      // Top recruiters — fetch all active profiles, count won deals, take top 5
       const { data: recruitersData } = await supabase
         .from('profiles')
         .select('id, full_name')
+        .eq('is_active', true)
 
       const topRecruiters: { name: string; deals: number }[] = []
-      for (const recruiter of (recruitersData || []).slice(0, 5)) {
-        const { count } = await supabase
+      for (const recruiter of (recruitersData || [])) {
+        let recruiterDealsQuery = supabase
           .from('deals')
           .select('*', { count: 'exact', head: true })
           .eq('owner_id', recruiter.id)
           .eq('status', 'won')
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString())
+
+        if (pipelineId) {
+          recruiterDealsQuery = recruiterDealsQuery.eq('pipeline_id', pipelineId)
+        }
+
+        const { count } = await recruiterDealsQuery
         topRecruiters.push({ name: recruiter.full_name || 'Unknown', deals: count || 0 })
       }
       topRecruiters.sort((a, b) => b.deals - a.deals)
+      topRecruiters.splice(5) // Keep top 5
 
-      // Programme performance
+      // Programme performance — respect date range
       const { data: pipelinesData } = await supabase
         .from('pipelines')
         .select('id, name')
 
       const programmePerformance: { programme: string; enrolments: number }[] = []
-      for (const pipeline of (pipelinesData || []).slice(0, 5)) {
+      for (const pipeline of (pipelinesData || [])) {
         const { count } = await supabase
           .from('deals')
           .select('*', { count: 'exact', head: true })
           .eq('pipeline_id', pipeline.id)
           .eq('status', 'won')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
         programmePerformance.push({ programme: pipeline.name, enrolments: count || 0 })
       }
       programmePerformance.sort((a, b) => b.enrolments - a.enrolments)
+      programmePerformance.splice(8) // Keep top 8
 
       return {
         kpis: {
@@ -590,14 +627,24 @@ function groupByWeek(data: { created_at: string }[], start: Date, end: Date): { 
 function groupPaymentsByMonth(data: { amount: number; created_at: string }[]): { month: string; revenue: number }[] {
   const months: Record<string, number> = {}
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  
+
   data.forEach(payment => {
     const date = new Date(payment.created_at)
     const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`
     months[key] = (months[key] || 0) + payment.amount
   })
-  
-  return Object.entries(months)
-    .map(([month, revenue]) => ({ month: month.split(' ')[0], revenue }))
-    .slice(-5)
+
+  const entries = Object.entries(months).slice(-6)
+
+  // Check if entries span multiple years — if so, show abbreviated year
+  const years = new Set(entries.map(([key]) => key.split(' ')[1]))
+  const multiYear = years.size > 1
+
+  return entries.map(([key, revenue]) => {
+    const [mon, yr] = key.split(' ')
+    return {
+      month: multiYear ? `${mon} '${yr.slice(-2)}` : mon,
+      revenue,
+    }
+  })
 }

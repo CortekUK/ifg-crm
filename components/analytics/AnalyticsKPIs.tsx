@@ -25,6 +25,7 @@ interface KPI {
   changeLabel: string
   icon: React.ElementType
   colour: 'blue' | 'green' | 'emerald' | 'purple' | 'orange' | 'teal' | 'indigo' | 'rose' | 'amber' | 'cyan'
+  invertChange?: boolean
 }
 
 interface AnalyticsKPIsProps {
@@ -174,6 +175,7 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
       changeLabel: 'vs last period',
       icon: AlertCircle,
       colour: 'rose',
+      invertChange: true,
     },
     {
       title: 'Outstanding Balance',
@@ -182,6 +184,7 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
       changeLabel: 'vs last period',
       icon: Wallet,
       colour: 'amber',
+      invertChange: true,
     },
     {
       title: 'Deposits This Month',
@@ -228,6 +231,7 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
         const Icon = kpi.icon
         const config = colourConfig[kpi.colour]
         const isPositive = kpi.change >= 0
+        const isGood = kpi.invertChange ? !isPositive : isPositive
 
         return (
           <Card key={kpi.title} className={cn(
@@ -250,13 +254,13 @@ export function AnalyticsKPIs({ isLoading, data }: AnalyticsKPIsProps) {
               <p className="text-3xl font-bold text-gray-900 dark:text-white">{kpi.value}</p>
               <div className="flex items-center gap-1.5 text-sm mt-2">
                 {isPositive ? (
-                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  <TrendingUp className={cn('h-4 w-4', isGood ? 'text-green-500' : 'text-red-500')} />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className={cn('h-4 w-4', isGood ? 'text-green-500' : 'text-red-500')} />
                 )}
                 <span className={cn(
                   'font-medium',
-                  isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  isGood ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                 )}>
                   {isPositive ? '+' : ''}{kpi.change.toFixed(1)}%
                 </span>
