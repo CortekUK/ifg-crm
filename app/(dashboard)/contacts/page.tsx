@@ -405,12 +405,9 @@ function ContactsPageContent() {
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-1 px-3 py-2 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-600 text-xs font-semibold px-2.5 py-0.5 mr-1">
-            {selectedIds.size}
+          <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-600 text-xs font-semibold px-2.5 py-0.5 mr-2">
+            {selectedIds.size} selected
           </Badge>
-          <span className="text-sm font-medium text-blue-900 dark:text-blue-100 mr-2">
-            selected
-          </span>
 
           <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
 
