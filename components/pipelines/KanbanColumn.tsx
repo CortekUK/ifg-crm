@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Droppable } from '@hello-pangea/dnd'
+import { useEffect, useMemo, useState } from 'react'
+import { Droppable, DroppableProps } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -12,6 +12,21 @@ import { DealCard } from './DealCard'
 import { ColumnControls } from './ColumnControls'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
 import type { SortOption } from '@/lib/hooks/useColumnPreferences'
+
+// Workaround: Droppable fails after SSR hydration in React strict mode.
+// Defer rendering until after client-side mount.
+function ClientDroppable({ children, ...props }: DroppableProps) {
+  const [enabled, setEnabled] = useState(false)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setEnabled(true))
+    return () => {
+      cancelAnimationFrame(frame)
+      setEnabled(false)
+    }
+  }, [])
+  if (!enabled) return null
+  return <Droppable {...props}>{children}</Droppable>
+}
 
 interface KanbanColumnProps {
   stage: PipelineStage
@@ -184,7 +199,7 @@ export function KanbanColumn({
       )}
 
       {/* Cards Container */}
-      <Droppable droppableId={stage.id}>
+      <ClientDroppable droppableId={stage.id}>
         {(provided, snapshot) => (
           <ScrollArea className={cn("flex-1 pb-2", compact ? "px-1" : "px-2")}>
             <div
@@ -229,7 +244,7 @@ export function KanbanColumn({
             </div>
           </ScrollArea>
         )}
-      </Droppable>
+      </ClientDroppable>
     </div>
   )
 }
