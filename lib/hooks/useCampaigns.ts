@@ -499,24 +499,17 @@ export function useCampaignLists() {
 
       if (error) throw error
 
-      // Get contact counts for each list
-      const listIds = lists?.map((l) => l.id) || []
-      
-      if (listIds.length === 0) {
-        return []
-      }
+      if (!lists || lists.length === 0) return []
 
-      const { data: counts } = await supabase
-        .from('contact_lists')
-        .select('list_id')
-        .in('list_id', listIds)
+      // Get contact counts via RPC (avoids Supabase default row limit)
+      const { data: counts } = await supabase.rpc('get_list_contact_counts')
 
       const countMap = new Map<string, number>()
-      counts?.forEach((c) => {
-        countMap.set(c.list_id, (countMap.get(c.list_id) || 0) + 1)
+      counts?.forEach((c: { list_id: string; contact_count: number }) => {
+        countMap.set(c.list_id, c.contact_count)
       })
 
-      return (lists || []).map((list) => ({
+      return lists.map((list) => ({
         ...list,
         contact_count: countMap.get(list.id) || 0,
       }))
