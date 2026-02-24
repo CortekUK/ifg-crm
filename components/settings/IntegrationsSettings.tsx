@@ -81,7 +81,7 @@ export function IntegrationsSettings() {
                 <button
                   type="button"
                   onClick={() => setShowClickSendKey(!showClickSendKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   {showClickSendKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -152,7 +152,7 @@ export function IntegrationsSettings() {
               <button
                 type="button"
                 onClick={() => setShowResendKey(!showResendKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 {showResendKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -189,7 +189,7 @@ export function IntegrationsSettings() {
                 Accept payments and manage subscriptions through Stripe.
               </CardDescription>
             </div>
-            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 dark:text-gray-300">
+            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
               <XCircle className="h-3 w-3 mr-1" />
               Not Connected
             </Badge>

@@ -262,7 +262,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                 <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Description
                 </h3>
-                <p className="text-sm text-slate-600">{invoice.description}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{invoice.description}</p>
               </div>
 
               {/* Notes */}
@@ -271,7 +271,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                   <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                     Notes
                   </h3>
-                  <p className="text-sm text-slate-600">{invoice.notes}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">{invoice.notes}</p>
                 </div>
               )}
 
@@ -281,12 +281,12 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                   Payment History
                 </h3>
                 {invoice.paid_at ? (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-green-900">Payment Received</p>
+                      <p className="text-sm font-medium text-green-900 dark:text-green-200">Payment Received</p>
                       <p className="text-xs text-green-700 dark:text-green-300">{formatDateLong(invoice.paid_at)}</p>
                     </div>
                     <p className="font-semibold text-green-600">{formatCurrency(invoice.amount)}</p>

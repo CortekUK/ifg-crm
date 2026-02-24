@@ -32,7 +32,7 @@ import {
   Clock,
   FileCheck,
   Video,
-  Receipt,
+  ReceiptPoundSterling,
   AlertTriangle,
   PartyPopper,
   Plane,
@@ -202,7 +202,7 @@ export function AutomationsTable({
       case 'post_interview':
         return <Video className="h-4 w-4" />
       case 'deposit_invoice':
-        return <Receipt className="h-4 w-4" />
+        return <ReceiptPoundSterling className="h-4 w-4" />
       case 'payment_overdue':
         return <AlertTriangle className="h-4 w-4" />
       case 'welcome_sequence':

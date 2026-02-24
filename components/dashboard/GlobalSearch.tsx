@@ -24,10 +24,10 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 
 const typeConfig: Record<SearchResult['type'], { icon: typeof User; label: string; color: string }> = {
-  contact: { icon: User, label: 'Contact', color: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
-  deal: { icon: GitBranch, label: 'Deal', color: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  template: { icon: FileText, label: 'Template', color: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
-  automation: { icon: Zap, label: 'Automation', color: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700' },
+  contact: { icon: User, label: 'Contact', color: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' },
+  deal: { icon: GitBranch, label: 'Deal', color: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  template: { icon: FileText, label: 'Template', color: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  automation: { icon: Zap, label: 'Automation', color: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300' },
 }
 
 export function GlobalSearch() {
@@ -84,10 +84,10 @@ export function GlobalSearch() {
           onClick={() => setOpen(true)}
         >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <div className="pl-9 pr-14 w-56 h-9 bg-gray-50 border border-gray-200 rounded-md flex items-center text-sm text-gray-500 hover:bg-gray-100 transition-colors">
+          <div className="pl-9 pr-14 w-56 h-9 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-md flex items-center text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
             Search...
           </div>
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-gray-200 bg-gray-100 px-1.5 font-mono text-[10px] font-medium text-gray-500 dark:text-gray-400">
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-700 px-1.5 font-mono text-[10px] font-medium text-gray-500 dark:text-gray-400">
             <span className="text-xs">⌘</span>K
           </kbd>
         </button>
@@ -156,8 +156,8 @@ export function GlobalSearch() {
           </CommandList>
           {results.length > 0 && (
             <div className="border-t px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-              Press <kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">↵</kbd> to select,{' '}
-              <kbd className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">esc</kbd> to close
+              Press <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-[10px]">↵</kbd> to select,{' '}
+              <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-[10px]">esc</kbd> to close
             </div>
           )}
         </Command>

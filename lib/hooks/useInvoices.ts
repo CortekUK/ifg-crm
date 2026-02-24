@@ -235,36 +235,26 @@ export function useInvoiceStats() {
   return useQuery({
     queryKey: ['invoice-stats'],
     queryFn: async () => {
-      // Get outstanding amount
-      const { data: outstanding } = await supabase
-        .from('invoices')
-        .select('amount')
-        .in('status', ['sent', 'overdue'])
-
-      // Get paid this month
       const startOfMonth = new Date()
       startOfMonth.setDate(1)
       startOfMonth.setHours(0, 0, 0, 0)
 
-      const { data: paidThisMonth } = await supabase
-        .from('invoices')
-        .select('amount')
-        .eq('status', 'paid')
-        .gte('paid_at', startOfMonth.toISOString())
-
-      // Get overdue count
-      const { count: overdueCount } = await supabase
-        .from('invoices')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'overdue')
-
-      // Calculate avg payment days from invoices with both sent_at and paid_at
-      const { data: paidInvoices } = await supabase
-        .from('invoices')
-        .select('sent_at, paid_at')
-        .eq('status', 'paid')
-        .not('sent_at', 'is', null)
-        .not('paid_at', 'is', null)
+      // Run all 4 independent queries in parallel
+      const [
+        { data: outstanding },
+        { data: paidThisMonth },
+        { count: overdueCount },
+        { data: paidInvoices },
+      ] = await Promise.all([
+        // Outstanding amount
+        supabase.from('invoices').select('amount').in('status', ['sent', 'overdue']),
+        // Paid this month
+        supabase.from('invoices').select('amount').eq('status', 'paid').gte('paid_at', startOfMonth.toISOString()),
+        // Overdue count
+        supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('status', 'overdue'),
+        // Avg payment days (invoices with both sent_at and paid_at)
+        supabase.from('invoices').select('sent_at, paid_at').eq('status', 'paid').not('sent_at', 'is', null).not('paid_at', 'is', null),
+      ])
 
       let avgPaymentDays: number | null = null
       if (paidInvoices && paidInvoices.length > 0) {

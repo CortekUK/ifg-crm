@@ -42,19 +42,19 @@ export function DataPrivacySettings() {
             without your explicit consent.
           </p>
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-white">Data Location</p>
               <p className="text-muted-foreground">EU (Ireland)</p>
             </div>
-            <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-white">Encryption</p>
               <p className="text-muted-foreground">AES-256 at rest</p>
             </div>
-            <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-white">Retention Period</p>
               <p className="text-muted-foreground">As per your settings</p>
             </div>
-            <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg">
               <p className="font-medium text-gray-900 dark:text-white">Data Processing</p>
               <p className="text-muted-foreground">GDPR Article 6(1)(b)</p>
             </div>
@@ -84,9 +84,9 @@ export function DataPrivacySettings() {
         </CardContent>
       </Card>
 
-      <Card className="border-red-200">
+      <Card className="border-red-200 dark:border-red-800">
         <CardHeader>
-          <CardTitle className="text-base text-red-600 flex items-center gap-2">
+          <CardTitle className="text-base text-red-600 dark:text-red-400 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
             Danger Zone
           </CardTitle>

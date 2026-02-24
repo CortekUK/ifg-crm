@@ -20,7 +20,7 @@ import {
   Banknote,
   Globe,
   CircleDot,
-  Receipt,
+  ReceiptPoundSterling,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -139,7 +139,7 @@ export function PaymentsTable({
   if (payments.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
-        <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+        <ReceiptPoundSterling className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
           {hasActiveFilters ? 'No payments match your filters' : 'No payments yet'}
         </h3>

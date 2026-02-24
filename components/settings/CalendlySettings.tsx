@@ -141,8 +141,8 @@ export function CalendlySettings() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${connectionStatus?.connected ? 'bg-green-100' : 'bg-gray-100'}`}>
-                <Calendar className={`h-5 w-5 ${connectionStatus?.connected ? 'text-green-600' : 'text-gray-500'}`} />
+              <div className={`p-2 rounded-lg ${connectionStatus?.connected ? 'bg-green-100 dark:bg-green-900/50' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <Calendar className={`h-5 w-5 ${connectionStatus?.connected ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`} />
               </div>
               <div>
                 <CardTitle className="text-base">Calendly</CardTitle>
@@ -168,13 +168,13 @@ export function CalendlySettings() {
 
         {connectionStatus?.connected ? (
           <CardContent className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <Check className="h-5 w-5 text-green-600 mt-0.5" />
+                <Check className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-green-900">Connected successfully</p>
+                  <p className="font-medium text-green-900 dark:text-green-200">Connected successfully</p>
                   {connectionStatus.connected_at && (
-                    <p className="text-green-700 mt-1">
+                    <p className="text-green-700 dark:text-green-300 mt-1">
                       Connected on {formatDate(connectionStatus.connected_at)}
                     </p>
                   )}
@@ -215,9 +215,9 @@ export function CalendlySettings() {
         ) : (
           <CardContent className="space-y-6">
             {/* Setup Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">Setup Instructions</h4>
-              <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-2">Setup Instructions</h4>
+              <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-2 list-decimal list-inside">
                 <li>
                   Go to{' '}
                   <a
@@ -232,7 +232,7 @@ export function CalendlySettings() {
                 </li>
                 <li>Generate a Personal Access Token and paste it below</li>
                 <li>Create a Webhook Subscription with the URL below</li>
-                <li>Select events: <code className="bg-blue-100 px-1 rounded">invitee.created</code> and <code className="bg-blue-100 px-1 rounded">invitee.canceled</code></li>
+                <li>Select events: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">invitee.created</code> and <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">invitee.canceled</code></li>
                 <li>Copy the Webhook Signing Key (optional but recommended)</li>
               </ol>
             </div>
@@ -247,7 +247,7 @@ export function CalendlySettings() {
                 <Input
                   value={webhookUrl}
                   readOnly
-                  className="font-mono text-sm bg-gray-50"
+                  className="font-mono text-sm bg-gray-50 dark:bg-slate-800"
                 />
                 <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
                   <Copy className="h-4 w-4" />
@@ -303,9 +303,9 @@ export function CalendlySettings() {
             </div>
 
             {/* Warning */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-800">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-800 dark:text-amber-200">
                 Your access token is stored securely. Never share your token with anyone.
               </p>
             </div>

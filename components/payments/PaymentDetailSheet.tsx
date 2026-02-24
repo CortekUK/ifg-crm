@@ -18,7 +18,7 @@ import {
   Globe,
   CircleDot,
   Mail,
-  Receipt,
+  ReceiptPoundSterling,
   Printer,
   User,
   Calendar,
@@ -36,11 +36,11 @@ interface PaymentDetailSheetProps {
 }
 
 const methodConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  stripe: { label: 'Stripe', icon: CreditCard, color: 'bg-purple-100 text-purple-600' },
-  bank_transfer: { label: 'Bank Transfer', icon: Building2, color: 'bg-blue-100 text-blue-600' },
-  cash: { label: 'Cash', icon: Banknote, color: 'bg-green-100 text-green-600' },
-  website: { label: 'Website', icon: Globe, color: 'bg-cyan-100 text-cyan-600' },
-  other: { label: 'Other', icon: CircleDot, color: 'bg-gray-100 text-gray-600' },
+  stripe: { label: 'Stripe', icon: CreditCard, color: 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400' },
+  bank_transfer: { label: 'Bank Transfer', icon: Building2, color: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' },
+  cash: { label: 'Cash', icon: Banknote, color: 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400' },
+  website: { label: 'Website', icon: Globe, color: 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-400' },
+  other: { label: 'Other', icon: CircleDot, color: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' },
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -49,7 +49,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   failed: { label: 'Failed', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
 }
 
-const defaultMethod = { label: 'Other', icon: CircleDot, color: 'bg-gray-100 text-gray-600' }
+const defaultMethod = { label: 'Other', icon: CircleDot, color: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' }
 const defaultStatus = { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' }
 
 export function PaymentDetailSheet({
@@ -258,7 +258,7 @@ export function PaymentDetailSheet({
                 onClick={() => onViewInvoice?.(payment.invoice!.id)}
               >
                 <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full">
-                  <Receipt className="h-4 w-4 text-blue-600" />
+                  <ReceiptPoundSterling className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-blue-700 dark:text-blue-300">

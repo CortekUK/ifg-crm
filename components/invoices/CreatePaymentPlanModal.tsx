@@ -36,7 +36,7 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CalendarIcon, Check, ChevronsUpDown, Loader2, Receipt } from 'lucide-react'
+import { CalendarIcon, Check, ChevronsUpDown, Loader2, ReceiptPoundSterling } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, addMonths } from 'date-fns'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
@@ -437,7 +437,7 @@ export function CreatePaymentPlanModal({
                       <CardContent className="p-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full">
-                            <Receipt className="h-4 w-4 text-blue-600" />
+                            <ReceiptPoundSterling className="h-4 w-4 text-blue-600" />
                           </div>
                           <div>
                             <p className="text-sm font-medium">

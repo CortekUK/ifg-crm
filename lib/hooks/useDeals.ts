@@ -36,36 +36,35 @@ export function useDeals(pipelineId: string | null) {
       }
       if (!deals || deals.length === 0) return []
 
-      // Fetch stages separately (using pipeline_stages - the correct table per FK constraint)
+      // Fetch all supplementary data in parallel
       const stageIds = [...new Set(deals.map(d => d.current_stage_id).filter(Boolean))]
-      
-      const { data: stagesData } = await supabase
-        .from('pipeline_stages')
-        .select('*')
-        .in('id', stageIds)
-
-      const stagesMap = new Map(stagesData?.map(s => [s.id, s]) || [])
-
-      // Fetch owners separately to avoid foreign key ambiguity (deals has both deal_owner_id and owner_id)
       const ownerIds = [...new Set(deals.map(d => d.deal_owner_id).filter(Boolean))]
-      const { data: ownersData } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, avatar_url, calendly_url')
-        .in('id', ownerIds)
-
-      const ownersMap = new Map(ownersData?.map(o => [o.id, o]) || [])
-
-      // Build a map of deal_id -> last contacted at (non-fatal if these queries fail)
-      const lastContactedMap = new Map<string, string>()
       const dealIds = deals.map((d) => d.id)
 
-      // Fetch last email sent from automation_logs (non-fatal)
-      const { data: emailLogs, error: logsError } = await supabase
-        .from('automation_logs')
-        .select('deal_id, sent_at')
-        .eq('status', 'sent')
-        .in('deal_id', dealIds)
-        .order('sent_at', { ascending: false })
+      const [
+        { data: stagesData },
+        { data: ownersData },
+        { data: emailLogs, error: logsError },
+        { data: emailActivities, error: activitiesError },
+        { data: enrollments, error: enrollmentsError },
+      ] = await Promise.all([
+        // Stages (using pipeline_stages - the correct table per FK constraint)
+        supabase.from('pipeline_stages').select('*').in('id', stageIds),
+        // Owners (fetched separately to avoid foreign key ambiguity)
+        supabase.from('profiles').select('id, email, full_name, avatar_url, calendly_url').in('id', ownerIds),
+        // Last email sent from automation_logs (non-fatal)
+        supabase.from('automation_logs').select('deal_id, sent_at').eq('status', 'sent').in('deal_id', dealIds).order('sent_at', { ascending: false }),
+        // Email activities (non-fatal)
+        supabase.from('deal_activities').select('deal_id, created_at').eq('activity_type', 'email_sent').in('deal_id', dealIds).order('created_at', { ascending: false }),
+        // Active automation enrollments (non-fatal)
+        supabase.from('automation_enrollments').select('deal_id').in('deal_id', dealIds).eq('status', 'active'),
+      ])
+
+      const stagesMap = new Map(stagesData?.map(s => [s.id, s]) || [])
+      const ownersMap = new Map(ownersData?.map(o => [o.id, o]) || [])
+
+      // Build a map of deal_id -> last contacted at
+      const lastContactedMap = new Map<string, string>()
 
       if (logsError) {
         console.warn('Failed to fetch automation logs:', logsError.message)
@@ -76,14 +75,6 @@ export function useDeals(pipelineId: string | null) {
           }
         })
       }
-
-      // Fetch email activities (non-fatal)
-      const { data: emailActivities, error: activitiesError } = await supabase
-        .from('deal_activities')
-        .select('deal_id, created_at')
-        .eq('activity_type', 'email_sent')
-        .in('deal_id', dealIds)
-        .order('created_at', { ascending: false })
 
       if (activitiesError) {
         console.warn('Failed to fetch deal activities:', activitiesError.message)
@@ -96,14 +87,7 @@ export function useDeals(pipelineId: string | null) {
         })
       }
 
-      // Fetch active automation enrollments for these deals (non-fatal)
       const activeEnrollmentsSet = new Set<string>()
-      const { data: enrollments, error: enrollmentsError } = await supabase
-        .from('automation_enrollments')
-        .select('deal_id')
-        .in('deal_id', dealIds)
-        .eq('status', 'active')
-
       if (enrollmentsError) {
         console.warn('Failed to fetch automation enrollments:', enrollmentsError.message)
       } else {

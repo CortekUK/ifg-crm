@@ -414,7 +414,7 @@ export function ProfileSettings() {
           </p>
         </div>
         {hasUnsavedChanges && (
-          <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full flex items-center gap-1">
+          <span className="text-xs font-medium text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-full flex items-center gap-1">
             <AlertTriangle className="h-3 w-3" />
             Unsaved changes
           </span>
@@ -627,9 +627,9 @@ International Football Group
             </p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Example Signature</h4>
-            <pre className="text-xs text-blue-800 whitespace-pre-wrap font-mono">
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">Example Signature</h4>
+            <pre className="text-xs text-blue-800 dark:text-blue-300 whitespace-pre-wrap font-mono">
 {`Best regards,<br>
 <strong>${profile.full_name || 'Your Name'}</strong><br>
 International Football Group<br>

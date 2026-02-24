@@ -40,7 +40,7 @@ import {
   FileCheck,
   Video,
   MessageSquare,
-  Receipt,
+  ReceiptPoundSterling,
   AlertTriangle,
   PartyPopper,
   Plane,
@@ -200,7 +200,7 @@ export function ConfigureAutomationModal({
       case 'post_interview':
         return <MessageSquare className="h-5 w-5" />
       case 'deposit_invoice':
-        return <Receipt className="h-5 w-5" />
+        return <ReceiptPoundSterling className="h-5 w-5" />
       case 'payment_overdue':
         return <AlertTriangle className="h-5 w-5" />
       case 'welcome_sequence':

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { DropResult } from '@hello-pangea/dnd'
 import { PipelinesPageHeader } from '@/components/pipelines/PipelinesPageHeader'
 import { PipelineFilters } from '@/components/pipelines/PipelineFilters'
@@ -158,7 +158,7 @@ export default function PipelinesPage() {
   }, [])
 
   // Filter deals by search, owner, and status
-  const filteredDeals = deals.filter((deal) => {
+  const filteredDeals = useMemo(() => deals.filter((deal) => {
     // Search filter
     if (search) {
       const contactName = deal.contact
@@ -184,7 +184,7 @@ export default function PipelinesPage() {
     }
 
     return true
-  })
+  }), [deals, search, ownerFilter, statusFilter])
 
   // Trigger automation processing immediately after deal move
   const triggerAutomationProcessing = useCallback(async () => {
