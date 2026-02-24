@@ -76,7 +76,7 @@ export default function PipelinesPage() {
     enrollments: { id: string; automation_id: string; automation_name: string }[]
   } | null>(null)
 
-  // Send-as confirm modal state (first enrollment)
+  // Send-as confirm modal state (super admin first enrollment)
   const [sendAsModalOpen, setSendAsModalOpen] = useState(false)
   const [pendingSendAsMove, setPendingSendAsMove] = useState<{
     dealId: string
@@ -338,8 +338,8 @@ export default function PipelinesPage() {
         }
       }
 
-      // No existing enrollment but target stage has automations - show SendAs modal
-      if (automations && automations.length > 0) {
+      // No existing enrollment but target stage has automations - show SendAs modal for super admins
+      if (automations && automations.length > 0 && isSuperAdmin) {
         setPendingSendAsMove({
           dealId,
           newStageId,
@@ -459,7 +459,7 @@ export default function PipelinesPage() {
       pendingMove.newStageName
     )
 
-    // If user chose to send as themselves (not deal owner), patch the new enrollment
+    // If super admin chose to send as themselves, patch the new enrollment
     if (sendAsUserId) {
       patchEnrollmentSendAs(pendingMove.dealId, pendingMove.newStageId, sendAsUserId)
     }
@@ -573,7 +573,7 @@ export default function PipelinesPage() {
       pendingSendAsMove.newStageName
     )
 
-    // If user chose to send as themselves (not deal owner), patch the new enrollment
+    // If super admin chose to send as themselves, patch the new enrollment
     if (sendAsUserId) {
       patchEnrollmentSendAs(pendingSendAsMove.dealId, pendingSendAsMove.newStageId, sendAsUserId)
     }
@@ -764,7 +764,7 @@ export default function PipelinesPage() {
         />
       )}
 
-      {/* Send As Confirm Modal (first enrollment) */}
+      {/* Send As Confirm Modal (super admin first enrollment) */}
       {pendingSendAsMove && currentUser && (
         <SendAsConfirmModal
           isOpen={sendAsModalOpen}
