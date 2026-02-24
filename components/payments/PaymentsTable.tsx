@@ -101,6 +101,28 @@ export function PaymentsTable({
     }
   }
 
+  const sortedPayments = useMemo(() => {
+    const sorted = [...payments]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'date':
+          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+        case 'amount':
+          cmp = a.amount - b.amount
+          break
+        case 'status': {
+          const statusOrder: Record<string, number> = { pending: 0, successful: 1, failed: 2 }
+          cmp = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0)
+          break
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [payments, sortField, sortDir])
+
   if (isLoading) {
     return (
       <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
@@ -151,28 +173,6 @@ export function PaymentsTable({
       </div>
     )
   }
-
-  const sortedPayments = useMemo(() => {
-    const sorted = [...payments]
-    sorted.sort((a, b) => {
-      let cmp = 0
-      switch (sortField) {
-        case 'date':
-          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          break
-        case 'amount':
-          cmp = a.amount - b.amount
-          break
-        case 'status': {
-          const statusOrder: Record<string, number> = { pending: 0, successful: 1, failed: 2 }
-          cmp = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0)
-          break
-        }
-      }
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-    return sorted
-  }, [payments, sortField, sortDir])
 
   return (
     <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">

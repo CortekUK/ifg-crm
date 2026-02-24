@@ -83,6 +83,26 @@ export function AutomationsTable({
     }
   }
 
+  const sortedAutomations = useMemo(() => {
+    const sorted = [...automations]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name)
+          break
+        case 'enrolled':
+          cmp = (a.total_enrolled || 0) - (b.total_enrolled || 0)
+          break
+        case 'last_run':
+          cmp = (a.last_run_at ? new Date(a.last_run_at).getTime() : 0) - (b.last_run_at ? new Date(b.last_run_at).getTime() : 0)
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [automations, sortField, sortDir])
+
   if (isLoading) {
     return (
       <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
@@ -238,26 +258,6 @@ export function AutomationsTable({
         return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
     }
   }
-
-  const sortedAutomations = useMemo(() => {
-    const sorted = [...automations]
-    sorted.sort((a, b) => {
-      let cmp = 0
-      switch (sortField) {
-        case 'name':
-          cmp = a.name.localeCompare(b.name)
-          break
-        case 'enrolled':
-          cmp = (a.total_enrolled || 0) - (b.total_enrolled || 0)
-          break
-        case 'last_run':
-          cmp = (a.last_run_at ? new Date(a.last_run_at).getTime() : 0) - (b.last_run_at ? new Date(b.last_run_at).getTime() : 0)
-          break
-      }
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-    return sorted
-  }, [automations, sortField, sortDir])
 
   return (
     <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
