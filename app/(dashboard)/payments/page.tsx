@@ -10,6 +10,8 @@ import { RecordPaymentModal } from '@/components/payments/RecordPaymentModal'
 import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet'
 import { usePayments, usePaymentStats } from '@/lib/hooks/usePayments'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { toast } from '@/lib/hooks/use-toast'
 import type { PaymentFilters as Filters, Payment } from '@/lib/types/payments'
 
 export default function PaymentsPage() {
@@ -28,12 +30,14 @@ export default function PaymentsPage() {
   const { data: stats, isLoading: statsLoading } = usePaymentStats()
   const { data: currentUser } = useCurrentUser()
 
+  const debouncedSearch = useDebouncedValue(filters.search, 300)
+
   // Filter payments
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
       // Search filter
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase()
+      if (debouncedSearch) {
+        const searchLower = debouncedSearch.toLowerCase()
         const contactName = payment.contact
           ? `${payment.contact.first_name} ${payment.contact.last_name}`.toLowerCase()
           : ''
@@ -73,10 +77,17 @@ export default function PaymentsPage() {
 
       return true
     })
-  }, [payments, filters])
+  }, [payments, filters, debouncedSearch])
 
   const handleExport = () => {
-    if (filteredPayments.length === 0) return
+    if (filteredPayments.length === 0) {
+      toast({
+        title: 'No payments to export',
+        description: 'There are no payments matching your current filters.',
+        variant: 'destructive',
+      })
+      return
+    }
 
     const headers = ['Date', 'Contact', 'Invoice #', 'Amount', 'Method', 'Reference', 'Status']
     const rows = filteredPayments.map((p) => [
@@ -124,7 +135,7 @@ export default function PaymentsPage() {
         totalReceived={stats?.totalReceived || 0}
         pending={stats?.pending || 0}
         failedCount={stats?.failedCount || 0}
-        avgTransaction={stats?.avgTransaction || 0}
+        avgTransaction={stats?.avgTransaction ?? null}
         isLoading={statsLoading}
       />
 
@@ -137,6 +148,7 @@ export default function PaymentsPage() {
         isLoading={paymentsLoading}
         onView={handleViewPayment}
         onViewInvoice={handleViewInvoice}
+        hasActiveFilters={!!(filters.search || filters.paymentMethod !== 'all' || filters.status !== 'all' || filters.pipelineId || filters.dateFrom || filters.dateTo)}
       />
 
       {/* Payment Detail Sheet */}

@@ -13,13 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  MoreHorizontal,
   Eye,
   CreditCard,
   Building2,
@@ -35,6 +28,7 @@ interface PaymentsTableProps {
   isLoading: boolean
   onView?: (payment: Payment) => void
   onViewInvoice?: (invoiceId: string) => void
+  hasActiveFilters?: boolean
 }
 
 const methodConfig: Record<string, { label: string; icon: React.ElementType }> = {
@@ -59,6 +53,7 @@ export function PaymentsTable({
   isLoading,
   onView,
   onViewInvoice,
+  hasActiveFilters,
 }: PaymentsTableProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -120,9 +115,13 @@ export function PaymentsTable({
     return (
       <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
         <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No payments yet</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+          {hasActiveFilters ? 'No payments match your filters' : 'No payments yet'}
+        </h3>
         <p className="text-muted-foreground">
-          Payments will appear here once recorded.
+          {hasActiveFilters
+            ? 'Try adjusting your search or filters.'
+            : 'Payments will appear here once recorded.'}
         </p>
       </div>
     )
@@ -214,19 +213,9 @@ export function PaymentsTable({
 
                 {/* Actions */}
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onView?.(payment)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button variant="ghost" size="icon" onClick={() => onView?.(payment)}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             )

@@ -149,7 +149,7 @@ export function RecordPaymentModal({
   }
 
   const handleSubmit = async () => {
-    if (!selectedContactId || !amount || !paymentDate) return
+    if (!selectedContactId || !amount || !paymentDate || parseFloat(amount) <= 0) return
 
     try {
       await createPayment.mutateAsync({

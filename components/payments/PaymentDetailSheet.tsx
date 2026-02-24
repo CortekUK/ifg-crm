@@ -6,6 +6,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,9 +18,8 @@ import {
   Globe,
   CircleDot,
   Mail,
-  Phone,
   Receipt,
-  FileText,
+  Printer,
   User,
   Calendar,
   Hash,
@@ -68,6 +68,54 @@ export function PaymentDetailSheet({
     const first = firstName?.[0] || ''
     const last = lastName?.[0] || ''
     return (first + last).toUpperCase() || '??'
+  }
+
+  const handlePrintReceipt = () => {
+    const contactName = payment.contact
+      ? `${payment.contact.first_name} ${payment.contact.last_name}`
+      : 'Unknown'
+
+    const html = `<!DOCTYPE html><html><head><title>Payment Receipt</title><style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; line-height: 1.5; padding: 40px; max-width: 600px; margin: 0 auto; }
+      .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+      .logo { font-size: 20px; font-weight: bold; color: #1e40af; }
+      .logo-sub { font-size: 10px; color: #6b7280; letter-spacing: 1px; }
+      h1 { font-size: 24px; margin: 16px 0 4px; }
+      .amount { font-size: 32px; font-weight: bold; color: #16a34a; margin: 16px 0; }
+      .status { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: white; background-color: ${payment.status === 'successful' ? '#16a34a' : payment.status === 'pending' ? '#d97706' : '#dc2626'}; }
+      .details { margin: 30px 0; }
+      .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
+      .row .label { color: #6b7280; }
+      .row .value { font-weight: 500; }
+      .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+      @media print { body { padding: 20px; } }
+    </style></head><body>
+      <div class="header">
+        <div class="logo">INTERNATIONAL FOOTBALL GROUP</div>
+        <div class="logo-sub">SPORTS RECRUITMENT</div>
+        <h1>Payment Receipt</h1>
+        <div class="status">${payment.status}</div>
+      </div>
+      <div class="amount" style="text-align:center">£${payment.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</div>
+      <div class="details">
+        <div class="row"><span class="label">Contact</span><span class="value">${contactName}</span></div>
+        <div class="row"><span class="label">Date</span><span class="value">${new Date(payment.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+        <div class="row"><span class="label">Method</span><span class="value">${method.label}</span></div>
+        ${payment.reference ? `<div class="row"><span class="label">Reference</span><span class="value">${payment.reference}</span></div>` : ''}
+        ${payment.invoice ? `<div class="row"><span class="label">Invoice</span><span class="value">${payment.invoice.invoice_number}</span></div>` : ''}
+        ${payment.notes ? `<div class="row"><span class="label">Notes</span><span class="value">${payment.notes}</span></div>` : ''}
+      </div>
+      <div class="footer"><p>Thank you for your payment</p><p>International Football Group &bull; United Kingdom</p></div>
+    </body></html>`
+
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+      setTimeout(() => printWindow.print(), 250)
+    }
   }
 
   const formatDateTime = (dateString: string) => {
@@ -234,6 +282,14 @@ export function PaymentDetailSheet({
             </div>
           )}
         </div>
+
+        {/* Footer Actions */}
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
+          <Button variant="outline" className="w-full" onClick={handlePrintReceipt}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print Receipt
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   )

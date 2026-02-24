@@ -47,7 +47,7 @@ export function usePaymentStats() {
 
       const totalReceived = successful.reduce((sum, p) => sum + (p.amount || 0), 0)
       const pendingTotal = pending.reduce((sum, p) => sum + (p.amount || 0), 0)
-      const avgTransaction = successful.length > 0 ? totalReceived / successful.length : 0
+      const avgTransaction = successful.length > 0 ? totalReceived / successful.length : null
 
       return {
         totalReceived,
@@ -89,7 +89,7 @@ export function useCreatePayment() {
           .eq('id', input.invoice_id)
 
         if (invoiceError) {
-          console.error('Failed to update invoice status:', invoiceError)
+          throw new Error(`Payment recorded but invoice status update failed: ${invoiceError.message}`)
         }
       }
 

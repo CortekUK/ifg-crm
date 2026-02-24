@@ -10,7 +10,7 @@ interface PaymentStatsProps {
   totalReceived: number
   pending: number
   failedCount: number
-  avgTransaction: number
+  avgTransaction: number | null
   isLoading?: boolean
 }
 
@@ -69,7 +69,7 @@ export function PaymentStats({
     },
     {
       label: 'Avg Transaction',
-      value: formatCurrency(avgTransaction),
+      value: avgTransaction != null ? formatCurrency(avgTransaction) : '—',
       icon: TrendingUp,
       colour: 'blue' as const,
     },

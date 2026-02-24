@@ -165,8 +165,8 @@ export function CreatePaymentPlanModal({
 
     setIsCreating(true)
 
+    let created = 0
     try {
-      // Create all invoices in the payment plan
       for (const invoice of scheduledInvoices) {
         await createInvoice.mutateAsync({
           contact_id: selectedContactId,
@@ -178,6 +178,7 @@ export function CreatePaymentPlanModal({
           notes: notes || undefined,
           created_by_id: userId,
         })
+        created++
       }
 
       toast({
@@ -187,11 +188,19 @@ export function CreatePaymentPlanModal({
 
       onClose()
     } catch (error) {
-      toast({
-        title: 'Failed to create payment plan',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
-      })
+      if (created > 0) {
+        toast({
+          title: 'Payment plan partially created',
+          description: `${created} of ${scheduledInvoices.length} invoices were created before an error occurred. Please check and create the remaining invoices manually.`,
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Failed to create payment plan',
+          description: error instanceof Error ? error.message : 'An error occurred',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setIsCreating(false)
     }
