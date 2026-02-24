@@ -231,11 +231,13 @@ async function processCampaign(
     }
   }
 
-  // Default from email — use Resend test domain until a custom domain is verified
+  // From email — always use FROM_EMAIL env var or Resend test domain
+  // Campaign's from_email is stored for display/record but actual sending
+  // must use a verified domain. Set FROM_EMAIL env var once a domain is verified.
   const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
-  const fromEmail = campaign.from_email || FROM_EMAIL
+  const fromEmail = FROM_EMAIL
   const fromName = campaign.from_name || 'IFG Team'
-  const replyTo = campaign.reply_to || fromEmail
+  const replyTo = campaign.reply_to || campaign.from_email || fromEmail
 
   // Send emails to batch
   let successCount = 0
