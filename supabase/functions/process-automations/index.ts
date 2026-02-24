@@ -630,11 +630,11 @@ async function processEmailStep(
     }
 
     // Fetch contact separately using contact_id
-    let contact: { id: string; email: string; first_name: string; last_name: string; phone: string | null; country: string | null; position: string | null; club_name: string | null; graduation_year: number | null; gender: string | null; gpa: number | null; parent_name: string | null; parent_email: string | null; sport: string | null } | null = null
+    let contact: { id: string; email: string; first_name: string; last_name: string; phone: string | null; country: string | null; position: string | null; club_name: string | null; graduation_year: number | null; gender: string | null; gpa: number | null; parent_name: string | null; parent_email: string | null; sport: string | null; subscription_status: string | null } | null = null
     if (deal.contact_id) {
       const { data: contactData, error: contactError } = await supabase
         .from('contacts')
-        .select('id, email, first_name, last_name, phone, country, position, club_name, graduation_year, gender, gpa, parent_name, parent_email, sport')
+        .select('id, email, first_name, last_name, phone, country, position, club_name, graduation_year, gender, gpa, parent_name, parent_email, sport, subscription_status')
         .eq('id', deal.contact_id)
         .single()
 
@@ -644,10 +644,17 @@ async function processEmailStep(
         contact = contactData
       }
     }
-    
+
     if (!contact?.email) {
       summary.errors.push(`Deal ${enrollment.deal_id} has no contact email`)
       await logStepExecution(supabase, enrollment, step, 'failed', 'No contact email')
+      return
+    }
+
+    // Skip unsubscribed or bounced contacts
+    if (contact.subscription_status && contact.subscription_status !== 'subscribed') {
+      console.log(`Skipping email for enrollment ${enrollment.id} - contact ${contact.email} is ${contact.subscription_status}`)
+      await logStepExecution(supabase, enrollment, step, 'skipped', `Contact is ${contact.subscription_status}`)
       return
     }
 

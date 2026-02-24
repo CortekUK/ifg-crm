@@ -421,12 +421,29 @@ async function expandRecipients(
   // Deduplicate contact IDs
   const uniqueContactIds = [...new Set(contactLists.map(cl => cl.contact_id))]
 
-  console.log(`Expanding ${uniqueContactIds.length} unique recipients from ${listIds.length} lists`)
+  // Filter out unsubscribed/bounced contacts
+  const { data: subscribedContacts, error: subError } = await supabase
+    .from('contacts')
+    .select('id')
+    .in('id', uniqueContactIds)
+    .eq('subscription_status', 'subscribed')
+
+  if (subError) {
+    throw new Error(`Failed to filter unsubscribed contacts: ${subError.message}`)
+  }
+
+  const subscribedIds = (subscribedContacts || []).map(c => c.id)
+  const filteredOut = uniqueContactIds.length - subscribedIds.length
+  if (filteredOut > 0) {
+    console.log(`Filtered out ${filteredOut} unsubscribed/bounced contacts`)
+  }
+
+  console.log(`Expanding ${subscribedIds.length} subscribed recipients from ${listIds.length} lists`)
 
   // Insert recipients in batches (Supabase has limits on insert size)
   const insertBatchSize = 100
-  for (let i = 0; i < uniqueContactIds.length; i += insertBatchSize) {
-    const batch = uniqueContactIds.slice(i, i + insertBatchSize)
+  for (let i = 0; i < subscribedIds.length; i += insertBatchSize) {
+    const batch = subscribedIds.slice(i, i + insertBatchSize)
     const recipients = batch.map(contactId => ({
       campaign_id: campaign.id,
       contact_id: contactId,
@@ -446,7 +463,7 @@ async function expandRecipients(
     }
   }
 
-  return uniqueContactIds.length
+  return subscribedIds.length
 }
 
 async function sendEmail(
