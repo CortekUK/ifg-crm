@@ -188,19 +188,27 @@ async function processCampaign(
   }
 
   if (!pendingRecipients || pendingRecipients.length === 0) {
-    // All recipients processed - mark campaign as sent
+    // All recipients processed — check if any actually succeeded
+    const { count: sentCount } = await supabase
+      .from('campaign_recipients')
+      .select('*', { count: 'exact', head: true })
+      .eq('campaign_id', campaign.id)
+      .eq('status', 'sent')
+
+    const allFailed = (sentCount ?? 0) === 0 && campaign.total_recipients > 0
+
     await supabase
       .from('campaigns')
       .update({
-        status: 'sent',
+        status: allFailed ? 'failed' : 'sent',
         sent_at: new Date().toISOString(),
         last_processed_at: new Date().toISOString(),
-        error_message: null,
+        error_message: allFailed ? `All ${campaign.total_recipients} recipients failed` : null,
       })
       .eq('id', campaign.id)
 
     summary.campaignsCompleted.push(campaign.id)
-    console.log(`Campaign ${campaign.id} completed`)
+    console.log(`Campaign ${campaign.id} completed (${allFailed ? 'all failed' : 'sent'})`)
     return
   }
 
@@ -223,8 +231,9 @@ async function processCampaign(
     }
   }
 
-  // Default from email if not set
-  const fromEmail = campaign.from_email || 'noreply@ifgworldwide.com'
+  // Default from email — use Resend test domain until a custom domain is verified
+  const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
+  const fromEmail = campaign.from_email || FROM_EMAIL
   const fromName = campaign.from_name || 'IFG Team'
   const replyTo = campaign.reply_to || fromEmail
 
@@ -328,20 +337,28 @@ async function processCampaign(
     .eq('status', 'pending')
 
   if (remainingCount === 0) {
-    // All done - mark campaign as sent
+    // All recipients processed — check if any actually succeeded
+    const { count: sentCount } = await supabase
+      .from('campaign_recipients')
+      .select('*', { count: 'exact', head: true })
+      .eq('campaign_id', campaign.id)
+      .eq('status', 'sent')
+
+    const allFailed = (sentCount ?? 0) === 0 && newProcessedCount > 0
+
     await supabase
       .from('campaigns')
       .update({
-        status: 'sent',
+        status: allFailed ? 'failed' : 'sent',
         sent_at: new Date().toISOString(),
         processed_recipients: newProcessedCount,
         last_processed_at: new Date().toISOString(),
-        error_message: null,
+        error_message: allFailed ? `All ${newProcessedCount} recipients failed` : null,
       })
       .eq('id', campaign.id)
 
     summary.campaignsCompleted.push(campaign.id)
-    console.log(`Campaign ${campaign.id} completed after batch`)
+    console.log(`Campaign ${campaign.id} completed after batch (${allFailed ? 'all failed' : 'sent'})`)
   } else {
     // More to process - just update progress
     await supabase

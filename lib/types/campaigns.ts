@@ -18,7 +18,7 @@ export interface Campaign {
   id: string
   name: string
   type: 'email' | 'sms'
-  status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled'
+  status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed'
   email_template_id: string | null
   sms_content: string | null
   // Email-specific fields
