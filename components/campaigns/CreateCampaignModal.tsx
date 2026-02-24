@@ -37,7 +37,6 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TemplateSearchSelect } from '@/components/ui/template-search-select'
@@ -617,8 +616,7 @@ export function CreateCampaignModal({
                           />
                         </div>
                       </div>
-                      <ScrollArea className="h-[240px]">
-                        <div className="p-1">
+                      <div className="max-h-[240px] overflow-y-auto p-1">
                           {filteredLists.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center py-4">
                               No lists found
@@ -646,8 +644,7 @@ export function CreateCampaignModal({
                               )
                             })
                           )}
-                        </div>
-                      </ScrollArea>
+                      </div>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -715,8 +712,7 @@ export function CreateCampaignModal({
                           />
                         </div>
                       </div>
-                      <ScrollArea className="h-[240px]">
-                        <div className="p-1">
+                      <div className="max-h-[240px] overflow-y-auto p-1">
                           {filteredTags.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center py-4">
                               No tags found
@@ -748,8 +744,7 @@ export function CreateCampaignModal({
                               )
                             })
                           )}
-                        </div>
-                      </ScrollArea>
+                      </div>
                     </PopoverContent>
                   </Popover>
                 </div>
