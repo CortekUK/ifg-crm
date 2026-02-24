@@ -320,13 +320,13 @@ function ContactsPageContent() {
 
       {/* Selection Summary */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
-          <span className="text-sm font-medium text-blue-700">
+        <div className="flex items-center gap-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
             {selectedIds.size} contact{selectedIds.size !== 1 ? 's' : ''} selected
           </span>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="text-sm text-blue-600 hover:text-blue-800 underline"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
           >
             Clear selection
           </button>

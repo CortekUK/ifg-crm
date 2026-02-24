@@ -393,11 +393,11 @@ export function ContactDetailSheet({
             <div className="mx-6 mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                     <Video className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-green-900">{upcomingEvent.event_name || 'Meeting scheduled'}</p>
+                    <p className="font-medium text-green-900 dark:text-green-100">{upcomingEvent.event_name || 'Meeting scheduled'}</p>
                     <p className="text-sm text-green-700 dark:text-green-300">
                       {formatDate(upcomingEvent.start_time)} at{' '}
                       {new Date(upcomingEvent.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
@@ -836,7 +836,7 @@ export function ContactDetailSheet({
                       return (
                         <div key={enrollment.id} className={cn(
                           'flex items-center justify-between p-3 rounded-lg border',
-                          enrollment.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                          enrollment.status === 'paused' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                         )}>
                           <div>
                             <div className="flex items-center gap-2">

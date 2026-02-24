@@ -14,42 +14,44 @@ export function useContactStats() {
   return useQuery({
     queryKey: ['contact-stats'],
     queryFn: async (): Promise<ContactStats> => {
-      // Total contacts
-      const { count: totalContacts } = await supabase
-        .from('contacts')
-        .select('*', { count: 'exact', head: true })
-
-      // New this month
       const firstOfMonth = new Date()
       firstOfMonth.setDate(1)
       firstOfMonth.setHours(0, 0, 0, 0)
 
-      const { count: newThisMonth } = await supabase
-        .from('contacts')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', firstOfMonth.toISOString())
+      const [totalResult, newResult, subscribedResult, dealsResult] = await Promise.all([
+        // Total contacts
+        supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true }),
 
-      // Subscribed (active subscription)
-      const { count: subscribed } = await supabase
-        .from('contacts')
-        .select('*', { count: 'exact', head: true })
-        .eq('subscription_status', 'subscribed')
+        // New this month
+        supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', firstOfMonth.toISOString()),
 
-      // Contacts with active deals
-      const { data: contactsWithDeals } = await supabase
-        .from('deals')
-        .select('contact_id')
-        .is('won_at', null)
-        .is('lost_at', null)
+        // Subscribed (active subscription)
+        supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('subscription_status', 'subscribed'),
+
+        // Contacts with active deals — only select contact_id
+        supabase
+          .from('deals')
+          .select('contact_id')
+          .is('won_at', null)
+          .is('lost_at', null),
+      ])
 
       const uniqueContactsWithDeals = new Set(
-        contactsWithDeals?.map((d) => d.contact_id).filter(Boolean)
+        dealsResult.data?.map((d) => d.contact_id).filter(Boolean)
       )
 
       return {
-        totalContacts: totalContacts || 0,
-        newThisMonth: newThisMonth || 0,
-        subscribed: subscribed || 0,
+        totalContacts: totalResult.count || 0,
+        newThisMonth: newResult.count || 0,
+        subscribed: subscribedResult.count || 0,
         withDeals: uniqueContactsWithDeals.size,
       }
     },

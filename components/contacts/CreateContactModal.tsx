@@ -230,7 +230,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
 
       // Add to list if selected
       if (selectedListId) {
-        await supabase.from('list_contacts').insert({
+        await supabase.from('contact_lists').insert({
           list_id: selectedListId,
           contact_id: contact.id,
         })
@@ -248,14 +248,14 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
         if (allContactsList) {
           // Check if already exists before inserting
           const { data: existing } = await supabase
-            .from('list_contacts')
+            .from('contact_lists')
             .select('id')
             .eq('list_id', allContactsList.id)
             .eq('contact_id', contact.id)
             .maybeSingle()
 
           if (!existing) {
-            await supabase.from('list_contacts').insert({
+            await supabase.from('contact_lists').insert({
               list_id: allContactsList.id,
               contact_id: contact.id,
             })
@@ -323,12 +323,15 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
     },
   })
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailError = formData.email && !emailRegex.test(formData.email) ? 'Please enter a valid email address' : ''
+
   const handleSubmit = () => {
-    if (!formData.first_name || !formData.last_name || !formData.email) return
+    if (!formData.first_name || !formData.last_name || !formData.email || emailError) return
     createContactMutation.mutate()
   }
 
-  const isValid = formData.first_name && formData.last_name && formData.email
+  const isValid = formData.first_name && formData.last_name && formData.email && !emailError
   const isLoading = createContactMutation.isPending
 
   return (
@@ -385,7 +388,11 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="john.smith@example.com"
+                  className={emailError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                 />
+                {emailError && (
+                  <p className="text-xs text-red-500 mt-1">{emailError}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
