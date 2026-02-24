@@ -15,7 +15,6 @@ export function useTags() {
 
       if (error) throw error
 
-      // Get contact counts for each tag
       const tagIds = data?.map((t) => t.id) || []
       if (tagIds.length === 0) return []
 

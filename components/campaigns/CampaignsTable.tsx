@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -99,7 +99,7 @@ export function CampaignsTable({
   const [deleteDialogCampaign, setDeleteDialogCampaign] = useState<Campaign | null>(null)
   const [cancelDialogCampaign, setCancelDialogCampaign] = useState<Campaign | null>(null)
 
-  const pipelineColorMap = buildPipelineColorMap(campaigns)
+  const pipelineColorMap = useMemo(() => buildPipelineColorMap(campaigns), [campaigns])
 
   const deleteCampaign = useDeleteCampaign()
   const duplicateCampaign = useDuplicateCampaign()

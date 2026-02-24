@@ -59,16 +59,16 @@ export function useCampaigns(filters?: CampaignFilters) {
       let listsMap = new Map<string, { id: string; name: string; contact_count: number }>()
       
       if (allListIds.size > 0) {
-        const { data: lists } = await supabase
-          .from('lists')
-          .select('id, name')
-          .in('id', Array.from(allListIds))
-
-        // Get contact counts for each list
-        const { data: contactCounts } = await supabase
-          .from('contact_lists')
-          .select('list_id')
-          .in('list_id', Array.from(allListIds))
+        const [{ data: lists }, { data: contactCounts }] = await Promise.all([
+          supabase
+            .from('lists')
+            .select('id, name')
+            .in('id', Array.from(allListIds)),
+          supabase
+            .from('contact_lists')
+            .select('list_id')
+            .in('list_id', Array.from(allListIds)),
+        ])
 
         const countMap = new Map<string, number>()
         contactCounts?.forEach((c) => {
@@ -133,15 +133,16 @@ export function useCampaign(campaignId: string | null) {
       let recipientLists: { id: string; name: string; contact_count: number }[] = []
 
       if (listIds.length > 0) {
-        const { data: lists } = await supabase
-          .from('lists')
-          .select('id, name')
-          .in('id', listIds)
-
-        const { data: contactCounts } = await supabase
-          .from('contact_lists')
-          .select('list_id')
-          .in('list_id', listIds)
+        const [{ data: lists }, { data: contactCounts }] = await Promise.all([
+          supabase
+            .from('lists')
+            .select('id, name')
+            .in('id', listIds),
+          supabase
+            .from('contact_lists')
+            .select('list_id')
+            .in('list_id', listIds),
+        ])
 
         const countMap = new Map<string, number>()
         contactCounts?.forEach((c) => {
@@ -353,10 +354,7 @@ export function useCampaignStats(campaignId: string | null, isSending?: boolean)
         .select('id, status, delivered_at, opened_at, clicked_at, bounced_at, recipient_contact_id')
         .eq('campaign_id', campaignId)
 
-      if (error) {
-        console.error('Error fetching campaign stats:', error)
-        throw error
-      }
+      if (error) throw error
 
       if (!sends || sends.length === 0) {
         return {
@@ -526,11 +524,6 @@ export function useCampaignLists() {
   })
 }
 
-// Legacy alias for backwards compatibility
-export function useLists() {
-  return useCampaignLists()
-}
-
 export function useEmailTemplates() {
   const supabase = createClient()
 
@@ -642,7 +635,7 @@ export function useResendCampaign() {
       fetch(`/api/campaigns/${campaignId}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      }).catch(err => console.error('Failed to trigger send:', err))
+      }).catch(() => {})
 
       return { success: true, campaignId }
     },

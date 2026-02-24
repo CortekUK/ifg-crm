@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -77,11 +77,11 @@ interface CampaignDetailSheetProps {
 }
 
 const statusConfig: Record<Campaign['status'], { label: string; className: string }> = {
-  draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700' },
-  scheduled: { label: 'Scheduled', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
-  sending: { label: 'Sending', className: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700' },
-  sent: { label: 'Sent', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
-  cancelled: { label: 'Cancelled', className: 'bg-red-100 dark:bg-red-900/50 text-red-700' },
+  draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
+  scheduled: { label: 'Scheduled', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' },
+  sending: { label: 'Sending', className: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300' },
+  sent: { label: 'Sent', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  cancelled: { label: 'Cancelled', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
 }
 
 export function CampaignDetailSheet({
@@ -101,34 +101,32 @@ export function CampaignDetailSheet({
   const { data: recipientData } = useCalculateRecipients(campaign?.recipient_list_ids || [])
 
   // Calculate stats from recipients data for reliability
-  const stats = recipients.length > 0 ? {
-    total: recipients.length,
-    sent: recipients.filter(r => ['sent', 'delivered', 'opened', 'clicked'].includes(r.status)).length,
-    // Delivered = sent successfully (not bounced or failed)
-    delivered: recipients.filter(r =>
-      ['sent', 'delivered', 'opened', 'clicked'].includes(r.status)
-    ).length,
-    // Opened = has opened_at timestamp or status indicates opened
-    opened: recipients.filter(r => !!r.opened_at || r.status === 'opened' || r.status === 'clicked').length,
-    // Clicked = has clicked_at timestamp or status indicates clicked
-    clicked: recipients.filter(r => !!r.clicked_at || r.status === 'clicked').length,
-    // Bounced = status is explicitly 'bounced'
-    bounced: recipients.filter(r => r.status === 'bounced').length,
-    // Complained/Unsubscribed = status is 'complained' (marked as spam)
-    unsubscribed: recipients.filter(r => r.status === 'complained').length,
-    // Failed = status is explicitly 'failed'
-    failed: recipients.filter(r => r.status === 'failed').length,
-    uniqueRecipients: new Set(recipients.map(r => r.recipient_contact_id).filter(Boolean)).size,
-  } : null
+  const statsWithRates = useMemo(() => {
+    if (recipients.length === 0) return null
 
-  const statsWithRates = stats ? {
-    ...stats,
-    deliveredRate: stats.total > 0 ? (stats.delivered / stats.total) * 100 : 0,
-    openRate: stats.delivered > 0 ? (stats.opened / stats.delivered) * 100 : 0,
-    clickRate: stats.delivered > 0 ? (stats.clicked / stats.delivered) * 100 : 0,
-    bounceRate: stats.total > 0 ? (stats.bounced / stats.total) * 100 : 0,
-    unsubscribeRate: stats.total > 0 ? (stats.unsubscribed / stats.total) * 100 : 0,
-  } : null
+    const stats = {
+      total: recipients.length,
+      sent: recipients.filter(r => ['sent', 'delivered', 'opened', 'clicked'].includes(r.status)).length,
+      delivered: recipients.filter(r =>
+        ['sent', 'delivered', 'opened', 'clicked'].includes(r.status)
+      ).length,
+      opened: recipients.filter(r => !!r.opened_at || r.status === 'opened' || r.status === 'clicked').length,
+      clicked: recipients.filter(r => !!r.clicked_at || r.status === 'clicked').length,
+      bounced: recipients.filter(r => r.status === 'bounced').length,
+      unsubscribed: recipients.filter(r => r.status === 'complained').length,
+      failed: recipients.filter(r => r.status === 'failed').length,
+      uniqueRecipients: new Set(recipients.map(r => r.recipient_contact_id).filter(Boolean)).size,
+    }
+
+    return {
+      ...stats,
+      deliveredRate: stats.total > 0 ? (stats.delivered / stats.total) * 100 : 0,
+      openRate: stats.delivered > 0 ? (stats.opened / stats.delivered) * 100 : 0,
+      clickRate: stats.delivered > 0 ? (stats.clicked / stats.delivered) * 100 : 0,
+      bounceRate: stats.total > 0 ? (stats.bounced / stats.total) * 100 : 0,
+      unsubscribeRate: stats.total > 0 ? (stats.unsubscribed / stats.total) * 100 : 0,
+    }
+  }, [recipients])
 
   const deleteCampaign = useDeleteCampaign()
   const duplicateCampaign = useDuplicateCampaign()
@@ -281,9 +279,9 @@ export function CampaignDetailSheet({
                         <p className="text-xs text-muted-foreground uppercase mb-1">Type</p>
                         <div className="flex items-center gap-2">
                           {campaign.type === 'email' ? (
-                            <Mail className="h-4 w-4 text-blue-600" />
+                            <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                           ) : (
-                            <MessageSquare className="h-4 w-4 text-purple-600" />
+                            <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                           )}
                           <span className="capitalize font-medium">{campaign.type}</span>
                         </div>
@@ -305,7 +303,7 @@ export function CampaignDetailSheet({
                         <div>
                           <p className="text-xs text-muted-foreground uppercase mb-1">Sent</p>
                           <div className="flex items-center gap-2">
-                            <Send className="h-4 w-4 text-green-600" />
+                            <Send className="h-4 w-4 text-green-600 dark:text-green-400" />
                             <span className="font-medium">{formatDateLong(campaign.sent_at)}</span>
                           </div>
                         </div>
@@ -457,7 +455,7 @@ export function CampaignDetailSheet({
                             <Card>
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Send className="h-4 w-4 text-blue-600" />
+                                  <Send className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                   <span className="text-sm text-muted-foreground">Delivered</span>
                                 </div>
                                 <p className="text-2xl font-bold">{formatNumber(statsWithRates.delivered)}</p>
@@ -469,7 +467,7 @@ export function CampaignDetailSheet({
                             <Card>
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Eye className="h-4 w-4 text-green-600" />
+                                  <Eye className="h-4 w-4 text-green-600 dark:text-green-400" />
                                   <span className="text-sm text-muted-foreground">Opened</span>
                                 </div>
                                 <p className="text-2xl font-bold">{formatNumber(statsWithRates.opened)}</p>
@@ -481,7 +479,7 @@ export function CampaignDetailSheet({
                             <Card>
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <MousePointer className="h-4 w-4 text-purple-600" />
+                                  <MousePointer className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                                   <span className="text-sm text-muted-foreground">Clicked</span>
                                 </div>
                                 <p className="text-2xl font-bold">{formatNumber(statsWithRates.clicked)}</p>
@@ -493,7 +491,7 @@ export function CampaignDetailSheet({
                             <Card>
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
                                   <span className="text-sm text-muted-foreground">Bounced</span>
                                 </div>
                                 <p className="text-2xl font-bold">{formatNumber(statsWithRates.bounced)}</p>
@@ -506,7 +504,7 @@ export function CampaignDetailSheet({
                               <Card>
                                 <CardContent className="p-4">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <UserMinus className="h-4 w-4 text-orange-600" />
+                                    <UserMinus className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                                     <span className="text-sm text-muted-foreground">Unsubscribed</span>
                                   </div>
                                   <p className="text-2xl font-bold">{formatNumber(statsWithRates.unsubscribed)}</p>
@@ -646,12 +644,12 @@ export function CampaignDetailSheet({
                                 <Badge
                                   variant="outline"
                                   className={cn(
-                                    (send.status === 'sent' || send.status === 'delivered') && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200',
-                                    send.status === 'opened' && 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200',
-                                    send.status === 'clicked' && 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200',
-                                    send.status === 'bounced' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200',
-                                    send.status === 'failed' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200',
-                                    send.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200'
+                                    (send.status === 'sent' || send.status === 'delivered') && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+                                    send.status === 'opened' && 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+                                    send.status === 'clicked' && 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+                                    send.status === 'bounced' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                    send.status === 'failed' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                    send.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800'
                                   )}
                                 >
                                   {send.status === 'sent' ? 'Delivered' : send.status}
@@ -701,7 +699,7 @@ export function CampaignDetailSheet({
                     </p>
                   ) : (
                     <div className="text-center py-8">
-                      <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                      <Users className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
                       <p className="text-muted-foreground">
                         Send history will appear here after the campaign is sent
                       </p>
