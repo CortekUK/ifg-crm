@@ -140,7 +140,7 @@ export function DashboardStatsCard({
               {isPositive && '+'}
               {trend}%
             </span>
-            <span className="text-gray-400">{trendLabel}</span>
+            <span className="text-gray-400 dark:text-gray-500">{trendLabel}</span>
           </div>
         )}
 
