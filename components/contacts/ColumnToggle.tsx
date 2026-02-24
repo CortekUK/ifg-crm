@@ -83,7 +83,7 @@ export function ColumnToggle({ visibleColumns, onToggle, customColumns = [] }: C
           Columns
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-52">
+      <PopoverContent align="end" className="w-52 max-h-[70vh] overflow-y-auto">
         <div className="space-y-2">
           <p className="text-sm font-medium mb-2">Toggle Columns</p>
           {ALL_COLUMNS.map((col) => (

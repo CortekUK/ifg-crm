@@ -211,6 +211,31 @@ export function useDeal(dealId: string | null) {
   })
 }
 
+export function useDealAutomations(dealId: string | null) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['deal-automations', dealId],
+    queryFn: async () => {
+      if (!dealId) return []
+
+      const { data, error } = await supabase
+        .from('automation_enrollments')
+        .select(`
+          *,
+          automation:automations(id, name),
+          current_step:automation_steps(id, step_order, step_type)
+        `)
+        .eq('deal_id', dealId)
+        .order('enrolled_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!dealId,
+  })
+}
+
 export function useMoveDeal() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -337,6 +362,8 @@ export function useMoveDeal() {
       queryClient.invalidateQueries({ queryKey: ['deals', pipelineId] })
       queryClient.invalidateQueries({ queryKey: ['deal', dealId] })
       queryClient.invalidateQueries({ queryKey: ['deal-activities', dealId] })
+      // Stage moves can trigger enrollment via DB trigger
+      queryClient.invalidateQueries({ queryKey: ['deal-automations', dealId] })
     },
   })
 }

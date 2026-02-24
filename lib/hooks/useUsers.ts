@@ -8,13 +8,22 @@ export function useUsers() {
   return useQuery<User[]>({
     queryKey: ['users'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const [profilesResult, lastLoginResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        fetch('/api/users/last-login').then(r => r.ok ? r.json() : null).catch(() => null),
+      ])
 
-      if (error) throw error
-      return data || []
+      if (profilesResult.error) throw profilesResult.error
+
+      const lastLoginMap: Record<string, string | null> = lastLoginResult || {}
+
+      return (profilesResult.data || []).map(user => ({
+        ...user,
+        last_login_at: lastLoginMap[user.id] || null,
+      }))
     },
   })
 }

@@ -40,12 +40,18 @@ import {
   Search,
   X,
   Tag,
+  Zap,
+  Pause,
+  Play,
+  MoreVertical,
+  CheckCircle2,
+  StopCircle,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
-import { useUpdateDeal } from '@/lib/hooks/useDeals'
+import { useUpdateDeal, useDealAutomations } from '@/lib/hooks/useDeals'
 import { formatDate, formatRelativeTime, formatCurrency, formatTimeAgo } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useDealActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
@@ -55,6 +61,13 @@ import { useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { useContactLists, useContactTags, useTags as useAllTags, useAddTagToContact, useRemoveTagFromContact } from '@/lib/hooks/useContacts'
 import { useLists, useAddContactsToList, useRemoveContactFromList } from '@/lib/hooks/useLists'
+import { useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment } from '@/lib/hooks/useAutomations'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import { OwnerSelect } from '@/components/ui/owner-select'
@@ -102,9 +115,13 @@ export function DealDetailSheet({
   const removeFromList = useRemoveContactFromList()
   const addTagToContact = useAddTagToContact()
   const removeTagFromContact = useRemoveTagFromContact()
+  const { data: automations = [], isLoading: automationsLoading } = useDealAutomations(deal?.id || null)
   const moveDeal = useMoveDeal()
   const addNote = useAddDealNote()
   const updateDeal = useUpdateDeal()
+  const unenroll = useUnenrollFromAutomation()
+  const pauseEnrollment = usePauseEnrollment()
+  const resumeEnrollment = useResumeEnrollment()
 
   // Available lists/tags (not already assigned)
   const availableLists = allLists.filter(
@@ -279,6 +296,29 @@ export function DealDetailSheet({
       toast({ title: 'Tag removed', description: `Removed "${tagName}"` })
     } catch (error) {
       toast({ title: 'Failed to remove tag', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+    }
+  }
+
+  const handleUnenroll = async (enrollmentId: string, name: string) => {
+    try {
+      await unenroll.mutateAsync({ enrollmentId })
+      toast({ title: 'Unenrolled', description: `Removed from "${name}".` })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to unenroll.', variant: 'destructive' })
+    }
+  }
+
+  const handlePauseResume = async (enrollmentId: string, status: string) => {
+    try {
+      if (status === 'active') {
+        await pauseEnrollment.mutateAsync({ enrollmentId })
+        toast({ title: 'Paused' })
+      } else {
+        await resumeEnrollment.mutateAsync({ enrollmentId })
+        toast({ title: 'Resumed' })
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update.', variant: 'destructive' })
     }
   }
 
@@ -615,6 +655,79 @@ export function DealDetailSheet({
                   )}
                 </div>
               )}
+
+              {/* Automations */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                  Automations
+                </h3>
+                {automationsLoading ? (
+                  <Skeleton className="h-12 w-full" />
+                ) : automations.length === 0 ? (
+                  <p className="text-sm text-slate-500">Not enrolled in any automations</p>
+                ) : (
+                  <div className="space-y-2">
+                    {automations.map((enrollment) => {
+                      const name = enrollment.automation?.name || 'Unknown'
+                      const canManage = enrollment.status === 'active' || enrollment.status === 'paused'
+                      return (
+                        <div key={enrollment.id} className={cn(
+                          'flex items-center justify-between p-3 rounded-lg border',
+                          enrollment.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                        )}>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{name}</span>
+                              <Badge variant="outline" className={cn(
+                                'text-[10px]',
+                                enrollment.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
+                                enrollment.status === 'paused' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                              )}>
+                                {enrollment.status === 'active' && <Zap className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status === 'paused' && <Pause className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status === 'completed' && <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status === 'stopped' && <StopCircle className="h-2.5 w-2.5 mr-0.5" />}
+                                {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
+                              </Badge>
+                            </div>
+                            {enrollment.status === 'active' && enrollment.next_step_at && (
+                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Next: {formatRelativeTime(enrollment.next_step_at)}
+                              </p>
+                            )}
+                          </div>
+                          {canManage && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {enrollment.status === 'active' && (
+                                  <DropdownMenuItem onClick={() => handlePauseResume(enrollment.id, 'active')}>
+                                    <Pause className="h-4 w-4 mr-2" /> Pause
+                                  </DropdownMenuItem>
+                                )}
+                                {enrollment.status === 'paused' && (
+                                  <DropdownMenuItem onClick={() => handlePauseResume(enrollment.id, 'paused')}>
+                                    <Play className="h-4 w-4 mr-2" /> Resume
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleUnenroll(enrollment.id, name)} className="text-red-600">
+                                  <X className="h-4 w-4 mr-2" /> Unenroll
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Status */}
               <div className="space-y-4">

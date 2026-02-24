@@ -674,6 +674,7 @@ export function useEnrollInAutomation() {
       queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
       queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+      queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
     },
   })
 }
@@ -701,6 +702,7 @@ export function useUnenrollFromAutomation() {
         queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
       }
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+      queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
     },
   })
 }
@@ -726,6 +728,7 @@ export function usePauseEnrollment() {
         queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
       }
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+      queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
     },
   })
 }
@@ -778,6 +781,7 @@ export function useResumeEnrollment() {
         queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
       }
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
+      queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
     },
   })
 }

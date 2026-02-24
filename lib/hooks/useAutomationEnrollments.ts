@@ -86,6 +86,8 @@ export function useResetEnrollments() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resettable-enrollments'] })
       queryClient.invalidateQueries({ queryKey: ['automation_enrollments'] })
+      queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
+      queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
     },
   })
 }
