@@ -35,6 +35,7 @@ const reportInfo: Record<string, {
   'pipeline-report': { name: 'Pipeline Report', formats: ['csv'], reportType: 'pipeline', supportsPipelineFilter: true, supportsRecruiterFilter: true },
   'revenue-report': { name: 'Revenue Report', formats: ['csv'], reportType: 'revenue', supportsPipelineFilter: true },
   'campaign-performance': { name: 'Campaign Performance', formats: ['csv'], reportType: 'campaign' },
+  'campaign-conversions': { name: 'Campaign Conversions', formats: ['csv'], reportType: 'campaign-conversions', supportsPipelineFilter: true },
   'recruiter-performance': { name: 'Recruiter Performance', formats: ['csv'], reportType: 'recruiter', supportsRecruiterFilter: true },
   'monthly-summary': { name: 'Monthly Summary', formats: ['csv'], reportType: 'monthly', supportsPipelineFilter: true },
   'automation-report': { name: 'Automation Report', formats: ['csv'], reportType: 'automation', supportsPipelineFilter: true },
@@ -114,6 +115,8 @@ export function GenerateReportModal({
         type: report.reportType,
         dateRange: { start: startDate, end: endDate },
         format: format as 'csv' | 'pdf',
+        pipelineId,
+        recruiterId,
       })
 
       toast({
