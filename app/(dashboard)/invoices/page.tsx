@@ -9,6 +9,16 @@ import { CreateInvoiceModal } from '@/components/invoices/CreateInvoiceModal'
 import { CreatePaymentPlanModal } from '@/components/invoices/CreatePaymentPlanModal'
 import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   useInvoices,
   useInvoiceStats,
   useUpdateInvoiceStatus,
@@ -28,6 +38,7 @@ export default function InvoicesPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [paymentPlanModalOpen, setPaymentPlanModalOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'single'; invoice: Invoice } | { type: 'bulk'; ids: string[] } | null>(null)
 
   // Debounce search
   const debouncedFilters = {
@@ -75,13 +86,35 @@ export default function InvoicesPage() {
     }
   }
 
-  const handleDelete = async (invoice: Invoice) => {
-    if (confirm(`Are you sure you want to delete invoice ${invoice.invoice_number}?`)) {
-      try {
-        await deleteInvoice.mutateAsync(invoice.id)
-      } catch (error) {
-        console.error('Failed to delete invoice:', error)
+  const handleDelete = (invoice: Invoice) => {
+    setDeleteTarget({ type: 'single', invoice })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      if (deleteTarget.type === 'single') {
+        await deleteInvoice.mutateAsync(deleteTarget.invoice.id)
+        toast({
+          title: 'Invoice deleted',
+          description: `Invoice ${deleteTarget.invoice.invoice_number} has been deleted.`,
+        })
+      } else {
+        await bulkDeleteInvoices.mutateAsync(deleteTarget.ids)
+        setSelectedIds([])
+        toast({
+          title: 'Invoices deleted',
+          description: `${deleteTarget.ids.length} invoice(s) deleted successfully.`,
+        })
       }
+    } catch (error) {
+      toast({
+        title: 'Failed to delete',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
@@ -147,23 +180,8 @@ export default function InvoicesPage() {
     }
   }
 
-  const handleBulkDelete = async (ids: string[]) => {
-    if (!confirm(`Are you sure you want to delete ${ids.length} invoice(s)?`)) return
-
-    try {
-      await bulkDeleteInvoices.mutateAsync(ids)
-      setSelectedIds([])
-      toast({
-        title: 'Invoices deleted',
-        description: `${ids.length} invoice(s) deleted successfully.`,
-      })
-    } catch (error) {
-      toast({
-        title: 'Failed to delete invoices',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
-      })
-    }
+  const handleBulkDelete = (ids: string[]) => {
+    setDeleteTarget({ type: 'bulk', ids })
   }
 
   return (
@@ -179,7 +197,7 @@ export default function InvoicesPage() {
         totalOutstanding={stats?.totalOutstanding || 0}
         paidThisMonth={stats?.paidThisMonth || 0}
         overdueCount={stats?.overdueCount || 0}
-        avgPaymentDays={stats?.avgPaymentDays || 0}
+        avgPaymentDays={stats?.avgPaymentDays ?? null}
         isLoading={statsLoading}
       />
 
@@ -225,6 +243,28 @@ export default function InvoicesPage() {
         isOpen={!!selectedInvoice}
         onClose={() => setSelectedInvoice(null)}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteTarget?.type === 'single'
+                ? `Delete invoice ${deleteTarget.invoice.invoice_number}?`
+                : `Delete ${deleteTarget?.ids.length} invoice(s)?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The {deleteTarget?.type === 'single' ? 'invoice' : 'invoices'} will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

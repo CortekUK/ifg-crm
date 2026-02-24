@@ -21,7 +21,6 @@ import {
 import {
   MoreHorizontal,
   Eye,
-  RotateCcw,
   CreditCard,
   Building2,
   Banknote,
@@ -35,7 +34,6 @@ interface PaymentsTableProps {
   payments: Payment[]
   isLoading: boolean
   onView?: (payment: Payment) => void
-  onRefund?: (payment: Payment) => void
   onViewInvoice?: (invoiceId: string) => void
 }
 
@@ -60,7 +58,6 @@ export function PaymentsTable({
   payments,
   isLoading,
   onView,
-  onRefund,
   onViewInvoice,
 }: PaymentsTableProps) {
   const formatDate = (dateString: string) => {
@@ -228,15 +225,6 @@ export function PaymentsTable({
                         <Eye className="h-4 w-4 mr-2" />
                         View
                       </DropdownMenuItem>
-                      {payment.status === 'successful' && (
-                        <DropdownMenuItem
-                          onClick={() => onRefund?.(payment)}
-                          className="text-red-600"
-                        >
-                          <RotateCcw className="h-4 w-4 mr-2" />
-                          Refund
-                        </DropdownMenuItem>
-                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

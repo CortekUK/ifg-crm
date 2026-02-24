@@ -76,17 +76,35 @@ export default function PaymentsPage() {
   }, [payments, filters])
 
   const handleExport = () => {
-    console.log('Exporting payments...')
+    if (filteredPayments.length === 0) return
+
+    const headers = ['Date', 'Contact', 'Invoice #', 'Amount', 'Method', 'Reference', 'Status']
+    const rows = filteredPayments.map((p) => [
+      new Date(p.created_at).toLocaleDateString('en-GB'),
+      p.contact ? `${p.contact.first_name} ${p.contact.last_name}` : 'Unknown',
+      p.invoice?.invoice_number || '',
+      p.amount.toFixed(2),
+      p.payment_method,
+      p.reference || '',
+      p.status,
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `payments-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleViewPayment = (payment: Payment) => {
     setSelectedPayment(payment)
-  }
-
-  const handleRefundPayment = (payment: Payment) => {
-    if (confirm(`Are you sure you want to refund ${payment.amount}?`)) {
-      console.log('Refund payment:', payment)
-    }
   }
 
   const handleViewInvoice = (invoiceId: string) => {
@@ -118,7 +136,6 @@ export default function PaymentsPage() {
         payments={filteredPayments}
         isLoading={paymentsLoading}
         onView={handleViewPayment}
-        onRefund={handleRefundPayment}
         onViewInvoice={handleViewInvoice}
       />
 

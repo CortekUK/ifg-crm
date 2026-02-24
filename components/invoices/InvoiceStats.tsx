@@ -10,7 +10,7 @@ interface InvoiceStatsProps {
   totalOutstanding: number
   paidThisMonth: number
   overdueCount: number
-  avgPaymentDays: number
+  avgPaymentDays: number | null
   isLoading: boolean
 }
 
@@ -69,7 +69,7 @@ export function InvoiceStats({
     },
     {
       label: 'Avg Payment Time',
-      value: `${avgPaymentDays} days`,
+      value: avgPaymentDays != null ? `${avgPaymentDays} days` : '—',
       icon: Clock,
       colour: 'blue' as const,
     },

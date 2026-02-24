@@ -30,6 +30,7 @@ import { toast } from '@/lib/hooks/use-toast'
 import { formatCurrency, formatDateLong } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
+import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF'
 import type { InvoiceStatus, InvoiceType } from '@/lib/types/invoices'
 
 interface InvoiceDetailSheetProps {
@@ -62,21 +63,58 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
 
   const handleSend = async () => {
     if (!invoiceId) return
-    await updateStatus.mutateAsync({ invoiceId, status: 'sent' })
+    try {
+      await updateStatus.mutateAsync({ invoiceId, status: 'sent' })
+      toast({
+        title: 'Invoice sent',
+        description: 'The invoice has been marked as sent.',
+      })
+    } catch {
+      toast({
+        title: 'Failed to send invoice',
+        description: 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleMarkPaid = async () => {
     if (!invoiceId) return
-    await updateStatus.mutateAsync({ invoiceId, status: 'paid' })
+    try {
+      await updateStatus.mutateAsync({ invoiceId, status: 'paid' })
+      toast({
+        title: 'Payment recorded',
+        description: 'The invoice has been marked as paid.',
+      })
+    } catch {
+      toast({
+        title: 'Failed to record payment',
+        description: 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleVoid = async () => {
     if (!invoiceId) return
-    await updateStatus.mutateAsync({ invoiceId, status: 'cancelled' })
-    toast({
-      title: 'Invoice cancelled',
-      description: 'The invoice has been marked as cancelled.',
-    })
+    try {
+      await updateStatus.mutateAsync({ invoiceId, status: 'cancelled' })
+      toast({
+        title: 'Invoice cancelled',
+        description: 'The invoice has been marked as cancelled.',
+      })
+    } catch {
+      toast({
+        title: 'Failed to cancel invoice',
+        description: 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleDownloadPDF = () => {
+    if (!invoice) return
+    generateInvoicePDF(invoice)
   }
 
   const handleCopyPaymentLink = () => {
@@ -290,8 +328,8 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                     </>
                   )}
 
-                  {invoice.status === 'paid' && (
-                    <Button variant="outline" className="flex-1">
+                  {invoice.status !== 'draft' && (
+                    <Button variant="outline" className="flex-1" onClick={handleDownloadPDF}>
                       <Download className="h-4 w-4 mr-2" />
                       Download PDF
                     </Button>
