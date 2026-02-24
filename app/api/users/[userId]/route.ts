@@ -63,13 +63,26 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Delete from Supabase Auth (this will cascade delete the profile due to FK constraint)
+    // Deactivate the profile first (soft delete)
+    const { error: deactivateError } = await supabaseAdmin
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('id', userId)
+
+    if (deactivateError) {
+      console.error('Error deactivating profile:', deactivateError)
+    }
+
+    // Delete from Supabase Auth (profile FK columns are ON DELETE SET NULL)
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (authError) {
       console.error('Error deleting user from auth:', authError)
-      return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
+      return NextResponse.json({ error: `Failed to delete user: ${authError.message}` }, { status: 500 })
     }
+
+    // Clean up: delete the profile row since auth user is gone
+    await supabaseAdmin.from('profiles').delete().eq('id', userId)
 
     return NextResponse.json({
       success: true,
