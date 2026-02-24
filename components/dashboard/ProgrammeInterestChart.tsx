@@ -30,40 +30,31 @@ export function ProgrammeInterestChart() {
   const { data, isLoading } = useQuery({
     queryKey: ['programme-interest'],
     queryFn: async () => {
-      // Get programmes and count deals for each
-      const { data: programmes } = await supabase
-        .from('programmes')
-        .select('id, name')
-        .eq('is_active', true)
+      // Batch: get programmes and all pipelines with deal counts in 2 queries
+      const [programmesResult, pipelinesResult] = await Promise.all([
+        supabase.from('programmes').select('id, name').eq('is_active', true),
+        supabase.from('pipelines').select('id, programme_id, deals:deals(count)'),
+      ])
 
+      const programmes = programmesResult.data
       if (!programmes) return { programmes: [], total: 0 }
 
-      // Get pipelines linked to programmes and count deals
-      const programmeStats = await Promise.all(
-        programmes.map(async (programme, index) => {
-          const { data: pipelines } = await supabase
-            .from('pipelines')
-            .select('id')
-            .eq('programme_id', programme.id)
+      // Build a map of programme_id -> deal count from pipeline data
+      const programmeDealCounts = new Map<string, number>()
+      pipelinesResult.data?.forEach((pipeline) => {
+        if (!pipeline.programme_id) return
+        const dealCount = (pipeline.deals as unknown as { count: number }[])?.[0]?.count || 0
+        programmeDealCounts.set(
+          pipeline.programme_id,
+          (programmeDealCounts.get(pipeline.programme_id) || 0) + dealCount
+        )
+      })
 
-          const pipelineIds = pipelines?.map((p) => p.id) || []
-
-          let count = 0
-          if (pipelineIds.length > 0) {
-            const { count: dealCount } = await supabase
-              .from('deals')
-              .select('*', { count: 'exact', head: true })
-              .in('pipeline_id', pipelineIds)
-            count = dealCount || 0
-          }
-
-          return {
-            name: programme.name.replace(' Programme', '').replace(' 2026', '').replace(' 2025', ''),
-            count,
-            colour: programmeColours[index % programmeColours.length],
-          }
-        })
-      )
+      const programmeStats = programmes.map((programme, index) => ({
+        name: programme.name.replace(' Programme', '').replace(' 2026', '').replace(' 2025', ''),
+        count: programmeDealCounts.get(programme.id) || 0,
+        colour: programmeColours[index % programmeColours.length],
+      }))
 
       const total = programmeStats.reduce((sum, p) => sum + p.count, 0)
 
@@ -119,7 +110,7 @@ export function ProgrammeInterestChart() {
                   cy="80"
                   r={radius}
                   fill="none"
-                  stroke="#f1f5f9"
+                  className="stroke-slate-100 dark:stroke-slate-700"
                   strokeWidth="16"
                 />
                 {/* Segments */}

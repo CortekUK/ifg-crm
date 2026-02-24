@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useDashboardStats } from '@/lib/hooks/useDashboardStats'
 import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner'
 import { DashboardStatsCard } from '@/components/dashboard/DashboardStatsCard'
@@ -21,14 +21,27 @@ import {
   Activity,
 } from 'lucide-react'
 
-// Generate random sparkline data for visual indicator
-const generateSparklineData = (length = 12) => {
-  return Array.from({ length }, () => Math.floor(Math.random() * 10) + 2)
+// Seeded pseudo-random for stable sparkline data across renders
+function seededRandom(seed: number) {
+  const values: number[] = []
+  for (let i = 0; i < 12; i++) {
+    seed = (seed * 16807 + 0) % 2147483647
+    values.push((seed % 10) + 2)
+  }
+  return values
 }
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats()
   const [createContactOpen, setCreateContactOpen] = useState(false)
+
+  // Stable sparkline data — only regenerate when stats change
+  const sparklines = useMemo(() => ({
+    leads: seededRandom(1),
+    unmatched: seededRandom(2),
+    programmes: seededRandom(3),
+    activity: seededRandom(4),
+  }), [])
 
   return (
     <div className="space-y-6">
@@ -44,7 +57,7 @@ export default function DashboardPage() {
           trend={stats?.totalLeadsTrend}
           trendLabel="vs last month"
           colour="blue"
-          sparklineData={generateSparklineData()}
+          sparklineData={sparklines.leads}
           isLoading={isLoading}
           href="/pipelines"
         />
@@ -52,14 +65,14 @@ export default function DashboardPage() {
           title="Unmatched Replies"
           value={isLoading ? '...' : formatNumber(stats?.unmatchedReplies || 0)}
           icon={MessageSquareWarning}
-          trend={stats?.unmatchedRepliesTrend}
+          trend={stats?.unmatchedRepliesTrend != null ? -stats.unmatchedRepliesTrend : undefined}
           trendLabel="vs last month"
           colour={
             stats?.unmatchedReplies && stats.unmatchedReplies > 0
               ? 'orange'
               : 'green'
           }
-          sparklineData={generateSparklineData()}
+          sparklineData={sparklines.unmatched}
           isLoading={isLoading}
           href="/sms-replies"
         />
@@ -70,7 +83,7 @@ export default function DashboardPage() {
           trend={stats?.activeProgrammesTrend}
           trendLabel="vs last month"
           colour="green"
-          sparklineData={generateSparklineData()}
+          sparklineData={sparklines.programmes}
           isLoading={isLoading}
           href="/pipelines"
         />
@@ -81,7 +94,7 @@ export default function DashboardPage() {
           trend={stats?.todayActivitiesTrend}
           trendLabel="vs yesterday"
           colour="purple"
-          sparklineData={generateSparklineData()}
+          sparklineData={sparklines.activity}
           isLoading={isLoading}
           href="/automations"
         />

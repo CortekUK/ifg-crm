@@ -19,13 +19,13 @@ import {
 import { LucideIcon } from 'lucide-react'
 
 const activityConfig: Record<string, { icon: LucideIcon; bgColour: string; iconColour: string; label: string }> = {
-  deal_created: { icon: UserPlus, bgColour: 'bg-blue-100', iconColour: 'text-blue-600', label: 'New player added' },
-  stage_changed: { icon: RefreshCw, bgColour: 'bg-purple-100', iconColour: 'text-purple-600', label: 'Player status changed' },
-  email_sent: { icon: Mail, bgColour: 'bg-green-100', iconColour: 'text-green-600', label: 'Email sent' },
-  sms_sent: { icon: MessageSquare, bgColour: 'bg-teal-100', iconColour: 'text-teal-600', label: 'SMS sent' },
-  invoice_sent: { icon: FileText, bgColour: 'bg-orange-100', iconColour: 'text-orange-600', label: 'Invoice reminder delivered' },
-  payment_received: { icon: CreditCard, bgColour: 'bg-emerald-100', iconColour: 'text-emerald-600', label: 'Payment received' },
-  note_added: { icon: FileText, bgColour: 'bg-slate-100', iconColour: 'text-slate-600', label: 'Note added' },
+  deal_created: { icon: UserPlus, bgColour: 'bg-blue-100 dark:bg-blue-900/30', iconColour: 'text-blue-600 dark:text-blue-400', label: 'New player added' },
+  stage_changed: { icon: RefreshCw, bgColour: 'bg-purple-100 dark:bg-purple-900/30', iconColour: 'text-purple-600 dark:text-purple-400', label: 'Player status changed' },
+  email_sent: { icon: Mail, bgColour: 'bg-green-100 dark:bg-green-900/30', iconColour: 'text-green-600 dark:text-green-400', label: 'Email sent' },
+  sms_sent: { icon: MessageSquare, bgColour: 'bg-teal-100 dark:bg-teal-900/30', iconColour: 'text-teal-600 dark:text-teal-400', label: 'SMS sent' },
+  invoice_sent: { icon: FileText, bgColour: 'bg-orange-100 dark:bg-orange-900/30', iconColour: 'text-orange-600 dark:text-orange-400', label: 'Invoice reminder delivered' },
+  payment_received: { icon: CreditCard, bgColour: 'bg-emerald-100 dark:bg-emerald-900/30', iconColour: 'text-emerald-600 dark:text-emerald-400', label: 'Payment received' },
+  note_added: { icon: FileText, bgColour: 'bg-slate-100 dark:bg-slate-800', iconColour: 'text-slate-600 dark:text-slate-400', label: 'Note added' },
 }
 
 interface DealActivity {
@@ -103,7 +103,7 @@ export function RecentActivityTimeline() {
           </div>
         ) : activities?.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <div className="p-3 rounded-full bg-slate-100 inline-block mb-2">
+            <div className="p-3 rounded-full bg-slate-100 dark:bg-slate-800 inline-block mb-2">
               <Activity className="h-6 w-6 text-slate-400" />
             </div>
             <p className="text-sm">No recent activity</p>
@@ -113,8 +113,8 @@ export function RecentActivityTimeline() {
             {activities?.map((activity) => {
               const config = activityConfig[activity.activity_type] || {
                 icon: GitBranch,
-                bgColour: 'bg-slate-100',
-                iconColour: 'text-slate-600',
+                bgColour: 'bg-slate-100 dark:bg-slate-800',
+                iconColour: 'text-slate-600 dark:text-slate-400',
                 label: activity.activity_type.replace(/_/g, ' '),
               }
               const Icon = config.icon

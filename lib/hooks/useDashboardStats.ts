@@ -32,156 +32,143 @@ export function useDashboardStats() {
       const now = new Date()
       const today = new Date(now)
       today.setHours(0, 0, 0, 0)
-      
+
       const yesterday = new Date(today)
       yesterday.setDate(yesterday.getDate() - 1)
-      
+
       const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const lastOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
       // =====================
-      // TOTAL LEADS (from deals table)
+      // BATCH 1: All independent count queries in parallel
       // =====================
-      const { count: totalLeads } = await supabase
-        .from('deals')
-        .select('*', { count: 'exact', head: true })
+      const [
+        totalLeadsResult,
+        leadsThisMonthResult,
+        leadsLastMonthResult,
+        unmatchedSMSResult,
+        unmatchedEmailsResult,
+        unmatchedSMSLastMonthResult,
+        unmatchedEmailsLastMonthResult,
+        activeProgrammesResult,
+        activeProgrammesLastMonthResult,
+        totalContactsResult,
+        dealValuesResult,
+        paidInvoicesResult,
+        monthInvoicesResult,
+        overdueInvoicesResult,
+      ] = await Promise.all([
+        // Total leads
+        supabase.from('deals').select('*', { count: 'exact', head: true }),
+        // Leads this month
+        supabase.from('deals').select('*', { count: 'exact', head: true })
+          .gte('created_at', firstOfMonth.toISOString()),
+        // Leads last month
+        supabase.from('deals').select('*', { count: 'exact', head: true })
+          .gte('created_at', firstOfLastMonth.toISOString())
+          .lte('created_at', lastOfLastMonth.toISOString()),
+        // Unmatched SMS
+        supabase.from('sms_messages').select('*', { count: 'exact', head: true })
+          .eq('match_status', 'unmatched').eq('direction', 'inbound'),
+        // Unmatched emails
+        supabase.from('email_replies').select('*', { count: 'exact', head: true })
+          .eq('match_status', 'unmatched'),
+        // Unmatched SMS last month
+        supabase.from('sms_messages').select('*', { count: 'exact', head: true })
+          .eq('match_status', 'unmatched').eq('direction', 'inbound')
+          .lte('created_at', lastOfLastMonth.toISOString()),
+        // Unmatched emails last month
+        supabase.from('email_replies').select('*', { count: 'exact', head: true })
+          .eq('match_status', 'unmatched')
+          .lte('created_at', lastOfLastMonth.toISOString()),
+        // Active programmes
+        supabase.from('pipelines').select('*', { count: 'exact', head: true })
+          .eq('is_active', true),
+        // Active programmes last month
+        supabase.from('pipelines').select('*', { count: 'exact', head: true })
+          .eq('is_active', true)
+          .lte('created_at', lastOfLastMonth.toISOString()),
+        // Total contacts
+        supabase.from('contacts').select('*', { count: 'exact', head: true }),
+        // Deal values
+        supabase.from('deals').select('deal_value'),
+        // Paid invoices (total revenue)
+        supabase.from('invoices').select('amount').eq('status', 'paid'),
+        // Month invoices
+        supabase.from('invoices').select('amount').eq('status', 'paid')
+          .gte('paid_at', firstOfMonth.toISOString()),
+        // Overdue invoices
+        supabase.from('invoices').select('*', { count: 'exact', head: true })
+          .eq('status', 'overdue'),
+      ])
 
-      // Leads this month
-      const { count: leadsThisMonth } = await supabase
-        .from('deals')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', firstOfMonth.toISOString())
-
-      // Leads last month
-      const { count: leadsLastMonth } = await supabase
-        .from('deals')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', firstOfLastMonth.toISOString())
-        .lte('created_at', lastOfLastMonth.toISOString())
-
-      const totalLeadsTrend = leadsLastMonth && leadsLastMonth > 0
-        ? Math.round(((leadsThisMonth || 0) - leadsLastMonth) / leadsLastMonth * 100)
+      // Process lead stats
+      const totalLeads = totalLeadsResult.count || 0
+      const leadsThisMonth = leadsThisMonthResult.count || 0
+      const leadsLastMonth = leadsLastMonthResult.count || 0
+      const totalLeadsTrend = leadsLastMonth > 0
+        ? Math.round((leadsThisMonth - leadsLastMonth) / leadsLastMonth * 100)
         : 0
 
-      // =====================
-      // UNMATCHED REPLIES
-      // =====================
-      // Current unmatched SMS
-      const { count: unmatchedSMS } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('match_status', 'unmatched')
-        .eq('direction', 'inbound')
-
-      // Current unmatched emails
-      const { count: unmatchedEmails } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .eq('match_status', 'unmatched')
-
-      const unmatchedReplies = (unmatchedSMS || 0) + (unmatchedEmails || 0)
-
-      // Unmatched SMS last month
-      const { count: unmatchedSMSLastMonth } = await supabase
-        .from('sms_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('match_status', 'unmatched')
-        .eq('direction', 'inbound')
-        .lte('created_at', lastOfLastMonth.toISOString())
-
-      // Unmatched emails last month
-      const { count: unmatchedEmailsLastMonth } = await supabase
-        .from('email_replies')
-        .select('*', { count: 'exact', head: true })
-        .eq('match_status', 'unmatched')
-        .lte('created_at', lastOfLastMonth.toISOString())
-
-      const unmatchedLastMonth = (unmatchedSMSLastMonth || 0) + (unmatchedEmailsLastMonth || 0)
+      // Process unmatched replies
+      const unmatchedReplies = (unmatchedSMSResult.count || 0) + (unmatchedEmailsResult.count || 0)
+      const unmatchedLastMonth = (unmatchedSMSLastMonthResult.count || 0) + (unmatchedEmailsLastMonthResult.count || 0)
       const unmatchedRepliesTrend = unmatchedLastMonth > 0
         ? Math.round((unmatchedReplies - unmatchedLastMonth) / unmatchedLastMonth * 100)
         : 0
 
-      // =====================
-      // ACTIVE PROGRAMMES (from pipelines table)
-      // =====================
-      const { count: activeProgrammes } = await supabase
-        .from('pipelines')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-
-      // Active pipelines last month (check those created before last month that were active)
-      const { count: activeProgrammesLastMonth } = await supabase
-        .from('pipelines')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-        .lte('created_at', lastOfLastMonth.toISOString())
-
-      const activeProgrammesTrend = activeProgrammesLastMonth && activeProgrammesLastMonth > 0
-        ? Math.round(((activeProgrammes || 0) - activeProgrammesLastMonth) / activeProgrammesLastMonth * 100)
+      // Process programmes
+      const activeProgrammes = activeProgrammesResult.count || 0
+      const activeProgrammesLastMonth = activeProgrammesLastMonthResult.count || 0
+      const activeProgrammesTrend = activeProgrammesLastMonth > 0
+        ? Math.round((activeProgrammes - activeProgrammesLastMonth) / activeProgrammesLastMonth * 100)
         : 0
 
       // =====================
-      // TODAY'S ACTIVITY (deal_activities + automation_logs + email tracking)
+      // BATCH 2: Activity queries (non-fatal, in parallel)
       // =====================
-      // Deal activities today (non-fatal)
       let dealActivitiesToday = 0
       let dealActivitiesYesterday = 0
-      try {
-        const { count } = await supabase
-          .from('deal_activities')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', today.toISOString())
-        dealActivitiesToday = count || 0
-
-        const { count: yesterdayCount } = await supabase
-          .from('deal_activities')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', yesterday.toISOString())
-          .lt('created_at', today.toISOString())
-        dealActivitiesYesterday = yesterdayCount || 0
-      } catch (e) {
-        console.warn('Failed to fetch deal activities:', e)
-      }
-
-      // Automation logs today (non-fatal) - table is automation_logs not automation_step_logs
       let automationLogsToday = 0
       let automationLogsYesterday = 0
-      try {
-        const { count } = await supabase
-          .from('automation_logs')
-          .select('*', { count: 'exact', head: true })
-          .gte('sent_at', today.toISOString())
-        automationLogsToday = count || 0
-
-        const { count: yesterdayCount } = await supabase
-          .from('automation_logs')
-          .select('*', { count: 'exact', head: true })
-          .gte('sent_at', yesterday.toISOString())
-          .lt('sent_at', today.toISOString())
-        automationLogsYesterday = yesterdayCount || 0
-      } catch (e) {
-        console.warn('Failed to fetch automation logs:', e)
-      }
-
-      // Email sends today (from campaigns) - non-fatal
       let emailSendsToday = 0
       let emailSendsYesterday = 0
-      try {
-        const { count } = await supabase
-          .from('campaign_recipients')
-          .select('*', { count: 'exact', head: true })
-          .gte('sent_at', today.toISOString())
-        emailSendsToday = count || 0
 
-        const { count: yesterdayCount } = await supabase
-          .from('campaign_recipients')
-          .select('*', { count: 'exact', head: true })
-          .gte('sent_at', yesterday.toISOString())
-          .lt('sent_at', today.toISOString())
-        emailSendsYesterday = yesterdayCount || 0
+      try {
+        const [
+          dealTodayResult,
+          dealYesterdayResult,
+          automationTodayResult,
+          automationYesterdayResult,
+          emailTodayResult,
+          emailYesterdayResult,
+        ] = await Promise.all([
+          supabase.from('deal_activities').select('*', { count: 'exact', head: true })
+            .gte('created_at', today.toISOString()),
+          supabase.from('deal_activities').select('*', { count: 'exact', head: true })
+            .gte('created_at', yesterday.toISOString())
+            .lt('created_at', today.toISOString()),
+          supabase.from('automation_logs').select('*', { count: 'exact', head: true })
+            .gte('sent_at', today.toISOString()),
+          supabase.from('automation_logs').select('*', { count: 'exact', head: true })
+            .gte('sent_at', yesterday.toISOString())
+            .lt('sent_at', today.toISOString()),
+          supabase.from('campaign_recipients').select('*', { count: 'exact', head: true })
+            .gte('sent_at', today.toISOString()),
+          supabase.from('campaign_recipients').select('*', { count: 'exact', head: true })
+            .gte('sent_at', yesterday.toISOString())
+            .lt('sent_at', today.toISOString()),
+        ])
+
+        dealActivitiesToday = dealTodayResult.count || 0
+        dealActivitiesYesterday = dealYesterdayResult.count || 0
+        automationLogsToday = automationTodayResult.count || 0
+        automationLogsYesterday = automationYesterdayResult.count || 0
+        emailSendsToday = emailTodayResult.count || 0
+        emailSendsYesterday = emailYesterdayResult.count || 0
       } catch (e) {
-        console.warn('Failed to fetch campaign recipients:', e)
+        console.warn('Failed to fetch activity counts:', e)
       }
 
       const todayActivities = dealActivitiesToday + automationLogsToday + emailSendsToday
@@ -191,28 +178,16 @@ export function useDashboardStats() {
         : 0
 
       // =====================
-      // LEGACY / ADDITIONAL STATS
+      // BATCH 3: Deals won (non-fatal)
       // =====================
-      // Total contacts
-      const { count: totalContacts } = await supabase
-        .from('contacts')
-        .select('*', { count: 'exact', head: true })
-
-      // Total deal value
-      const { data: dealValues } = await supabase.from('deals').select('deal_value')
-      const totalDealValue = dealValues?.reduce((sum, d) => sum + (d.deal_value || 0), 0) || 0
-
-      // Deals won (non-fatal - try pipeline_stages table)
       let dealsWon = 0
       try {
-        // Try pipeline_stages table first (per migration schema)
         const { data: wonStages, error: stagesError } = await supabase
           .from('pipeline_stages')
           .select('id')
           .in('stage_type', ['payment', 'completed'])
-        
+
         if (stagesError) {
-          // Fallback: count deals with won_at set
           const { count } = await supabase
             .from('deals')
             .select('*', { count: 'exact', head: true })
@@ -232,44 +207,28 @@ export function useDashboardStats() {
         console.warn('Failed to fetch won deals:', e)
       }
 
-      // Revenue
-      const { data: paidInvoices } = await supabase
-        .from('invoices')
-        .select('amount')
-        .eq('status', 'paid')
-      const totalRevenue = paidInvoices?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0
-
-      // Month revenue
-      const { data: monthInvoices } = await supabase
-        .from('invoices')
-        .select('amount')
-        .eq('status', 'paid')
-        .gte('paid_at', firstOfMonth.toISOString())
-      const monthRevenue = monthInvoices?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0
-
-      // Overdue invoices
-      const { count: overdueInvoices } = await supabase
-        .from('invoices')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'overdue')
+      // Process remaining stats
+      const totalDealValue = dealValuesResult.data?.reduce((sum, d) => sum + (d.deal_value || 0), 0) || 0
+      const totalRevenue = paidInvoicesResult.data?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0
+      const monthRevenue = monthInvoicesResult.data?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0
 
       return {
-        totalLeads: totalLeads || 0,
+        totalLeads,
         totalLeadsTrend,
         unmatchedReplies,
         unmatchedRepliesTrend,
-        activeProgrammes: activeProgrammes || 0,
+        activeProgrammes,
         activeProgrammesTrend,
         todayActivities,
         todayActivitiesTrend,
         // Legacy
-        totalContacts: totalContacts || 0,
-        totalDeals: totalLeads || 0,
+        totalContacts: totalContactsResult.count || 0,
+        totalDeals: totalLeads,
         totalDealValue,
         dealsWon,
         totalRevenue,
         monthRevenue,
-        overdueInvoices: overdueInvoices || 0,
+        overdueInvoices: overdueInvoicesResult.count || 0,
       }
     },
     refetchInterval: 30000,

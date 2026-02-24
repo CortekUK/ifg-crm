@@ -114,7 +114,7 @@ export function LeadSourcesChart() {
           </div>
         ) : data?.sources.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <div className="p-3 rounded-full bg-slate-100 inline-block mb-2">
+            <div className="p-3 rounded-full bg-slate-100 dark:bg-slate-800 inline-block mb-2">
               <TrendingUp className="h-6 w-6 text-slate-400" />
             </div>
             <p className="text-sm">No lead source data</p>
