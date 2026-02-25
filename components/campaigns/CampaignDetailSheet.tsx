@@ -65,6 +65,7 @@ import {
   useResendCampaign,
   useCalculateRecipients,
 } from '@/lib/hooks/useCampaigns'
+import { useCampaignDetailRealtime } from '@/lib/hooks/useCampaignRealtime'
 import { Progress } from '@/components/ui/progress'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Campaign } from '@/lib/types/campaigns'
@@ -100,6 +101,9 @@ export function CampaignDetailSheet({
   const isSending = campaign?.status === 'sending'
   const { data: recipients = [], isLoading: recipientsLoading } = useCampaignRecipients(campaignId, isSending)
   const { data: recipientData } = useCalculateRecipients(campaign?.recipient_list_ids || [])
+
+  // Live updates: subscribe to email_sends changes for this campaign
+  useCampaignDetailRealtime(campaignId)
 
   // Calculate stats from recipients data for reliability
   const statsWithRates = useMemo(() => {

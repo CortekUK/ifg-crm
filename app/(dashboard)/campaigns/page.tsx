@@ -8,6 +8,7 @@ import { CampaignsTable } from '@/components/campaigns/CampaignsTable'
 import { CreateCampaignModal } from '@/components/campaigns/CreateCampaignModal'
 import { CampaignDetailSheet } from '@/components/campaigns/CampaignDetailSheet'
 import { useCampaigns, useBatchDeleteCampaigns } from '@/lib/hooks/useCampaigns'
+import { useCampaignRealtime } from '@/lib/hooks/useCampaignRealtime'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,9 @@ export default function CampaignsPage() {
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false)
 
   const batchDeleteCampaigns = useBatchDeleteCampaigns()
+
+  // Live updates: subscribe to campaign changes from webhooks
+  useCampaignRealtime()
 
   // Debounce search
   const debouncedFilters = {
