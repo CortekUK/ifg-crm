@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServerClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
 // Mark notifications as read
 export async function PATCH(request: NextRequest) {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest) {
 
 // Clear all notifications
 export async function DELETE(request: NextRequest) {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
