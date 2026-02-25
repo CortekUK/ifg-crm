@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Popover,
   PopoverContent,
@@ -16,106 +17,55 @@ import {
   MessageSquare,
   CreditCard,
   UserPlus,
+  Trophy,
+  XCircle,
   GitBranch,
+  FileText,
   Check,
-  X,
+  Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+  useClearAllNotifications,
+} from '@/lib/hooks/useNotifications'
+import type { Notification } from '@/lib/hooks/useNotifications'
 
-// Notification types
-type NotificationType = 'email_reply' | 'sms_reply' | 'payment' | 'new_lead' | 'deal_won' | 'deal_lost'
-
-interface Notification {
-  id: string
-  type: NotificationType
-  title: string
-  message: string
-  href: string
-  read: boolean
-  created_at: string
+const typeConfig: Record<Notification['type'], { icon: typeof Mail; color: string; bgColor: string }> = {
+  email_reply: { icon: Mail, color: 'text-blue-600', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
+  sms_reply: { icon: MessageSquare, color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/50' },
+  payment: { icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-100 dark:bg-emerald-900/50' },
+  new_lead: { icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
+  deal_won: { icon: Trophy, color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/50' },
+  deal_lost: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100 dark:bg-red-900/50' },
+  deal_stage: { icon: GitBranch, color: 'text-orange-600', bgColor: 'bg-orange-100 dark:bg-orange-900/50' },
+  form_submission: { icon: FileText, color: 'text-indigo-600', bgColor: 'bg-indigo-100 dark:bg-indigo-900/50' },
+  general: { icon: Info, color: 'text-gray-600', bgColor: 'bg-gray-100 dark:bg-gray-800' },
 }
-
-const typeConfig: Record<NotificationType, { icon: typeof Mail; color: string; bgColor: string }> = {
-  email_reply: { icon: Mail, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  sms_reply: { icon: MessageSquare, color: 'text-green-600', bgColor: 'bg-green-100' },
-  payment: { icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
-  new_lead: { icon: UserPlus, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  deal_won: { icon: GitBranch, color: 'text-green-600', bgColor: 'bg-green-100' },
-  deal_lost: { icon: X, color: 'text-red-600', bgColor: 'bg-red-100' },
-}
-
-// Mock notifications - in production, these would come from the database
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'email_reply',
-    title: 'New email reply',
-    message: 'John Smith replied to your email about the UK programme',
-    href: '/email-replies',
-    read: false,
-    created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // 5 mins ago
-  },
-  {
-    id: '2',
-    type: 'payment',
-    title: 'Payment received',
-    message: '£500 deposit received from Sarah Johnson',
-    href: '/payments',
-    read: false,
-    created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
-  },
-  {
-    id: '3',
-    type: 'new_lead',
-    title: 'New lead',
-    message: 'Michael Brown submitted the contact form',
-    href: '/contacts',
-    read: false,
-    created_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hour ago
-  },
-  {
-    id: '4',
-    type: 'sms_reply',
-    title: 'SMS reply',
-    message: 'Emma Wilson replied to your SMS',
-    href: '/sms-replies',
-    read: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-  },
-  {
-    id: '5',
-    type: 'deal_won',
-    title: 'Deal won!',
-    message: 'James Taylor signed for UCLan 2026',
-    href: '/pipelines',
-    read: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-  },
-]
 
 export function NotificationsDropdown() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const { data, isLoading } = useNotifications()
+  const markRead = useMarkNotificationRead()
+  const markAllRead = useMarkAllNotificationsRead()
+  const clearAll = useClearAllNotifications()
+
+  const notifications = data?.notifications || []
+  const unreadCount = data?.unreadCount || 0
 
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
-    )
+    if (!notification.is_read) {
+      markRead.mutate(notification.id)
+    }
     setOpen(false)
-    router.push(notification.href)
-  }
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-  }
-
-  const clearAll = () => {
-    setNotifications([])
+    if (notification.href) {
+      router.push(notification.href)
+    }
   }
 
   return (
@@ -146,35 +96,46 @@ export function NotificationsDropdown() {
               </Badge>
             )}
           </div>
-          {notifications.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={markAllAsRead}
-              >
-                <Check className="h-3 w-3 mr-1" />
-                Mark all read
-              </Button>
-            </div>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => markAllRead.mutate()}
+              disabled={markAllRead.isPending}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Mark all read
+            </Button>
           )}
         </div>
 
         {/* Notifications List */}
         <ScrollArea className="max-h-[400px]">
-          {notifications.length === 0 ? (
+          {isLoading ? (
+            <div className="p-4 space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex gap-3">
+                  <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="py-12 text-center">
-              <Bell className="h-8 w-8 mx-auto mb-3 text-gray-300" />
+              <Bell className="h-8 w-8 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
               <p className="text-sm text-gray-500 dark:text-gray-400">No notifications yet</p>
-              <p className="text-xs text-gray-400 mt-1">
-                We'll notify you when something happens
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                We&apos;ll notify you when something happens
               </p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {notifications.map((notification) => {
-                const config = typeConfig[notification.type]
+                const config = typeConfig[notification.type] || typeConfig.general
                 const Icon = config.icon
 
                 return (
@@ -183,7 +144,7 @@ export function NotificationsDropdown() {
                     onClick={() => handleNotificationClick(notification)}
                     className={cn(
                       'w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors flex gap-3',
-                      !notification.read && 'bg-blue-50/50'
+                      !notification.is_read && 'bg-blue-50/50 dark:bg-blue-950/30'
                     )}
                   >
                     <div className={cn('p-2 rounded-full shrink-0', config.bgColor)}>
@@ -193,18 +154,18 @@ export function NotificationsDropdown() {
                       <div className="flex items-start justify-between gap-2">
                         <p className={cn(
                           'text-sm truncate',
-                          !notification.read ? 'font-semibold' : 'font-medium'
+                          !notification.is_read ? 'font-semibold' : 'font-medium'
                         )}>
                           {notification.title}
                         </p>
-                        {!notification.read && (
+                        {!notification.is_read && (
                           <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0 mt-1.5" />
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                       </p>
                     </div>
@@ -222,9 +183,10 @@ export function NotificationsDropdown() {
               variant="ghost"
               size="sm"
               className="w-full text-xs text-gray-500"
-              onClick={clearAll}
+              onClick={() => clearAll.mutate()}
+              disabled={clearAll.isPending}
             >
-              Clear all notifications
+              {clearAll.isPending ? 'Clearing...' : 'Clear all notifications'}
             </Button>
           </div>
         )}
