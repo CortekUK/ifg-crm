@@ -7,12 +7,12 @@ import { Download, Trash2, Shield, AlertTriangle } from 'lucide-react'
 
 export function DataPrivacySettings() {
   const handleExportData = () => {
-    console.log('Exporting all data...')
+    // TODO: implement data export
   }
 
   const handleDeleteAccount = () => {
     if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      console.log('Deleting account...')
+      // TODO: implement account deletion
     }
   }
 

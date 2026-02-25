@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     // Find the email_send record by resend_message_id
     const { data: emailSend, error: findError } = await supabase
       .from('email_sends')
-      .select('id, recipient_contact_id, campaign_id, automation_log_id')
+      .select('id, recipient_contact_id, campaign_id, automation_log_id, status')
       .eq('resend_message_id', event.data.email_id)
       .single()
 
@@ -95,6 +95,30 @@ export async function POST(request: NextRequest) {
     debug.emailSendId = emailSend?.id
     debug.campaignId = emailSend?.campaign_id
     if (findError) debug.findError = findError.message
+
+    // Idempotency: skip if this event has already been processed
+    // Status progression: sent → delivered → opened → clicked (terminal: bounced, complained)
+    const statusRank: Record<string, number> = {
+      sent: 0, delivered: 1, opened: 2, clicked: 3, bounced: 99, complained: 99,
+    }
+    const eventToStatus: Record<string, string> = {
+      'email.delivered': 'delivered',
+      'email.opened': 'opened',
+      'email.clicked': 'clicked',
+      'email.bounced': 'bounced',
+      'email.complained': 'complained',
+    }
+    const incomingStatus = eventToStatus[eventType]
+    if (emailSend && incomingStatus) {
+      const currentRank = statusRank[emailSend.status] ?? 0
+      const incomingRank = statusRank[incomingStatus] ?? 0
+      // Allow re-processing of opens/clicks (they increment counters), but skip if terminal or same non-counter event
+      const isCounterEvent = eventType === 'email.opened' || eventType === 'email.clicked'
+      if (!isCounterEvent && currentRank >= incomingRank) {
+        debug.action = `skipped (already ${emailSend.status})`
+        return NextResponse.json({ received: true, debug })
+      }
+    }
 
     // Process based on event type
     switch (eventType) {
@@ -169,6 +193,7 @@ export async function POST(request: NextRequest) {
 
       case 'email.bounced':
         if (emailSend) {
+          // Primary update: mark email as bounced
           const { error: updateError } = await supabase
             .from('email_sends')
             .update({
@@ -180,36 +205,63 @@ export async function POST(request: NextRequest) {
           debug.updateError = updateError?.message || null
           debug.action = 'bounced'
 
+          if (updateError) {
+            // Primary update failed — skip secondary updates
+            debug.secondarySkipped = 'primary update failed'
+            break
+          }
+
+          // Secondary updates: run in parallel, isolate failures
+          const bounceSecondary: Promise<{ op: string; error?: string }>[] = []
+
           if (emailSend.recipient_contact_id) {
-            await supabase
-              .from('contacts')
-              .update({ email_valid: false })
-              .eq('id', emailSend.recipient_contact_id)
+            bounceSecondary.push(
+              Promise.resolve(
+                supabase
+                  .from('contacts')
+                  .update({ email_valid: false })
+                  .eq('id', emailSend.recipient_contact_id)
+              ).then(({ error: e }) => ({ op: 'contact_email_valid', error: e?.message }))
+            )
           }
 
           if (emailSend.automation_log_id) {
-            const { data: log } = await supabase
-              .from('automation_logs')
-              .select('enrollment_id')
-              .eq('id', emailSend.automation_log_id)
-              .single()
+            bounceSecondary.push(
+              (async () => {
+                const { data: log } = await supabase
+                  .from('automation_logs')
+                  .select('enrollment_id')
+                  .eq('id', emailSend.automation_log_id)
+                  .single()
 
-            if (log?.enrollment_id) {
-              await supabase
-                .from('automation_enrollments')
-                .update({
-                  status: 'stopped',
-                  stopped_reason: 'Email bounced',
-                  next_step_at: null,
-                })
-                .eq('id', log.enrollment_id)
-            }
+                if (log?.enrollment_id) {
+                  const { error: e } = await supabase
+                    .from('automation_enrollments')
+                    .update({
+                      status: 'stopped',
+                      stopped_reason: 'Email bounced',
+                      next_step_at: null,
+                    })
+                    .eq('id', log.enrollment_id)
+                  return { op: 'stop_enrollment', error: e?.message }
+                }
+                return { op: 'stop_enrollment', error: undefined }
+              })()
+            )
+          }
+
+          if (bounceSecondary.length > 0) {
+            const results = await Promise.allSettled(bounceSecondary)
+            debug.secondaryResults = results.map((r) =>
+              r.status === 'fulfilled' ? r.value : { op: 'unknown', error: String(r.reason) }
+            )
           }
         }
         break
 
       case 'email.complained':
         if (emailSend) {
+          // Primary update: mark email as complained
           const { error: updateError } = await supabase
             .from('email_sends')
             .update({
@@ -220,33 +272,58 @@ export async function POST(request: NextRequest) {
           debug.updateError = updateError?.message || null
           debug.action = 'complained'
 
+          if (updateError) {
+            debug.secondarySkipped = 'primary update failed'
+            break
+          }
+
+          // Secondary updates: run in parallel, isolate failures
+          const complainSecondary: Promise<{ op: string; error?: string }>[] = []
+
           if (emailSend.recipient_contact_id) {
-            await supabase
-              .from('contacts')
-              .update({
-                email_unsubscribed: true,
-                email_unsubscribed_at: event.created_at,
-              })
-              .eq('id', emailSend.recipient_contact_id)
+            complainSecondary.push(
+              Promise.resolve(
+                supabase
+                  .from('contacts')
+                  .update({
+                    email_unsubscribed: true,
+                    email_unsubscribed_at: event.created_at,
+                  })
+                  .eq('id', emailSend.recipient_contact_id)
+              ).then(({ error: e }) => ({ op: 'unsubscribe_contact', error: e?.message }))
+            )
           }
 
           if (emailSend.automation_log_id) {
-            const { data: log } = await supabase
-              .from('automation_logs')
-              .select('enrollment_id')
-              .eq('id', emailSend.automation_log_id)
-              .single()
+            complainSecondary.push(
+              (async () => {
+                const { data: log } = await supabase
+                  .from('automation_logs')
+                  .select('enrollment_id')
+                  .eq('id', emailSend.automation_log_id)
+                  .single()
 
-            if (log?.enrollment_id) {
-              await supabase
-                .from('automation_enrollments')
-                .update({
-                  status: 'stopped',
-                  stopped_reason: 'Recipient complained (spam)',
-                  next_step_at: null,
-                })
-                .eq('id', log.enrollment_id)
-            }
+                if (log?.enrollment_id) {
+                  const { error: e } = await supabase
+                    .from('automation_enrollments')
+                    .update({
+                      status: 'stopped',
+                      stopped_reason: 'Recipient complained (spam)',
+                      next_step_at: null,
+                    })
+                    .eq('id', log.enrollment_id)
+                  return { op: 'stop_enrollment', error: e?.message }
+                }
+                return { op: 'stop_enrollment', error: undefined }
+              })()
+            )
+          }
+
+          if (complainSecondary.length > 0) {
+            const results = await Promise.allSettled(complainSecondary)
+            debug.secondaryResults = results.map((r) =>
+              r.status === 'fulfilled' ? r.value : { op: 'unknown', error: String(r.reason) }
+            )
           }
         }
         break

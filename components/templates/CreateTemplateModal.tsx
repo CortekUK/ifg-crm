@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { Mail, MessageSquare, Loader2, ExternalLink } from 'lucide-react'
+import { Mail, MessageSquare, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCreateTemplate } from '@/lib/hooks/useTemplates'
 import { toast } from '@/lib/hooks/use-toast'
@@ -34,7 +34,7 @@ interface CreateTemplateModalProps {
   userId: string
 }
 
-const SMS_MAX_CHARS = 160
+const SMS_MAX_CHARS = 480
 
 const variableButtons = [
   { label: '{{first_name}}', value: '{{first_name}}' },
@@ -110,7 +110,7 @@ export function CreateTemplateModal({
   }
 
   const smsCharsRemaining = SMS_MAX_CHARS - smsContent.length
-  const smsSegments = Math.ceil(smsContent.length / SMS_MAX_CHARS) || 1
+  const smsSegments = Math.ceil(smsContent.length / 160) || 1
 
   const isValid = name.trim().length > 0 && (type === 'sms' || subject.trim().length > 0)
 
@@ -240,16 +240,9 @@ export function CreateTemplateModal({
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Content</Label>
-                  <Button variant="outline" className="w-full" disabled>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Edit Content (coming soon)
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Full email editor will be available in a future update.
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  You can edit the email content after creating the template.
+                </p>
               </div>
             )}
 

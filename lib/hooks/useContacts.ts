@@ -234,14 +234,11 @@ export function useUpdateContact() {
 
       if (error) {
         console.error('Supabase update error:', JSON.stringify(error, null, 2))
-        // Provide more specific error messages for unique constraint violations
-        // 23505 is PostgreSQL unique violation, 409 is HTTP Conflict
         const errorCode = String(error.code || '')
         const errorMessage = String(error.message || '')
         const errorDetails = String(error.details || '')
         const errorHint = String(error.hint || '')
 
-        // Check for unique constraint violation (duplicate email)
         if (
           errorCode === '23505' ||
           errorCode === '409' ||
@@ -258,9 +255,39 @@ export function useUpdateContact() {
       }
       return data
     },
-    onSuccess: () => {
+    onMutate: async ({ contactId, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts'] })
+      await queryClient.cancelQueries({ queryKey: ['contact', contactId] })
+
+      // Optimistically update all matching contacts queries
+      const contactsQueries = queryClient.getQueriesData<{ contacts: Contact[]; total: number }>({ queryKey: ['contacts'] })
+      const snapshots: [readonly unknown[], { contacts: Contact[]; total: number } | undefined][] = []
+
+      for (const [queryKey, data] of contactsQueries) {
+        snapshots.push([queryKey, data])
+        if (data?.contacts) {
+          queryClient.setQueryData(queryKey, {
+            ...data,
+            contacts: data.contacts.map((c: Contact) =>
+              c.id === contactId ? { ...c, ...updates } : c
+            ),
+          })
+        }
+      }
+
+      return { snapshots }
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback all snapshots
+      if (context?.snapshots) {
+        for (const [queryKey, data] of context.snapshots) {
+          queryClient.setQueryData(queryKey, data)
+        }
+      }
+    },
+    onSettled: (_data, _error, { contactId }) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      queryClient.invalidateQueries({ queryKey: ['contact'] })
+      queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
     },
   })
 }
@@ -278,7 +305,34 @@ export function useBulkDeleteContacts() {
 
       if (error) throw error
     },
-    onSuccess: () => {
+    onMutate: async (contactIds) => {
+      await queryClient.cancelQueries({ queryKey: ['contacts'] })
+
+      const contactsQueries = queryClient.getQueriesData<{ contacts: Contact[]; total: number }>({ queryKey: ['contacts'] })
+      const snapshots: [readonly unknown[], { contacts: Contact[]; total: number } | undefined][] = []
+      const idSet = new Set(contactIds)
+
+      for (const [queryKey, data] of contactsQueries) {
+        snapshots.push([queryKey, data])
+        if (data?.contacts) {
+          queryClient.setQueryData(queryKey, {
+            ...data,
+            contacts: data.contacts.filter((c: Contact) => !idSet.has(c.id)),
+            total: data.total - contactIds.length,
+          })
+        }
+      }
+
+      return { snapshots }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.snapshots) {
+        for (const [queryKey, data] of context.snapshots) {
+          queryClient.setQueryData(queryKey, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       queryClient.invalidateQueries({ queryKey: ['contact-stats'] })
       queryClient.invalidateQueries({ queryKey: ['lists'] })

@@ -52,7 +52,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatsCard
           title="Total Leads"
-          value={isLoading ? '...' : formatNumber(stats?.totalLeads || 0)}
+          value={formatNumber(stats?.totalLeads || 0)}
           icon={Users}
           trend={stats?.totalLeadsTrend}
           trendLabel="vs last month"
@@ -63,7 +63,7 @@ export default function DashboardPage() {
         />
         <DashboardStatsCard
           title="Unmatched Replies"
-          value={isLoading ? '...' : formatNumber(stats?.unmatchedReplies || 0)}
+          value={formatNumber(stats?.unmatchedReplies || 0)}
           icon={MessageSquareWarning}
           trend={stats?.unmatchedRepliesTrend != null ? -stats.unmatchedRepliesTrend : undefined}
           trendLabel="vs last month"
@@ -78,7 +78,7 @@ export default function DashboardPage() {
         />
         <DashboardStatsCard
           title="Active Programmes"
-          value={isLoading ? '...' : formatNumber(stats?.activeProgrammes || 0)}
+          value={formatNumber(stats?.activeProgrammes || 0)}
           icon={GraduationCap}
           trend={stats?.activeProgrammesTrend}
           trendLabel="vs last month"
@@ -89,7 +89,7 @@ export default function DashboardPage() {
         />
         <DashboardStatsCard
           title="Today's Activity"
-          value={isLoading ? '...' : formatNumber(stats?.todayActivities || 0)}
+          value={formatNumber(stats?.todayActivities || 0)}
           icon={Activity}
           trend={stats?.todayActivitiesTrend}
           trendLabel="vs yesterday"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,22 +12,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Upload, Save } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Upload, Save, Loader2 } from 'lucide-react'
+import { useSettings } from '@/lib/hooks/useSettings'
+import { toast } from '@/lib/hooks/use-toast'
+
+interface GeneralSettingsData {
+  companyName: string
+  defaultCurrency: string
+  timezone: string
+  dateFormat: string
+}
+
+const defaults: GeneralSettingsData = {
+  companyName: 'International Football Group',
+  defaultCurrency: 'GBP',
+  timezone: 'Europe/London',
+  dateFormat: 'DD/MM/YYYY',
+}
 
 export function GeneralSettings() {
-  const [settings, setSettings] = useState({
-    companyName: 'International Football Group',
-    defaultCurrency: 'GBP',
-    timezone: 'Europe/London',
-    dateFormat: 'DD/MM/YYYY',
-  })
+  const { data: saved, isLoading, save, isSaving } = useSettings<GeneralSettingsData>('general')
+  const [settings, setSettings] = useState<GeneralSettingsData>(defaults)
+
+  useEffect(() => {
+    if (saved) setSettings(saved)
+  }, [saved])
 
   const handleChange = (field: string, value: string) => {
     setSettings((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSave = () => {
-    console.log('Saving general settings:', settings)
+  const handleSave = async () => {
+    try {
+      await save(settings)
+      toast({ title: 'Settings saved', description: 'General settings have been updated.' })
+    } catch {
+      toast({ title: 'Failed to save', description: 'Could not save settings. Please try again.', variant: 'destructive' })
+    }
   }
 
   return (
@@ -53,6 +75,7 @@ export function GeneralSettings() {
               id="companyName"
               value={settings.companyName}
               onChange={(e) => handleChange('companyName', e.target.value)}
+              disabled={isLoading}
             />
           </div>
 
@@ -62,10 +85,13 @@ export function GeneralSettings() {
               <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
                 <span className="text-lg font-bold text-gray-400">IFG</span>
               </div>
-              <Button variant="outline" disabled>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Logo
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" disabled>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Logo
+                </Button>
+                <Badge variant="secondary" className="text-xs">Coming soon</Badge>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
               Recommended size: 200x200px. Max file size: 2MB.
@@ -88,6 +114,7 @@ export function GeneralSettings() {
               <Select
                 value={settings.defaultCurrency}
                 onValueChange={(v) => handleChange('defaultCurrency', v)}
+                disabled={isLoading}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -105,6 +132,7 @@ export function GeneralSettings() {
               <Select
                 value={settings.timezone}
                 onValueChange={(v) => handleChange('timezone', v)}
+                disabled={isLoading}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -123,6 +151,7 @@ export function GeneralSettings() {
             <Select
               value={settings.dateFormat}
               onValueChange={(v) => handleChange('dateFormat', v)}
+              disabled={isLoading}
             >
               <SelectTrigger className="w-[200px]">
                 <SelectValue />
@@ -138,9 +167,13 @@ export function GeneralSettings() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave}>
-          <Save className="h-4 w-4 mr-2" />
-          Save Changes
+        <Button onClick={handleSave} disabled={isSaving || isLoading}>
+          {isSaving ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </div>

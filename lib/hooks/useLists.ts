@@ -273,13 +273,12 @@ export function useAddContactsToList() {
 
       return { listId, contactIds }
     },
-    onSuccess: (_, variables) => {
+    onSettled: (_, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['list', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-contacts', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      // Invalidate contact-lists for all affected contacts
       variables.contactIds.forEach((contactId) => {
         queryClient.invalidateQueries({ queryKey: ['contact-lists', contactId] })
       })
@@ -301,13 +300,12 @@ export function useRemoveContactFromList() {
 
       if (error) throw error
     },
-    onSuccess: (_, variables) => {
+    onSettled: (_, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['list', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-contacts', variables.listId] })
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      // Invalidate contact-lists for the affected contact
       queryClient.invalidateQueries({ queryKey: ['contact-lists', variables.contactId] })
     },
   })

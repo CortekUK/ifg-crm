@@ -7,6 +7,7 @@ export type SettingsSection =
   | 'email'
   | 'sms'
   | 'notifications'
+  | 'custom-fields'
   | 'data'
 
 export interface GeneralSettings {

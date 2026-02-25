@@ -3,13 +3,13 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { FileText, Mail, MessageSquare, Zap } from 'lucide-react'
+import { FileText, Mail, Zap } from 'lucide-react'
 import { formatNumber } from '@/lib/utils/format'
 
 interface TemplateStatsProps {
   totalTemplates: number
-  emailTemplates: number
-  smsTemplates: number
+  automationTemplates: number
+  campaignTemplates: number
   activeAutomations: number
   isLoading: boolean
 }
@@ -43,8 +43,8 @@ const colourConfig = {
 
 export function TemplateStats({
   totalTemplates,
-  emailTemplates,
-  smsTemplates,
+  automationTemplates,
+  campaignTemplates,
   activeAutomations,
   isLoading,
 }: TemplateStatsProps) {
@@ -56,15 +56,15 @@ export function TemplateStats({
       colour: 'blue' as const,
     },
     {
-      label: 'Email Templates',
-      value: emailTemplates,
-      icon: Mail,
+      label: 'Automation',
+      value: automationTemplates,
+      icon: Zap,
       colour: 'green' as const,
     },
     {
-      label: 'SMS Templates',
-      value: smsTemplates,
-      icon: MessageSquare,
+      label: 'Campaign',
+      value: campaignTemplates,
+      icon: Mail,
       colour: 'purple' as const,
     },
     {

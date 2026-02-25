@@ -492,15 +492,6 @@ export function CreateCampaignModal({
                       SMS
                     </Button>
                   </div>
-                  {type === 'sms' && (
-                    <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/50 dark:border-amber-800">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      <AlertDescription className="text-amber-800 dark:text-amber-200">
-                        SMS campaigns are coming soon. The ClickSend integration is being set up separately.
-                        You can save this campaign as a draft for now.
-                      </AlertDescription>
-                    </Alert>
-                  )}
                 </div>
 
                 {/* Pipeline Selection */}
@@ -1235,19 +1226,19 @@ export function CreateCampaignModal({
                 </Button>
               ) : (
                 <Button
-                  onClick={() => handleSubmit(false)}
-                  disabled={!isValid || isPending}
+                  onClick={() => handleSubmit(false, !isScheduled)}
+                  disabled={!isValid || isPending || hasNoRecipients || hasNoContent}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {isEditing ? 'Updating...' : 'Saving...'}
+                      {sendCampaign.isPending ? 'Sending...' : isEditing ? 'Updating...' : 'Creating...'}
                     </>
                   ) : isScheduled ? (
                     'Schedule'
                   ) : (
-                    'Save Campaign'
+                    'Send Now'
                   )}
                 </Button>
               )}
@@ -1340,10 +1331,17 @@ export function CreateCampaignModal({
                 <span className="text-sm text-muted-foreground">Campaign</span>
                 <span className="font-medium">{name}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Subject</span>
-                <span className="font-medium truncate max-w-[200px]">{emailSubject || '(No subject)'}</span>
-              </div>
+              {type === 'email' ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Subject</span>
+                  <span className="font-medium truncate max-w-[200px]">{emailSubject || '(No subject)'}</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Message</span>
+                  <span className="font-medium truncate max-w-[200px]">{smsContent ? `${smsContent.length} chars` : '(No content)'}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Recipients</span>
                 <span className="font-medium">{formatNumber(recipientData?.count || 0)} contacts</span>

@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/client'
 
 interface TemplateStats {
   totalTemplates: number
-  emailTemplates: number
-  smsTemplates: number
+  automationTemplates: number
+  campaignTemplates: number
   activeAutomations: number
 }
 
@@ -28,8 +28,8 @@ export function useTemplateStats() {
 
       return {
         totalTemplates: totalTemplates || 0,
-        emailTemplates: automationTemplates || 0,
-        smsTemplates: campaignTemplates || 0,
+        automationTemplates: automationTemplates || 0,
+        campaignTemplates: campaignTemplates || 0,
         activeAutomations: activeAutomations || 0,
       }
     },

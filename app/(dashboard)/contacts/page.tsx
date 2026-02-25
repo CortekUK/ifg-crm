@@ -15,6 +15,7 @@ import { CreateContactModal } from '@/components/contacts/CreateContactModal'
 import { EditContactModal } from '@/components/contacts/EditContactModal'
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet'
 import { ImportCSVModal } from '@/components/contacts/ImportCSVModal'
+import { BulkEditModal } from '@/components/contacts/BulkEditModal'
 import { useContacts, useBulkDeleteContacts, useBulkUpdateContactSubscription } from '@/lib/hooks/useContacts'
 import { useContactStats } from '@/lib/hooks/useContactStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
@@ -42,7 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Download, Trash2, MailCheck, MailX, ListPlus, ChevronDown, Loader2, X } from 'lucide-react'
+import { Download, Trash2, MailCheck, MailX, ListPlus, ChevronDown, Loader2, X, Pencil } from 'lucide-react'
 
 function ContactsPageContent() {
   const searchParams = useSearchParams()
@@ -83,6 +84,7 @@ function ContactsPageContent() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
 
   // Current user ID
   const [userId, setUserId] = useState<string | null>(null)
@@ -466,6 +468,19 @@ function ContactsPageContent() {
 
           <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
 
+          {/* Bulk Edit */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+            onClick={() => setBulkEditOpen(true)}
+          >
+            <Pencil className="h-4 w-4 mr-1.5" />
+            Edit
+          </Button>
+
+          <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
+
           {/* Delete */}
           <Button
             variant="ghost"
@@ -598,6 +613,14 @@ function ContactsPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        isOpen={bulkEditOpen}
+        onClose={() => setBulkEditOpen(false)}
+        contactIds={Array.from(selectedIds)}
+        onSuccess={() => setSelectedIds(new Set())}
+      />
     </div>
   )
 }

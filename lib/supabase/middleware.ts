@@ -41,11 +41,39 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith('/register') &&
     !request.nextUrl.pathname.startsWith('/auth') &&
     !request.nextUrl.pathname.startsWith('/forgot-password') &&
-    !request.nextUrl.pathname.startsWith('/set-password')
+    !request.nextUrl.pathname.startsWith('/set-password') &&
+    !request.nextUrl.pathname.startsWith('/unauthorized')
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
+  }
+
+  // Admin-only route protection
+  const adminOnlyPaths = [
+    '/campaigns', '/lists', '/templates', '/automations',
+    '/invoices', '/payments', '/analytics', '/reports',
+    '/users', '/settings',
+  ]
+
+  const pathname = request.nextUrl.pathname
+  const isAdminRoute = adminOnlyPaths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  )
+
+  if (user && isAdminRoute && !isApiRoute) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const role = profile?.role
+    if (role !== 'admin' && role !== 'super_admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/unauthorized'
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

@@ -1,23 +1,43 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Save } from 'lucide-react'
+import { Save, Loader2 } from 'lucide-react'
+import { useSettings } from '@/lib/hooks/useSettings'
+import { toast } from '@/lib/hooks/use-toast'
+
+interface NotificationSettingsData {
+  emailNotifications: {
+    newLead: boolean
+    smsReply: boolean
+    emailReply: boolean
+    paymentReceived: boolean
+    dealWon: boolean
+  }
+  browserNotifications: boolean
+}
+
+const defaults: NotificationSettingsData = {
+  emailNotifications: {
+    newLead: true,
+    smsReply: true,
+    emailReply: true,
+    paymentReceived: true,
+    dealWon: true,
+  },
+  browserNotifications: false,
+}
 
 export function NotificationsSettings() {
-  const [settings, setSettings] = useState({
-    emailNotifications: {
-      newLead: true,
-      smsReply: true,
-      emailReply: true,
-      paymentReceived: true,
-      dealWon: true,
-    },
-    browserNotifications: false,
-  })
+  const { data: saved, isLoading, save, isSaving } = useSettings<NotificationSettingsData>('notifications')
+  const [settings, setSettings] = useState<NotificationSettingsData>(defaults)
+
+  useEffect(() => {
+    if (saved) setSettings(saved)
+  }, [saved])
 
   const handleEmailNotificationChange = (key: string, value: boolean) => {
     setSettings((prev) => ({
@@ -29,8 +49,13 @@ export function NotificationsSettings() {
     }))
   }
 
-  const handleSave = () => {
-    console.log('Saving notification settings:', settings)
+  const handleSave = async () => {
+    try {
+      await save(settings)
+      toast({ title: 'Settings saved', description: 'Notification settings have been updated.' })
+    } catch {
+      toast({ title: 'Failed to save', description: 'Could not save settings. Please try again.', variant: 'destructive' })
+    }
   }
 
   const emailNotificationItems = [
@@ -70,6 +95,7 @@ export function NotificationsSettings() {
                 id={item.key}
                 checked={settings.emailNotifications[item.key as keyof typeof settings.emailNotifications]}
                 onCheckedChange={(checked) => handleEmailNotificationChange(item.key, checked)}
+                disabled={isLoading}
               />
             </div>
           ))}
@@ -99,15 +125,20 @@ export function NotificationsSettings() {
               onCheckedChange={(checked) =>
                 setSettings((prev) => ({ ...prev, browserNotifications: checked }))
               }
+              disabled={isLoading}
             />
           </div>
         </CardContent>
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave}>
-          <Save className="h-4 w-4 mr-2" />
-          Save Changes
+        <Button onClick={handleSave} disabled={isSaving || isLoading}>
+          {isSaving ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </div>

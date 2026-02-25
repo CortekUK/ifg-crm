@@ -44,6 +44,8 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
   const [listId, setListId] = useState<string | null>(null)
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('skip')
   const [validationErrors, setValidationErrors] = useState<RowValidationError[]>([])
+  const [duplicateEmails, setDuplicateEmails] = useState<Set<string>>(new Set())
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [importProgress, setImportProgress] = useState<{ processed: number; total: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -67,6 +69,8 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
     setNewListName('')
     setDuplicateStrategy('skip')
     setValidationErrors([])
+    setDuplicateEmails(new Set())
+    setCheckingDuplicates(false)
     setImportResult(null)
     setImportProgress(null)
     importMutation.reset()
@@ -163,7 +167,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
     setStep(2)
   }
 
-  const goToStep3 = () => {
+  const goToStep3 = async () => {
     const mappedFields = new Set(Object.values(mapping))
 
     // Email is always required
@@ -193,6 +197,40 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
       if (err) errors.push(err)
     })
     setValidationErrors(errors)
+
+    // Check for duplicate emails in the database
+    setCheckingDuplicates(true)
+    try {
+      const emailColIndex = Object.entries(mapping).find(([, v]) => v === 'email')?.[0]
+      if (emailColIndex !== undefined) {
+        const emails = rows
+          .map((row) => row[Number(emailColIndex)]?.trim().toLowerCase())
+          .filter(Boolean)
+
+        const uniqueEmails = [...new Set(emails)]
+        const dupes = new Set<string>()
+
+        // Check in batches of 100
+        const supabase = (await import('@/lib/supabase/client')).createClient()
+        for (let i = 0; i < uniqueEmails.length; i += 100) {
+          const batch = uniqueEmails.slice(i, i + 100)
+          const { data } = await supabase
+            .from('contacts')
+            .select('email')
+            .in('email', batch)
+
+          data?.forEach((c) => {
+            if (c.email) dupes.add(c.email.toLowerCase())
+          })
+        }
+
+        setDuplicateEmails(dupes)
+      }
+    } catch {
+      // Non-blocking: if dedup check fails, proceed anyway
+    } finally {
+      setCheckingDuplicates(false)
+    }
 
     setStep(3)
   }
@@ -556,6 +594,22 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                     </div>
                   </div>
 
+                  {duplicateEmails.size > 0 && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-800 dark:text-amber-200">
+                          {duplicateEmails.size} duplicate email{duplicateEmails.size !== 1 ? 's' : ''} found
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                          {duplicateStrategy === 'skip'
+                            ? 'These contacts will be skipped during import.'
+                            : 'These contacts will be updated with the new data.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="text-sm space-y-1">
                     <p><span className="text-muted-foreground">Strategy:</span> {duplicateStrategy === 'skip' ? 'Skip duplicates' : 'Update duplicates'}</p>
                     {listId && (
@@ -621,11 +675,15 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
           )}
           {step === 2 && (
             <>
-              <Button variant="outline" onClick={() => setStep(1)}>
+              <Button variant="outline" onClick={() => setStep(1)} disabled={checkingDuplicates}>
                 <ArrowLeft className="w-4 h-4 mr-1" /> Back
               </Button>
-              <Button onClick={goToStep3}>
-                Next <ArrowRight className="w-4 h-4 ml-1" />
+              <Button onClick={goToStep3} disabled={checkingDuplicates}>
+                {checkingDuplicates ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Checking duplicates...</>
+                ) : (
+                  <>Next <ArrowRight className="w-4 h-4 ml-1" /></>
+                )}
               </Button>
             </>
           )}

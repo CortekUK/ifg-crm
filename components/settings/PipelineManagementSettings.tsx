@@ -359,7 +359,7 @@ export function PipelineManagementSettings() {
                           <span className="text-xs text-muted-foreground">+{STAGE_TYPES.length - 6} more</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                          Stage configuration coming soon. Stages are currently managed at the system level.
+                          Stages are managed at the system level.
                         </p>
                       </div>
 

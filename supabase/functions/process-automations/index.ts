@@ -4,6 +4,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import { sendSMS } from '../_shared/clicksend.ts'
 
 interface ProcessingSummary {
   enrollmentsCreated: number
@@ -34,6 +35,7 @@ interface AutomationStep {
   delay_days: number
   delay_hours: number
   email_template_id: string | null
+  sms_content: string | null
   target_stage_id: string | null
 }
 
@@ -498,8 +500,7 @@ async function processQueue(
             break
 
           case 'send_sms':
-            // Log SMS for later implementation
-            await logStepExecution(supabase, enrollment, currentStep, 'sent')
+            await processSMSStep(supabase, enrollment, currentStep, summary)
             break
 
           case 'create_deal':
@@ -832,6 +833,200 @@ async function processEmailStep(
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err)
     summary.errors.push(`Error sending email for enrollment ${enrollment.id}: ${errorMessage}`)
+    await logStepExecution(supabase, enrollment, step, 'failed', errorMessage)
+  }
+}
+
+/**
+ * Process an SMS step - send SMS via ClickSend
+ */
+async function processSMSStep(
+  supabase: ReturnType<typeof createClient>,
+  enrollment: AutomationEnrollment,
+  step: AutomationStep,
+  summary: ProcessingSummary
+) {
+  try {
+    // Check for duplicate send in this enrollment cycle
+    const { data: enrollmentData } = await supabase
+      .from('automation_enrollments')
+      .select('enrolled_at')
+      .eq('id', enrollment.id)
+      .single()
+
+    const enrolledAt = enrollmentData?.enrolled_at
+
+    let logQuery = supabase
+      .from('automation_logs')
+      .select('id')
+      .eq('enrollment_id', enrollment.id)
+      .eq('step_id', step.id)
+      .in('status', ['sent', 'pending'])
+
+    if (enrolledAt) {
+      logQuery = logQuery.gte('sent_at', enrolledAt)
+    }
+
+    const { data: existingLog } = await logQuery.limit(1)
+
+    if (existingLog && existingLog.length > 0) {
+      console.log(`SMS already sent for enrollment ${enrollment.id} step ${step.id} in this cycle, skipping`)
+      return
+    }
+
+    if (!step.sms_content) {
+      summary.errors.push(`SMS step ${step.id} has no content`)
+      await logStepExecution(supabase, enrollment, step, 'failed', 'No SMS content configured')
+      return
+    }
+
+    // Fetch deal
+    const { data: deal, error: dealError } = await supabase
+      .from('deals')
+      .select('id, title, contact_id, deal_owner_id, owner_id')
+      .eq('id', enrollment.deal_id)
+      .single()
+
+    if (dealError || !deal) {
+      summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError?.message || 'Not found'}`)
+      await logStepExecution(supabase, enrollment, step, 'failed', `Deal not found: ${dealError?.message || 'No data'}`)
+      return
+    }
+
+    // Fetch contact
+    let contact: { id: string; first_name: string; last_name: string; email: string; phone: string | null; sms_subscribed: boolean; country: string | null; position: string | null; club_name: string | null; graduation_year: number | null; sport: string | null } | null = null
+    if (deal.contact_id) {
+      const { data: contactData, error: contactError } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, email, phone, sms_subscribed, country, position, club_name, graduation_year, sport')
+        .eq('id', deal.contact_id)
+        .single()
+
+      if (contactError) {
+        console.log(`Warning: Failed to fetch contact ${deal.contact_id}: ${contactError.message}`)
+      } else {
+        contact = contactData
+      }
+    }
+
+    if (!contact?.phone) {
+      summary.errors.push(`Deal ${enrollment.deal_id} has no contact phone number`)
+      await logStepExecution(supabase, enrollment, step, 'failed', 'No contact phone number')
+      return
+    }
+
+    // Check sms_subscribed
+    if (contact.sms_subscribed === false) {
+      console.log(`Skipping SMS for enrollment ${enrollment.id} - contact ${contact.phone} is not SMS subscribed`)
+      await logStepExecution(supabase, enrollment, step, 'skipped', 'Contact not SMS subscribed')
+      return
+    }
+
+    // Fetch sender profile for merge data
+    let owner: { full_name: string; email: string; phone: string | null; title: string | null; calendly_url: string | null } | null = null
+    const senderId = enrollment.send_as_user_id || deal.deal_owner_id || deal.owner_id
+    if (senderId) {
+      const { data: ownerData } = await supabase
+        .from('profiles')
+        .select('full_name, email, phone, title, calendly_url')
+        .eq('id', senderId)
+        .single()
+      owner = ownerData
+    }
+
+    // Build merge data and replace tags
+    const mergeData: Record<string, string | number | boolean | null | undefined> = {
+      first_name: contact.first_name || '',
+      last_name: contact.last_name || '',
+      email: contact.email || '',
+      phone: contact.phone || null,
+      country: contact.country || null,
+      position: contact.position || null,
+      club_name: contact.club_name || null,
+      graduation_year: contact.graduation_year || null,
+      sport: contact.sport || null,
+      deal_title: deal.title || '',
+      deal_owner_name: owner?.full_name || 'The Team',
+      deal_owner_email: owner?.email || '',
+      deal_owner_phone: owner?.phone || null,
+      deal_owner_calendly: owner?.calendly_url || null,
+    }
+
+    const processedContent = replaceSimpleTags(step.sms_content, mergeData)
+
+    // Log step execution as 'pending' first
+    const { data: logEntry, error: logError } = await supabase
+      .from('automation_logs')
+      .insert({
+        enrollment_id: enrollment.id,
+        step_id: step.id,
+        deal_id: enrollment.deal_id,
+        status: 'pending',
+        log_type: 'sms_sent',
+        sent_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (logError) {
+      summary.errors.push(`Failed to create log entry: ${logError.message}`)
+    }
+
+    // Send SMS via ClickSend
+    const smsResult = await sendSMS({
+      to: contact.phone,
+      body: processedContent,
+      source: `automation-${enrollment.automation_id}`,
+    })
+
+    if (smsResult.success) {
+      // Update log entry to 'sent'
+      if (logEntry?.id) {
+        await supabase
+          .from('automation_logs')
+          .update({ status: 'sent' })
+          .eq('id', logEntry.id)
+      }
+
+      // Log to sms_sends table
+      await supabase.from('sms_sends').insert({
+        recipient_phone: contact.phone,
+        recipient_contact_id: contact.id,
+        automation_log_id: logEntry?.id,
+        content: processedContent,
+        status: 'sent',
+        clicksend_message_id: smsResult.message_id,
+        segments: smsResult.segments || 1,
+        sent_at: new Date().toISOString(),
+      })
+
+      console.log(`Sent SMS to ${contact.phone} for enrollment ${enrollment.id}, message_id: ${smsResult.message_id}`)
+    } else {
+      const errorMsg = smsResult.error || 'SMS send failed'
+      summary.errors.push(`Failed to send SMS to ${contact.phone}: ${errorMsg}`)
+
+      // Update log entry to failed
+      if (logEntry?.id) {
+        await supabase
+          .from('automation_logs')
+          .update({ status: 'failed', error_message: errorMsg })
+          .eq('id', logEntry.id)
+      }
+
+      // Log failed send
+      await supabase.from('sms_sends').insert({
+        recipient_phone: contact.phone,
+        recipient_contact_id: contact.id,
+        automation_log_id: logEntry?.id,
+        content: processedContent,
+        status: 'failed',
+        error_message: errorMsg,
+        sent_at: new Date().toISOString(),
+      })
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    summary.errors.push(`Error sending SMS for enrollment ${enrollment.id}: ${errorMessage}`)
     await logStepExecution(supabase, enrollment, step, 'failed', errorMessage)
   }
 }

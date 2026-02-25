@@ -1,32 +1,50 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Save } from 'lucide-react'
+import { Save, Loader2 } from 'lucide-react'
+import { useSettings } from '@/lib/hooks/useSettings'
+import { toast } from '@/lib/hooks/use-toast'
+
+interface EmailSettingsData {
+  defaultFromName: string
+  defaultFromEmail: string
+  replyToEmail: string
+  emailSignature: string
+  unsubscribeFooter: string
+}
+
+const defaults: EmailSettingsData = {
+  defaultFromName: '',
+  defaultFromEmail: '',
+  replyToEmail: '',
+  emailSignature: '',
+  unsubscribeFooter: 'If you no longer wish to receive these emails, click here to unsubscribe.',
+}
 
 export function EmailSettingsSection() {
-  const [settings, setSettings] = useState({
-    defaultFromName: 'IFG Team',
-    defaultFromEmail: 'hello@ifg-crm.com',
-    replyToEmail: 'support@ifg-crm.com',
-    emailSignature: `Best regards,
-The IFG Team
+  const { data: saved, isLoading, save, isSaving } = useSettings<EmailSettingsData>('email')
+  const [settings, setSettings] = useState<EmailSettingsData>(defaults)
 
-International Football Group
-www.ifg-crm.com`,
-    unsubscribeFooter: 'If you no longer wish to receive these emails, click here to unsubscribe.',
-  })
+  useEffect(() => {
+    if (saved) setSettings(saved)
+  }, [saved])
 
   const handleChange = (field: string, value: string) => {
     setSettings((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSave = () => {
-    console.log('Saving email settings:', settings)
+  const handleSave = async () => {
+    try {
+      await save(settings)
+      toast({ title: 'Settings saved', description: 'Email settings have been updated.' })
+    } catch {
+      toast({ title: 'Failed to save', description: 'Could not save settings. Please try again.', variant: 'destructive' })
+    }
   }
 
   return (
@@ -54,6 +72,7 @@ www.ifg-crm.com`,
                 value={settings.defaultFromName}
                 onChange={(e) => handleChange('defaultFromName', e.target.value)}
                 placeholder="Your Name or Company"
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -64,6 +83,7 @@ www.ifg-crm.com`,
                 value={settings.defaultFromEmail}
                 onChange={(e) => handleChange('defaultFromEmail', e.target.value)}
                 placeholder="hello@example.com"
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -76,6 +96,7 @@ www.ifg-crm.com`,
               value={settings.replyToEmail}
               onChange={(e) => handleChange('replyToEmail', e.target.value)}
               placeholder="support@example.com"
+              disabled={isLoading}
             />
             <p className="text-xs text-muted-foreground">
               Replies to your emails will be sent to this address.
@@ -100,6 +121,7 @@ www.ifg-crm.com`,
               onChange={(e) => handleChange('emailSignature', e.target.value)}
               rows={5}
               placeholder="Your email signature..."
+              disabled={isLoading}
             />
             <p className="text-xs text-muted-foreground">
               This signature will be appended to all outgoing emails.
@@ -114,6 +136,7 @@ www.ifg-crm.com`,
               onChange={(e) => handleChange('unsubscribeFooter', e.target.value)}
               rows={2}
               placeholder="Unsubscribe text..."
+              disabled={isLoading}
             />
             <p className="text-xs text-muted-foreground">
               Required for compliance. The unsubscribe link will be automatically added.
@@ -123,9 +146,13 @@ www.ifg-crm.com`,
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave}>
-          <Save className="h-4 w-4 mr-2" />
-          Save Changes
+        <Button onClick={handleSave} disabled={isSaving || isLoading}>
+          {isSaving ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </div>

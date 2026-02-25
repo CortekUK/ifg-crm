@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,20 +15,33 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CheckCircle, XCircle, Eye, EyeOff, Copy, Plus, Globe, FileText, AlertCircle } from 'lucide-react'
+import { CheckCircle, XCircle, Eye, EyeOff, Copy, Plus, Globe, FileText, AlertCircle, Loader2, ShieldCheck, ShieldAlert } from 'lucide-react'
+
+interface ResendDomain {
+  id: string
+  name: string
+  status: string
+  records: { record: string; status: string }[]
+}
 
 export function IntegrationsSettings() {
   const [showClickSendKey, setShowClickSendKey] = useState(false)
   const [showResendKey, setShowResendKey] = useState(false)
+  const [resendDomains, setResendDomains] = useState<ResendDomain[]>([])
+  const [domainsLoading, setDomainsLoading] = useState(false)
 
-  const phoneNumberMappings = [
-    { phoneNumber: '+44 7XXX XXX001', pipelineName: 'UCLan 2026' },
-    { phoneNumber: '+44 7XXX XXX002', pipelineName: 'Salford 2026' },
-  ]
+  useEffect(() => {
+    setDomainsLoading(true)
+    fetch('/api/integrations/resend-domains')
+      .then((res) => res.json())
+      .then((data) => setResendDomains(data.domains || []))
+      .catch(() => {})
+      .finally(() => setDomainsLoading(false))
+  }, [])
 
-  const verifiedDomains = ['ifg-crm.com', 'email.ifg-crm.com']
+  const phoneNumberMappings: { phoneNumber: string; pipelineName: string }[] = []
 
-  const webhookUrl = 'https://api.ifg-crm.com/webhooks/stripe'
+  const webhookUrl = ''
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -53,9 +66,9 @@ export function IntegrationsSettings() {
                 Send and receive SMS messages through ClickSend.
               </CardDescription>
             </div>
-            <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Connected
+            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+              <XCircle className="h-3 w-3 mr-1" />
+              Not Connected
             </Badge>
           </div>
         </CardHeader>
@@ -66,7 +79,6 @@ export function IntegrationsSettings() {
               <Input
                 id="clicksendUsername"
                 placeholder="your-username"
-                defaultValue="ifg_admin"
               />
             </div>
             <div className="space-y-2">
@@ -76,7 +88,6 @@ export function IntegrationsSettings() {
                   id="clicksendKey"
                   type={showClickSendKey ? 'text' : 'password'}
                   placeholder="••••••••••••••••"
-                  defaultValue="sk_live_xxxxxxxxxxxx"
                 />
                 <button
                   type="button"
@@ -111,12 +122,20 @@ export function IntegrationsSettings() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {phoneNumberMappings.map((mapping, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-mono">{mapping.phoneNumber}</TableCell>
-                    <TableCell>{mapping.pipelineName}</TableCell>
+                {phoneNumberMappings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center text-muted-foreground py-6">
+                      No phone number mappings configured yet.
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  phoneNumberMappings.map((mapping, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono">{mapping.phoneNumber}</TableCell>
+                      <TableCell>{mapping.pipelineName}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -133,9 +152,9 @@ export function IntegrationsSettings() {
                 Send transactional and marketing emails through Resend.
               </CardDescription>
             </div>
-            <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Connected
+            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+              <XCircle className="h-3 w-3 mr-1" />
+              Not Connected
             </Badge>
           </div>
         </CardHeader>
@@ -146,8 +165,7 @@ export function IntegrationsSettings() {
               <Input
                 id="resendKey"
                 type={showResendKey ? 'text' : 'password'}
-                placeholder="••••••••••••••••"
-                defaultValue="re_xxxxxxxxxxxx"
+                placeholder="re_xxxxxxxxxxxxxxxx"
               />
               <button
                 type="button"
@@ -167,14 +185,67 @@ export function IntegrationsSettings() {
                 Add Domain
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {verifiedDomains.map((domain) => (
-                <Badge key={domain} variant="secondary">
-                  <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                  {domain}
-                </Badge>
-              ))}
-            </div>
+            {domainsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking domain status...
+              </div>
+            ) : resendDomains.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No verified domains yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {resendDomains.map((domain) => {
+                  const isVerified = domain.status === 'verified'
+                  const spf = domain.records.find((r) => r.record === 'SPF')
+                  const dkim = domain.records.find((r) => r.record === 'DKIM')
+                  const dmarc = domain.records.find((r) => r.record === 'DMARC')
+
+                  return (
+                    <div key={domain.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isVerified ? (
+                            <ShieldCheck className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <ShieldAlert className="h-4 w-4 text-amber-500" />
+                          )}
+                          <span className="font-medium text-sm">{domain.name}</span>
+                        </div>
+                        <Badge variant={isVerified ? 'default' : 'secondary'} className={isVerified ? 'bg-green-100 text-green-700' : ''}>
+                          {domain.status}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        {[
+                          { label: 'SPF', rec: spf },
+                          { label: 'DKIM', rec: dkim },
+                          { label: 'DMARC', rec: dmarc },
+                        ].map(({ label, rec }) => (
+                          <Badge
+                            key={label}
+                            variant="outline"
+                            className={
+                              rec?.status === 'verified'
+                                ? 'border-green-300 text-green-700 bg-green-50'
+                                : rec
+                                  ? 'border-amber-300 text-amber-700 bg-amber-50'
+                                  : 'border-gray-200 text-gray-400'
+                            }
+                          >
+                            {rec?.status === 'verified' ? (
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                            ) : (
+                              <XCircle className="h-3 w-3 mr-1" />
+                            )}
+                            {label}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

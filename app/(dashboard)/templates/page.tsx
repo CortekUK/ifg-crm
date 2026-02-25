@@ -113,8 +113,8 @@ export default function TemplatesPage() {
       {/* Stats */}
       <TemplateStats
         totalTemplates={stats?.totalTemplates || 0}
-        emailTemplates={stats?.emailTemplates || 0}
-        smsTemplates={stats?.smsTemplates || 0}
+        automationTemplates={stats?.automationTemplates || 0}
+        campaignTemplates={stats?.campaignTemplates || 0}
         activeAutomations={stats?.activeAutomations || 0}
         isLoading={statsLoading}
       />

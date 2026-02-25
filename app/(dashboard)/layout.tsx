@@ -4,6 +4,7 @@ import { Header } from '@/components/dashboard/Header'
 import { MainContent } from '@/components/dashboard/MainContent'
 import { SidebarProvider } from '@/components/providers/SidebarProvider'
 import { Toaster } from '@/components/ui/toaster'
+import { KeyboardShortcutsProvider } from '@/components/providers/KeyboardShortcutsProvider'
 
 export default async function DashboardLayout({
   children,
@@ -48,6 +49,11 @@ export default async function DashboardLayout({
             {children}
           </main>
         </MainContent>
+
+        {/* Keyboard Shortcuts */}
+        <KeyboardShortcutsProvider>
+          <></>
+        </KeyboardShortcutsProvider>
 
         {/* Toast Notifications */}
         <Toaster />
