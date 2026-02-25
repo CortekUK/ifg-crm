@@ -162,3 +162,127 @@ export function useAutomationEmailStats(automationId: string | null) {
     enabled: !!automationId,
   })
 }
+
+export interface AutomationEmailSend {
+  id: string
+  recipient_email: string
+  status: string
+  sent_at: string | null
+  delivered_at: string | null
+  opened_at: string | null
+  clicked_at: string | null
+  bounced_at: string | null
+  open_count: number
+  click_count: number
+  error_message: string | null
+  step_id: string | null
+  contact: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    email: string
+  } | null
+}
+
+/**
+ * Fetches all email_sends for an automation with contact details,
+ * optionally filtered by status for drill-down views.
+ */
+export function useAutomationEmailSends(
+  automationId: string | null,
+  statusFilter?: string | null
+) {
+  const supabase = createClient()
+
+  return useQuery<AutomationEmailSend[]>({
+    queryKey: ['automation-email-sends', automationId, statusFilter],
+    queryFn: async () => {
+      if (!automationId) return []
+
+      // Get enrollment IDs for this automation
+      const { data: enrollments } = await supabase
+        .from('automation_enrollments')
+        .select('id')
+        .eq('automation_id', automationId)
+
+      if (!enrollments || enrollments.length === 0) return []
+
+      // Get automation logs with step_id
+      const { data: logs } = await supabase
+        .from('automation_logs')
+        .select('id, step_id')
+        .in('enrollment_id', enrollments.map((e) => e.id))
+        .eq('log_type', 'email_sent')
+
+      if (!logs || logs.length === 0) return []
+
+      const logIds = logs.map((l) => l.id)
+      const logToStep = new Map<string, string>()
+      logs.forEach((l) => {
+        if (l.step_id) logToStep.set(l.id, l.step_id)
+      })
+
+      // Get email sends
+      let query = supabase
+        .from('email_sends')
+        .select('id, recipient_email, recipient_contact_id, automation_log_id, status, sent_at, delivered_at, opened_at, clicked_at, bounced_at, open_count, click_count, error_message')
+        .in('automation_log_id', logIds)
+        .order('sent_at', { ascending: false })
+
+      // Apply status filter for drill-down
+      if (statusFilter) {
+        switch (statusFilter) {
+          case 'delivered':
+            query = query.not('delivered_at', 'is', null)
+            break
+          case 'opened':
+            query = query.not('opened_at', 'is', null)
+            break
+          case 'clicked':
+            query = query.not('clicked_at', 'is', null)
+            break
+          case 'bounced':
+            query = query.eq('status', 'bounced')
+            break
+          case 'failed':
+            query = query.eq('status', 'failed')
+            break
+        }
+      }
+
+      const { data: sends, error } = await query
+      if (error) throw error
+      if (!sends || sends.length === 0) return []
+
+      // Fetch contact info
+      const contactIds = [...new Set(sends.map((s) => s.recipient_contact_id).filter(Boolean))]
+      const contactsMap = new Map<string, { id: string; first_name: string | null; last_name: string | null; email: string }>()
+
+      if (contactIds.length > 0) {
+        const { data: contacts } = await supabase
+          .from('contacts')
+          .select('id, first_name, last_name, email')
+          .in('id', contactIds)
+
+        contacts?.forEach((c) => contactsMap.set(c.id, c))
+      }
+
+      return sends.map((send) => ({
+        id: send.id,
+        recipient_email: send.recipient_email,
+        status: send.status,
+        sent_at: send.sent_at,
+        delivered_at: send.delivered_at,
+        opened_at: send.opened_at,
+        clicked_at: send.clicked_at,
+        bounced_at: send.bounced_at,
+        open_count: send.open_count || 0,
+        click_count: send.click_count || 0,
+        error_message: send.error_message,
+        step_id: send.automation_log_id ? logToStep.get(send.automation_log_id) || null : null,
+        contact: send.recipient_contact_id ? contactsMap.get(send.recipient_contact_id) || null : null,
+      }))
+    },
+    enabled: !!automationId,
+  })
+}

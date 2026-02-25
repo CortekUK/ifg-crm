@@ -31,13 +31,22 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight, Trash2, Loader2 } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+import { Users, Send, Eye, Pencil, Clock, CheckCircle2, CheckCircle, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight, Trash2, Loader2, MousePointer, Mail } from 'lucide-react'
 import { useAutomation, useAutomationEnrollments, useToggleAutomation, useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment, useDeleteAutomation } from '@/lib/hooks/useAutomations'
-import { useAutomationEmailStats } from '@/lib/hooks/useAutomationEmailStats'
+import { useAutomationEmailStats, useAutomationEmailSends } from '@/lib/hooks/useAutomationEmailStats'
 import { useEmailSendsRealtime } from '@/lib/hooks/useCampaignRealtime'
 import { AutomationWorkflowPreview } from './AutomationWorkflowPreview'
 import { EnrollContactModal } from './EnrollContactModal'
-import { formatDateTime } from '@/lib/utils/format'
+import { formatDate, formatDateTime } from '@/lib/utils/format'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface AutomationDetailSheetProps {
@@ -56,10 +65,13 @@ export function AutomationDetailSheet({
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false)
   const [enrollmentToUnenroll, setEnrollmentToUnenroll] = useState<{ id: string; name: string } | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [emailStatusFilter, setEmailStatusFilter] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('workflow')
 
   const { data: automation, isLoading } = useAutomation(automationId)
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
   const { data: emailStats } = useAutomationEmailStats(automationId)
+  const { data: emailSends = [], isLoading: sendsLoading } = useAutomationEmailSends(automationId, emailStatusFilter)
   const toggleAutomation = useToggleAutomation()
 
   // Live updates: subscribe to email_sends changes for automation stats
@@ -301,11 +313,15 @@ export function AutomationDetailSheet({
               </div>
             </SheetHeader>
 
-            <Tabs defaultValue="workflow" className="flex-1 flex flex-col min-h-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
               <div className="px-6 pt-4 pb-4 border-b bg-slate-50 dark:bg-slate-800 shrink-0">
-                <TabsList className="grid w-full grid-cols-3 h-10">
+                <TabsList className="grid w-full grid-cols-4 h-10">
                   <TabsTrigger value="workflow" className="text-sm">Workflow</TabsTrigger>
                   <TabsTrigger value="stats" className="text-sm">Stats</TabsTrigger>
+                  <TabsTrigger value="activity" className="text-sm">
+                    <Mail className="h-3.5 w-3.5 mr-1" />
+                    Emails
+                  </TabsTrigger>
                   <TabsTrigger value="enrolled" className="text-sm">
                     Enrolled ({activeEnrollments.length})
                   </TabsTrigger>
@@ -339,22 +355,27 @@ export function AutomationDetailSheet({
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200 dark:border-slate-700">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
-                            <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
-                            <p className="text-xs text-muted-foreground">Delivered</p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <button
+                        className="text-left"
+                        onClick={() => { setEmailStatusFilter('delivered'); setActiveTab('activity') }}
+                      >
+                        <Card className="border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-700 transition-colors cursor-pointer">
+                          <CardContent className="p-4 flex items-center gap-3">
+                            <div className="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
+                              <p className="text-xs text-muted-foreground">Delivered</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </button>
 
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
-                            <Send className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                            <Send className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
@@ -363,17 +384,25 @@ export function AutomationDetailSheet({
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200 dark:border-slate-700">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-                            <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{avgOpenRate.toFixed(1)}%</p>
-                            <p className="text-xs text-muted-foreground">Avg. Open Rate</p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <button
+                        className="text-left"
+                        onClick={() => { setEmailStatusFilter('opened'); setActiveTab('activity') }}
+                      >
+                        <Card className="border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors cursor-pointer">
+                          <CardContent className="p-4 flex items-center gap-3">
+                            <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                              <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                {emailStats?.totalOpened || 0}
+                                <span className="text-sm font-normal text-muted-foreground ml-1">({avgOpenRate.toFixed(1)}%)</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">Opened</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </button>
 
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
@@ -387,17 +416,22 @@ export function AutomationDetailSheet({
                         </CardContent>
                       </Card>
 
-                      <Card className="border-slate-200 dark:border-slate-700">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-red-100 dark:bg-red-900/50 rounded-lg">
-                            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stoppedEnrollments.length}</p>
-                            <p className="text-xs text-muted-foreground">Stopped / Exited</p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <button
+                        className="text-left"
+                        onClick={() => { setEmailStatusFilter('bounced'); setActiveTab('activity') }}
+                      >
+                        <Card className="border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 transition-colors cursor-pointer">
+                          <CardContent className="p-4 flex items-center gap-3">
+                            <div className="p-2.5 bg-red-100 dark:bg-red-900/50 rounded-lg">
+                              <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            </div>
+                            <div>
+                              <p className="text-2xl font-bold text-gray-900 dark:text-white">{emailStats?.totalBounced || 0}</p>
+                              <p className="text-xs text-muted-foreground">Bounced</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </button>
                     </div>
                   </div>
 
@@ -451,6 +485,148 @@ export function AutomationDetailSheet({
                       </p>
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="activity" className="mt-0 px-6 py-4 space-y-4 data-[state=inactive]:hidden">
+                  {/* Filter pills */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground">Filter:</span>
+                    {[
+                      { key: null, label: 'All' },
+                      { key: 'delivered', label: 'Delivered' },
+                      { key: 'opened', label: 'Opened' },
+                      { key: 'clicked', label: 'Clicked' },
+                      { key: 'bounced', label: 'Bounced' },
+                    ].map((f) => (
+                      <button
+                        key={f.key ?? 'all'}
+                        onClick={() => setEmailStatusFilter(f.key)}
+                        className={cn(
+                          'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
+                          emailStatusFilter === f.key
+                            ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        )}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {sendsLoading ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : emailSends.length > 0 ? (
+                    <>
+                      <div className="text-xs text-muted-foreground">
+                        {emailSends.length} email{emailSends.length !== 1 ? 's' : ''}
+                        {emailStatusFilter ? ` (${emailStatusFilter})` : ''}
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Recipient</TableHead>
+                            <TableHead>Step</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Opened</TableHead>
+                            <TableHead>Clicked</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {emailSends.map((send) => {
+                            const contactName = send.contact
+                              ? `${send.contact.first_name || ''} ${send.contact.last_name || ''}`.trim()
+                              : ''
+
+                            // Find step label
+                            const sortedEmailSteps = automation?.steps
+                              ?.filter((s) => s.step_type === 'send_email')
+                              .sort((a, b) => a.step_order - b.step_order) || []
+                            const stepIndex = sortedEmailSteps.findIndex((s) => s.id === send.step_id)
+                            const step = sortedEmailSteps[stepIndex]
+                            const stepLabel = stepIndex >= 0
+                              ? `Email ${stepIndex + 1}`
+                              : '-'
+
+                            return (
+                              <TableRow key={send.id}>
+                                <TableCell>
+                                  <div>
+                                    {contactName && (
+                                      <p className="font-medium text-sm">{contactName}</p>
+                                    )}
+                                    <p className={cn(
+                                      'text-xs',
+                                      contactName ? 'text-muted-foreground' : 'font-medium text-sm'
+                                    )}>
+                                      {send.recipient_email}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {stepLabel}
+                                  </Badge>
+                                  {step?.template?.name && (
+                                    <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[100px]" title={step.template.name}>
+                                      {step.template.name}
+                                    </p>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      'text-xs',
+                                      (send.status === 'sent' || send.status === 'delivered') && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+                                      send.status === 'opened' && 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+                                      send.status === 'clicked' && 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+                                      send.status === 'bounced' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                      send.status === 'failed' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                    )}
+                                  >
+                                    {send.status === 'sent' ? 'Delivered' : send.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {send.opened_at ? (
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                      <span className="text-xs text-muted-foreground">{formatDate(send.opened_at)}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {send.clicked_at ? (
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                      <span className="text-xs text-muted-foreground">{formatDate(send.clicked_at)}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Mail className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        {emailStatusFilter
+                          ? `No emails with status "${emailStatusFilter}"`
+                          : 'No emails sent yet'}
+                      </p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="enrolled" className="mt-0 px-6 py-6 space-y-6 data-[state=inactive]:hidden">
