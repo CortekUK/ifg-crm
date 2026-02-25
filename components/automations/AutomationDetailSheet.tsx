@@ -66,7 +66,7 @@ export function AutomationDetailSheet({
   const [enrollmentToUnenroll, setEnrollmentToUnenroll] = useState<{ id: string; name: string } | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [emailStatusFilter, setEmailStatusFilter] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState('workflow')
+  const [activeTab, setActiveTab] = useState('overview')
 
   const { data: automation, isLoading } = useAutomation(automationId)
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
@@ -315,9 +315,8 @@ export function AutomationDetailSheet({
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
               <div className="px-6 pt-4 pb-4 border-b bg-slate-50 dark:bg-slate-800 shrink-0">
-                <TabsList className="grid w-full grid-cols-4 h-10">
-                  <TabsTrigger value="workflow" className="text-sm">Workflow</TabsTrigger>
-                  <TabsTrigger value="stats" className="text-sm">Stats</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 h-10">
+                  <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
                   <TabsTrigger value="activity" className="text-sm">
                     <Mail className="h-3.5 w-3.5 mr-1" />
                     Emails
@@ -329,162 +328,118 @@ export function AutomationDetailSheet({
               </div>
 
               <div className="flex-1 overflow-y-auto">
-                <TabsContent value="workflow" className="mt-0 px-6 py-6 data-[state=inactive]:hidden">
+                <TabsContent value="overview" className="mt-0 px-6 py-5 space-y-5 data-[state=inactive]:hidden">
+                  {/* Workflow Preview */}
                   <AutomationWorkflowPreview
                     automation={automation}
                     showStats={true}
                   />
-                </TabsContent>
 
-                <TabsContent value="stats" className="mt-0 px-6 py-6 space-y-6 data-[state=inactive]:hidden">
-                  {/* Quick Stats */}
+                  {/* Performance Stats — summary banner style */}
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                      Overview
+                      Performance
                     </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Card className="border-slate-200 dark:border-slate-700">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                            <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeEnrollments.length}</p>
-                            <p className="text-xs text-muted-foreground">Currently Enrolled</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <button
-                        className="text-left"
-                        onClick={() => { setEmailStatusFilter('delivered'); setActiveTab('activity') }}
-                      >
-                        <Card className="border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-700 transition-colors cursor-pointer">
-                          <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
-                              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            </div>
-                            <div>
-                              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
-                              <p className="text-xs text-muted-foreground">Delivered</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </button>
-
-                      <Card className="border-slate-200 dark:border-slate-700">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                            <Send className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
-                            <p className="text-xs text-muted-foreground">Total Sent</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <button
-                        className="text-left"
-                        onClick={() => { setEmailStatusFilter('opened'); setActiveTab('activity') }}
-                      >
-                        <Card className="border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors cursor-pointer">
-                          <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-                              <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                            </div>
-                            <div>
-                              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {emailStats?.totalOpened || 0}
-                                <span className="text-sm font-normal text-muted-foreground ml-1">({avgOpenRate.toFixed(1)}%)</span>
-                              </p>
-                              <p className="text-xs text-muted-foreground">Opened</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </button>
-
-                      <Card className="border-slate-200 dark:border-slate-700">
-                        <CardContent className="p-4 flex items-center gap-3">
-                          <div className="p-2.5 bg-green-100 dark:bg-green-900/50 rounded-lg">
-                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedEnrollments.length}</p>
-                            <p className="text-xs text-muted-foreground">Completed</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <button
-                        className="text-left"
-                        onClick={() => { setEmailStatusFilter('bounced'); setActiveTab('activity') }}
-                      >
-                        <Card className="border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 transition-colors cursor-pointer">
-                          <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 bg-red-100 dark:bg-red-900/50 rounded-lg">
-                              <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                            </div>
-                            <div>
-                              <p className="text-2xl font-bold text-gray-900 dark:text-white">{emailStats?.totalBounced || 0}</p>
-                              <p className="text-xs text-muted-foreground">Bounced</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50">
+                          <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{activeEnrollments.length}</p>
+                          <p className="text-[11px] text-muted-foreground">Enrolled</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/50">
+                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{completedEnrollments.length}</p>
+                          <p className="text-[11px] text-muted-foreground">Completed</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
+                      <div className="grid grid-cols-5 text-center divide-x divide-slate-200 dark:divide-slate-700">
+                        <div className="px-2">
+                          <p className="text-xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
+                        </div>
+                        <button onClick={() => { setEmailStatusFilter('delivered'); setActiveTab('activity') }} className="px-2 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                          <p className="text-xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">Delivered</p>
+                        </button>
+                        <button onClick={() => { setEmailStatusFilter('opened'); setActiveTab('activity') }} className="px-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                          <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalOpened || 0}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{avgOpenRate.toFixed(1)}% opened</p>
+                        </button>
+                        <button onClick={() => { setEmailStatusFilter('clicked'); setActiveTab('activity') }} className="px-2 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                          <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalClicked || 0}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{(emailStats?.avgClickRate || 0).toFixed(1)}% clicked</p>
+                        </button>
+                        <button onClick={() => { setEmailStatusFilter('bounced'); setActiveTab('activity') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                          <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalBounced || 0}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">Bounced</p>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   {/* Per-Step Stats */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                      Step Performance
-                    </h3>
-                    {automation.steps
-                      ?.filter((s) => s.step_type === 'send_email')
-                      .sort((a, b) => a.step_order - b.step_order)
-                      .map((step, index) => {
-                        const stepStats = emailStats?.byStep[step.id]
-                        return (
-                          <Card key={step.id} className="border-slate-200 dark:border-slate-700">
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                  Email {index + 1}: {step.template?.name || 'No template'}
-                                </p>
-                              </div>
-                              <div className="grid grid-cols-4 gap-2 text-center">
-                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                  <p className="text-lg font-bold text-gray-900 dark:text-white">{stepStats?.sent || 0}</p>
-                                  <p className="text-xs text-muted-foreground">Sent</p>
-                                </div>
-                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                  <p className="text-lg font-bold text-gray-900 dark:text-white">{stepStats?.opened || 0}</p>
-                                  <p className="text-xs text-muted-foreground">Opened</p>
-                                </div>
-                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                                    {stepStats?.openRate?.toFixed(1) || '0.0'}%
+                  {automation.steps && automation.steps.filter((s) => s.step_type === 'send_email').length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                        Step Performance
+                      </h3>
+                      <div className="space-y-2">
+                        {automation.steps
+                          .filter((s) => s.step_type === 'send_email')
+                          .sort((a, b) => a.step_order - b.step_order)
+                          .map((step, index) => {
+                            const stepStats = emailStats?.byStep[step.id]
+                            return (
+                              <div key={step.id} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                    Email {index + 1}
                                   </p>
-                                  <p className="text-xs text-muted-foreground">Open Rate</p>
-                                </div>
-                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                                    {stepStats?.clickRate?.toFixed(1) || '0.0'}%
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {step.template?.name || 'No template'}
                                   </p>
-                                  <p className="text-xs text-muted-foreground">Click Rate</p>
+                                </div>
+                                <div className="grid grid-cols-5 text-center divide-x divide-slate-100 dark:divide-slate-800 px-1 py-2">
+                                  <div className="px-1">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{stepStats?.sent || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground">Sent</p>
+                                  </div>
+                                  <div className="px-1">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{stepStats?.delivered || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground">Delivered</p>
+                                  </div>
+                                  <div className="px-1">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{stepStats?.opened || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground">Opened</p>
+                                  </div>
+                                  <div className="px-1">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                      {stepStats?.openRate?.toFixed(1) || '0.0'}%
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">Open Rate</p>
+                                  </div>
+                                  <div className="px-1">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                      {stepStats?.clickRate?.toFixed(1) || '0.0'}%
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">Click Rate</p>
+                                  </div>
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    {(!automation.steps || automation.steps.filter((s) => s.step_type === 'send_email').length === 0) && (
-                      <p className="text-sm text-muted-foreground text-center py-8">
-                        No email steps in this automation
-                      </p>
-                    )}
-                  </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="activity" className="mt-0 px-6 py-4 space-y-4 data-[state=inactive]:hidden">
@@ -531,6 +486,7 @@ export function AutomationDetailSheet({
                             <TableHead>Recipient</TableHead>
                             <TableHead>Step</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Sent At</TableHead>
                             <TableHead>Opened</TableHead>
                             <TableHead>Clicked</TableHead>
                           </TableRow>
@@ -588,8 +544,17 @@ export function AutomationDetailSheet({
                                       send.status === 'failed' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
                                     )}
                                   >
-                                    {send.status === 'sent' ? 'Delivered' : send.status}
+                                    {send.status === 'sent' ? 'Delivered' : send.status.charAt(0).toUpperCase() + send.status.slice(1)}
                                   </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {send.sent_at ? (
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {formatDateTime(send.sent_at)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   {send.opened_at ? (

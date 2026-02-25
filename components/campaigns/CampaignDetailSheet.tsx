@@ -13,8 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -96,6 +94,8 @@ export function CampaignDetailSheet({
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [showSendDialog, setShowSendDialog] = useState(false)
   const [showResendDialog, setShowResendDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [sendStatusFilter, setSendStatusFilter] = useState<string | null>(null)
 
   const { data: campaign, isLoading } = useCampaign(campaignId)
   const isSending = campaign?.status === 'sending'
@@ -132,6 +132,26 @@ export function CampaignDetailSheet({
       unsubscribeRate: stats.total > 0 ? (stats.unsubscribed / stats.total) * 100 : 0,
     }
   }, [recipients])
+
+  const filteredRecipients = useMemo(() => {
+    if (!sendStatusFilter) return recipients
+    switch (sendStatusFilter) {
+      case 'delivered':
+        return recipients.filter(r =>
+          ['sent', 'delivered', 'opened', 'clicked'].includes(r.status)
+        )
+      case 'opened':
+        return recipients.filter(r => !!r.opened_at || r.status === 'opened' || r.status === 'clicked')
+      case 'clicked':
+        return recipients.filter(r => !!r.clicked_at || r.status === 'clicked')
+      case 'bounced':
+        return recipients.filter(r => r.status === 'bounced')
+      case 'failed':
+        return recipients.filter(r => r.status === 'failed')
+      default:
+        return recipients
+    }
+  }, [recipients, sendStatusFilter])
 
   const deleteCampaign = useDeleteCampaign()
   const duplicateCampaign = useDuplicateCampaign()
@@ -261,133 +281,151 @@ export function CampaignDetailSheet({
               <Skeleton className="h-48 w-full" />
             </div>
           ) : campaign ? (
-            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-              <div className="px-6 pt-4 shrink-0">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="details">Details</TabsTrigger>
-                  <TabsTrigger value="content">Content</TabsTrigger>
-                  <TabsTrigger value="recipients">
-                    Sends {recipients.length > 0 && `(${recipients.length})`}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+              <div className="px-6 pt-4 pb-4 border-b bg-slate-50 dark:bg-slate-800 shrink-0">
+                <TabsList className="grid w-full grid-cols-2 h-10">
+                  <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
+                  <TabsTrigger value="emails" className="text-sm">
+                    <Mail className="h-3.5 w-3.5 mr-1" />
+                    Emails {recipients.length > 0 && `(${recipients.length})`}
                   </TabsTrigger>
                 </TabsList>
               </div>
 
               <div className="flex-1 overflow-y-auto">
-                <TabsContent value="details" className="px-6 py-4 space-y-6 mt-0">
-                  {/* Campaign Info */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                      Campaign Information
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase mb-1">Type</p>
-                        <div className="flex items-center gap-2">
-                          {campaign.type === 'email' ? (
-                            <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          ) : (
-                            <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                          )}
-                          <span className="capitalize font-medium">{campaign.type}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase mb-1">Created</p>
-                        <p className="font-medium">{formatDate(campaign.created_at)}</p>
-                      </div>
-                      {campaign.scheduled_at && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase mb-1">Scheduled</p>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{formatDateLong(campaign.scheduled_at)}</span>
-                          </div>
-                        </div>
-                      )}
-                      {campaign.sent_at && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase mb-1">Sent</p>
-                          <div className="flex items-center gap-2">
-                            <Send className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            <span className="font-medium">{formatDateLong(campaign.sent_at)}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Pipeline Link */}
-                    <div>
-                      <p className="text-xs text-muted-foreground uppercase mb-1">Pipeline</p>
-                      {campaign.pipeline ? (
-                        <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
-                          <GitBranch className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                          <div>
-                            <p className="font-medium text-purple-700 dark:text-purple-300">
-                              {campaign.pipeline.name}
-                            </p>
-                            {campaign.pipeline.programme && (
-                              <p className="text-xs text-purple-600 dark:text-purple-400">
-                                Programme: {campaign.pipeline.programme.name}
-                              </p>
-                            )}
-                            <p className="text-xs text-purple-600/70 dark:text-purple-400/70 mt-0.5">
-                              Replies create deals via Smart Process
-                            </p>
-                          </div>
-                        </div>
+                <TabsContent value="overview" className="mt-0 px-6 py-4 space-y-5 data-[state=inactive]:hidden">
+                  {/* Campaign metadata */}
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="flex items-center gap-2">
+                      {campaign.type === 'email' ? (
+                        <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Generic campaign</span>
-                          <span className="text-xs text-muted-foreground">(contact matching only)</span>
-                        </div>
+                        <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                       )}
+                      <span className="capitalize text-sm font-medium">{campaign.type}</span>
                     </div>
-
-                    {campaign.type === 'email' && (
-                      <>
-                        {campaign.subject && (
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase mb-1">Subject</p>
-                            <p className="font-medium">{campaign.subject}</p>
-                          </div>
-                        )}
-                        {campaign.from_name && (
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase mb-1">From</p>
-                            <p className="font-medium">
-                              {campaign.from_name}
-                              {campaign.from_email && ` <${campaign.from_email}>`}
-                            </p>
-                          </div>
-                        )}
-                        {campaign.reply_to && (
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase mb-1">Reply-To</p>
-                            <p className="font-medium">{campaign.reply_to}</p>
-                          </div>
-                        )}
-                      </>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Created</span>
+                      <span className="font-medium">{formatDate(campaign.created_at)}</span>
+                    </div>
+                    {campaign.scheduled_at && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Scheduled</span>
+                        <span className="font-medium">{formatDate(campaign.scheduled_at)}</span>
+                      </div>
+                    )}
+                    {campaign.sent_at && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Send className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                        <span className="text-muted-foreground">Sent</span>
+                        <span className="font-medium">{formatDate(campaign.sent_at)}</span>
+                      </div>
                     )}
                   </div>
 
+                  {/* Pipeline */}
+                  {campaign.pipeline && (
+                    <div className="flex items-center gap-2 p-2.5 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                      <GitBranch className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-purple-700 dark:text-purple-300 truncate">
+                          {campaign.pipeline.name}
+                          {campaign.pipeline.programme && (
+                            <span className="font-normal text-purple-600 dark:text-purple-400"> — {campaign.pipeline.programme.name}</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Content preview */}
+                  {campaign.type === 'email' ? (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                        Content
+                      </h3>
+                      {campaign.subject && (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs text-muted-foreground uppercase shrink-0">Subject</span>
+                          <p className="font-medium text-sm">{campaign.subject}</p>
+                        </div>
+                      )}
+                      {campaign.from_name && (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs text-muted-foreground uppercase shrink-0">From</span>
+                          <p className="text-sm">
+                            {campaign.from_name}
+                            {campaign.from_email && <span className="text-muted-foreground"> &lt;{campaign.from_email}&gt;</span>}
+                          </p>
+                        </div>
+                      )}
+                      {campaign.reply_to && (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs text-muted-foreground uppercase shrink-0">Reply-To</span>
+                          <p className="text-sm text-muted-foreground">{campaign.reply_to}</p>
+                        </div>
+                      )}
+                      {campaign.preview_text && (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs text-muted-foreground uppercase shrink-0">Preview</span>
+                          <p className="text-sm text-muted-foreground">{campaign.preview_text}</p>
+                        </div>
+                      )}
+
+                      {/* Body / Template */}
+                      {campaign.body_html ? (
+                        <div className="border rounded-lg p-4 bg-white dark:bg-slate-900 max-h-60 overflow-y-auto">
+                          <div
+                            className="prose prose-sm max-w-none dark:prose-invert"
+                            dangerouslySetInnerHTML={{ __html: campaign.body_html }}
+                          />
+                        </div>
+                      ) : campaign.body_text ? (
+                        <div className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-800 max-h-40 overflow-y-auto">
+                          <p className="whitespace-pre-wrap text-sm">{campaign.body_text}</p>
+                        </div>
+                      ) : campaign.template ? (
+                        <div className="flex items-center gap-2 p-3 border rounded-lg bg-blue-50 dark:bg-blue-950">
+                          <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{campaign.template.name}</span>
+                          <Badge variant="outline" className="text-xs ml-auto">Template</Badge>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : campaign.sms_content ? (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                        SMS Content
+                      </h3>
+                      <div className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
+                        <p className="whitespace-pre-wrap text-sm">{campaign.sms_content}</p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {campaign.sms_content.length} characters • {Math.ceil(campaign.sms_content.length / 160)} segment(s)
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   {/* Recipient Lists */}
                   {campaign.recipient_lists && campaign.recipient_lists.length > 0 && (
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                        Recipient Lists
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                        Recipients
                       </h3>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         {campaign.recipient_lists.map((list) => (
                           <div
                             key={list.id}
-                            className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                            className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg"
                           >
                             <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{list.name}</span>
+                              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-sm font-medium">{list.name}</span>
                             </div>
-                            <span className="text-sm text-muted-foreground">
-                              {formatNumber(list.contact_count || 0)} contacts
+                            <span className="text-xs text-muted-foreground">
+                              {formatNumber(list.contact_count || 0)} {(list.contact_count || 0) === 1 ? 'contact' : 'contacts'}
                             </span>
                           </div>
                         ))}
@@ -397,130 +435,61 @@ export function CampaignDetailSheet({
 
                   {/* Sending Progress */}
                   {campaign.status === 'sending' && (
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                        Sending Progress
-                      </h3>
-                      <Card className="bg-yellow-50 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Loader2 className="h-4 w-4 text-yellow-600 dark:text-yellow-400 animate-spin" />
-                            <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Campaign is sending...</span>
-                          </div>
-                          <Progress
-                            value={campaign.total_recipients ? (campaign.processed_recipients || 0) / campaign.total_recipients * 100 : 0}
-                            className="h-2 mb-2"
-                          />
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-yellow-800 dark:text-yellow-200">
-                              {formatNumber(campaign.processed_recipients || 0)} of {formatNumber(campaign.total_recipients || 0)} sent
-                            </span>
-                            <span className="text-yellow-600 dark:text-yellow-400">
-                              {campaign.total_recipients ? Math.round((campaign.processed_recipients || 0) / campaign.total_recipients * 100) : 0}%
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
+                    <Card className="bg-yellow-50 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Loader2 className="h-4 w-4 text-yellow-600 dark:text-yellow-400 animate-spin" />
+                          <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Campaign is sending...</span>
+                        </div>
+                        <Progress
+                          value={campaign.total_recipients ? (campaign.processed_recipients || 0) / campaign.total_recipients * 100 : 0}
+                          className="h-2 mb-2"
+                        />
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-yellow-800 dark:text-yellow-200">
+                            {formatNumber(campaign.processed_recipients || 0)} of {formatNumber(campaign.total_recipients || 0)} sent
+                          </span>
+                          <span className="text-yellow-600 dark:text-yellow-400">
+                            {campaign.total_recipients ? Math.round((campaign.processed_recipients || 0) / campaign.total_recipients * 100) : 0}%
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
 
-                  {/* Stats (for sent campaigns or campaigns with send history) */}
+                  {/* Performance Stats — summary banner style */}
                   {(campaign.status === 'sent' || campaign.status === 'sending' || recipients.length > 0) && (
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                         Performance
                       </h3>
                       {recipientsLoading ? (
-                        <div className="grid grid-cols-2 gap-4">
-                          {[1, 2, 3, 4].map((i) => (
-                            <Skeleton key={i} className="h-20" />
-                          ))}
-                        </div>
+                        <Skeleton className="h-[72px]" />
                       ) : statsWithRates && statsWithRates.total > 0 ? (
-                        <>
-                          {/* Summary row */}
-                          <Card className="bg-slate-50 dark:bg-slate-800/50">
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Total Emails Sent</p>
-                                  <p className="text-3xl font-bold">{formatNumber(statsWithRates.total)}</p>
-                                </div>
-                                {statsWithRates.uniqueRecipients > 0 && statsWithRates.uniqueRecipients !== statsWithRates.total && (
-                                  <div className="text-right">
-                                    <p className="text-sm text-muted-foreground">Unique Recipients</p>
-                                    <p className="text-xl font-semibold">{formatNumber(statsWithRates.uniqueRecipients)}</p>
-                                  </div>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <Card>
-                              <CardContent className="p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Send className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                  <span className="text-sm text-muted-foreground">Delivered</span>
-                                </div>
-                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.delivered)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {statsWithRates.deliveredRate.toFixed(1)}% delivery rate
-                                </p>
-                              </CardContent>
-                            </Card>
-                            <Card>
-                              <CardContent className="p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Eye className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                  <span className="text-sm text-muted-foreground">Opened</span>
-                                </div>
-                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.opened)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {statsWithRates.openRate.toFixed(1)}% open rate
-                                </p>
-                              </CardContent>
-                            </Card>
-                            <Card>
-                              <CardContent className="p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <MousePointer className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                  <span className="text-sm text-muted-foreground">Clicked</span>
-                                </div>
-                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.clicked)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {statsWithRates.clickRate.toFixed(1)}% click rate
-                                </p>
-                              </CardContent>
-                            </Card>
-                            <Card>
-                              <CardContent className="p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                                  <span className="text-sm text-muted-foreground">Bounced</span>
-                                </div>
-                                <p className="text-2xl font-bold">{formatNumber(statsWithRates.bounced)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {statsWithRates.bounceRate.toFixed(1)}% bounce rate
-                                </p>
-                              </CardContent>
-                            </Card>
-                            {statsWithRates.unsubscribed > 0 && (
-                              <Card>
-                                <CardContent className="p-4">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <UserMinus className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                                    <span className="text-sm text-muted-foreground">Unsubscribed</span>
-                                  </div>
-                                  <p className="text-2xl font-bold">{formatNumber(statsWithRates.unsubscribed)}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {statsWithRates.unsubscribeRate.toFixed(1)}% unsubscribe rate
-                                  </p>
-                                </CardContent>
-                              </Card>
-                            )}
+                        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
+                          <div className="grid grid-cols-5 text-center divide-x divide-slate-200 dark:divide-slate-700">
+                            <div className="px-2">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.total)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
+                            </div>
+                            <button onClick={() => { setSendStatusFilter('delivered'); setActiveTab('emails') }} className="px-2 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.delivered)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Delivered</p>
+                            </button>
+                            <button onClick={() => { setSendStatusFilter('opened'); setActiveTab('emails') }} className="px-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.opened)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">{statsWithRates.openRate.toFixed(1)}% opened</p>
+                            </button>
+                            <button onClick={() => { setSendStatusFilter('clicked'); setActiveTab('emails') }} className="px-2 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.clicked)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">{statsWithRates.clickRate.toFixed(1)}% clicked</p>
+                            </button>
+                            <button onClick={() => { setSendStatusFilter('bounced'); setActiveTab('emails') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.bounced)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Bounced</p>
+                            </button>
                           </div>
-                        </>
+                        </div>
                       ) : (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           No performance data available yet
@@ -528,79 +497,35 @@ export function CampaignDetailSheet({
                       )}
                     </div>
                   )}
-
                 </TabsContent>
 
-                <TabsContent value="content" className="px-6 py-4 space-y-6 mt-0">
-                  <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                    {campaign.type === 'email' ? 'Email Content' : 'SMS Content'}
-                  </h3>
-
-                  {campaign.type === 'email' ? (
-                    <div className="space-y-4">
-                      {campaign.subject && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase mb-1">Subject</p>
-                          <p className="font-medium text-lg">{campaign.subject}</p>
-                        </div>
-                      )}
-                      {campaign.preview_text && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase mb-1">Preview Text</p>
-                          <p className="text-sm text-muted-foreground">{campaign.preview_text}</p>
-                        </div>
-                      )}
-                      <Separator />
-                      {campaign.body_html ? (
-                        <div className="border rounded-lg p-4 bg-white dark:bg-slate-900">
-                          <div
-                            className="prose prose-sm max-w-none dark:prose-invert"
-                            dangerouslySetInnerHTML={{ __html: campaign.body_html }}
-                          />
-                        </div>
-                      ) : campaign.body_text ? (
-                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
-                          <p className="whitespace-pre-wrap text-sm">{campaign.body_text}</p>
-                        </div>
-                      ) : campaign.template ? (
-                        <div className="space-y-2">
-                          <p className="text-xs text-muted-foreground uppercase">Using Template</p>
-                          <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
-                            <p className="font-medium text-blue-700 dark:text-blue-300">{campaign.template.name}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground italic">No content</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {campaign.sms_content ? (
-                        <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
-                          <p className="whitespace-pre-wrap">{campaign.sms_content}</p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {campaign.sms_content.length} characters •{' '}
-                            {Math.ceil(campaign.sms_content.length / 160)} segment(s)
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground italic">No content</p>
-                      )}
+                <TabsContent value="emails" className="mt-0 px-6 py-4 space-y-4 data-[state=inactive]:hidden">
+                  {/* Filter pills */}
+                  {recipients.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground">Filter:</span>
+                      {[
+                        { key: null, label: 'All' },
+                        { key: 'delivered', label: 'Delivered' },
+                        { key: 'opened', label: 'Opened' },
+                        { key: 'clicked', label: 'Clicked' },
+                        { key: 'bounced', label: 'Bounced' },
+                      ].map((f) => (
+                        <button
+                          key={f.key ?? 'all'}
+                          onClick={() => setSendStatusFilter(f.key)}
+                          className={cn(
+                            'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
+                            sendStatusFilter === f.key
+                              ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                          )}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
                     </div>
                   )}
-                </TabsContent>
-
-                <TabsContent value="recipients" className="px-6 py-4 space-y-6 mt-0">
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase">
-                      Send History
-                    </h3>
-                    {recipients.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {recipients.length} total send{recipients.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
 
                   {recipientsLoading ? (
                     <div className="space-y-2">
@@ -608,104 +533,113 @@ export function CampaignDetailSheet({
                         <Skeleton key={i} className="h-12 w-full" />
                       ))}
                     </div>
-                  ) : recipients.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Recipient</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Sent At</TableHead>
-                          <TableHead>Opened</TableHead>
-                          <TableHead>Clicked</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {recipients.map((send) => {
-                          // Handle contact being either object or array
-                          const contact = Array.isArray(send.contact)
-                            ? send.contact[0]
-                            : send.contact
-                          const contactName = contact
-                            ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
-                            : ''
-                          const contactEmail = send.recipient_email || contact?.email || ''
+                  ) : filteredRecipients.length > 0 ? (
+                    <>
+                      <div className="text-xs text-muted-foreground">
+                        {filteredRecipients.length} email{filteredRecipients.length !== 1 ? 's' : ''}
+                        {sendStatusFilter ? ` (${sendStatusFilter})` : ''}
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Recipient</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Sent At</TableHead>
+                            <TableHead>Opened</TableHead>
+                            <TableHead>Clicked</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredRecipients.map((send) => {
+                            const contact = Array.isArray(send.contact)
+                              ? send.contact[0]
+                              : send.contact
+                            const contactName = contact
+                              ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
+                              : ''
+                            const contactEmail = send.recipient_email || contact?.email || ''
 
-                          return (
-                            <TableRow key={send.id}>
-                              <TableCell>
-                                <div>
-                                  {contactName && (
-                                    <p className="font-medium">{contactName}</p>
-                                  )}
-                                  <p className={cn(
-                                    "text-xs",
-                                    contactName ? "text-muted-foreground" : "font-medium"
-                                  )}>
-                                    {contactEmail}
-                                  </p>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    (send.status === 'sent' || send.status === 'delivered') && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
-                                    send.status === 'opened' && 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-                                    send.status === 'clicked' && 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-                                    send.status === 'bounced' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
-                                    send.status === 'failed' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
-                                    send.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800'
-                                  )}
-                                >
-                                  {send.status === 'sent' ? 'Delivered' : send.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {send.sent_at ? (
-                                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                    {formatDateTime(send.sent_at)}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {send.opened_at ? (
-                                  <div className="flex items-center gap-1">
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                    <span className="text-xs text-muted-foreground">
-                                      {formatDate(send.opened_at)}
-                                    </span>
+                            return (
+                              <TableRow key={send.id}>
+                                <TableCell>
+                                  <div>
+                                    {contactName && (
+                                      <p className="font-medium text-sm">{contactName}</p>
+                                    )}
+                                    <p className={cn(
+                                      'text-xs',
+                                      contactName ? 'text-muted-foreground' : 'font-medium text-sm'
+                                    )}>
+                                      {contactEmail}
+                                    </p>
                                   </div>
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {send.clicked_at ? (
-                                  <div className="flex items-center gap-1">
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                    <span className="text-xs text-muted-foreground">
-                                      {formatDate(send.clicked_at)}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      'text-xs',
+                                      (send.status === 'sent' || send.status === 'delivered') && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+                                      send.status === 'opened' && 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+                                      send.status === 'clicked' && 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+                                      send.status === 'bounced' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                      send.status === 'failed' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                      send.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800'
+                                    )}
+                                  >
+                                    {send.status === 'sent' ? 'Delivered' : send.status.charAt(0).toUpperCase() + send.status.slice(1)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {send.sent_at ? (
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {formatDateTime(send.sent_at)}
                                     </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {send.opened_at ? (
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                      <span className="text-xs text-muted-foreground">{formatDate(send.opened_at)}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {send.clicked_at ? (
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                      <span className="text-xs text-muted-foreground">{formatDate(send.clicked_at)}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </>
+                  ) : recipients.length > 0 && sendStatusFilter ? (
+                    <div className="text-center py-12">
+                      <Mail className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        No emails with status &quot;{sendStatusFilter}&quot;
+                      </p>
+                    </div>
                   ) : campaign.status === 'sent' ? (
                     <p className="text-muted-foreground text-center py-8">
                       No send history available
                     </p>
                   ) : (
                     <div className="text-center py-8">
-                      <Users className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-                      <p className="text-muted-foreground">
+                      <Mail className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-muted-foreground">
                         Send history will appear here after the campaign is sent
                       </p>
                     </div>
