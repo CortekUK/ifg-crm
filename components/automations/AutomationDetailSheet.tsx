@@ -33,6 +33,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight, Trash2, Loader2 } from 'lucide-react'
 import { useAutomation, useAutomationEnrollments, useToggleAutomation, useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment, useDeleteAutomation } from '@/lib/hooks/useAutomations'
+import { useAutomationEmailStats } from '@/lib/hooks/useAutomationEmailStats'
+import { useEmailSendsRealtime } from '@/lib/hooks/useCampaignRealtime'
 import { AutomationWorkflowPreview } from './AutomationWorkflowPreview'
 import { EnrollContactModal } from './EnrollContactModal'
 import { formatDateTime } from '@/lib/utils/format'
@@ -57,7 +59,11 @@ export function AutomationDetailSheet({
 
   const { data: automation, isLoading } = useAutomation(automationId)
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
+  const { data: emailStats } = useAutomationEmailStats(automationId)
   const toggleAutomation = useToggleAutomation()
+
+  // Live updates: subscribe to email_sends changes for automation stats
+  useEmailSendsRealtime()
   const unenroll = useUnenrollFromAutomation()
   const pauseEnrollment = usePauseEnrollment()
   const resumeEnrollment = useResumeEnrollment()
@@ -223,21 +229,10 @@ export function AutomationDetailSheet({
     }
   }
 
-  // Calculate totals
-  const totalSent = automation?.steps?.reduce(
-    (sum, step) => sum + (step.stats?.sent || 0),
-    0
-  ) || 0
-  const totalInQueue = automation?.steps?.reduce(
-    (sum, step) => sum + (step.stats?.in_queue || 0),
-    0
-  ) || 0
-  const avgOpenRate = automation?.steps?.length
-    ? automation.steps
-        .filter((s) => s.step_type === 'send_email' && s.stats)
-        .reduce((sum, s) => sum + (s.stats?.open_rate || 0), 0) /
-      (automation.steps.filter((s) => s.step_type === 'send_email' && s.stats).length || 1)
-    : 0
+  // Calculate totals from real email_sends data
+  const totalSent = emailStats?.totalSent || 0
+  const totalDelivered = emailStats?.totalDelivered || 0
+  const avgOpenRate = emailStats?.avgOpenRate || 0
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -347,11 +342,11 @@ export function AutomationDetailSheet({
                       <Card className="border-slate-200 dark:border-slate-700">
                         <CardContent className="p-4 flex items-center gap-3">
                           <div className="p-2.5 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
-                            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalInQueue}</p>
-                            <p className="text-xs text-muted-foreground">In Queue</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
+                            <p className="text-xs text-muted-foreground">Delivered</p>
                           </div>
                         </CardContent>
                       </Card>
@@ -414,39 +409,42 @@ export function AutomationDetailSheet({
                     {automation.steps
                       ?.filter((s) => s.step_type === 'send_email')
                       .sort((a, b) => a.step_order - b.step_order)
-                      .map((step, index) => (
-                        <Card key={step.id} className="border-slate-200 dark:border-slate-700">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                Email {index + 1}: {step.template?.name || 'No template'}
-                              </p>
-                            </div>
-                            <div className="grid grid-cols-4 gap-2 text-center">
-                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900 dark:text-white">{step.stats?.sent || 0}</p>
-                                <p className="text-xs text-muted-foreground">Sent</p>
-                              </div>
-                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900 dark:text-white">{step.stats?.opened || 0}</p>
-                                <p className="text-xs text-muted-foreground">Opened</p>
-                              </div>
-                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                                  {step.stats?.open_rate?.toFixed(1) || 0}%
+                      .map((step, index) => {
+                        const stepStats = emailStats?.byStep[step.id]
+                        return (
+                          <Card key={step.id} className="border-slate-200 dark:border-slate-700">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                  Email {index + 1}: {step.template?.name || 'No template'}
                                 </p>
-                                <p className="text-xs text-muted-foreground">Open Rate</p>
                               </div>
-                              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                                  {step.stats?.click_rate?.toFixed(1) || 0}%
-                                </p>
-                                <p className="text-xs text-muted-foreground">Click Rate</p>
+                              <div className="grid grid-cols-4 gap-2 text-center">
+                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                  <p className="text-lg font-bold text-gray-900 dark:text-white">{stepStats?.sent || 0}</p>
+                                  <p className="text-xs text-muted-foreground">Sent</p>
+                                </div>
+                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                  <p className="text-lg font-bold text-gray-900 dark:text-white">{stepStats?.opened || 0}</p>
+                                  <p className="text-xs text-muted-foreground">Opened</p>
+                                </div>
+                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                                    {stepStats?.openRate?.toFixed(1) || '0.0'}%
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Open Rate</p>
+                                </div>
+                                <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                                    {stepStats?.clickRate?.toFixed(1) || '0.0'}%
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Click Rate</p>
+                                </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
                     {(!automation.steps || automation.steps.filter((s) => s.step_type === 'send_email').length === 0) && (
                       <p className="text-sm text-muted-foreground text-center py-8">
                         No email steps in this automation

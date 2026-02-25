@@ -24,7 +24,6 @@ export function useCampaignRealtime() {
         },
         (payload) => {
           const campaignId = payload.new?.id
-          // Invalidate the campaigns list and the specific campaign
           queryClient.invalidateQueries({ queryKey: ['campaigns'] })
           if (campaignId) {
             queryClient.invalidateQueries({ queryKey: ['campaign', campaignId] })
@@ -72,4 +71,36 @@ export function useCampaignDetailRealtime(campaignId: string | null) {
       supabase.removeChannel(channel)
     }
   }, [campaignId, queryClient])
+}
+
+/**
+ * Subscribes to all email_sends changes and invalidates automation email stats.
+ * Used on the automations page so delivery stats update live.
+ */
+export function useEmailSendsRealtime() {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel('email-sends-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'email_sends',
+        },
+        () => {
+          // Invalidate all automation email stats queries
+          queryClient.invalidateQueries({ queryKey: ['automation-email-stats'] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient])
 }
