@@ -10,6 +10,7 @@ export interface ImportOptions {
   headers: string[]
   skippedColumns?: number[]
   listId: string | null
+  tagId: string | null
   duplicateStrategy: DuplicateStrategy
   onProgress?: (processed: number, total: number) => void
 }
@@ -30,7 +31,7 @@ export function useImportContacts() {
 
   return useMutation({
     mutationFn: async (options: ImportOptions): Promise<ImportResult> => {
-      const { rows, mapping, headers, skippedColumns = [], listId, duplicateStrategy, onProgress } = options
+      const { rows, mapping, headers, skippedColumns = [], listId, tagId, duplicateStrategy, onProgress } = options
       const result: ImportResult = { total: rows.length, created: 0, updated: 0, skipped: 0, errors: [] }
       let processed = 0
 
@@ -232,6 +233,19 @@ export function useImportContacts() {
         }
       }
 
+      // Add to selected tag (additive — existing tags preserved)
+      if (tagId && allContactIds.length > 0) {
+        for (let i = 0; i < allContactIds.length; i += BATCH_SIZE) {
+          const batch = allContactIds.slice(i, i + BATCH_SIZE)
+          await supabase
+            .from('contact_tags')
+            .upsert(
+              batch.map((contactId) => ({ contact_id: contactId, tag_id: tagId })),
+              { onConflict: 'contact_id,tag_id', ignoreDuplicates: true }
+            )
+        }
+      }
+
       return result
     },
     onSuccess: () => {
@@ -241,6 +255,7 @@ export function useImportContacts() {
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
       queryClient.invalidateQueries({ queryKey: ['contacts-positions'] })
       queryClient.invalidateQueries({ queryKey: ['contacts-countries'] })
+      queryClient.invalidateQueries({ queryKey: ['tags'] })
     },
   })
 }

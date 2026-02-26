@@ -113,9 +113,23 @@ export function useListContacts(listId: string | null, page = 1, pageSize = 20, 
         `, { count: 'exact' })
         .eq('list_id', listId)
 
-      // Apply search filter if provided
-      if (search) {
-        query = query.or(`contact.first_name.ilike.%${search}%,contact.last_name.ilike.%${search}%,contact.email.ilike.%${search}%`)
+      // Apply search filter — each word must match at least one field (AND between words, OR within)
+      // Always search name and email; include phone when term contains digits
+      if (search?.trim()) {
+        const searchTerm = search.trim()
+        const looksLikePhone = /\d/.test(searchTerm)
+        const words = searchTerm.split(/\s+/).filter(Boolean)
+        for (const word of words) {
+          const conditions = [
+            `first_name.ilike.%${word}%`,
+            `last_name.ilike.%${word}%`,
+            `email.ilike.%${word}%`,
+          ]
+          if (looksLikePhone) {
+            conditions.push(`phone.ilike.%${word}%`)
+          }
+          query = query.or(conditions.join(','), { referencedTable: 'contacts' })
+        }
       }
 
       const { data, count, error } = await query

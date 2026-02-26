@@ -53,6 +53,7 @@ export function ListDetailSheet({
   onAddContacts,
 }: ListDetailSheetProps) {
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [contactToRemove, setContactToRemove] = useState<{ id: string; name: string } | null>(null)
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set())
@@ -60,12 +61,18 @@ export function ListDetailSheet({
   const [isExporting, setIsExporting] = useState(false)
   const pageSize = 20
 
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
   const { data: list, isLoading: listLoading } = useList(listId)
   const { data: contactsData, isLoading: contactsLoading } = useListContacts(
     listId,
     page,
     pageSize,
-    search
+    debouncedSearch
   )
   const removeContact = useRemoveContactFromList()
   const bulkRemove = useBulkRemoveContactsFromList()
@@ -80,6 +87,7 @@ export function ListDetailSheet({
     if (!isOpen) {
       setSelectedContactIds(new Set())
       setSearch('')
+      setDebouncedSearch('')
       setPage(1)
     }
   }, [isOpen])

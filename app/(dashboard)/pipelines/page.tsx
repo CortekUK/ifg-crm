@@ -12,17 +12,13 @@ import { AddDealModal } from '@/components/pipelines/AddDealModal'
 import { DealDetailSheet } from '@/components/pipelines/DealDetailSheet'
 import { CreatePipelineModal } from '@/components/pipelines/CreatePipelineModal'
 import { PipelineSettingsModal } from '@/components/pipelines/PipelineSettingsModal'
-import { ResetAutomationModal } from '@/components/pipelines/ResetAutomationModal'
-import { StopAutomationModal } from '@/components/pipelines/StopAutomationModal'
-import { SendAsConfirmModal } from '@/components/pipelines/SendAsConfirmModal'
 import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
-import { useResetEnrollments, type ResettableEnrollment } from '@/lib/hooks/useAutomationEnrollments'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
-import type { PipelineStage, Deal, Pipeline } from '@/lib/types/pipelines'
+import type { PipelineStage, Deal } from '@/lib/types/pipelines'
 import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
 
@@ -56,35 +52,6 @@ export default function PipelinesPage() {
   const [createPipelineModalOpen, setCreatePipelineModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
 
-  // Reset automation modal state
-  const [resetModalOpen, setResetModalOpen] = useState(false)
-  const [pendingMove, setPendingMove] = useState<{
-    dealId: string
-    newStageId: string
-    oldStageName?: string
-    newStageName?: string
-    enrollments: ResettableEnrollment[]
-  } | null>(null)
-
-  // Stop automation modal state
-  const [stopModalOpen, setStopModalOpen] = useState(false)
-  const [pendingStopMove, setPendingStopMove] = useState<{
-    dealId: string
-    newStageId: string
-    oldStageName?: string
-    newStageName?: string
-    enrollments: { id: string; automation_id: string; automation_name: string }[]
-  } | null>(null)
-
-  // Send-as confirm modal state (super admin first enrollment)
-  const [sendAsModalOpen, setSendAsModalOpen] = useState(false)
-  const [pendingSendAsMove, setPendingSendAsMove] = useState<{
-    dealId: string
-    newStageId: string
-    oldStageName?: string
-    newStageName?: string
-  } | null>(null)
-
   // Fetch current user (with role)
   const { data: currentUser } = useCurrentUser()
   useEffect(() => {
@@ -94,7 +61,6 @@ export default function PipelinesPage() {
   }, [currentUser?.id])
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
-  const isSuperAdmin = currentUser?.role === 'super_admin'
 
   // Fetch pipelines
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines()
@@ -112,9 +78,6 @@ export default function PipelinesPage() {
 
   // Mutation for moving deals
   const moveDeal = useMoveDeal()
-
-  // Mutation for resetting automation enrollments
-  const resetEnrollments = useResetEnrollments()
 
   // View mode preference (kanban or list)
   const { viewMode, setViewMode } = usePipelineViewPreference()
@@ -247,146 +210,35 @@ export default function PipelinesPage() {
     [moveDeal, selectedPipelineId, userId, triggerAutomationProcessing]
   )
 
-  // Patch send_as_user_id on newly created enrollment(s) for a deal
-  const patchEnrollmentSendAs = useCallback(
-    async (dealId: string, targetStageId: string, sendAsUserId: string | null) => {
-      const supabase = createClient()
-
-      // Find automations for the target stage
-      const { data: automations } = await supabase
-        .from('automations')
-        .select('id')
-        .eq('trigger_stage_id', targetStageId)
-        .eq('pipeline_id', selectedPipelineId)
-        .eq('is_active', true)
-
-      if (!automations || automations.length === 0) return
-
-      const automationIds = automations.map(a => a.id)
-
-      // Retry up to 3 times with increasing delays (enrollment created by DB trigger)
-      const delays = [200, 400, 600]
-      for (let attempt = 0; attempt < delays.length; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, delays[attempt]))
-
-        const { data: enrollments } = await supabase
-          .from('automation_enrollments')
-          .select('id')
-          .eq('deal_id', dealId)
-          .in('automation_id', automationIds)
-          .eq('status', 'active')
-
-        if (enrollments && enrollments.length > 0) {
-          await supabase
-            .from('automation_enrollments')
-            .update({ send_as_user_id: sendAsUserId })
-            .in('id', enrollments.map(e => e.id))
-          return
-        }
-      }
-      console.warn('Could not find enrollment to patch send_as_user_id')
-    },
-    [selectedPipelineId]
-  )
-
-  // Core stage change logic - checks for automations and shows modals if needed
+  // Core stage change logic - auto-stops active automations and moves the deal
   const handleStageChange = useCallback(
     async (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => {
       if (!selectedPipelineId) return
 
-      // Check for resettable enrollments
       const supabase = createClient()
 
-      // Find automations that trigger on the target stage
-      const { data: automations } = await supabase
-        .from('automations')
-        .select('id, name')
-        .eq('trigger_stage_id', newStageId)
-        .eq('pipeline_id', selectedPipelineId)
-        .eq('is_active', true)
-
-      if (automations && automations.length > 0) {
-        const automationIds = automations.map(a => a.id)
-        const automationMap = new Map(automations.map(a => [a.id, a.name]))
-
-        // Check for ANY existing enrollments (active, stopped, or completed)
-        const { data: enrollments } = await supabase
-          .from('automation_enrollments')
-          .select('id, automation_id, status, enrolled_at, current_step_id')
-          .eq('deal_id', dealId)
-          .in('automation_id', automationIds)
-
-        if (enrollments && enrollments.length > 0) {
-          // Show the reset modal for any existing enrollment
-          const resettableEnrollments: ResettableEnrollment[] = enrollments.map(e => ({
-            id: e.id,
-            automation_id: e.automation_id,
-            automation_name: automationMap.get(e.automation_id) || 'Unknown Automation',
-            status: e.status as 'stopped' | 'completed',
-            enrolled_at: e.enrolled_at,
-          }))
-
-          setPendingMove({
-            dealId,
-            newStageId,
-            oldStageName: oldStage?.name,
-            newStageName: newStage?.name,
-            enrollments: resettableEnrollments,
-          })
-          setResetModalOpen(true)
-          return
-        }
-      }
-
-      // No existing enrollment but target stage has automations - show SendAs modal for super admins
-      if (automations && automations.length > 0 && isSuperAdmin) {
-        setPendingSendAsMove({
-          dealId,
-          newStageId,
-          oldStageName: oldStage?.name,
-          newStageName: newStage?.name,
-        })
-        setSendAsModalOpen(true)
-        return
-      }
-
-      // No trigger stage automations to restart, but check if deal has active automations
-      // that might need to be stopped (moving AWAY from where automation is running)
+      // Auto-stop any active automation enrollments for this deal
       const { data: activeEnrollments } = await supabase
         .from('automation_enrollments')
-        .select(`
-          id,
-          automation_id,
-          automations(name)
-        `)
+        .select('id')
         .eq('deal_id', dealId)
         .eq('status', 'active')
 
       if (activeEnrollments && activeEnrollments.length > 0) {
-        // Deal has active automations - ask if user wants to stop them
-        const enrollmentsWithNames = activeEnrollments.map(e => ({
-          id: e.id,
-          automation_id: e.automation_id,
-          automation_name: (e.automations as { name: string } | { name: string }[] | null)
-            ? (Array.isArray(e.automations) ? e.automations[0]?.name : (e.automations as { name: string })?.name) || 'Unknown Automation'
-            : 'Unknown Automation',
-        }))
-
-        setPendingStopMove({
-          dealId,
-          newStageId,
-          oldStageName: oldStage?.name,
-          newStageName: newStage?.name,
-          enrollments: enrollmentsWithNames,
-        })
-        setStopModalOpen(true)
-        return
+        await supabase
+          .from('automation_enrollments')
+          .update({
+            status: 'stopped',
+            stopped_reason: 'Auto-stopped on stage move',
+            next_step_at: null,
+          })
+          .in('id', activeEnrollments.map(e => e.id))
       }
 
-      // No automations to worry about, proceed with move
+      // Move the deal — DB trigger will auto-enroll in new stage's automation if one exists
       executeMoveDeals(dealId, newStageId, oldStage?.name, newStage?.name)
     },
-    [executeMoveDeals, selectedPipelineId, isSuperAdmin]
+    [executeMoveDeals, selectedPipelineId]
   )
 
   // Check if current user can move a specific deal
@@ -434,149 +286,6 @@ export default function PipelinesPage() {
     },
     [handleStageChange, selectedPipelineId, stages, deals, canMoveDeal]
   )
-
-  // Handle reset modal - restart automation
-  const handleResetAndMove = useCallback(async (sendAsUserId?: string | null) => {
-    if (!pendingMove) return
-
-    const supabase = createClient()
-
-    // First, stop all existing enrollments so the trigger can re-enroll
-    await supabase
-      .from('automation_enrollments')
-      .update({
-        status: 'stopped',
-        stopped_reason: 'Reset for re-enrollment',
-        next_step_at: null,
-      })
-      .in('id', pendingMove.enrollments.map(e => e.id))
-
-    // Now move the deal - the trigger will re-enroll from step 1
-    executeMoveDeals(
-      pendingMove.dealId,
-      pendingMove.newStageId,
-      pendingMove.oldStageName,
-      pendingMove.newStageName
-    )
-
-    // Always patch send_as_user_id (null = deal owner, string = override)
-    patchEnrollmentSendAs(pendingMove.dealId, pendingMove.newStageId, sendAsUserId ?? null)
-
-    toast({
-      title: 'Automation restarted',
-      description: 'The automation sequence will restart from the beginning',
-    })
-
-    setResetModalOpen(false)
-    setPendingMove(null)
-  }, [pendingMove, executeMoveDeals, patchEnrollmentSendAs])
-
-  // Handle reset modal - move without restarting
-  const handleMoveWithoutReset = useCallback((sendAsUserId?: string | null) => {
-    if (!pendingMove) return
-
-    // Mark enrollments as 'active' so they won't be re-enrolled by the trigger
-    // This keeps the current progress
-    const supabase = createClient()
-
-    // Always set send_as_user_id (null = deal owner, string = override)
-    const updatePayload: Record<string, unknown> = {
-      status: 'active',
-      send_as_user_id: sendAsUserId ?? null,
-    }
-
-    supabase
-      .from('automation_enrollments')
-      .update(updatePayload)
-      .in('id', pendingMove.enrollments.map(e => e.id))
-      .then(() => {
-        executeMoveDeals(
-          pendingMove.dealId,
-          pendingMove.newStageId,
-          pendingMove.oldStageName,
-          pendingMove.newStageName
-        )
-      })
-
-    setResetModalOpen(false)
-    setPendingMove(null)
-  }, [pendingMove, executeMoveDeals])
-
-  // Handle stop modal - stop automations and move
-  const handleStopAndMove = useCallback(async () => {
-    if (!pendingStopMove) return
-
-    const supabase = createClient()
-
-    // Stop all active enrollments
-    await supabase
-      .from('automation_enrollments')
-      .update({
-        status: 'stopped',
-        stopped_reason: 'Manually stopped when moving deal',
-        next_step_at: null,
-      })
-      .in('id', pendingStopMove.enrollments.map(e => e.id))
-
-    // Now move the deal
-    executeMoveDeals(
-      pendingStopMove.dealId,
-      pendingStopMove.newStageId,
-      pendingStopMove.oldStageName,
-      pendingStopMove.newStageName
-    )
-
-    toast({
-      title: 'Automation stopped',
-      description: 'The automation sequence has been stopped',
-    })
-
-    setStopModalOpen(false)
-    setPendingStopMove(null)
-  }, [pendingStopMove, executeMoveDeals])
-
-  // Handle stop modal - keep running and move
-  const handleKeepRunningAndMove = useCallback((sendAsUserId?: string | null) => {
-    if (!pendingStopMove) return
-
-    // If super admin chose to send as themselves, update existing enrollment
-    if (sendAsUserId) {
-      const supabase = createClient()
-      supabase
-        .from('automation_enrollments')
-        .update({ send_as_user_id: sendAsUserId })
-        .in('id', pendingStopMove.enrollments.map(e => e.id))
-    }
-
-    // Move the deal, don't stop the automation
-    executeMoveDeals(
-      pendingStopMove.dealId,
-      pendingStopMove.newStageId,
-      pendingStopMove.oldStageName,
-      pendingStopMove.newStageName
-    )
-
-    setStopModalOpen(false)
-    setPendingStopMove(null)
-  }, [pendingStopMove, executeMoveDeals])
-
-  // Handle send-as confirm modal (super admin first enrollment)
-  const handleSendAsConfirm = useCallback(async (sendAsUserId: string | null) => {
-    if (!pendingSendAsMove) return
-
-    executeMoveDeals(
-      pendingSendAsMove.dealId,
-      pendingSendAsMove.newStageId,
-      pendingSendAsMove.oldStageName,
-      pendingSendAsMove.newStageName
-    )
-
-    // Always patch send_as_user_id (null = deal owner, string = override)
-    patchEnrollmentSendAs(pendingSendAsMove.dealId, pendingSendAsMove.newStageId, sendAsUserId)
-
-    setSendAsModalOpen(false)
-    setPendingSendAsMove(null)
-  }, [pendingSendAsMove, executeMoveDeals, patchEnrollmentSendAs])
 
   // Handle add click from column
   const handleAddClick = useCallback((stage: PipelineStage) => {
@@ -648,7 +357,7 @@ export default function PipelinesPage() {
       />
 
       {/* Stats */}
-      {!isFullscreen && <PipelineStats deals={filteredDeals} lastUpdated={lastUpdated} />}
+      {!isFullscreen && <PipelineStats deals={filteredDeals} lastUpdated={lastUpdated} userId={userId} isAdmin={isAdmin} />}
 
       {/* Error State - only show if there are no deals */}
       {dealsError && deals.length === 0 && (
@@ -723,57 +432,6 @@ export default function PipelinesPage() {
         onClose={() => setSettingsModalOpen(false)}
       />
 
-      {/* Reset Automation Modal */}
-      {pendingMove && (
-        <ResetAutomationModal
-          isOpen={resetModalOpen}
-          onClose={() => {
-            setResetModalOpen(false)
-            setPendingMove(null)
-          }}
-          onConfirmReset={handleResetAndMove}
-          onConfirmKeep={handleMoveWithoutReset}
-          enrollments={pendingMove.enrollments}
-          targetStageName={pendingMove.newStageName || 'new stage'}
-          isResetting={resetEnrollments.isPending}
-          isSuperAdmin={isSuperAdmin}
-          currentUserId={currentUser?.id}
-          currentUserName={currentUser?.full_name || undefined}
-        />
-      )}
-
-      {/* Stop Automation Modal */}
-      {pendingStopMove && (
-        <StopAutomationModal
-          isOpen={stopModalOpen}
-          onClose={() => {
-            setStopModalOpen(false)
-            setPendingStopMove(null)
-          }}
-          onConfirmStop={handleStopAndMove}
-          onConfirmKeepRunning={handleKeepRunningAndMove}
-          enrollments={pendingStopMove.enrollments}
-          targetStageName={pendingStopMove.newStageName || 'new stage'}
-          isSuperAdmin={isSuperAdmin}
-          currentUserId={currentUser?.id}
-          currentUserName={currentUser?.full_name || undefined}
-        />
-      )}
-
-      {/* Send As Confirm Modal (super admin first enrollment) */}
-      {pendingSendAsMove && currentUser && (
-        <SendAsConfirmModal
-          isOpen={sendAsModalOpen}
-          onClose={() => {
-            setSendAsModalOpen(false)
-            setPendingSendAsMove(null)
-          }}
-          onConfirm={handleSendAsConfirm}
-          currentUserId={currentUser.id}
-          currentUserName={currentUser.full_name || 'Me'}
-          targetStageName={pendingSendAsMove.newStageName || 'new stage'}
-        />
-      )}
     </div>
   )
 }

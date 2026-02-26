@@ -10,6 +10,8 @@ import type { Deal } from '@/lib/types/pipelines'
 interface PipelineStatsProps {
   deals: Deal[]
   lastUpdated?: string
+  userId?: string | null
+  isAdmin?: boolean
 }
 
 const colourConfig = {
@@ -105,7 +107,9 @@ function exportDealsToCSV(deals: Deal[]) {
   document.body.removeChild(link)
 }
 
-export function PipelineStats({ deals, lastUpdated }: PipelineStatsProps) {
+export function PipelineStats({ deals, lastUpdated, userId, isAdmin }: PipelineStatsProps) {
+  // Non-admin users can only export their own deals
+  const exportableDeals = isAdmin ? deals : deals.filter((d) => d.deal_owner_id === userId)
   // Calculate stats
   const totalPlayers = deals.length
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
@@ -176,8 +180,8 @@ export function PipelineStats({ deals, lastUpdated }: PipelineStatsProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDealsToCSV(deals)}
-          disabled={deals.length === 0}
+          onClick={() => exportDealsToCSV(exportableDeals)}
+          disabled={exportableDeals.length === 0}
         >
           <Download className="h-4 w-4 mr-2" />
           Export CSV
