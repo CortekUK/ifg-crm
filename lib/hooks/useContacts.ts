@@ -606,23 +606,6 @@ export function useContactTags(contactId: string | null) {
   })
 }
 
-export function useTags() {
-  const supabase = createClient()
-
-  return useQuery<ContactTag[]>({
-    queryKey: ['tags'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tags')
-        .select('*')
-        .order('name', { ascending: true })
-
-      if (error) throw error
-      return data || []
-    },
-  })
-}
-
 export function useAddTagToContact() {
   const supabase = createClient()
   const queryClient = useQueryClient()

@@ -12,6 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,8 @@ interface ListsTableProps {
   onView: (list: List) => void
   onEdit: (list: List) => void
   onDelete: (list: List) => void
+  selectedIds?: Set<string>
+  onSelectedIdsChange?: (ids: Set<string>) => void
 }
 
 function SortIcon({ field, activeField, dir }: { field: SortField; activeField: SortField; dir: SortDir }) {
@@ -48,9 +51,13 @@ export function ListsTable({
   onView,
   onEdit,
   onDelete,
+  selectedIds,
+  onSelectedIdsChange,
 }: ListsTableProps) {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const hasBulkSelect = !!selectedIds && !!onSelectedIdsChange
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -80,12 +87,31 @@ export function ListsTable({
     })
     return sorted
   }, [lists, sortField, sortDir])
+
+  const toggleSelect = (listId: string) => {
+    if (!selectedIds || !onSelectedIdsChange) return
+    const next = new Set(selectedIds)
+    if (next.has(listId)) next.delete(listId)
+    else next.add(listId)
+    onSelectedIdsChange(next)
+  }
+
+  const toggleSelectAll = () => {
+    if (!selectedIds || !onSelectedIdsChange) return
+    if (selectedIds.size === sortedLists.length) {
+      onSelectedIdsChange(new Set())
+    } else {
+      onSelectedIdsChange(new Set(sortedLists.map((l) => l.id)))
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
+              {hasBulkSelect && <TableHead className="w-[40px]" />}
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Contacts</TableHead>
@@ -96,6 +122,7 @@ export function ListsTable({
           <TableBody>
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
+                {hasBulkSelect && <TableCell><Skeleton className="h-4 w-4" /></TableCell>}
                 <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
@@ -126,6 +153,14 @@ export function ListsTable({
       <Table>
         <TableHeader>
           <TableRow>
+            {hasBulkSelect && (
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={sortedLists.length > 0 && selectedIds.size === sortedLists.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </TableHead>
+            )}
             <TableHead>
               <button onClick={() => toggleSort('name')} className={cn("flex items-center gap-1 hover:text-foreground transition-colors", sortField === 'name' && "text-foreground")}>
                 Name <SortIcon field="name" activeField={sortField} dir={sortDir} />
@@ -146,69 +181,85 @@ export function ListsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedLists.map((list) => (
-            <TableRow
-              key={list.id}
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => onView(list)}
-            >
-              {/* Name */}
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                    <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          {sortedLists.map((list) => {
+            const isSelected = hasBulkSelect && selectedIds.has(list.id)
+
+            return (
+              <TableRow
+                key={list.id}
+                className={cn(
+                  'cursor-pointer hover:bg-muted/50',
+                  isSelected && 'bg-blue-50/50 dark:bg-blue-900/10'
+                )}
+                onClick={() => onView(list)}
+              >
+                {hasBulkSelect && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(list.id)}
+                    />
+                  </TableCell>
+                )}
+
+                {/* Name */}
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                      <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="font-medium text-gray-900 dark:text-white">{list.name}</span>
                   </div>
-                  <span className="font-medium text-gray-900 dark:text-white">{list.name}</span>
-                </div>
-              </TableCell>
+                </TableCell>
 
-              {/* Description */}
-              <TableCell className="text-muted-foreground max-w-xs truncate">
-                {list.description || '—'}
-              </TableCell>
+                {/* Description */}
+                <TableCell className="text-muted-foreground max-w-xs truncate">
+                  {list.description || '\u2014'}
+                </TableCell>
 
-              {/* Contacts Count */}
-              <TableCell className="text-right">
-                <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                  {list.contact_count?.toLocaleString() || 0}
-                </Badge>
-              </TableCell>
+                {/* Contacts Count */}
+                <TableCell className="text-right">
+                  <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                    {list.contact_count?.toLocaleString() || 0}
+                  </Badge>
+                </TableCell>
 
-              {/* Created */}
-              <TableCell className="text-muted-foreground">
-                {formatDate(list.created_at)}
-              </TableCell>
+                {/* Created */}
+                <TableCell className="text-muted-foreground">
+                  {formatDate(list.created_at)}
+                </TableCell>
 
-              {/* Actions */}
-              <TableCell onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onView(list)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Contacts
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit(list)}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => onDelete(list)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+                {/* Actions */}
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onView(list)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Contacts
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit(list)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => onDelete(list)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>

@@ -267,6 +267,26 @@ export function useDeleteList() {
   })
 }
 
+export function useBulkDeleteLists() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (listIds: string[]) => {
+      const { error } = await supabase
+        .from('lists')
+        .delete()
+        .in('id', listIds)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+      queryClient.invalidateQueries({ queryKey: ['list-stats'] })
+    },
+  })
+}
+
 export function useAddContactsToList() {
   const supabase = createClient()
   const queryClient = useQueryClient()

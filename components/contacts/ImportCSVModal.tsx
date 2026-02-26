@@ -24,7 +24,7 @@ import { parseCSV, autoMapColumns, validateRow, hasNameMapping, CONTACT_FIELDS, 
 import { useImportContacts, type DuplicateStrategy, type ImportResult } from '@/lib/hooks/useImportContacts'
 import { Input } from '@/components/ui/input'
 import { useLists, useCreateList } from '@/lib/hooks/useLists'
-import { useTags } from '@/lib/hooks/useContacts'
+import { useTags } from '@/lib/hooks/useTags'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface ImportCSVModalProps {
@@ -651,16 +651,41 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                   </div>
 
                   {validationErrors.length > 0 && (
-                    <div className="border border-yellow-200 rounded-lg p-3 bg-yellow-50 max-h-32 overflow-y-auto">
-                      <div className="flex items-center gap-1 mb-1">
+                    <div className="border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-950/30 max-h-48 overflow-y-auto">
+                      <div className="flex items-center gap-1 mb-2">
                         <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                        <p className="text-sm font-medium text-yellow-800">Validation warnings (these rows will be skipped):</p>
+                        <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Validation warnings (these rows will be skipped):</p>
                       </div>
-                      {validationErrors.slice(0, 10).map((err, i) => (
-                        <p key={i} className="text-xs text-yellow-700">Row {err.row}: {err.message}</p>
-                      ))}
+                      <div className="space-y-2">
+                        {validationErrors.slice(0, 10).map((err, i) => {
+                          const row = rows[err.row - 1]
+                          const emailCol = Object.entries(mapping).find(([, v]) => v === 'email')?.[0]
+                          const firstNameCol = Object.entries(mapping).find(([, v]) => v === 'first_name')?.[0]
+                          const lastNameCol = Object.entries(mapping).find(([, v]) => v === 'last_name')?.[0]
+                          const fullNameCol = Object.entries(mapping).find(([, v]) => v === 'full_name')?.[0]
+                          const fieldCol = Object.entries(mapping).find(([, v]) => v === err.field)?.[0]
+
+                          const email = emailCol != null ? row?.[Number(emailCol)] : undefined
+                          const name = fullNameCol != null
+                            ? row?.[Number(fullNameCol)]
+                            : [firstNameCol != null ? row?.[Number(firstNameCol)] : '', lastNameCol != null ? row?.[Number(lastNameCol)] : ''].filter(Boolean).join(' ')
+                          const fieldValue = fieldCol != null ? row?.[Number(fieldCol)] : undefined
+
+                          return (
+                            <div key={i} className="text-xs text-yellow-700 dark:text-yellow-300 border-l-2 border-yellow-300 dark:border-yellow-700 pl-2">
+                              <p className="font-medium">Row {err.row}: {err.message}</p>
+                              <p className="text-yellow-600 dark:text-yellow-400 mt-0.5">
+                                {name && <span>{name}</span>}
+                                {name && email && <span> &middot; </span>}
+                                {email && <span>{email}</span>}
+                                {fieldValue && <span> &middot; {err.field}: <span className="font-mono">{fieldValue}</span></span>}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
                       {validationErrors.length > 10 && (
-                        <p className="text-xs text-yellow-600 mt-1">...and {validationErrors.length - 10} more</p>
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">...and {validationErrors.length - 10} more</p>
                       )}
                     </div>
                   )}

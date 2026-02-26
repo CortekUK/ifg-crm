@@ -36,6 +36,7 @@ const pageTitles: Record<string, string> = {
   '/email-replies': 'REPLIES', // Redirect legacy route
   '/campaigns': 'CAMPAIGNS',
   '/lists': 'LISTS',
+  '/tags': 'TAGS',
   '/templates': 'TEMPLATES',
   '/automations': 'AUTOMATIONS',
   '/invoices': 'INVOICES',

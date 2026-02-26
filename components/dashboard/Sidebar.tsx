@@ -33,6 +33,7 @@ import {
   ChevronRight,
   MapPin,
   ListIcon,
+  Tag,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { useSidebar } from '@/components/providers/SidebarProvider'
@@ -62,6 +63,7 @@ const navSections = [
     items: [
       { href: '/campaigns', label: 'Campaigns', icon: Send },
       { href: '/lists', label: 'Lists', icon: ListIcon },
+      { href: '/tags', label: 'Tags', icon: Tag },
       { href: '/templates', label: 'Templates', icon: FileText },
     ],
   },

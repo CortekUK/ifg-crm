@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Search } from 'lucide-react'
+import { Search, Trash2, Loader2 } from 'lucide-react'
 import {
   ListsTable,
   ListDetailSheet,
@@ -21,7 +22,7 @@ import {
   ListsPageHeader,
   ListStats,
 } from '@/components/lists'
-import { useLists, useListStats, useDeleteList } from '@/lib/hooks/useLists'
+import { useLists, useListStats, useDeleteList, useBulkDeleteLists } from '@/lib/hooks/useLists'
 import { toast } from '@/lib/hooks/use-toast'
 import type { List, ListFilters } from '@/lib/types/lists'
 
@@ -32,10 +33,13 @@ export default function ListsPage() {
   const [listToDelete, setListToDelete] = useState<List | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [addContactsListId, setAddContactsListId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
 
   const { data: lists = [], isLoading: listsLoading } = useLists(filters)
   const { data: stats, isLoading: statsLoading } = useListStats()
   const deleteList = useDeleteList()
+  const bulkDeleteLists = useBulkDeleteLists()
 
   const handleSearch = (search: string) => {
     setFilters((prev) => ({ ...prev, search }))
@@ -55,11 +59,13 @@ export default function ListsPage() {
 
     try {
       await deleteList.mutateAsync(listToDelete.id)
+      selectedIds.delete(listToDelete.id)
+      setSelectedIds(new Set(selectedIds))
       toast({
         title: 'List deleted',
         description: `"${listToDelete.name}" has been deleted.`,
       })
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to delete list.',
@@ -67,6 +73,24 @@ export default function ListsPage() {
       })
     }
     setListToDelete(null)
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      await bulkDeleteLists.mutateAsync(Array.from(selectedIds))
+      toast({
+        title: 'Lists deleted',
+        description: `${selectedIds.size} list(s) have been deleted.`,
+      })
+      setSelectedIds(new Set())
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete lists.',
+        variant: 'destructive',
+      })
+    }
+    setShowBulkDeleteDialog(false)
   }
 
   const handleAddContacts = () => {
@@ -79,6 +103,10 @@ export default function ListsPage() {
     setEditingList(null)
     setIsCreateModalOpen(true)
   }
+
+  const totalSelectedContacts = lists
+    .filter((l) => selectedIds.has(l.id))
+    .reduce((sum, l) => sum + (l.contact_count || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -94,7 +122,7 @@ export default function ListsPage() {
         isLoading={statsLoading}
       />
 
-      {/* Search */}
+      {/* Search + Bulk Actions */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -105,6 +133,21 @@ export default function ListsPage() {
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size} selected
+            </span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBulkDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Delete
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Lists Table */}
@@ -114,6 +157,8 @@ export default function ListsPage() {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={setListToDelete}
+        selectedIds={selectedIds}
+        onSelectedIdsChange={setSelectedIds}
       />
 
       {/* List Detail Sheet */}
@@ -142,14 +187,14 @@ export default function ListsPage() {
         listName={selectedList?.name || ''}
       />
 
-      {/* Delete Confirmation */}
+      {/* Single Delete Confirmation */}
       <AlertDialog open={!!listToDelete} onOpenChange={() => setListToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete list?</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete{' '}
-              <span className="font-medium">"{listToDelete?.name}"</span>?
+              <span className="font-medium">&ldquo;{listToDelete?.name}&rdquo;</span>?
               This will remove all contacts from this list. The contacts themselves will not be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -160,6 +205,35 @@ export default function ListsPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} lists?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete{' '}
+              <span className="font-medium">{selectedIds.size} list{selectedIds.size === 1 ? '' : 's'}</span>{' '}
+              and remove {totalSelectedContacts} contact{totalSelectedContacts === 1 ? '' : 's'} from them.
+              The contacts themselves will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={bulkDeleteLists.isPending}
+            >
+              {bulkDeleteLists.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</>
+              ) : (
+                'Delete All'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -103,6 +103,12 @@ function ContactsPageContent() {
       // Clean the URL without triggering navigation
       router.replace('/contacts', { scroll: false })
     }
+    // Handle ?tag_id= param from Tags page
+    const tagId = searchParams.get('tag_id')
+    if (tagId) {
+      setTagFilter(tagId)
+      router.replace('/contacts', { scroll: false })
+    }
   }, [searchParams, router])
 
   // Debounce search

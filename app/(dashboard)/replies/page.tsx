@@ -29,6 +29,7 @@ import { SmartDealModal } from '@/components/replies/SmartDealModal'
 import { useMarkEmailAsSpam } from '@/lib/hooks/useEmailReplies'
 import { useMarkSMSAsSpam } from '@/lib/hooks/useSMSMessages'
 
+import { PageHeader } from '@/components/shared/PageHeader'
 import type { EmailReply } from '@/lib/types/email'
 import type { SMSMessage } from '@/lib/types/sms'
 
@@ -157,6 +158,9 @@ export default function RepliesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Banner */}
+      <PageHeader subtitle="View and manage email and SMS responses from players. Match replies to contacts and deals." />
+
       {/* Main Tabs - Email vs SMS */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'email' | 'sms')}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
