@@ -19,6 +19,12 @@ interface ContactInfo {
   phone: string | null
   country: string | null
   city: string | null
+  club_name: string | null
+  position: string | null
+  graduation_year: number | null
+  parent_name: string | null
+  parent_email: string | null
+  parent_phone: string | null
 }
 
 export default function PortalSettingsPage() {
@@ -45,7 +51,7 @@ export default function PortalSettingsPage() {
       if (profile?.contact_id) {
         const { data } = await supabase
           .from('contacts')
-          .select('first_name, last_name, email, phone, country, city')
+          .select('first_name, last_name, email, phone, country, city, club_name, position, graduation_year, parent_name, parent_email, parent_phone')
           .eq('id', profile.contact_id)
           .single()
 
@@ -98,6 +104,7 @@ export default function PortalSettingsPage() {
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-48 rounded-xl" />
         <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
       </div>
     )
   }
@@ -133,6 +140,50 @@ export default function PortalSettingsPage() {
                 </span>
               </div>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Football Info */}
+      <Card className="bg-white dark:bg-slate-900">
+        <CardContent className="p-5">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wide">Football Info</h2>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Club / Academy</span>
+              <span className="text-slate-900 dark:text-white">{contact?.club_name || 'Not set'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Position</span>
+              <span className="text-slate-900 dark:text-white">{contact?.position || 'Not set'}</span>
+            </div>
+            {contact?.graduation_year && (
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Graduation Year</span>
+                <span className="text-slate-900 dark:text-white">{contact.graduation_year}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Guardian Info */}
+      <Card className="bg-white dark:bg-slate-900">
+        <CardContent className="p-5">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wide">Parent / Guardian</h2>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Name</span>
+              <span className="text-slate-900 dark:text-white">{contact?.parent_name || 'Not set'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Email</span>
+              <span className="text-slate-900 dark:text-white">{contact?.parent_email || 'Not set'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Phone</span>
+              <span className="text-slate-900 dark:text-white">{contact?.parent_phone || 'Not set'}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

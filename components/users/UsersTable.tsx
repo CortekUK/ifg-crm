@@ -38,6 +38,7 @@ const roleConfig: Record<UserRole, { label: string; className: string }> = {
   super_admin: { label: 'Super Admin', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700' },
   admin: { label: 'Admin', className: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' },
   recruiter: { label: 'Recruiter', className: 'bg-green-100 dark:bg-green-900/50 text-green-700' },
+  player: { label: 'Player', className: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700' },
 }
 
 export function UsersTable({

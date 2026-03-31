@@ -5,8 +5,6 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   ReceiptPoundSterling,
-  GitBranch,
-  Send,
   BarChart3,
   Settings,
   LogOut,
@@ -22,8 +20,6 @@ interface PortalSidebarProps {
 const navItems = [
   { href: '/portal', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/portal/invoices', label: 'Invoices', icon: ReceiptPoundSterling },
-  { href: '/portal/pipeline', label: 'Pipeline', icon: GitBranch },
-  { href: '/portal/campaigns', label: 'Campaigns', icon: Send },
   { href: '/portal/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/portal/settings', label: 'Settings', icon: Settings },
 ]

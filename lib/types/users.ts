@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'recruiter'
+export type UserRole = 'super_admin' | 'admin' | 'recruiter' | 'player'
 export type Sport = 'football' | 'basketball'
 export type InviteStatus = 'pending' | 'accepted' | 'expired'
 

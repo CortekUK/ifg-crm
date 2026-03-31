@@ -189,13 +189,39 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
+      const emailLower = formData.email.toLowerCase().trim()
+
+      // Check if email belongs to a staff user (admin/recruiter/super_admin)
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id, role, email')
+        .eq('email', emailLower)
+        .in('role', ['super_admin', 'admin', 'recruiter'])
+        .single()
+
+      if (existingUser) {
+        const roleLabel = existingUser.role === 'super_admin' ? 'Super Admin' : existingUser.role === 'admin' ? 'Admin' : 'Recruiter'
+        throw new Error(`This email belongs to a ${roleLabel} account and cannot be added as a contact.`)
+      }
+
+      // Check if contact with this email already exists
+      const { data: existingContact } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name')
+        .eq('email', emailLower)
+        .single()
+
+      if (existingContact) {
+        throw new Error(`A contact with this email already exists: ${existingContact.first_name} ${existingContact.last_name}`)
+      }
+
       // Create the contact
       const { data: contact, error: contactError } = await supabase
         .from('contacts')
         .insert({
           first_name: formData.first_name,
           last_name: formData.last_name,
-          email: formData.email,
+          email: emailLower,
           phone: formData.phone || null,
           date_of_birth: formData.date_of_birth || null,
           graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
@@ -217,7 +243,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
         .select()
         .single()
 
-      if (contactError) throw contactError
+      if (contactError) throw new Error(contactError.message || 'Failed to insert contact')
 
       // Add tags if selected
       if (selectedTags.length > 0) {
@@ -314,10 +340,15 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
 
       onClose()
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'An unexpected error occurred. Please try again.'
       toast({
         title: 'Failed to create contact',
-        description: error instanceof Error ? error.message : 'An error occurred',
+        description: message,
         variant: 'destructive',
       })
     },

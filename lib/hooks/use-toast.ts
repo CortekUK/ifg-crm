@@ -89,23 +89,19 @@ export const reducer = (state: State, action: Action): State => {
     case 'DISMISS_TOAST': {
       const { toastId } = action
 
-      if (toastId) {
-        addToRemoveQueue(toastId)
-      } else {
-        state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
-        })
+      // Clear any pending timeout for this toast
+      if (toastId && toastTimeouts.has(toastId)) {
+        clearTimeout(toastTimeouts.get(toastId))
+        toastTimeouts.delete(toastId)
       }
 
+      // Remove immediately
+      if (toastId === undefined) {
+        return { ...state, toasts: [] }
+      }
       return {
         ...state,
-        toasts: state.toasts.map((t) =>
-          t.id === toastId || toastId === undefined
-            ? {
-                ...t,
-              }
-            : t
-        ),
+        toasts: state.toasts.filter((t) => t.id !== toastId),
       }
     }
     case 'REMOVE_TOAST':

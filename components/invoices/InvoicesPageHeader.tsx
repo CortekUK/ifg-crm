@@ -18,14 +18,6 @@ export function InvoicesPageHeader({ onCreateClick, onCreatePaymentPlan }: Invoi
 
         <div className="flex items-center gap-2">
           <Button
-            onClick={onCreatePaymentPlan}
-            variant="outline"
-            className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-          >
-            <CalendarClock className="h-4 w-4 mr-2" />
-            Payment Plan
-          </Button>
-          <Button
             onClick={onCreateClick}
             className="bg-white text-blue-600 hover:bg-blue-50"
           >

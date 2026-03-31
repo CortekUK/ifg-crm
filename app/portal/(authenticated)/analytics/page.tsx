@@ -3,20 +3,16 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   ReceiptPoundSterling,
   CheckCircle2,
   Clock,
   CreditCard,
-  Mail,
-  GitBranch,
   CalendarDays,
   AlertTriangle,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
-import { cn } from '@/lib/utils'
 import {
   PieChart,
   Pie,
@@ -27,7 +23,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts'
 
 interface Invoice {
@@ -50,13 +45,7 @@ interface Payment {
 interface PlayerAnalytics {
   invoices: Invoice[]
   payments: Payment[]
-  totalDeals: number
-  campaignsReceived: number
   accountCreated: string | null
-  currentStage: string | null
-  pipelineName: string | null
-  stagesCompleted: number
-  totalStages: number
 }
 
 const COLORS = ['#22c55e', '#f97316', '#ef4444', '#3b82f6', '#8b5cf6', '#64748b']
@@ -79,7 +68,7 @@ export default function PortalAnalyticsPage() {
 
       if (!profile?.contact_id) return
 
-      const [invoicesRes, paymentsRes, dealsRes, recipientsRes] = await Promise.all([
+      const [invoicesRes, paymentsRes] = await Promise.all([
         supabase
           .from('invoices')
           .select('id, amount, status, currency, due_date, created_at, type')
@@ -89,50 +78,12 @@ export default function PortalAnalyticsPage() {
           .select('id, amount, payment_date, payment_method')
           .eq('contact_id', profile.contact_id)
           .order('payment_date', { ascending: false }),
-        supabase
-          .from('deals')
-          .select('id, current_stage_id, pipeline_id, pipeline:pipelines(name)')
-          .eq('contact_id', profile.contact_id),
-        supabase
-          .from('campaign_recipients')
-          .select('campaign_id')
-          .eq('contact_id', profile.contact_id),
       ])
-
-      const deals = dealsRes.data || []
-      let currentStage: string | null = null
-      let pipelineName: string | null = null
-      let stagesCompleted = 0
-      let totalStages = 0
-
-      if (deals.length > 0) {
-        const deal = deals[0]
-        pipelineName = (deal.pipeline as unknown as { name: string } | null)?.name || null
-
-        const { data: stages } = await supabase
-          .from('pipeline_stages')
-          .select('id, name, display_order')
-          .eq('pipeline_id', deal.pipeline_id)
-          .order('display_order')
-
-        if (stages) {
-          totalStages = stages.length
-          const currentIdx = stages.findIndex((s) => s.id === deal.current_stage_id)
-          stagesCompleted = currentIdx >= 0 ? currentIdx : 0
-          currentStage = stages[currentIdx]?.name || null
-        }
-      }
 
       setData({
         invoices: invoicesRes.data || [],
         payments: paymentsRes.data || [],
-        totalDeals: deals.length,
-        campaignsReceived: new Set((recipientsRes.data || []).map((r) => r.campaign_id)).size,
         accountCreated: profile.created_at,
-        currentStage,
-        pipelineName,
-        stagesCompleted,
-        totalStages,
       })
 
       setLoading(false)
@@ -167,10 +118,6 @@ export default function PortalAnalyticsPage() {
   const overdueInvoices = data.invoices.filter((i) => i.status === 'overdue')
   const totalPaid = paidInvoices.reduce((sum, i) => sum + Number(i.amount), 0)
   const totalOutstanding = [...pendingInvoices, ...overdueInvoices].reduce((sum, i) => sum + Number(i.amount), 0)
-
-  const progressPercent = data.totalStages > 0
-    ? Math.round((data.stagesCompleted / data.totalStages) * 100)
-    : 0
 
   // Chart data: Invoice status breakdown
   const invoiceStatusData = [
@@ -218,7 +165,7 @@ export default function PortalAnalyticsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Analytics</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Your account statistics and activity overview</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Your financial statistics and payment overview</p>
       </div>
 
       {/* Top Stats */}
@@ -275,7 +222,7 @@ export default function PortalAnalyticsPage() {
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#94a3b8" />
                   <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => `£${v}`} />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Amount']}
+                    formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
                     contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: 8, fontSize: 12 }}
                     labelStyle={{ color: '#94a3b8' }}
                     itemStyle={{ color: '#60a5fa' }}
@@ -329,34 +276,8 @@ export default function PortalAnalyticsPage() {
         </Card>
       </div>
 
-      {/* Second Row: Progress + Invoice by Type */}
+      {/* Invoice by Type */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Application Progress */}
-        {data.totalStages > 0 && (
-          <Card className="bg-white dark:bg-slate-900">
-            <CardContent className="p-5">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wide">Application Progress</h3>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">{data.currentStage || 'N/A'}</p>
-                  <p className="text-xs text-slate-400">{data.pipelineName}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-3xl font-bold text-blue-600">{progressPercent}%</span>
-                  <p className="text-[10px] text-slate-400">Stage {data.stagesCompleted + 1} of {data.totalStages}</p>
-                </div>
-              </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all"
-                  style={{ width: `${Math.max(progressPercent, 5)}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Invoice by Type */}
         <Card className="bg-white dark:bg-slate-900">
           <CardContent className="p-5">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wide">Invoices by Type</h3>
@@ -368,7 +289,7 @@ export default function PortalAnalyticsPage() {
                   <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => `£${v}`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#94a3b8" width={80} />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Amount']}
+                    formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
                     contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: 8, fontSize: 12 }}
                     itemStyle={{ color: '#60a5fa' }}
                   />
@@ -385,23 +306,14 @@ export default function PortalAnalyticsPage() {
       </div>
 
       {/* Bottom Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <Card className="bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase">Campaigns</span>
-              <Mail className="h-4 w-4 text-indigo-500" />
+              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase">Total Payments</span>
+              <CreditCard className="h-4 w-4 text-purple-500" />
             </div>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">{data.campaignsReceived}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white dark:bg-slate-900">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase">Applications</span>
-              <GitBranch className="h-4 w-4 text-teal-500" />
-            </div>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">{data.totalDeals}</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{data.payments.length}</p>
           </CardContent>
         </Card>
         <Card className="bg-white dark:bg-slate-900">

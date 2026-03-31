@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Moon, Sun, Search, X, ReceiptPoundSterling, GitBranch, Send, CreditCard, Info, Check } from 'lucide-react'
+import { Bell, Moon, Sun, Search, X, ReceiptPoundSterling, CreditCard, Info } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,8 +21,6 @@ interface PortalHeaderProps {
 const searchRoutes = [
   { label: 'Dashboard', href: '/portal', keywords: ['home', 'overview', 'dashboard'] },
   { label: 'Invoices', href: '/portal/invoices', icon: ReceiptPoundSterling, keywords: ['invoice', 'payment', 'pay', 'bill', 'money'] },
-  { label: 'Pipeline', href: '/portal/pipeline', icon: GitBranch, keywords: ['pipeline', 'application', 'stage', 'status', 'progress'] },
-  { label: 'Campaigns', href: '/portal/campaigns', icon: Send, keywords: ['campaign', 'email', 'message'] },
   { label: 'Analytics', href: '/portal/analytics', keywords: ['analytics', 'stats', 'statistics', 'chart'] },
   { label: 'Settings', href: '/portal/settings', keywords: ['settings', 'profile', 'password', 'theme'] },
 ]
@@ -152,7 +150,7 @@ export function PortalHeader({ playerName }: PortalHeaderProps) {
                 ) : (
                   <div className="divide-y dark:divide-slate-800">
                     {notifications.map((n) => {
-                      const Icon = n.type === 'payment' ? CreditCard : n.type === 'deal_stage' ? GitBranch : Info
+                      const Icon = n.type === 'payment' ? CreditCard : Info
                       return (
                         <button
                           key={n.id}

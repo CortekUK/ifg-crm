@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ReceiptPoundSterling, GitBranch, Settings } from 'lucide-react'
+import { LayoutDashboard, ReceiptPoundSterling, BarChart3, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const tabs = [
   { href: '/portal', label: 'Home', icon: LayoutDashboard, exact: true },
   { href: '/portal/invoices', label: 'Invoices', icon: ReceiptPoundSterling },
-  { href: '/portal/pipeline', label: 'Pipeline', icon: GitBranch },
+  { href: '/portal/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/portal/settings', label: 'Settings', icon: Settings },
 ]
 

@@ -13,18 +13,17 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  CreditCard,
-  GitBranch,
+  GraduationCap,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
+import { cn } from '@/lib/utils'
 
 interface DashboardStats {
   totalOutstanding: number
   totalPaid: number
   overdueCount: number
   nextDueDate: string | null
-  currentStage: string | null
-  pipelineName: string | null
+  programmeName: string | null
 }
 
 interface Invoice {
@@ -77,26 +76,23 @@ export default function PortalDashboardPage() {
         .filter((i) => i.status !== 'paid' && i.status !== 'cancelled')
         .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
 
-      // Fetch deal/pipeline info
+      // Fetch programme name from pipeline
       const { data: deals } = await supabase
         .from('deals')
-        .select('current_stage_id, pipeline:pipelines(name), stage:pipeline_stages!deals_current_stage_id_fkey(name)')
+        .select('pipeline:pipelines(name)')
         .eq('contact_id', profile.contact_id)
         .limit(1)
         .single()
 
-      const stageData = deals?.stage as unknown as { name: string } | null
       const pipeData = deals?.pipeline as unknown as { name: string } | null
-      const stageName = stageData?.name || null
-      const pipeName = pipeData?.name || null
+      const programmeName = pipeData?.name || null
 
       setStats({
         totalOutstanding: outstanding,
         totalPaid: paid,
         overdueCount: overdue,
         nextDueDate: unpaid[0]?.due_date || null,
-        currentStage: stageName,
-        pipelineName: pipeName,
+        programmeName,
       })
 
       setRecentInvoices(allInvoices.slice(0, 3))
@@ -184,15 +180,12 @@ export default function PortalDashboardPage() {
         <Card className="bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Stage</span>
-              <GitBranch className="h-4 w-4 text-blue-500" />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Programme</span>
+              <GraduationCap className="h-4 w-4 text-blue-500" />
             </div>
             <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-              {stats?.currentStage || 'N/A'}
+              {stats?.programmeName || 'Not enrolled'}
             </p>
-            {stats?.pipelineName && (
-              <p className="text-[10px] text-slate-400 truncate">{stats.pipelineName}</p>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -228,38 +221,48 @@ export default function PortalDashboardPage() {
 
         {recentInvoices.length === 0 ? (
           <Card className="bg-white dark:bg-slate-900">
-            <CardContent className="p-6 text-center">
-              <ReceiptPoundSterling className="h-8 w-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+            <CardContent className="p-8 text-center">
+              <ReceiptPoundSterling className="h-10 w-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
               <p className="text-sm text-slate-500 dark:text-slate-400">No invoices yet</p>
+              <p className="text-xs text-slate-400 mt-1">Invoices will appear here when created.</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-2">
-            {recentInvoices.map((invoice) => (
-              <Link key={invoice.id} href={`/portal/invoices/${invoice.id}`}>
-                <Card className="bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-slate-900 dark:text-white">
-                          {invoice.invoice_number}
-                        </span>
-                        <Badge className={getPlayerStatus(invoice.status).className} variant="secondary">
-                          {getPlayerStatus(invoice.status).label}
+          <div className="flex flex-col gap-3">
+            {recentInvoices.map((invoice) => {
+              const status = getPlayerStatus(invoice.status)
+              return (
+                <Link key={invoice.id} href="/portal/invoices" className="block">
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-white dark:bg-slate-900 dark:border-slate-800 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                      invoice.status === 'paid' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-orange-100 dark:bg-orange-900/30'
+                    )}>
+                      {invoice.status === 'paid' ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-orange-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">{invoice.invoice_number}</span>
+                        <Badge className={cn(status.className, 'text-[10px] px-1.5 py-0')} variant="secondary">
+                          {status.label}
                         </Badge>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{invoice.description}</p>
+                      <p className="text-xs text-slate-400 truncate">{invoice.description}</p>
                     </div>
-                    <div className="text-right ml-4">
+                    <div className="text-right shrink-0">
                       <p className="text-sm font-bold text-slate-900 dark:text-white">
                         {formatCurrency(invoice.amount, invoice.currency)}
                       </p>
                       <p className="text-[10px] text-slate-400">Due {formatDate(invoice.due_date)}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>

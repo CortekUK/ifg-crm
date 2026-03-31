@@ -64,10 +64,26 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
   const handleSend = async () => {
     if (!invoiceId) return
     try {
-      await updateStatus.mutateAsync({ invoiceId, status: 'sent' })
+      // Send invoice with payment link email
+      const res = await fetch(`/api/invoices/${invoiceId}/send-with-link`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        // Fallback to just marking as sent if email fails
+        await updateStatus.mutateAsync({ invoiceId, status: 'sent' })
+        toast({
+          title: 'Invoice marked as sent',
+          description: data.error || 'Email could not be sent but invoice status updated.',
+          variant: 'destructive',
+        })
+        return
+      }
+
       toast({
         title: 'Invoice sent',
-        description: 'The invoice has been marked as sent.',
+        description: data.message || 'Invoice sent with payment link.',
       })
     } catch {
       toast({
