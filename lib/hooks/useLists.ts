@@ -12,7 +12,7 @@ export function useLists(filters?: ListFilters) {
       let query = supabase
         .from('lists')
         .select('*')
-        .order('name', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (filters?.search) {
         query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)

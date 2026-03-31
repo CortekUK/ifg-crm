@@ -53,7 +53,7 @@ const ALL_TABLE_COLUMNS = [
 ]
 
 const DEFAULT_VISIBLE = [
-  'name', 'email', 'phone', 'graduation_year', 'country', 'tags', 'source', 'created_at', 'status',
+  'name', 'email', 'phone', 'graduation_year', 'country', 'source', 'status',
 ]
 
 export function ContactsTable({
@@ -118,19 +118,19 @@ export function ContactsTable({
     switch (columnKey) {
       case 'name':
         return (
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar className="h-8 w-8 shrink-0">
               <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 text-xs font-medium">
                 {getInitials(contact.first_name, contact.last_name)}
               </AvatarFallback>
             </Avatar>
-            <span className="font-medium">
+            <span className="font-medium truncate" title={`${contact.first_name} ${contact.last_name}`}>
               {contact.first_name} {contact.last_name}
             </span>
           </div>
         )
       case 'email':
-        return <span className="text-muted-foreground">{contact.email}</span>
+        return <span className="text-muted-foreground truncate block" title={contact.email}>{contact.email}</span>
       case 'phone':
         return <span className="text-muted-foreground">{contact.phone || '-'}</span>
       case 'graduation_year':
@@ -273,29 +273,41 @@ export function ContactsTable({
 
   return (
     <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
-      <Table>
+      <Table className="table-fixed w-full">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12">
+            <TableHead className="w-10 px-2">
               <Checkbox
                 checked={someSelected ? 'indeterminate' : allSelected}
                 onCheckedChange={(checked) => onSelectAll(checked === true)}
               />
             </TableHead>
-            {columns.map((col) => (
-              <TableHead
-                key={col.key}
-                className={cn(
-                  col.sortable && 'cursor-pointer select-none hover:bg-muted/50'
-                )}
-                onClick={() => col.sortable && col.sortKey && onSort(col.sortKey)}
-              >
-                <div className="flex items-center">
-                  {col.label}
-                  {col.sortable && col.sortKey && <SortIcon column={col.sortKey} />}
-                </div>
-              </TableHead>
-            ))}
+            {columns.map((col) => {
+              const colWidth: Record<string, string> = {
+                name: 'w-[22%]',
+                email: 'w-[22%]',
+                phone: 'w-[14%]',
+                graduation_year: 'w-[9%]',
+                country: 'w-[13%]',
+                source: 'w-[11%]',
+                status: 'w-[7%]',
+              }
+              return (
+                <TableHead
+                  key={col.key}
+                  className={cn(
+                    colWidth[col.key],
+                    col.sortable && 'cursor-pointer select-none hover:bg-muted/50'
+                  )}
+                  onClick={() => col.sortable && col.sortKey && onSort(col.sortKey)}
+                >
+                  <div className="flex items-center">
+                    {col.label}
+                    {col.sortable && col.sortKey && <SortIcon column={col.sortKey} />}
+                  </div>
+                </TableHead>
+              )
+            })}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -306,7 +318,7 @@ export function ContactsTable({
               data-selected={selectedIds.has(contact.id)}
               onClick={() => onRowClick?.(contact)}
             >
-              <TableCell>
+              <TableCell className="w-10 px-2">
                 <Checkbox
                   checked={selectedIds.has(contact.id)}
                   onCheckedChange={(checked) =>
@@ -316,7 +328,7 @@ export function ContactsTable({
                 />
               </TableCell>
               {columns.map((col) => (
-                <TableCell key={col.key}>{renderCell(contact, col.key)}</TableCell>
+                <TableCell key={col.key} className="overflow-hidden text-ellipsis whitespace-nowrap">{renderCell(contact, col.key)}</TableCell>
               ))}
             </TableRow>
           ))}

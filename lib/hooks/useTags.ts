@@ -16,7 +16,7 @@ export function useTags() {
       const { data, error } = await supabase
         .from('tags')
         .select('*')
-        .order('name', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (error) throw error
       return data || []
@@ -33,7 +33,7 @@ export function useTagsWithCounts() {
       const { data: tags, error } = await supabase
         .from('tags')
         .select('*')
-        .order('name', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (error) throw error
       if (!tags || tags.length === 0) return []

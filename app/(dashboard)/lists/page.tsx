@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,6 +22,7 @@ import {
   ListsPageHeader,
   ListStats,
 } from '@/components/lists'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { useLists, useListStats, useDeleteList, useBulkDeleteLists } from '@/lib/hooks/useLists'
 import { toast } from '@/lib/hooks/use-toast'
 import type { List, ListFilters } from '@/lib/types/lists'
@@ -35,6 +36,8 @@ export default function ListsPage() {
   const [addContactsListId, setAddContactsListId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const { data: lists = [], isLoading: listsLoading } = useLists(filters)
   const { data: stats, isLoading: statsLoading } = useListStats()
@@ -43,7 +46,13 @@ export default function ListsPage() {
 
   const handleSearch = (search: string) => {
     setFilters((prev) => ({ ...prev, search }))
+    setPage(1)
   }
+
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize)
+    setPage(1)
+  }, [])
 
   const handleView = (list: List) => {
     setSelectedList(list)
@@ -159,7 +168,21 @@ export default function ListsPage() {
         onDelete={setListToDelete}
         selectedIds={selectedIds}
         onSelectedIdsChange={setSelectedIds}
+        page={page}
+        pageSize={pageSize}
       />
+
+      {/* Pagination */}
+      {lists.length > 0 && (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={lists.length}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          label="lists"
+        />
+      )}
 
       {/* List Detail Sheet */}
       <ListDetailSheet

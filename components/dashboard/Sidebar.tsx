@@ -155,7 +155,7 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-5">
+      <nav className="flex-1 overflow-y-auto p-3 space-y-5 scrollbar-hide">
         {visibleSections.map((section) => (
           <div key={section.label}>
             {!collapsed && (

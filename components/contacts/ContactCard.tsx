@@ -44,8 +44,8 @@ export function ContactCard({
     .join(', ')
 
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onViewProfile(contact)}>
-      <CardContent className="p-4">
+    <Card className="hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col" onClick={() => onViewProfile(contact)}>
+      <CardContent className="p-4 flex flex-col flex-1">
         <div className="flex flex-col items-center text-center mb-4">
           <Avatar className="h-16 w-16 mb-3">
             <AvatarFallback className={`${avatarColour} text-white text-lg font-medium`}>
@@ -97,7 +97,7 @@ export function ContactCard({
           )}
         </div>
 
-        <div className="flex gap-2 mt-4 pt-4 border-t">
+        <div className="flex gap-2 mt-auto pt-4 border-t">
           <Button
             variant="outline"
             size="sm"

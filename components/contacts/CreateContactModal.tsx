@@ -138,7 +138,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
       const { data, error } = await supabase
         .from('lists')
         .select('id, name')
-        .order('name')
+        .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
     },
@@ -674,7 +674,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
                       <SelectValue placeholder="Select a list (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">No list</SelectItem>
+                      <SelectItem value="__none__">— None —</SelectItem>
                       {lists.map((list) => (
                         <SelectItem key={list.id} value={list.id}>
                           {list.name}

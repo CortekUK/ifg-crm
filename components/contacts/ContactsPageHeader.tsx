@@ -21,12 +21,14 @@ export function ContactsPageHeader({
 }: ContactsPageHeaderProps) {
   return (
     <div className="banner-gradient rounded-xl p-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <p className="text-white/90 text-base">
-          Manage your contacts, player profiles, and targeted marketing campaigns.
-        </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <p className="text-white/90 text-base">
+            Manage your contacts, player profiles, and targeted marketing campaigns.
+          </p>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* View Toggle */}
           <div className="flex bg-white/20 rounded-lg p-1">
             <button

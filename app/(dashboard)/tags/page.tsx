@@ -43,7 +43,7 @@ import {
 import {
   Search,
   Plus,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Trash2,
   Tag,
@@ -105,8 +105,8 @@ export default function TagsPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [sortField, setSortField] = useState<SortField>('name')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+  const [sortField, setSortField] = useState<SortField>('created_at')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [editingTag, setEditingTag] = useState<TagWithCount | null>(null)
   const [tagToDelete, setTagToDelete] = useState<TagWithCount | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -528,10 +528,10 @@ export default function TagsPage() {
         </div>
       ) : (
         <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
-          <Table>
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40px]">
+                <TableHead className="w-10 px-2">
                   <Checkbox
                     checked={
                       filteredTags.length > 0 &&
@@ -540,7 +540,7 @@ export default function TagsPage() {
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-[35%]">
                   <button
                     onClick={() => handleSort('name')}
                     className={cn(
@@ -551,8 +551,8 @@ export default function TagsPage() {
                     Name <SortIcon field="name" />
                   </button>
                 </TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">
+                <TableHead className="w-[15%]">Category</TableHead>
+                <TableHead className="w-[12%] text-right">
                   <button
                     onClick={() => handleSort('contact_count')}
                     className={cn(
@@ -563,7 +563,7 @@ export default function TagsPage() {
                     Contacts <SortIcon field="contact_count" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-[15%]">
                   <button
                     onClick={() => handleSort('created_at')}
                     className={cn(
@@ -574,7 +574,7 @@ export default function TagsPage() {
                     Created <SortIcon field="created_at" />
                   </button>
                 </TableHead>
-                <TableHead className="w-[70px]" />
+                <TableHead className="w-[60px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -597,8 +597,8 @@ export default function TagsPage() {
                         onCheckedChange={() => toggleSelectTag(tag.id)}
                       />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
+                    <TableCell className="overflow-hidden">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
                           className="p-2 rounded-lg shrink-0"
                           style={{ backgroundColor: `${tag.color || '#3b82f6'}20` }}
@@ -619,7 +619,7 @@ export default function TagsPage() {
                             }}
                           />
                         ) : (
-                          <span className="font-medium text-gray-900 dark:text-white">{tag.name}</span>
+                          <span className="font-medium text-gray-900 dark:text-white truncate" title={tag.name}>{tag.name}</span>
                         )}
                       </div>
                     </TableCell>
@@ -647,7 +647,7 @@ export default function TagsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

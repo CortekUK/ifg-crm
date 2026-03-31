@@ -37,7 +37,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
 ]
 
 export const DEFAULT_VISIBLE_COLUMNS = [
-  'name', 'email', 'phone', 'graduation_year', 'country', 'tags', 'source', 'created_at', 'status',
+  'name', 'email', 'phone', 'graduation_year', 'country', 'source', 'status',
 ]
 
 const STORAGE_KEY = 'contacts-table-columns'

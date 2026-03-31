@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Eye, Pencil, Trash2, Users, ListIcon, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { MoreVertical, Eye, Pencil, Trash2, Users, ListIcon, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { List } from '@/lib/types/lists'
@@ -36,6 +36,8 @@ interface ListsTableProps {
   onDelete: (list: List) => void
   selectedIds?: Set<string>
   onSelectedIdsChange?: (ids: Set<string>) => void
+  page?: number
+  pageSize?: number
 }
 
 function SortIcon({ field, activeField, dir }: { field: SortField; activeField: SortField; dir: SortDir }) {
@@ -53,9 +55,11 @@ export function ListsTable({
   onDelete,
   selectedIds,
   onSelectedIdsChange,
+  page = 1,
+  pageSize = 25,
 }: ListsTableProps) {
-  const [sortField, setSortField] = useState<SortField>('name')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [sortField, setSortField] = useState<SortField>('created_at')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const hasBulkSelect = !!selectedIds && !!onSelectedIdsChange
 
@@ -88,6 +92,11 @@ export function ListsTable({
     return sorted
   }, [lists, sortField, sortDir])
 
+  const paginatedLists = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return sortedLists.slice(start, start + pageSize)
+  }, [sortedLists, page, pageSize])
+
   const toggleSelect = (listId: string) => {
     if (!selectedIds || !onSelectedIdsChange) return
     const next = new Set(selectedIds)
@@ -98,10 +107,10 @@ export function ListsTable({
 
   const toggleSelectAll = () => {
     if (!selectedIds || !onSelectedIdsChange) return
-    if (selectedIds.size === sortedLists.length) {
+    if (selectedIds.size === paginatedLists.length) {
       onSelectedIdsChange(new Set())
     } else {
-      onSelectedIdsChange(new Set(sortedLists.map((l) => l.id)))
+      onSelectedIdsChange(new Set(paginatedLists.map((l) => l.id)))
     }
   }
 
@@ -150,38 +159,38 @@ export function ListsTable({
 
   return (
     <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
-      <Table>
+      <Table className="table-fixed w-full">
         <TableHeader>
           <TableRow>
             {hasBulkSelect && (
-              <TableHead className="w-[40px]">
+              <TableHead className="w-10 px-2">
                 <Checkbox
-                  checked={sortedLists.length > 0 && selectedIds.size === sortedLists.length}
+                  checked={paginatedLists.length > 0 && selectedIds.size === paginatedLists.length}
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
             )}
-            <TableHead>
+            <TableHead className="w-[25%]">
               <button onClick={() => toggleSort('name')} className={cn("flex items-center gap-1 hover:text-foreground transition-colors", sortField === 'name' && "text-foreground")}>
                 Name <SortIcon field="name" activeField={sortField} dir={sortDir} />
               </button>
             </TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead className="text-right">
+            <TableHead className="w-[35%]">Description</TableHead>
+            <TableHead className="w-[12%] text-right">
               <button onClick={() => toggleSort('contact_count')} className={cn("flex items-center gap-1 ml-auto hover:text-foreground transition-colors", sortField === 'contact_count' && "text-foreground")}>
                 Contacts <SortIcon field="contact_count" activeField={sortField} dir={sortDir} />
               </button>
             </TableHead>
-            <TableHead>
+            <TableHead className="w-[15%]">
               <button onClick={() => toggleSort('created_at')} className={cn("flex items-center gap-1 hover:text-foreground transition-colors", sortField === 'created_at' && "text-foreground")}>
                 Created <SortIcon field="created_at" activeField={sortField} dir={sortDir} />
               </button>
             </TableHead>
-            <TableHead className="w-[70px]"></TableHead>
+            <TableHead className="w-[60px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedLists.map((list) => {
+          {paginatedLists.map((list) => {
             const isSelected = hasBulkSelect && selectedIds.has(list.id)
 
             return (
@@ -203,17 +212,17 @@ export function ListsTable({
                 )}
 
                 {/* Name */}
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                <TableCell className="overflow-hidden">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg shrink-0">
                       <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <span className="font-medium text-gray-900 dark:text-white">{list.name}</span>
+                    <span className="font-medium text-gray-900 dark:text-white truncate" title={list.name}>{list.name}</span>
                   </div>
                 </TableCell>
 
                 {/* Description */}
-                <TableCell className="text-muted-foreground max-w-xs truncate">
+                <TableCell className="text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                   {list.description || '\u2014'}
                 </TableCell>
 
@@ -234,7 +243,7 @@ export function ListsTable({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">

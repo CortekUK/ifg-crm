@@ -22,6 +22,7 @@ export function useHotkeys(hotkeys: HotkeyConfig[]) {
 
       for (const hotkey of hotkeys) {
         if (!hotkey.allowInInput && isInput) continue
+        if (!hotkey.key) continue
 
         const keyMatch = e.key.toLowerCase() === hotkey.key.toLowerCase()
         const ctrlMatch = hotkey.ctrl ? (e.ctrlKey || e.metaKey) : true
