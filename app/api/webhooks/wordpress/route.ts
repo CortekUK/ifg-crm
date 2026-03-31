@@ -176,11 +176,7 @@ export async function POST(request: NextRequest) {
 
     const formData: WordPressFormSubmission = JSON.parse(payload)
 
-    console.log('Received WordPress form submission:', {
-      form_id: formData.form_id,
-      form_name: formData.form_name,
-      email: formData.email,
-    })
+    console.log('Received WordPress form submission:', JSON.stringify(formData, null, 2))
 
     // Normalize the form data
     const normalized = normalizeFormData(formData)
@@ -227,8 +223,7 @@ export async function POST(request: NextRequest) {
       if (normalized.phone) updates.phone = normalized.phone
       if (normalized.graduation_year) updates.graduation_year = normalized.graduation_year
       if (normalized.position) updates.position = normalized.position
-      if (normalized.club) updates.club = normalized.club
-      if (normalized.school) updates.school = normalized.school
+      if (normalized.club) updates.club_name = normalized.club
       
       if (Object.keys(updates).length > 0) {
         await supabase
@@ -244,14 +239,12 @@ export async function POST(request: NextRequest) {
         .from('contacts')
         .insert({
           email: normalized.email,
-          first_name: normalized.first_name,
-          last_name: normalized.last_name,
+          first_name: normalized.first_name || 'Unknown',
+          last_name: normalized.last_name || 'Contact',
           phone: normalized.phone,
           graduation_year: normalized.graduation_year,
           position: normalized.position,
-          sport: normalized.sport,
-          club: normalized.club,
-          school: normalized.school,
+          club_name: normalized.club,
           notes: normalized.notes,
           source: 'website_form',
         })
