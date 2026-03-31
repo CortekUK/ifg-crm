@@ -34,34 +34,31 @@ export async function updateSession(request: NextRequest) {
   // Skip auth redirect for API routes (they handle their own auth and return JSON errors)
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
-  if (
-    !user &&
-    !isApiRoute &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/register') &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    !request.nextUrl.pathname.startsWith('/forgot-password') &&
-    !request.nextUrl.pathname.startsWith('/set-password') &&
-    !request.nextUrl.pathname.startsWith('/unauthorized')
-  ) {
+  // Public routes that don't require auth
+  const isPublicRoute =
+    request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/register') ||
+    request.nextUrl.pathname.startsWith('/auth') ||
+    request.nextUrl.pathname.startsWith('/forgot-password') ||
+    request.nextUrl.pathname.startsWith('/set-password') ||
+    request.nextUrl.pathname.startsWith('/unauthorized') ||
+    request.nextUrl.pathname === '/portal/login'
+
+  if (!user && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    // If trying to access portal, redirect to portal login
+    if (request.nextUrl.pathname.startsWith('/portal')) {
+      url.pathname = '/portal/login'
+    } else {
+      url.pathname = '/login'
+    }
     return NextResponse.redirect(url)
   }
 
-  // Admin-only route protection
-  const adminOnlyPaths = [
-    '/campaigns', '/lists', '/templates', '/automations',
-    '/invoices', '/payments', '/analytics', '/reports',
-    '/users', '/settings',
-  ]
-
   const pathname = request.nextUrl.pathname
-  const isAdminRoute = adminOnlyPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  )
 
-  if (user && isAdminRoute && !isApiRoute) {
+  // Role-based route protection
+  if (user && !isApiRoute) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -69,10 +66,41 @@ export async function updateSession(request: NextRequest) {
       .single()
 
     const role = profile?.role
-    if (role !== 'admin' && role !== 'super_admin') {
+
+    // Player-specific routing
+    if (role === 'player') {
+      // Players can only access /portal/* routes
+      if (!pathname.startsWith('/portal') && !pathname.startsWith('/auth') && !pathname.startsWith('/set-password')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/portal'
+        return NextResponse.redirect(url)
+      }
+    }
+
+    // Portal routes are player-only
+    if (pathname.startsWith('/portal') && pathname !== '/portal/login' && role !== 'player') {
       const url = request.nextUrl.clone()
-      url.pathname = '/unauthorized'
+      url.pathname = '/dashboard'
       return NextResponse.redirect(url)
+    }
+
+    // Admin-only route protection
+    const adminOnlyPaths = [
+      '/campaigns', '/lists', '/templates', '/automations',
+      '/invoices', '/payments', '/analytics', '/reports',
+      '/users', '/settings',
+    ]
+
+    const isAdminRoute = adminOnlyPaths.some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`)
+    )
+
+    if (isAdminRoute) {
+      if (role !== 'admin' && role !== 'super_admin') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/unauthorized'
+        return NextResponse.redirect(url)
+      }
     }
   }
 

@@ -61,7 +61,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreVertical, Pause, Play, MessageCircle } from 'lucide-react'
+import { MoreVertical, Pause, Play, MessageCircle, UserPlus } from 'lucide-react'
 import { LogReplyModal } from './LogReplyModal'
 import { AddDealFromContactSheet } from './AddDealFromContactSheet'
 import { OwnerSelect } from '@/components/ui/owner-select'
@@ -131,6 +131,7 @@ export function ContactDetailSheet({
   const [isAddDealOpen, setIsAddDealOpen] = useState(false)
   const [isEditingOwner, setIsEditingOwner] = useState(false)
   const [newNoteContent, setNewNoteContent] = useState('')
+  const [isInviting, setIsInviting] = useState(false)
 
   const { data: contact, isLoading: contactLoading } = useContact(contactId)
   const { data: deals = [], isLoading: dealsLoading } = useContactDeals(contactId)
@@ -384,6 +385,35 @@ export function ContactDetailSheet({
                 <span className="text-xs">Edit</span>
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-col h-auto py-2 gap-1"
+              disabled={isInviting}
+              onClick={async () => {
+                if (!contact) return
+                setIsInviting(true)
+                try {
+                  const res = await fetch('/api/portal/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contact_id: contact.id }),
+                  })
+                  const data = await res.json()
+                  if (res.ok) {
+                    toast({ title: 'Invitation sent', description: data.message })
+                  } else {
+                    toast({ title: 'Error', description: data.error, variant: 'destructive' })
+                  }
+                } catch {
+                  toast({ title: 'Error', description: 'Failed to send invite', variant: 'destructive' })
+                }
+                setIsInviting(false)
+              }}
+            >
+              {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+              <span className="text-xs">Portal</span>
+            </Button>
           </div>
         </SheetHeader>
 

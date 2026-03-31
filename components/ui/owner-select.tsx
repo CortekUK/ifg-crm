@@ -52,8 +52,8 @@ export function OwnerSelect({
 }: OwnerSelectProps) {
   const { data: users = [], isLoading } = useUsers()
 
-  // Filter to only active users who can be assigned
-  const activeUsers = users.filter((u) => u.is_active)
+  // Filter to only active staff users (exclude players)
+  const activeUsers = users.filter((u) => u.is_active && u.role !== 'player')
 
   if (isLoading) {
     return <Skeleton className={`h-10 w-full ${className}`} />

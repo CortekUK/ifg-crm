@@ -12,7 +12,7 @@ export function usePipelines() {
         .from('pipelines')
         .select('*, programme:programmes(*)')
         .eq('is_active', true)
-        .order('display_order')
+        .order('created_at', { ascending: false })
 
       if (error) throw error
       return data || []

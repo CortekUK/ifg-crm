@@ -138,6 +138,35 @@ export function useUpdateInvoiceStatus() {
         updateData.paid_at = new Date().toISOString()
       }
 
+      // Notify player when invoice is sent
+      if (status === 'sent') {
+        const { data: invoice } = await supabase
+          .from('invoices')
+          .select('contact_id, invoice_number, amount, currency')
+          .eq('id', invoiceId)
+          .single()
+
+        if (invoice?.contact_id) {
+          const { data: playerProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('contact_id', invoice.contact_id)
+            .eq('role', 'player')
+            .single()
+
+          if (playerProfile) {
+            const formatted = new Intl.NumberFormat('en-GB', { style: 'currency', currency: invoice.currency || 'GBP' }).format(invoice.amount)
+            await supabase.from('notifications').insert({
+              user_id: playerProfile.id,
+              type: 'payment',
+              title: 'New Invoice',
+              message: `Invoice ${invoice.invoice_number} for ${formatted} is ready for payment.`,
+              href: '/portal/invoices',
+            })
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('invoices')
         .update(updateData)

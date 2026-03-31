@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(grep -r \"RESEND\\\\|CLICKSEND\\\\|TWILIO\\\\|SENDGRID\" /d/ifg-crm --include=*.ts --include=*.tsx --include=*.js --include=.env*)",
+      "Bash(grep -r \"invoices\\\\|payments\" /d/ifg-crm/supabase/migrations/*.sql)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(find /d/ifg-crm -type f -name *portal* -o -name *player*)",
+      "Bash(find /d/ifg-crm/components/invoices -type f -name *.tsx)",
+      "Bash(cd /d D:ifg-crm)",
+      "Bash(find . -name *notifications* -o -name *send-email*)",
+      "Bash(ls -la /d/ifg-crm/app/\\\\\\(dashboard\\\\\\)/players/)",
+      "Bash(cd:*)",
+      "Bash(npx next:*)"
     ]
   }
 }

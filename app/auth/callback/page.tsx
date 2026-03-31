@@ -14,6 +14,24 @@ function CallbackHandler() {
       const supabase = createClient()
       const code = searchParams.get('code')
 
+      // Helper to redirect based on user role
+      const redirectByRole = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
+          if (profile?.role === 'player') {
+            router.replace('/set-password?redirect=/portal')
+            return
+          }
+        }
+        router.replace('/set-password')
+      }
+
       // PKCE flow (password reset / magic link with code)
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
@@ -22,7 +40,7 @@ function CallbackHandler() {
           router.replace('/login?error=invalid_link')
           return
         }
-        router.replace('/set-password')
+        await redirectByRole()
         return
       }
 
@@ -45,7 +63,7 @@ function CallbackHandler() {
             return
           }
 
-          router.replace('/set-password')
+          await redirectByRole()
           return
         }
       }
@@ -53,7 +71,7 @@ function CallbackHandler() {
       // Fallback: check if session already exists (e.g. from auto-detection)
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.replace('/set-password')
+        await redirectByRole()
         return
       }
 
