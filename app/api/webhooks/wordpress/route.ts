@@ -263,6 +263,19 @@ export async function POST(request: NextRequest) {
       console.log(`Created new contact: ${contactId}`)
     }
 
+    // Save form message as a contact note
+    if (normalized.notes) {
+      try {
+        const noteContent = `[Website Form] ${formData.form_name || 'Contact Form'}:\n${normalized.notes}`
+        await supabase.from('contact_notes').insert({
+          contact_id: contactId,
+          content: noteContent,
+        })
+      } catch (err) {
+        console.error('Failed to save form message as note:', err)
+      }
+    }
+
     // Store form submission for record keeping
     try {
       await supabase.from('form_submissions').insert({
