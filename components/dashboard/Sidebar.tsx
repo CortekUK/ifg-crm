@@ -79,7 +79,7 @@ const navSections = [
     adminOnly: true,
     items: [
       { href: '/invoices', label: 'Invoices', icon: ReceiptPoundSterling },
-      { href: '/payments', label: 'Payments', icon: CreditCard },
+      // { href: '/payments', label: 'Payments', icon: CreditCard },
     ],
   },
   {

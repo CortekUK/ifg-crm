@@ -30,6 +30,10 @@ import { toast } from '@/lib/hooks/use-toast'
 import { formatCurrency, formatDateLong } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { RecordPaymentModal } from '@/components/payments/RecordPaymentModal'
+import { useState } from 'react'
 import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF'
 import type { InvoiceStatus, InvoiceType } from '@/lib/types/invoices'
 
@@ -60,6 +64,23 @@ const typeLabels: Record<InvoiceType, string> = {
 export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetailSheetProps) {
   const { data: invoice, isLoading } = useInvoice(invoiceId)
   const updateStatus = useUpdateInvoiceStatus()
+  const [recordPaymentOpen, setRecordPaymentOpen] = useState(false)
+  const supabase = createClient()
+
+  // Fetch payment history for this invoice
+  const { data: paymentHistory = [] } = useQuery({
+    queryKey: ['invoice-payments', invoiceId],
+    queryFn: async () => {
+      if (!invoiceId) return []
+      const { data } = await supabase
+        .from('payments')
+        .select('id, amount, payment_date, payment_method, reference, notes')
+        .eq('invoice_id', invoiceId)
+        .order('payment_date', { ascending: false })
+      return data || []
+    },
+    enabled: !!invoiceId && isOpen,
+  })
 
   const handleSend = async () => {
     if (!invoiceId) return
@@ -296,13 +317,35 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                 <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                   Payment History
                 </h3>
-                {invoice.paid_at ? (
+                {paymentHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    {paymentHistory.map((pmt) => (
+                      <div key={pmt.id} className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
+                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-green-900 dark:text-green-200 capitalize">
+                            {pmt.payment_method?.replace('_', ' ') || 'Payment'}
+                          </p>
+                          <p className="text-xs text-green-700 dark:text-green-300">{formatDateLong(pmt.payment_date)}</p>
+                          {pmt.reference && (
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Ref: {pmt.reference}</p>
+                          )}
+                        </div>
+                        <p className="font-semibold text-green-600">{formatCurrency(pmt.amount)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : invoice.status === 'paid' && invoice.paid_at ? (
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                     <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
                       <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-green-900 dark:text-green-200">Payment Received</p>
+                      <p className="text-sm font-medium text-green-900 dark:text-green-200 capitalize">
+                        {invoice.payment_method?.replace('_', ' ') || 'Payment'}
+                      </p>
                       <p className="text-xs text-green-700 dark:text-green-300">{formatDateLong(invoice.paid_at)}</p>
                     </div>
                     <p className="font-semibold text-green-600">{formatCurrency(invoice.amount)}</p>
@@ -331,13 +374,13 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                     </>
                   )}
 
-                  {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                  {(invoice.status === 'sent' || invoice.status === 'overdue') && paymentHistory.length === 0 && (
                     <>
                       <Button variant="outline" onClick={handleSend} disabled={updateStatus.isPending} className="flex-1">
                         <Bell className="h-4 w-4 mr-2" />
                         Send Reminder
                       </Button>
-                      <Button onClick={handleMarkPaid} disabled={updateStatus.isPending} className="flex-1 bg-green-600 hover:bg-green-700">
+                      <Button onClick={() => setRecordPaymentOpen(true)} className="flex-1 bg-green-600 hover:bg-green-700">
                         <CreditCard className="h-4 w-4 mr-2" />
                         Record Payment
                       </Button>
@@ -372,6 +415,16 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
           </>
         )}
       </SheetContent>
+
+      {/* Record Payment Modal */}
+      {invoice && (
+        <RecordPaymentModal
+          isOpen={recordPaymentOpen}
+          onClose={() => setRecordPaymentOpen(false)}
+          preselectedContactId={invoice.contact_id}
+          preselectedInvoiceId={invoice.id}
+        />
+      )}
     </Sheet>
   )
 }

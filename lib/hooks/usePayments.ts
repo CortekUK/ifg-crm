@@ -65,26 +65,31 @@ export function useCreatePayment() {
 
   return useMutation({
     mutationFn: async (input: CreatePaymentInput) => {
+      const { currency, status, ...paymentInput } = input as CreatePaymentInput & { currency?: string; status?: string }
       const { data, error } = await supabase
         .from('payments')
-        .insert({
-          ...input,
-          status: 'successful',
-          currency: input.currency || 'GBP',
-        })
+        .insert(paymentInput)
         .select()
         .single()
 
-      if (error) throw error
+      if (error) throw new Error(error.message || 'Failed to record payment')
 
       // If linked to an invoice, update invoice status to paid
       if (input.invoice_id) {
+        // Map payment method to invoice-compatible values
+        const invoiceMethodMap: Record<string, string> = {
+          stripe: 'stripe',
+          bank_transfer: 'bank_transfer',
+          website: 'website',
+          cash: 'manual',
+          other: 'manual',
+        }
         const { error: invoiceError } = await supabase
           .from('invoices')
           .update({
             status: 'paid',
             paid_at: new Date().toISOString(),
-            payment_method: input.payment_method,
+            payment_method: invoiceMethodMap[input.payment_method] || 'manual',
           })
           .eq('id', input.invoice_id)
 
@@ -100,6 +105,7 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({ queryKey: ['payment-stats'] })
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
       queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['invoice-payments'] })
     },
   })
 }

@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
           payment_method: 'stripe',
           stripe_payment_id: paymentIntentId,
           reference: `Stripe Checkout ${session.id}`,
-          status: 'successful',
         })
       }
 

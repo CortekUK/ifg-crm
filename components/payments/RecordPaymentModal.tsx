@@ -47,7 +47,9 @@ import type { PaymentMethod } from '@/lib/types/payments'
 interface RecordPaymentModalProps {
   isOpen: boolean
   onClose: () => void
-  userId: string
+  userId?: string
+  preselectedContactId?: string
+  preselectedInvoiceId?: string
 }
 
 const paymentMethods: { value: PaymentMethod; label: string }[] = [
@@ -70,12 +72,14 @@ export function RecordPaymentModal({
   isOpen,
   onClose,
   userId,
+  preselectedContactId,
+  preselectedInvoiceId,
 }: RecordPaymentModalProps) {
   const [contactSearch, setContactSearch] = useState('')
   const [contactOpen, setContactOpen] = useState(false)
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(preselectedContactId || null)
   const [selectedContactName, setSelectedContactName] = useState('')
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(preselectedInvoiceId || null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('bank_transfer')
   const [amount, setAmount] = useState('')
   const [reference, setReference] = useState('')
@@ -115,21 +119,21 @@ export function RecordPaymentModal({
     loadInvoices()
   }, [selectedContactId])
 
-  // Reset form when modal opens
+  // Reset form when modal opens (with preselected values if provided)
   useEffect(() => {
     if (isOpen) {
       setContactSearch('')
-      setSelectedContactId(null)
+      setSelectedContactId(preselectedContactId || null)
       setSelectedContactName('')
-      setSelectedInvoiceId(null)
+      setSelectedInvoiceId(preselectedInvoiceId || null)
       setPaymentMethod('bank_transfer')
       setAmount('')
       setReference('')
       setPaymentDate(new Date())
       setNotes('')
-      setInvoices([])
+      if (!preselectedContactId) setInvoices([])
     }
-  }, [isOpen])
+  }, [isOpen, preselectedContactId, preselectedInvoiceId])
 
   // Auto-fill amount when invoice is selected
   useEffect(() => {
@@ -152,6 +156,14 @@ export function RecordPaymentModal({
     if (!selectedContactId || !amount || !paymentDate || parseFloat(amount) <= 0) return
 
     try {
+      // Get current user ID for recorded_by
+      let recordedById = userId
+      if (!recordedById) {
+        const { data: { user } } = await createClient().auth.getUser()
+        recordedById = user?.id
+      }
+      if (!recordedById) throw new Error('Not authenticated')
+
       await createPayment.mutateAsync({
         contact_id: selectedContactId,
         invoice_id: selectedInvoiceId,
@@ -159,20 +171,25 @@ export function RecordPaymentModal({
         payment_method: paymentMethod,
         reference: reference || undefined,
         notes: notes || undefined,
-        recorded_by_id: userId,
+        recorded_by_id: recordedById,
         payment_date: format(paymentDate, 'yyyy-MM-dd'),
       })
 
       toast({
         title: 'Payment recorded',
-        description: `Payment of £${parseFloat(amount).toFixed(2)} recorded for ${selectedContactName}.`,
+        description: `Payment of £${parseFloat(amount).toFixed(2)} recorded successfully.`,
       })
 
       onClose()
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'An unexpected error occurred'
       toast({
         title: 'Failed to record payment',
-        description: error instanceof Error ? error.message : 'An error occurred',
+        description: message,
         variant: 'destructive',
       })
     }
@@ -200,7 +217,8 @@ export function RecordPaymentModal({
 
         <div className="flex-1 overflow-y-auto px-6">
           <div className="space-y-6 py-6">
-            {/* Contact Selection */}
+            {/* Contact Selection - hidden when preselected from invoice */}
+            {!preselectedInvoiceId && (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Contact & Invoice
@@ -287,6 +305,7 @@ export function RecordPaymentModal({
                 </div>
               )}
             </div>
+            )}
 
             {/* Payment Details */}
             <div className="space-y-4">

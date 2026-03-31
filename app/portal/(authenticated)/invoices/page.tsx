@@ -41,8 +41,10 @@ interface Invoice {
   due_date: string
   paid_at: string | null
   sent_at: string | null
+  payment_method: string | null
   notes: string | null
   created_at: string
+  programme_name: string | null
 }
 
 interface Payment {
@@ -106,11 +108,18 @@ export default function PortalInvoicesPage() {
 
       const { data } = await supabase
         .from('invoices')
-        .select('id, invoice_number, description, amount, currency, status, type, due_date, paid_at, sent_at, notes, created_at')
+        .select('id, invoice_number, description, amount, currency, status, type, due_date, paid_at, sent_at, payment_method, notes, created_at, deal:deals(pipeline:pipelines(name))')
         .eq('contact_id', profile.contact_id)
         .order('created_at', { ascending: false })
 
-      setInvoices(data || [])
+      setInvoices((data || []).map((inv) => {
+        const deal = inv.deal as unknown as { pipeline: { name: string } | null } | null
+        return {
+          ...inv,
+          programme_name: deal?.pipeline?.name || null,
+          deal: undefined,
+        } as Invoice
+      }))
       setLoading(false)
     }
 
@@ -400,7 +409,12 @@ export default function PortalInvoicesPage() {
                         </Badge>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{invoice.description}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Due {formatDate(invoice.due_date)}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {invoice.programme_name && (
+                          <span className="text-[10px] text-blue-500 dark:text-blue-400 font-medium">{invoice.programme_name}</span>
+                        )}
+                        <span className="text-[10px] text-slate-400">Due {formatDate(invoice.due_date)}</span>
+                      </div>
                     </div>
 
                     {/* Amount + Action */}
@@ -496,6 +510,12 @@ export default function PortalInvoicesPage() {
                       <span className="text-sm text-slate-500 dark:text-slate-400">Type</span>
                       <span className="text-sm text-slate-900 dark:text-white">{typeLabels[inv.type] || inv.type}</span>
                     </div>
+                    {inv.programme_name && (
+                      <div className="flex justify-between p-3.5">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Programme</span>
+                        <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">{inv.programme_name}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between p-3.5">
                       <span className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                         <Calendar className="h-3.5 w-3.5" /> Due Date
@@ -521,6 +541,19 @@ export default function PortalInvoicesPage() {
                     <div className="space-y-2">
                       <Skeleton className="h-12 rounded-xl" />
                       <Skeleton className="h-12 rounded-xl" />
+                    </div>
+                  ) : payments.length === 0 && inv.status === 'paid' && inv.paid_at ? (
+                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-green-900 dark:text-green-200">
+                          {inv.payment_method ? inv.payment_method.replace('_', ' ') : 'Payment'}
+                        </p>
+                        <p className="text-xs text-green-700 dark:text-green-300">{formatDate(inv.paid_at)}</p>
+                      </div>
+                      <p className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(inv.amount, inv.currency)}</p>
                     </div>
                   ) : payments.length === 0 ? (
                     <div className="text-center py-6">

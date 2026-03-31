@@ -307,6 +307,7 @@ export function InvoicesTable({
                 Paid <InvoiceSortIcon field="paid_at" activeField={sortField} dir={sortDir} />
               </div>
             </TableHead>
+            <TableHead className="w-[100px]">Method</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -394,6 +395,11 @@ export function InvoicesTable({
                 {/* Paid Date */}
                 <TableCell className="text-sm text-muted-foreground">
                   {invoice.paid_at ? formatDate(invoice.paid_at) : '—'}
+                </TableCell>
+
+                {/* Payment Method */}
+                <TableCell className="text-sm text-muted-foreground capitalize">
+                  {invoice.payment_method?.replace('_', ' ') || '—'}
                 </TableCell>
 
                 {/* Actions */}
