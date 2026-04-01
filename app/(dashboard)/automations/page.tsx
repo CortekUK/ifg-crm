@@ -146,8 +146,11 @@ export default function AutomationsPage() {
           name: data.name,
           description: data.description,
           automation_type: data.automation_type,
+          trigger_type: data.automation_type === 'deal_creation' ? 'form_submission' : 'enters_stage',
           pipeline_id: data.pipeline_id,
-          trigger_stage_id: data.trigger_stage_id,
+          trigger_stage_id: data.automation_type === 'deal_creation'
+            ? (data.config?.initial_stage_id || data.trigger_stage_id)
+            : data.trigger_stage_id,
           stop_on_stage_ids: data.stop_on_stage_ids,
           config: data.config,
         })
@@ -163,7 +166,9 @@ export default function AutomationsPage() {
           automation_type: data.automation_type,
           trigger_type: data.automation_type === 'deal_creation' ? 'form_submission' : 'enters_stage',
           pipeline_id: data.pipeline_id,
-          trigger_stage_id: data.trigger_stage_id,
+          trigger_stage_id: data.automation_type === 'deal_creation'
+            ? (data.config?.initial_stage_id || data.trigger_stage_id)
+            : data.trigger_stage_id,
           stop_on_stage_ids: data.stop_on_stage_ids,
           config: data.config,
         })

@@ -449,6 +449,7 @@ export function useUpdateAutomation() {
           name: input.name,
           description: input.description || null,
           automation_type: input.automation_type || null,
+          trigger_type: input.trigger_type || 'enters_stage',
           pipeline_id: input.pipeline_id || null,
           trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],
