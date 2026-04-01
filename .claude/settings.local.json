@@ -15,7 +15,11 @@
       "Bash(cd:*)",
       "Bash(npx next:*)",
       "Bash(ls -la \"D:/ifg-crm/app/portal/\\(authenticated\\)/pipeline/\")",
-      "Bash(ls -la \"D:/ifg-crm/app/portal/\\(authenticated\\)/campaigns/\")"
+      "Bash(ls -la \"D:/ifg-crm/app/portal/\\(authenticated\\)/campaigns/\")",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill:*)",
+      "Bash(netstat -ano)",
+      "Bash(xargs -I{} taskkill.exe //F //PID {})"
     ]
   }
 }

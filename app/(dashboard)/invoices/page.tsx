@@ -72,9 +72,31 @@ export default function InvoicesPage() {
 
   const handleSend = async (invoice: Invoice) => {
     try {
-      await updateStatus.mutateAsync({ invoiceId: invoice.id, status: 'sent' })
+      const res = await fetch(`/api/invoices/${invoice.id}/send-with-link`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        // Fallback to just marking as sent
+        await updateStatus.mutateAsync({ invoiceId: invoice.id, status: 'sent' })
+        toast({
+          title: 'Invoice marked as sent',
+          description: data.error || 'Email could not be sent.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Invoice sent',
+          description: data.message || 'Invoice sent with payment link.',
+        })
+      }
     } catch (error) {
       console.error('Failed to send invoice:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to send invoice.',
+        variant: 'destructive',
+      })
     }
   }
 
