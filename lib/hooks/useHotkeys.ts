@@ -21,10 +21,10 @@ export function useHotkeys(hotkeys: HotkeyConfig[]) {
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
       for (const hotkey of hotkeys) {
+        if (!hotkey || !hotkey.key) continue
         if (!hotkey.allowInInput && isInput) continue
-        if (!hotkey.key) continue
 
-        const keyMatch = e.key.toLowerCase() === hotkey.key.toLowerCase()
+        const keyMatch = e.key?.toLowerCase() === hotkey.key.toLowerCase()
         const ctrlMatch = hotkey.ctrl ? (e.ctrlKey || e.metaKey) : true
         const shiftMatch = hotkey.shift ? e.shiftKey : true
 

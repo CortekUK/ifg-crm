@@ -30,7 +30,7 @@ export async function POST(
     // Get invoice with contact
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, invoice_number, description, amount, currency, status, due_date, contact_id')
+      .select('id, invoice_number, description, amount, currency, status, due_date, contact_id, deal_id')
       .eq('id', invoiceId)
       .single()
 
@@ -88,7 +88,7 @@ export async function POST(
       },
     })
 
-    // Save checkout session ID
+    // Save checkout session ID and mark as sent
     await supabase
       .from('invoices')
       .update({
@@ -97,6 +97,32 @@ export async function POST(
         stripe_checkout_session_id: session.id,
       })
       .eq('id', invoiceId)
+
+    // Auto-move deal to "Invoice Sent" stage if invoice is linked to a deal
+    if (invoice.deal_id) {
+      const { data: deal } = await supabase
+        .from('deals')
+        .select('id, pipeline_id')
+        .eq('id', invoice.deal_id)
+        .single()
+
+      if (deal) {
+        // Find the "Invoice Sent" stage in this pipeline
+        const { data: invoiceSentStage } = await supabase
+          .from('pipeline_stages')
+          .select('id')
+          .eq('pipeline_id', deal.pipeline_id)
+          .ilike('name', '%invoice%sent%')
+          .single()
+
+        if (invoiceSentStage) {
+          await supabase
+            .from('deals')
+            .update({ current_stage_id: invoiceSentStage.id })
+            .eq('id', deal.id)
+        }
+      }
+    }
 
     // Send email with payment link
     const resendApiKey = process.env.RESEND_API_KEY

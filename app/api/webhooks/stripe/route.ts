@@ -220,6 +220,86 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // ---- AUTO-MOVE DEAL TO "DEPOSIT PAID" ----
+
+      // Find the deal linked to this invoice
+      const { data: invoiceWithDeal } = await supabase
+        .from('invoices')
+        .select('deal_id')
+        .eq('id', invoiceId)
+        .single()
+
+      if (invoiceWithDeal?.deal_id) {
+        const { data: deal } = await supabase
+          .from('deals')
+          .select('id, pipeline_id')
+          .eq('id', invoiceWithDeal.deal_id)
+          .single()
+
+        if (deal) {
+          // Find "Deposit Paid" stage
+          const { data: depositPaidStage } = await supabase
+            .from('pipeline_stages')
+            .select('id')
+            .eq('pipeline_id', deal.pipeline_id)
+            .ilike('name', '%deposit%paid%')
+            .single()
+
+          if (depositPaidStage) {
+            await supabase
+              .from('deals')
+              .update({ current_stage_id: depositPaidStage.id })
+              .eq('id', deal.id)
+
+            console.log(`Deal ${deal.id} moved to Deposit Paid stage`)
+          }
+        }
+      }
+
+      // ---- AUTO-CREATE PORTAL ACCOUNT ----
+
+      if (contactId && contactEmail) {
+        // Check if player already has portal access
+        const { data: existingPlayer } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('contact_id', contactId)
+          .eq('role', 'player')
+          .single()
+
+        if (!existingPlayer) {
+          // Create portal account via Supabase Auth invite
+          try {
+            const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+              contactEmail,
+              {
+                data: {
+                  full_name: contactName || 'Player',
+                  role: 'player',
+                  contact_id: contactId,
+                },
+                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}/auth/callback`,
+              }
+            )
+
+            if (inviteError) {
+              console.error('Failed to create portal account:', inviteError)
+            } else {
+              console.log(`Portal invite sent to ${contactEmail}`)
+
+              // Record the invite
+              await supabase.from('player_invites').insert({
+                contact_id: contactId,
+                email: contactEmail,
+                invited_by: adminUsers?.[0]?.id || '',
+              }).catch(() => {})
+            }
+          } catch (portalErr) {
+            console.error('Portal account creation error:', portalErr)
+          }
+        }
+      }
+
       console.log(`Payment completed for invoice ${invoiceId}`)
     }
   }
