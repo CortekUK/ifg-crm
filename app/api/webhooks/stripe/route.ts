@@ -33,6 +33,18 @@ export async function POST(request: NextRequest) {
     const paymentIntentId = session.payment_intent
 
     if (invoiceId) {
+      // Check if invoice is still valid (not cancelled/deleted)
+      const { data: currentInvoice } = await supabase
+        .from('invoices')
+        .select('status')
+        .eq('id', invoiceId)
+        .single()
+
+      if (!currentInvoice || currentInvoice.status === 'cancelled') {
+        console.log(`Invoice ${invoiceId} is cancelled/deleted — ignoring payment`)
+        return NextResponse.json({ received: true, ignored: true })
+      }
+
       // Update invoice to paid
       await supabase
         .from('invoices')

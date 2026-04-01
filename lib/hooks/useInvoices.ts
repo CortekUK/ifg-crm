@@ -167,6 +167,73 @@ export function useUpdateInvoiceStatus() {
         }
       }
 
+      // Notify player when invoice is cancelled
+      if (status === 'cancelled') {
+        const { data: invoice } = await supabase
+          .from('invoices')
+          .select('contact_id, invoice_number, amount, currency, stripe_checkout_session_id')
+          .eq('id', invoiceId)
+          .single()
+
+        if (invoice?.contact_id) {
+          const formatted = new Intl.NumberFormat('en-GB', { style: 'currency', currency: invoice.currency || 'GBP' }).format(invoice.amount)
+
+          // In-app notification
+          const { data: playerProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('contact_id', invoice.contact_id)
+            .eq('role', 'player')
+            .single()
+
+          if (playerProfile) {
+            await supabase.from('notifications').insert({
+              user_id: playerProfile.id,
+              type: 'payment',
+              title: 'Invoice Cancelled',
+              message: `Invoice ${invoice.invoice_number} for ${formatted} has been cancelled.`,
+              href: '/portal/invoices',
+            })
+          }
+
+          // Send cancellation email
+          const { data: contact } = await supabase
+            .from('contacts')
+            .select('email, first_name, last_name')
+            .eq('id', invoice.contact_id)
+            .single()
+
+          if (contact?.email) {
+            try {
+              const res = await fetch('/api/invoices/notify-cancellation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: contact.email,
+                  name: `${contact.first_name} ${contact.last_name}`,
+                  invoice_number: invoice.invoice_number,
+                  amount: formatted,
+                }),
+              })
+              if (!res.ok) console.error('Failed to send cancellation email')
+            } catch (err) {
+              console.error('Cancellation email error:', err)
+            }
+          }
+
+          // Expire Stripe checkout session if exists
+          if (invoice.stripe_checkout_session_id) {
+            try {
+              await fetch('/api/stripe/expire-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: invoice.stripe_checkout_session_id }),
+              })
+            } catch {}
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('invoices')
         .update(updateData)
