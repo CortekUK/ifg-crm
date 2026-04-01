@@ -381,6 +381,83 @@ function buildAutomationSteps(
         conditions: null,
       })
     }
+  } else if (automationType === 'deposit_invoice') {
+    // Deposit invoice: send email + 3 reminders with waits
+    let stepOrder = 1
+    const maxEmails = Math.max(emails.length, 4)
+    for (let i = 0; i < maxEmails; i++) {
+      if (i > 0) {
+        steps.push({
+          automation_id: automationId,
+          step_order: stepOrder++,
+          step_type: 'wait',
+          delay_days: waitDays[i - 1] || (i === 1 ? 3 : i === 2 ? 5 : 7),
+          delay_hours: 0,
+          email_template_id: null,
+          sms_content: null,
+          target_stage_id: null,
+          conditions: null,
+        })
+      }
+      steps.push({
+        automation_id: automationId,
+        step_order: stepOrder++,
+        step_type: 'send_email',
+        delay_days: 0,
+        delay_hours: 0,
+        email_template_id: emails[i]?.template_id || null,
+        sms_content: null,
+        target_stage_id: null,
+        conditions: null,
+      })
+    }
+  } else {
+    // All other types: single email (or multi-email with waits if configured)
+    // Works for: application_received, interview_reminder, post_interview,
+    //            welcome_sequence, payment_overdue, pre_departure
+    let stepOrder = 1
+
+    if (emails.length > 0) {
+      for (let i = 0; i < emails.length; i++) {
+        if (i > 0 && waitDays[i - 1]) {
+          steps.push({
+            automation_id: automationId,
+            step_order: stepOrder++,
+            step_type: 'wait',
+            delay_days: waitDays[i - 1] || 3,
+            delay_hours: 0,
+            email_template_id: null,
+            sms_content: null,
+            target_stage_id: null,
+            conditions: null,
+          })
+        }
+        steps.push({
+          automation_id: automationId,
+          step_order: stepOrder++,
+          step_type: 'send_email',
+          delay_days: 0,
+          delay_hours: 0,
+          email_template_id: emails[i]?.template_id || null,
+          sms_content: null,
+          target_stage_id: null,
+          conditions: null,
+        })
+      }
+    } else if (config?.single_template_id) {
+      // Single template shortcut
+      steps.push({
+        automation_id: automationId,
+        step_order: stepOrder++,
+        step_type: 'send_email',
+        delay_days: 0,
+        delay_hours: 0,
+        email_template_id: config.single_template_id,
+        sms_content: null,
+        target_stage_id: null,
+        conditions: null,
+      })
+    }
   }
 
   return steps
