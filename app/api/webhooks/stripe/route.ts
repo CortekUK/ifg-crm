@@ -288,11 +288,14 @@ export async function POST(request: NextRequest) {
               console.log(`Portal invite sent to ${contactEmail}`)
 
               // Record the invite
-              await supabase.from('player_invites').insert({
-                contact_id: contactId,
-                email: contactEmail,
-                invited_by: adminUsers?.[0]?.id || '',
-              }).catch(() => {})
+              try {
+                await supabase.from('player_invites').insert({
+                  contact_id: contactId,
+                  email: contactEmail,
+                  invited_by: adminUsers?.[0]?.id || '',
+                })
+              } catch {}
+
             }
           } catch (portalErr) {
             console.error('Portal account creation error:', portalErr)
