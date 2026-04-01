@@ -19,6 +19,7 @@ interface KanbanBoardProps {
   onAddClick: (stage: PipelineStage) => void
   onDealClick?: (deal: Deal) => void
   canMoveDeal?: (deal: Deal) => boolean
+  onOpenSettings?: () => void
 }
 
 function LoadingSkeleton() {
@@ -75,7 +76,7 @@ function LoadingSkeleton() {
   )
 }
 
-function EmptyState() {
+function EmptyState({ onOpenSettings }: { onOpenSettings?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-80 bg-muted/30 rounded-xl border-2 border-dashed border-muted">
       <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
@@ -85,7 +86,7 @@ function EmptyState() {
       <p className="text-sm text-muted-foreground text-center max-w-sm">
         This pipeline doesn&apos;t have any stages yet. Configure stages to start tracking deals.
       </p>
-      <Button variant="outline" className="mt-4" disabled>
+      <Button variant="outline" className="mt-4" onClick={onOpenSettings} disabled={!onOpenSettings}>
         <RefreshCw className="h-4 w-4 mr-2" />
         Configure Stages
       </Button>
@@ -103,6 +104,7 @@ export function KanbanBoard({
   onAddClick,
   onDealClick,
   canMoveDeal,
+  onOpenSettings,
 }: KanbanBoardProps) {
   const {
     isLoaded: prefsLoaded,
@@ -184,7 +186,7 @@ export function KanbanBoard({
   }
 
   if (stages.length === 0) {
-    return <EmptyState />
+    return <EmptyState onOpenSettings={onOpenSettings} />
   }
 
   const columnWidth = Math.round(320 * zoom)

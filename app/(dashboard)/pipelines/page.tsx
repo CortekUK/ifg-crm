@@ -384,6 +384,7 @@ export default function PipelinesPage() {
           onAddClick={handleAddClick}
           onDealClick={handleDealClick}
           canMoveDeal={canMoveDeal}
+          onOpenSettings={() => setSettingsModalOpen(true)}
         />
       ) : (
         <PipelineListView

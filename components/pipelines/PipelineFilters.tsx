@@ -75,78 +75,66 @@ export function PipelineFilters({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-      {/* Filter Dropdowns */}
-      <div className="flex flex-wrap gap-2">
-        {/* Owner Filter */}
-        <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="All Owners" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Owners</SelectItem>
-            {userId && <SelectItem value={userId}>My Deals</SelectItem>}
-            {owners.filter(o => o.id !== userId).map((owner) => (
-              <SelectItem key={owner.id} value={owner.id}>
-                {owner.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="space-y-3">
+      {/* Row 1: Filters + Search + Settings */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex flex-wrap gap-2">
+          <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
+            <SelectTrigger className="w-[140px] h-9">
+              <SelectValue placeholder="All Owners" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Owners</SelectItem>
+              {userId && <SelectItem value={userId}>My Deals</SelectItem>}
+              {owners.filter(o => o.id !== userId).map((owner) => (
+                <SelectItem key={owner.id} value={owner.id}>
+                  {owner.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Status Filter */}
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="won">Won</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+            <SelectTrigger className="w-[130px] h-9">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="won">Won</SelectItem>
+              <SelectItem value="lost">Lost</SelectItem>
+            </SelectContent>
+          </Select>
 
-        {/* Clear Filters */}
-        {hasFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearFilters}
-            className="text-muted-foreground"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Clear
-          </Button>
-        )}
-      </div>
-
-      {/* Search + Settings */}
-      <div className="flex items-center gap-2 flex-1 sm:flex-none sm:max-w-xs ml-auto">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search deals..."
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
-          />
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-muted-foreground h-9">
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
-        {onOpenSettings && (
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-            onClick={onOpenSettings}
-            disabled={settingsDisabled}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        )}
+
+        <div className="flex items-center gap-2 flex-1 sm:flex-none sm:max-w-xs sm:ml-auto">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search deals..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          {onOpenSettings && (
+            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={onOpenSettings} disabled={settingsDisabled}>
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Deal Freshness Legend */}
-      <div className="hidden md:flex items-center gap-3 text-[11px] text-muted-foreground">
+      {/* Row 2: Legend + Zoom + View Toggle + Fullscreen */}
+      <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-3 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-green-500" />
           <span>Hot</span>
@@ -233,6 +221,7 @@ export function PipelineFilters({
           )}
         </Button>
       )}
+      </div>
     </div>
   )
 }

@@ -44,7 +44,7 @@ export function EditorCanvas({
       onClick={handleCanvasClick}
     >
       <div className="max-w-[600px] mx-auto">
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden min-h-[calc(100vh-200px)]">
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {/* Email Header Preview */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-900 p-4">
             <div className="flex items-center justify-center gap-3">
