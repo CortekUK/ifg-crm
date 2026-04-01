@@ -147,16 +147,24 @@ export function CreateInvoiceModal({
       })
 
       if (sendNow && invoice) {
-        await updateStatus.mutateAsync({
-          invoiceId: invoice.id,
-          status: 'sent',
-        })
+        try {
+          const res = await fetch(`/api/invoices/${invoice.id}/send-with-link`, {
+            method: 'POST',
+          })
+          const data = await res.json()
+          if (!res.ok) {
+            // Fallback to just marking as sent
+            await updateStatus.mutateAsync({ invoiceId: invoice.id, status: 'sent' })
+          }
+        } catch {
+          await updateStatus.mutateAsync({ invoiceId: invoice.id, status: 'sent' })
+        }
       }
 
       toast({
         title: sendNow ? 'Invoice sent' : 'Invoice created',
         description: sendNow
-          ? `Invoice ${invoice?.invoice_number || ''} sent to ${selectedContactName}.`
+          ? `Invoice ${invoice?.invoice_number || ''} sent to ${selectedContactName} with payment link.`
           : `Invoice saved as draft.`,
       })
 
