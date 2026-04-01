@@ -315,16 +315,25 @@ export function AutomationDetailSheet({
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
               <div className="px-6 pt-4 pb-4 border-b bg-slate-50 dark:bg-slate-800 shrink-0">
-                <TabsList className="grid w-full grid-cols-3 h-10">
-                  <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
-                  <TabsTrigger value="activity" className="text-sm">
-                    <Mail className="h-3.5 w-3.5 mr-1" />
-                    Emails
-                  </TabsTrigger>
-                  <TabsTrigger value="enrolled" className="text-sm">
-                    Enrolled ({activeEnrollments.length})
-                  </TabsTrigger>
-                </TabsList>
+                {automation.trigger_type === 'form_submission' ? (
+                  <TabsList className="grid w-full grid-cols-2 h-10">
+                    <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
+                    <TabsTrigger value="enrolled" className="text-sm">
+                      Deals Created ({completedEnrollments.length})
+                    </TabsTrigger>
+                  </TabsList>
+                ) : (
+                  <TabsList className="grid w-full grid-cols-3 h-10">
+                    <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
+                    <TabsTrigger value="activity" className="text-sm">
+                      <Mail className="h-3.5 w-3.5 mr-1" />
+                      Emails
+                    </TabsTrigger>
+                    <TabsTrigger value="enrolled" className="text-sm">
+                      Enrolled ({activeEnrollments.length})
+                    </TabsTrigger>
+                  </TabsList>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto">
@@ -335,55 +344,83 @@ export function AutomationDetailSheet({
                     showStats={true}
                   />
 
-                  {/* Performance Stats — summary banner style */}
+                  {/* Performance Stats */}
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                      Performance
+                      {automation.trigger_type === 'form_submission' ? 'Summary' : 'Performance'}
                     </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50">
-                          <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+
+                    {automation.trigger_type === 'form_submission' ? (
+                      /* Deal Creation automation — simple summary */
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-3">
+                          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/50">
+                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{completedEnrollments.length}</p>
+                            <p className="text-[11px] text-muted-foreground">Deals Created</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{activeEnrollments.length}</p>
-                          <p className="text-[11px] text-muted-foreground">Enrolled</p>
+                        <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-3">
+                          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50">
+                            <GitBranch className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight truncate">{automation.pipeline?.name || '—'}</p>
+                            <p className="text-[11px] text-muted-foreground">Pipeline</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/50">
-                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    ) : (
+                      /* Email sequence automation — full stats */
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50">
+                              <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{activeEnrollments.length}</p>
+                              <p className="text-[11px] text-muted-foreground">Enrolled</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/50">
+                              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{completedEnrollments.length}</p>
+                              <p className="text-[11px] text-muted-foreground">Completed</p>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{completedEnrollments.length}</p>
-                          <p className="text-[11px] text-muted-foreground">Completed</p>
+                        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
+                          <div className="grid grid-cols-5 text-center divide-x divide-slate-200 dark:divide-slate-700">
+                            <div className="px-2">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
+                            </div>
+                            <button onClick={() => { setEmailStatusFilter('delivered'); setActiveTab('activity') }} className="px-2 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Delivered</p>
+                            </button>
+                            <button onClick={() => { setEmailStatusFilter('opened'); setActiveTab('activity') }} className="px-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalOpened || 0}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">{avgOpenRate.toFixed(1)}% opened</p>
+                            </button>
+                            <button onClick={() => { setEmailStatusFilter('clicked'); setActiveTab('activity') }} className="px-2 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalClicked || 0}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">{(emailStats?.avgClickRate || 0).toFixed(1)}% clicked</p>
+                            </button>
+                            <button onClick={() => { setEmailStatusFilter('bounced'); setActiveTab('activity') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalBounced || 0}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Bounced</p>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
-                      <div className="grid grid-cols-5 text-center divide-x divide-slate-200 dark:divide-slate-700">
-                        <div className="px-2">
-                          <p className="text-xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
-                        </div>
-                        <button onClick={() => { setEmailStatusFilter('delivered'); setActiveTab('activity') }} className="px-2 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                          <p className="text-xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">Delivered</p>
-                        </button>
-                        <button onClick={() => { setEmailStatusFilter('opened'); setActiveTab('activity') }} className="px-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-                          <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalOpened || 0}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{avgOpenRate.toFixed(1)}% opened</p>
-                        </button>
-                        <button onClick={() => { setEmailStatusFilter('clicked'); setActiveTab('activity') }} className="px-2 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                          <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalClicked || 0}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{(emailStats?.avgClickRate || 0).toFixed(1)}% clicked</p>
-                        </button>
-                        <button onClick={() => { setEmailStatusFilter('bounced'); setActiveTab('activity') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
-                          <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalBounced || 0}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">Bounced</p>
-                        </button>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Per-Step Stats */}

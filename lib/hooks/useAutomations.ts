@@ -6,6 +6,7 @@ export interface CreateAutomationInput {
   name: string
   description?: string | null
   automation_type?: AutomationType
+  trigger_type?: 'form_submission' | 'enters_stage' | 'stage_change'
   pipeline_id: string | null
   trigger_stage_id: string | null
   stop_on_stage_ids?: string[]
@@ -398,6 +399,7 @@ export function useCreateAutomation() {
           name: input.name,
           description: input.description || null,
           automation_type: input.automation_type || null,
+          trigger_type: input.trigger_type || 'enters_stage',
           pipeline_id: input.pipeline_id || null,
           trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],

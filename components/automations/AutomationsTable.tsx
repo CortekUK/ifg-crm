@@ -157,6 +157,9 @@ export function AutomationsTable({
     const totalDays = waitSteps.reduce((sum, s) => sum + (s.delay_days || 0), 0)
     
     if (emailSteps === 0) {
+      if (automation.automation_type === 'deal_creation') {
+        return 'Auto-creates deals from form submissions'
+      }
       return 'No email steps configured'
     }
     return `${emailSteps}-email sequence over ${totalDays} days`
