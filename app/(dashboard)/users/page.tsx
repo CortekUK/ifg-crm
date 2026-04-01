@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UsersPageHeader } from '@/components/users/UsersPageHeader'
 import { UsersFilters, UsersFiltersState } from '@/components/users/UsersFilters'
 import { UsersTable } from '@/components/users/UsersTable'
@@ -39,6 +40,7 @@ export default function UsersPage() {
     role: 'all',
     status: 'all',
   })
+  const [activeTab, setActiveTab] = useState<'staff' | 'players'>('staff')
 
   const { data: usersAndInvites = [], isLoading, refetch } = useUsersAndInvites()
   const updateUser = useUpdateUser()
@@ -51,9 +53,21 @@ export default function UsersPage() {
 
   const hasActiveFilters = debouncedSearch !== '' || filters.role !== 'all' || filters.status !== 'all'
 
+  // Separate staff and players
+  const staffUsers = useMemo(() =>
+    usersAndInvites.filter((u) => u.role !== 'player'),
+    [usersAndInvites]
+  )
+  const playerUsers = useMemo(() =>
+    usersAndInvites.filter((u) => u.role === 'player'),
+    [usersAndInvites]
+  )
+
+  const currentList = activeTab === 'staff' ? staffUsers : playerUsers
+
   // Filter users based on search, role, and status
   const filteredUsers = useMemo(() => {
-    return usersAndInvites.filter((user) => {
+    return currentList.filter((user) => {
       // Search filter
       if (debouncedSearch) {
         const searchLower = debouncedSearch.toLowerCase()
@@ -74,7 +88,7 @@ export default function UsersPage() {
 
       return true
     })
-  }, [usersAndInvites, debouncedSearch, filters.role, filters.status])
+  }, [currentList, debouncedSearch, filters.role, filters.status])
 
   const handleEdit = (user: User) => {
     setEditingUser(user)
@@ -204,6 +218,18 @@ export default function UsersPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <UsersPageHeader onInviteClick={() => setInviteModalOpen(true)} />
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'staff' | 'players')}>
+        <TabsList>
+          <TabsTrigger value="staff">
+            Staff ({staffUsers.length})
+          </TabsTrigger>
+          <TabsTrigger value="players">
+            Players ({playerUsers.length})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Filters */}
       <UsersFilters filters={filters} onFiltersChange={setFilters} />

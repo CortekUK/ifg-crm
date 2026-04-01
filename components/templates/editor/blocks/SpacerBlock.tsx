@@ -17,7 +17,7 @@ export function SpacerBlock({ content, isSelected, onUpdate }: SpacerBlockProps)
     <div>
       {/* Settings panel when selected */}
       {isSelected && (
-        <div className="space-y-3 mb-3 p-3 bg-gray-50 rounded-lg">
+        <div className="space-y-3 mb-3 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
           <div className="flex items-center gap-4">
             <Label className="text-xs">Height:</Label>
             <Slider

@@ -354,6 +354,8 @@ export default function PipelinesPage() {
         onZoomChange={handleZoomChange}
         isFullscreen={isFullscreen}
         onFullscreenToggle={() => setIsFullscreen((prev) => !prev)}
+        onOpenSettings={() => setSettingsModalOpen(true)}
+        settingsDisabled={!selectedPipelineId || pipelinesLoading}
       />
 
       {/* Stats */}

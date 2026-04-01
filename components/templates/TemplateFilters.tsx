@@ -52,8 +52,8 @@ export function TemplateFilters({ filters, onFiltersChange, viewMode, onViewMode
         </SelectContent>
       </Select>
 
-      {/* View Mode Toggle */}
-      <div className="flex items-center border rounded-lg p-0.5 bg-muted/30 dark:bg-slate-800/50 ml-auto">
+      {/* View Mode Toggle - hidden on mobile (always list on mobile) */}
+      <div className="hidden sm:flex items-center border rounded-lg p-0.5 bg-muted/30 dark:bg-slate-800/50 ml-auto">
         <Button
           variant="ghost"
           size="sm"

@@ -105,7 +105,7 @@ export function AutomationsTable({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -260,7 +260,7 @@ export function AutomationsTable({
   }
 
   return (
-    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
+    <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

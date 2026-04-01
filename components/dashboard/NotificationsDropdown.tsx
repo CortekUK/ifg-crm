@@ -85,7 +85,7 @@ export function NotificationsDropdown() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[380px] p-0" align="end">
+      <PopoverContent className="w-[380px] p-0 max-h-[70vh] flex flex-col" align="end">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export function NotificationsDropdown() {
         </div>
 
         {/* Notifications List */}
-        <ScrollArea className="max-h-[400px]">
+        <div className="max-h-[400px] overflow-y-auto">
           {isLoading ? (
             <div className="p-4 space-y-3">
               {[1, 2, 3].map((i) => (
@@ -147,7 +147,7 @@ export function NotificationsDropdown() {
                       !notification.is_read && 'bg-blue-50/50 dark:bg-blue-950/30'
                     )}
                   >
-                    <div className={cn('p-2 rounded-full shrink-0', config.bgColor)}>
+                    <div className={cn('w-9 h-9 rounded-full shrink-0 flex items-center justify-center', config.bgColor)}>
                       <Icon className={cn('h-4 w-4', config.color)} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -174,7 +174,7 @@ export function NotificationsDropdown() {
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
         {notifications.length > 0 && (

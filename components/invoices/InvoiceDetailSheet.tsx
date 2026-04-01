@@ -330,7 +330,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                           </p>
                           <p className="text-xs text-green-700 dark:text-green-300">{formatDateLong(pmt.payment_date)}</p>
                           {pmt.reference && (
-                            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Ref: {pmt.reference}</p>
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5 truncate max-w-[250px]" title={pmt.reference}>Ref: {pmt.reference}</p>
                           )}
                         </div>
                         <p className="font-semibold text-green-600">{formatCurrency(pmt.amount)}</p>

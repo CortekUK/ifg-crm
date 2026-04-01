@@ -35,7 +35,7 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
     >
       {/* Settings panel when selected */}
       {isSelected && (
-        <div className="space-y-3 mb-3 p-3 bg-gray-50 rounded-lg">
+        <div className="space-y-3 mb-3 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
           <div className="flex items-center gap-2">
             <Label className="text-xs w-20">Button text:</Label>
             <Input
@@ -116,7 +116,7 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
               <select
                 value={buttonContent.width}
                 onChange={(e) => onUpdate({ width: e.target.value })}
-                className="h-7 px-2 text-xs border rounded"
+                className="h-7 px-2 text-xs border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
               >
                 <option value="auto">Auto</option>
                 <option value="full">Full width</option>
@@ -131,7 +131,7 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn('h-7 w-7', buttonContent.alignment === 'left' && 'bg-gray-200')}
+                  className={cn('h-7 w-7', buttonContent.alignment === 'left' && 'bg-gray-200 dark:bg-slate-600')}
                   onClick={() => onUpdate({ alignment: 'left' })}
                 >
                   <AlignLeft className="h-3.5 w-3.5" />
@@ -139,7 +139,7 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn('h-7 w-7', buttonContent.alignment === 'center' && 'bg-gray-200')}
+                  className={cn('h-7 w-7', buttonContent.alignment === 'center' && 'bg-gray-200 dark:bg-slate-600')}
                   onClick={() => onUpdate({ alignment: 'center' })}
                 >
                   <AlignCenter className="h-3.5 w-3.5" />
@@ -147,7 +147,7 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn('h-7 w-7', buttonContent.alignment === 'right' && 'bg-gray-200')}
+                  className={cn('h-7 w-7', buttonContent.alignment === 'right' && 'bg-gray-200 dark:bg-slate-600')}
                   onClick={() => onUpdate({ alignment: 'right' })}
                 >
                   <AlignRight className="h-3.5 w-3.5" />

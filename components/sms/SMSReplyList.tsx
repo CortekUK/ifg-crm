@@ -138,7 +138,7 @@ export function SMSReplyList({
 
   if (isLoading) {
     return (
-      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -188,7 +188,7 @@ export function SMSReplyList({
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
+      <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

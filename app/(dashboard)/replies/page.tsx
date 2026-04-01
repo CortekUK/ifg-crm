@@ -247,7 +247,7 @@ export default function RepliesPage() {
 
         {/* Email Tab */}
         <TabsContent value="email" className="space-y-6 mt-0">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <EmailReplyTabs activeTab={emailTab} onTabChange={setEmailTab} counts={emailCounts || { unmatched: 0, matched: 0, spam: 0 }} />
             {emailTab === 'unmatched' && emailReplies.length > 0 && (
               <div className="flex items-center gap-2">
@@ -335,7 +335,7 @@ export default function RepliesPage() {
 
         {/* SMS Tab */}
         <TabsContent value="sms" className="space-y-6 mt-0">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <SMSReplyTabs activeTab={smsTab} onTabChange={setSmsTab} counts={smsCounts || { unmatched: 0, matched: 0, spam: 0 }} />
             {smsTab === 'unmatched' && smsMessages.length > 0 && (
               <div className="flex items-center gap-2">

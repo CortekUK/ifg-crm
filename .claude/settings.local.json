@@ -13,7 +13,9 @@
       "Bash(find . -name *notifications* -o -name *send-email*)",
       "Bash(ls -la /d/ifg-crm/app/\\\\\\(dashboard\\\\\\)/players/)",
       "Bash(cd:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(ls -la \"D:/ifg-crm/app/portal/\\(authenticated\\)/pipeline/\")",
+      "Bash(ls -la \"D:/ifg-crm/app/portal/\\(authenticated\\)/campaigns/\")"
     ]
   }
 }

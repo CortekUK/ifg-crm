@@ -200,13 +200,13 @@ export default function AutomationsPage() {
       />
 
       {/* Tabs + Filter */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <AutomationTabs activeTab={activeTab} onTabChange={setActiveTab} />
         {activeTab === 'automations' && uniquePipelines.length > 0 && (
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
             <Select value={pipelineFilter} onValueChange={setPipelineFilter}>
-              <SelectTrigger className="w-[200px] h-9">
+              <SelectTrigger className="w-[160px] sm:w-[200px] h-9">
                 <SelectValue placeholder="All Pipelines" />
               </SelectTrigger>
               <SelectContent>

@@ -110,7 +110,8 @@ export default function TemplatesPage() {
         onCreateClick={handleCreate}
       />
 
-      {/* Stats */}
+      {/* Stats - hidden on mobile */}
+      <div className="hidden sm:block">
       <TemplateStats
         totalTemplates={stats?.totalTemplates || 0}
         automationTemplates={stats?.automationTemplates || 0}
@@ -118,6 +119,7 @@ export default function TemplatesPage() {
         activeAutomations={stats?.activeAutomations || 0}
         isLoading={statsLoading}
       />
+      </div>
 
       {/* Filters + View Toggle */}
       <TemplateFilters
@@ -138,17 +140,21 @@ export default function TemplatesPage() {
         />
       )}
 
-      {/* Templates Grid or Table */}
-      {viewMode === 'grid' ? (
-        <TemplatesGrid
-          templates={templates}
-          isLoading={isLoading}
-          onEdit={handleEdit}
-          onDelete={handleDeleteClick}
-          onDuplicate={handleDuplicate}
-          onPreview={handlePreview}
-        />
-      ) : (
+      {/* Templates Grid (desktop only when grid mode) or Table */}
+      {viewMode === 'grid' && (
+        <div className="hidden sm:block">
+          <TemplatesGrid
+            templates={templates}
+            isLoading={isLoading}
+            onEdit={handleEdit}
+            onDelete={handleDeleteClick}
+            onDuplicate={handleDuplicate}
+            onPreview={handlePreview}
+          />
+        </div>
+      )}
+      {/* Always show table on mobile, or when list mode on desktop */}
+      <div className={viewMode === 'grid' ? 'sm:hidden' : ''}>
         <TemplatesTable
           templates={templates}
           isLoading={isLoading}
@@ -157,7 +163,7 @@ export default function TemplatesPage() {
           onDuplicate={handleDuplicate}
           onPreview={handlePreview}
         />
-      )}
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <DeleteTemplateDialog

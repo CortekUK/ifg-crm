@@ -22,7 +22,7 @@ export function DividerBlock({ content, isSelected, onUpdate }: DividerBlockProp
     >
       {/* Settings panel when selected */}
       {isSelected && (
-        <div className="space-y-3 mb-3 p-3 bg-gray-50 rounded-lg">
+        <div className="space-y-3 mb-3 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Label className="text-xs">Style:</Label>
@@ -31,7 +31,7 @@ export function DividerBlock({ content, isSelected, onUpdate }: DividerBlockProp
                 onChange={(e) =>
                   onUpdate({ style: e.target.value as 'solid' | 'dashed' | 'dotted' })
                 }
-                className="h-7 px-2 text-xs border rounded"
+                className="h-7 px-2 text-xs border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
               >
                 <option value="solid">Solid</option>
                 <option value="dashed">Dashed</option>
@@ -56,7 +56,7 @@ export function DividerBlock({ content, isSelected, onUpdate }: DividerBlockProp
               <select
                 value={dividerContent.thickness}
                 onChange={(e) => onUpdate({ thickness: parseInt(e.target.value) })}
-                className="h-7 px-2 text-xs border rounded"
+                className="h-7 px-2 text-xs border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
               >
                 <option value="1">1px</option>
                 <option value="2">2px</option>
@@ -71,7 +71,7 @@ export function DividerBlock({ content, isSelected, onUpdate }: DividerBlockProp
               <select
                 value={(dividerContent as unknown as { width?: string }).width || '100'}
                 onChange={(e) => onUpdate({ width: e.target.value })}
-                className="h-7 px-2 text-xs border rounded"
+                className="h-7 px-2 text-xs border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
               >
                 <option value="100">Full (100%)</option>
                 <option value="75">75%</option>

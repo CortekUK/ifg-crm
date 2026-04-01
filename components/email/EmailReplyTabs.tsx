@@ -20,7 +20,7 @@ export function EmailReplyTabs({ activeTab, onTabChange, counts }: EmailReplyTab
   ]
 
   return (
-    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 gap-0.5">
+    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 gap-0.5 w-full sm:w-auto overflow-x-auto">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id
         return (
@@ -28,7 +28,7 @@ export function EmailReplyTabs({ activeTab, onTabChange, counts }: EmailReplyTab
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              'flex items-center gap-1.5 py-1.5 px-3.5 rounded-md text-sm font-medium transition-all',
+              'flex items-center gap-1 py-1.5 px-2.5 sm:px-3.5 rounded-md text-sm font-medium transition-all whitespace-nowrap',
               isActive
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'

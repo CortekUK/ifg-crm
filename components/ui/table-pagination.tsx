@@ -33,23 +33,23 @@ export function TablePagination({
   const to = Math.min(page * pageSize, total)
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-4">
       {/* Results Summary */}
-      <p className="text-sm text-muted-foreground">
-        Showing <span className="font-medium">{formatNumber(from)}</span> to{' '}
-        <span className="font-medium">{formatNumber(to)}</span> of{' '}
+      <p className="text-xs sm:text-sm text-muted-foreground">
+        Showing <span className="font-medium">{formatNumber(from)}</span>–<span className="font-medium">{formatNumber(to)}</span> of{' '}
         <span className="font-medium">{formatNumber(total)}</span> {label}
       </p>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         {/* Page Size Selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows per page:</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs sm:text-sm text-muted-foreground hidden sm:inline">Rows per page:</span>
+          <span className="text-xs text-muted-foreground sm:hidden">Per page</span>
           <Select
             value={pageSize.toString()}
             onValueChange={(value) => onPageSizeChange(Number(value))}
           >
-            <SelectTrigger className="w-[70px]">
+            <SelectTrigger className="w-[70px] h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -61,14 +61,15 @@ export function TablePagination({
         </div>
 
         {/* Page Navigation */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs sm:text-sm text-muted-foreground">
+            {page}/{totalPages}
           </span>
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="icon"
+              className="h-8 w-8"
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1}
             >
@@ -77,6 +78,7 @@ export function TablePagination({
             <Button
               variant="outline"
               size="icon"
+              className="h-8 w-8"
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages}
             >

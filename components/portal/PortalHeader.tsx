@@ -132,7 +132,7 @@ export function PortalHeader({ playerName }: PortalHeaderProps) {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0">
+            <PopoverContent align="end" className="w-80 p-0 max-h-[70vh] flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b dark:border-slate-800">
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Notifications</h3>
                 {unreadCount > 0 && (
@@ -141,7 +141,7 @@ export function PortalHeader({ playerName }: PortalHeaderProps) {
                   </Button>
                 )}
               </div>
-              <ScrollArea className="max-h-72">
+              <div className="max-h-72 overflow-y-auto">
                 {notifications.length === 0 ? (
                   <div className="py-8 text-center">
                     <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
@@ -165,7 +165,7 @@ export function PortalHeader({ playerName }: PortalHeaderProps) {
                           }}
                         >
                           <div className={cn(
-                            'p-1.5 rounded-lg shrink-0 mt-0.5',
+                            'w-8 h-8 rounded-full shrink-0 flex items-center justify-center',
                             n.type === 'payment' ? 'bg-green-100 dark:bg-green-900/50 text-green-600' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600'
                           )}>
                             <Icon className="h-3.5 w-3.5" />
@@ -185,7 +185,23 @@ export function PortalHeader({ playerName }: PortalHeaderProps) {
                     })}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
+              {notifications.length > 0 && (
+                <div className="border-t dark:border-slate-800 px-4 py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs text-slate-500"
+                    onClick={() => {
+                      fetch('/api/notifications', { method: 'DELETE' }).then(() => {
+                        markAllRead.mutate()
+                      })
+                    }}
+                  >
+                    Clear all notifications
+                  </Button>
+                </div>
+              )}
             </PopoverContent>
           </Popover>
 

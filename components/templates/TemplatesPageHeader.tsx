@@ -19,21 +19,23 @@ export function TemplatesPageHeader({
           Create and manage reusable email and SMS templates.
         </p>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <Button
+            size="sm"
             variant="outline"
             onClick={onImportClick}
             className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
           >
-            <Upload className="h-4 w-4 mr-2" />
-            Import HTML
+            <Upload className="h-4 w-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Import HTML</span>
           </Button>
           <Button
+            size="sm"
             onClick={onCreateClick}
             className="bg-white text-blue-600 hover:bg-blue-50"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Template
+            <Plus className="h-4 w-4 mr-1" />
+            Create
           </Button>
         </div>
       </div>

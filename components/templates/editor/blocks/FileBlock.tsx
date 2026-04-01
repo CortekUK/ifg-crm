@@ -133,12 +133,12 @@ export function FileBlock({ content, isSelected, onUpdate }: FileBlockProps) {
       }}
     >
       {fileContent.fileUrl ? (
-        <div className="inline-flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <div className="inline-flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg">
           <div className="flex items-center justify-center w-10 h-10 bg-blue-50 rounded-lg">
             <FileText className="h-5 w-5 text-blue-600" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-700 truncate max-w-[200px]">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[200px]">
               {fileContent.fileName}
             </p>
             <p className="text-xs text-gray-500">
@@ -164,7 +164,7 @@ export function FileBlock({ content, isSelected, onUpdate }: FileBlockProps) {
           className={`inline-flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
             isDragOver
               ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+              : 'border-gray-300 bg-gray-50 dark:bg-slate-800 dark:border-slate-600 hover:border-gray-400'
           }`}
         >
           {isUploading ? (

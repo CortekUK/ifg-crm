@@ -355,7 +355,7 @@ export function ContactDetailSheet({
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-4 gap-2 mt-4">
+          <div className="grid grid-cols-5 gap-2 mt-4">
             <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" asChild>
               <a href={`mailto:${contact.email}`}>
                 <Mail className="h-4 w-4" />

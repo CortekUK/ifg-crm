@@ -131,22 +131,20 @@ export function UnmatchedRepliesWidget({ type }: UnmatchedRepliesWidgetProps) {
   return (
     <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
-              <Icon className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-            </div>
-            <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
-              {title}
-            </CardTitle>
-            {data && data.count > 0 && (
-              <span className="px-2.5 py-1 text-xs font-semibold bg-red-500 text-white rounded-full uppercase">
-                {data.count} TO REVIEW
-              </span>
-            )}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30 shrink-0">
+            <Icon className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </div>
-          <Link href={linkHref}>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8">
+          <CardTitle className="font-oswald text-sm font-medium text-blue-900 dark:text-blue-300 uppercase">
+            {title}
+          </CardTitle>
+          {data && data.count > 0 && (
+            <span className="px-2 py-0.5 text-[10px] font-semibold bg-red-500 text-white rounded-full uppercase">
+              {data.count} TO REVIEW
+            </span>
+          )}
+          <Link href={linkHref} className="ml-auto">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7">
               Review Replies
               <ArrowRight className="h-3 w-3 ml-1" />
             </Button>

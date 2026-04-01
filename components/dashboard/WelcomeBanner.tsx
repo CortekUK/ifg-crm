@@ -29,32 +29,34 @@ export function WelcomeBanner({ onNewLead }: WelcomeBannerProps) {
   return (
     <div className="rounded-lg p-6 mb-6 banner-gradient">
     
-      <div className="flex items-center justify-between">
-        <div className="text-base text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="text-sm sm:text-base text-white">
           {isLoading ? (
             <span className="inline-block h-5 w-48 bg-white/20 rounded animate-pulse" />
           ) : (
             <>
               <span className="font-semibold">Welcome back{firstName ? `, ${firstName}` : ''}!</span>
-              <span className="text-white/80 ml-2">Manage recruitment performance at a glance.</span>
+              <span className="text-white/80 ml-1 block sm:inline mt-1 sm:mt-0">Manage recruitment performance at a glance.</span>
             </>
           )}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 shrink-0">
           <Button
             variant="outline"
+            size="sm"
             className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
             onClick={onNewLead}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-1.5" />
             New Lead
           </Button>
           <Link href="/campaigns">
             <Button
               variant="outline"
+              size="sm"
               className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
             >
-              <Send className="h-4 w-4 mr-2" />
+              <Send className="h-4 w-4 mr-1.5" />
               Send Campaign
             </Button>
           </Link>

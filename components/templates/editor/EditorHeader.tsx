@@ -77,125 +77,76 @@ export function EditorHeader({
 
   return (
     <>
-      <div className="h-14 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-between px-4">
-        {/* Left: Close + Name */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClose}
-            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 md:px-4 py-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Close + Name */}
+          <div className="flex items-center gap-2 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className="h-8 w-8 shrink-0 text-slate-500"
+            >
+              <X className="h-5 w-5" />
+            </Button>
 
-          <div className="flex items-center gap-3">
             {isEditingName ? (
               <Input
                 value={name}
                 onChange={(e) => onNameChange(e.target.value)}
                 onBlur={() => setIsEditingName(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setIsEditingName(false)
-                  }
-                }}
-                className="w-64 text-lg font-semibold border-slate-300 dark:border-slate-600 focus-visible:ring-blue-500"
+                onKeyDown={(e) => { if (e.key === 'Enter') setIsEditingName(false) }}
+                className="w-32 md:w-64 text-sm md:text-lg font-semibold"
                 autoFocus
               />
             ) : (
               <button
                 onClick={() => setIsEditingName(true)}
-                className="text-lg font-semibold text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="text-sm md:text-lg font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[120px] md:max-w-none"
               >
                 {name || 'Untitled Template'}
               </button>
             )}
 
             {hasUnsavedChanges && (
-              <span className="text-xs font-medium text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/50 px-2 py-1 rounded-full">
+              <span className="hidden md:inline text-xs font-medium text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/50 px-2 py-1 rounded-full">
                 Unsaved changes
               </span>
             )}
           </div>
-        </div>
 
-        {/* Center: Undo/Redo */}
-        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 rounded-lg p-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onUndo}
-            disabled={!canUndo}
-            className={cn(
-              'h-8 w-8 p-0',
-              canUndo ? 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700' : 'text-slate-300 dark:text-slate-600'
-            )}
-          >
-            <Undo2 className="h-4 w-4" />
-          </Button>
-          <div className="w-px h-5 bg-slate-200 dark:bg-slate-600" />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRedo}
-            disabled={!canRedo}
-            className={cn(
-              'h-8 w-8 p-0',
-              canRedo ? 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700' : 'text-slate-300 dark:text-slate-600'
-            )}
-          >
-            <Redo2 className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {isEditingExisting && onDelete && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleDeleteClick}
-              className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
+          {/* Center: Undo/Redo - hidden on mobile */}
+          <div className="hidden md:flex items-center gap-1 bg-slate-50 dark:bg-slate-800 rounded-lg p-1">
+            <Button variant="ghost" size="sm" onClick={onUndo} disabled={!canUndo} className="h-8 w-8 p-0">
+              <Undo2 className="h-4 w-4" />
             </Button>
-          )}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onPreview}
-            className="text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Preview
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onSaveDraft} 
-            disabled={isSaving}
-            className="text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
+            <div className="w-px h-5 bg-slate-200 dark:bg-slate-600" />
+            <Button variant="ghost" size="sm" onClick={onRedo} disabled={!canRedo} className="h-8 w-8 p-0">
+              <Redo2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {isEditingExisting && onDelete && (
+              <Button variant="ghost" size="icon" onClick={handleDeleteClick} className="h-8 w-8 text-red-500 hidden md:flex">
+                <Trash2 className="h-4 w-4" />
+              </Button>
             )}
-            Save Draft
-          </Button>
-          <Button 
-            size="sm" 
-            onClick={onSaveAndExit} 
-            disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : null}
-            Save & Exit
-          </Button>
+            <Button variant="outline" size="sm" onClick={onPreview} className="hidden md:flex h-8">
+              <Eye className="h-4 w-4 mr-1.5" />
+              Preview
+            </Button>
+            <Button variant="outline" size="sm" onClick={onSaveDraft} disabled={isSaving} className="h-8">
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 md:mr-1.5" />}
+              <span className="hidden md:inline">Save Draft</span>
+            </Button>
+            <Button size="sm" onClick={onSaveAndExit} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white h-8">
+              {isSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              <span className="hidden md:inline">Save & Exit</span>
+              <span className="md:hidden">Save</span>
+            </Button>
+          </div>
         </div>
       </div>
 

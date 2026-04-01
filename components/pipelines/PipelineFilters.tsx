@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, X, LayoutGrid, List, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react'
+import { Search, X, LayoutGrid, List, ZoomIn, ZoomOut, Maximize2, Minimize2, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Deal } from '@/lib/types/pipelines'
 import type { ViewMode } from '@/lib/hooks/usePipelineViewPreference'
@@ -30,6 +30,8 @@ interface PipelineFiltersProps {
   onZoomChange?: (zoom: number) => void
   isFullscreen?: boolean
   onFullscreenToggle?: () => void
+  onOpenSettings?: () => void
+  settingsDisabled?: boolean
 }
 
 export function PipelineFilters({
@@ -47,6 +49,8 @@ export function PipelineFilters({
   onZoomChange,
   isFullscreen = false,
   onFullscreenToggle,
+  onOpenSettings,
+  settingsDisabled = false,
 }: PipelineFiltersProps) {
   // Extract unique owners from deals
   const owners = useMemo(() => {
@@ -117,15 +121,28 @@ export function PipelineFilters({
         )}
       </div>
 
-      {/* Search */}
-      <div className="relative flex-1 max-w-xs ml-auto">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search deals..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + Settings */}
+      <div className="flex items-center gap-2 flex-1 sm:flex-none sm:max-w-xs ml-auto">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search deals..."
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {onOpenSettings && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={onOpenSettings}
+            disabled={settingsDisabled}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Deal Freshness Legend */}
@@ -148,9 +165,9 @@ export function PipelineFilters({
         </div>
       </div>
 
-      {/* Zoom Controls - only in kanban mode */}
+      {/* Zoom Controls - hidden on mobile */}
       {viewMode === 'kanban' && onZoomChange && (
-        <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted/50">
+        <div className="hidden md:flex items-center gap-1 border rounded-lg p-1 bg-muted/50">
           <Button
             variant="ghost"
             size="sm"
@@ -175,8 +192,8 @@ export function PipelineFilters({
         </div>
       )}
 
-      {/* View Toggle */}
-      <div className="flex items-center border rounded-lg p-1 bg-muted/50">
+      {/* View Toggle - hidden on mobile */}
+      <div className="hidden sm:flex items-center border rounded-lg p-1 bg-muted/50">
         <Button
           variant="ghost"
           size="sm"
@@ -201,12 +218,12 @@ export function PipelineFilters({
         </Button>
       </div>
 
-      {/* Fullscreen Toggle */}
+      {/* Fullscreen Toggle - hidden on mobile */}
       {viewMode === 'kanban' && onFullscreenToggle && (
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0"
+          className="hidden md:flex h-8 w-8 p-0"
           onClick={onFullscreenToggle}
         >
           {isFullscreen ? (
