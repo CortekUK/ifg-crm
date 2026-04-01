@@ -99,27 +99,34 @@ export async function POST(
       .eq('id', invoiceId)
 
     // Auto-move deal to "Invoice Sent" stage if invoice is linked to a deal
+    // Only move forward — don't move backward if deal is already past Invoice Sent
     if (invoice.deal_id) {
       const { data: deal } = await supabase
         .from('deals')
-        .select('id, pipeline_id')
+        .select('id, pipeline_id, current_stage_id')
         .eq('id', invoice.deal_id)
         .single()
 
       if (deal) {
-        // Find the "Invoice Sent" stage in this pipeline
-        const { data: invoiceSentStage } = await supabase
+        // Get all stages ordered by display_order
+        const { data: allStages } = await supabase
           .from('pipeline_stages')
-          .select('id')
+          .select('id, name, display_order')
           .eq('pipeline_id', deal.pipeline_id)
-          .ilike('name', '%invoice%sent%')
-          .single()
+          .order('display_order')
 
-        if (invoiceSentStage) {
-          await supabase
-            .from('deals')
-            .update({ current_stage_id: invoiceSentStage.id })
-            .eq('id', deal.id)
+        if (allStages) {
+          const invoiceSentStage = allStages.find(s => s.name.toLowerCase().includes('invoice') && s.name.toLowerCase().includes('sent'))
+          const currentStageIndex = allStages.findIndex(s => s.id === deal.current_stage_id)
+          const invoiceSentIndex = invoiceSentStage ? allStages.findIndex(s => s.id === invoiceSentStage.id) : -1
+
+          // Only move if Invoice Sent stage exists and deal is before it
+          if (invoiceSentStage && invoiceSentIndex >= 0 && currentStageIndex < invoiceSentIndex) {
+            await supabase
+              .from('deals')
+              .update({ current_stage_id: invoiceSentStage.id })
+              .eq('id', deal.id)
+          }
         }
       }
     }

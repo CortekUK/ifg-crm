@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   Sheet,
   SheetContent,
@@ -82,6 +83,31 @@ export function CreateInvoiceModal({
   const { data: deals = [] } = useContactDeals(selectedContactId)
   const createInvoice = useCreateInvoice()
   const updateStatus = useUpdateInvoiceStatus()
+
+  // Check which deals already have an active invoice linked
+  const [dealsWithInvoice, setDealsWithInvoice] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!selectedContactId) {
+      setDealsWithInvoice(new Set())
+      return
+    }
+    const checkExistingInvoices = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('invoices')
+        .select('deal_id')
+        .eq('contact_id', selectedContactId)
+        .not('deal_id', 'is', null)
+        .not('status', 'in', '("cancelled")')
+
+      const ids = new Set((data || []).map(i => i.deal_id).filter(Boolean) as string[])
+      setDealsWithInvoice(ids)
+    }
+    checkExistingInvoices()
+  }, [selectedContactId])
+
+  // Filter deals: hide ones that already have an active invoice
+  const availableDeals = deals.filter(d => !dealsWithInvoice.has(d.id))
 
   // Reset form when modal opens
   useEffect(() => {
@@ -266,22 +292,26 @@ export function CreateInvoiceModal({
               {selectedContactId && deals.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Link to Deal (optional)</Label>
-                  <Select
-                    value={selectedDealId || '__none__'}
-                    onValueChange={(v) => setSelectedDealId(v === '__none__' ? null : v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a deal..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No deal</SelectItem>
-                      {deals.map((deal) => (
-                        <SelectItem key={deal.id} value={deal.id}>
-                          {deal.title} - {deal.pipeline?.name || 'Unknown pipeline'}
-                        </SelectItem>
-                      ))}
+                  {availableDeals.length > 0 ? (
+                    <Select
+                      value={selectedDealId || '__none__'}
+                      onValueChange={(v) => setSelectedDealId(v === '__none__' ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a deal..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">No deal</SelectItem>
+                        {availableDeals.map((deal) => (
+                          <SelectItem key={deal.id} value={deal.id}>
+                            {deal.title} - {deal.pipeline?.name || 'Unknown pipeline'}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
+                  ) : (
+                    <p className="text-xs text-muted-foreground py-2">All deals already have an active invoice linked. Cancel or delete an existing invoice to link a new one.</p>
+                  )}
                 </div>
               )}
             </div>
