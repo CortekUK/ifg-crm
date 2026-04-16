@@ -15,10 +15,6 @@ const FORM_NAMES: Record<string, string> = {
   gap: 'Gap Year Programme',
   uclan: 'University Programme (UCLan)',
   masters: 'Training Experience (Masters)',
-  // Also support AC form IDs directly
-  '9': 'Gap Year Programme',
-  '10': 'University Programme (UCLan)',
-  '7': 'Training Experience (Masters)',
 }
 
 function parseActiveCampaignPayload(body: string): Record<string, string> {
@@ -174,7 +170,10 @@ export async function POST(request: NextRequest) {
       if (contact.first_name) updates.first_name = contact.first_name
       if (contact.last_name) updates.last_name = contact.last_name
       if (contact.phone) updates.phone = contact.phone
-      if (contact.gender) updates.gender = contact.gender
+      if (contact.gender) {
+        const g = contact.gender.toLowerCase()
+        if (g === 'male' || g === 'female') updates.gender = g
+      }
       if (contact.country) updates.country = contact.country
       if (contact.position) updates.position = contact.position
       if (contact.date_of_birth) updates.date_of_birth = contact.date_of_birth
@@ -189,6 +188,9 @@ export async function POST(request: NextRequest) {
       console.log(`Updated existing contact: ${contactId}`)
     } else {
       // Create new contact
+      const normalizedGender = contact.gender?.toLowerCase() === 'male' ? 'male'
+        : contact.gender?.toLowerCase() === 'female' ? 'female'
+        : null
       const { data: newContact, error: createError } = await supabase
         .from('contacts')
         .insert({
@@ -196,7 +198,7 @@ export async function POST(request: NextRequest) {
           first_name: contact.first_name || 'Unknown',
           last_name: contact.last_name || 'Contact',
           phone: contact.phone,
-          gender: contact.gender,
+          gender: normalizedGender,
           country: contact.country,
           position: contact.position,
           source: 'website_form',
@@ -220,10 +222,10 @@ export async function POST(request: NextRequest) {
     try {
       await supabase.from('form_submissions').insert({
         contact_id: contactId,
-        form_name: formName,
-        form_data: rawPayload,
-        source_url: `activecampaign:${formId}`,
-        submitted_at: new Date().toISOString(),
+        form_id: formId,
+        form_source: 'activecampaign',
+        payload: rawPayload,
+        status: 'processed',
       })
     } catch (err) {
       console.error('Failed to log form submission:', err)
