@@ -342,9 +342,13 @@ export async function POST(request: NextRequest) {
                 contact_id: contactId,
                 pipeline_id: automation.pipeline_id,
                 current_stage_id: automation.trigger_stage_id,
-                owner_id: assignedOwnerId,
+                // UI and every existing query read deal_owner_id (original
+                // schema column). owner_id was added later in migration 013
+                // as a separate column; writing there does not surface in
+                // the UI. Always write the rotation winner to deal_owner_id.
+                deal_owner_id: assignedOwnerId,
                 title: `${contact.first_name || 'New'} ${contact.last_name || 'Lead'}`,
-                deal_value: 15000,
+                deal_value: 0,
                 source: `activecampaign:${formName}`,
               })
               .select('id')
