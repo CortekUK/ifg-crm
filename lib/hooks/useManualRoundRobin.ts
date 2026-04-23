@@ -21,17 +21,11 @@ export function useManualRoundRobin() {
         throw new Error('No users available for round-robin assignment')
       }
 
-      // Use 'manual_' prefix to distinguish from automation round-robin
-      const manualAutomationId = `manual_${pipelineId}`
-
-      // Call the existing round-robin function with the manual key
-      const { data: nextUserId, error } = await supabase.rpc(
-        'get_next_round_robin_user_manual',
-        {
-          p_pipeline_key: manualAutomationId,
-          p_user_ids: userIds,
-        }
-      )
+      const { data: nextUserId, error } = await supabase.rpc('round_robin_next', {
+        p_context_type: 'manual_pipeline',
+        p_context_id: pipelineId,
+        p_user_ids: userIds,
+      })
 
       if (error) {
         console.error('Round-robin error:', error)

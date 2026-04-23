@@ -253,6 +253,7 @@ export async function POST(request: NextRequest) {
           form_id?: string
           static_list_ids?: string[]
           dynamic_list_rules?: { field: string; value: string; list_id: string }[]
+          round_robin_users?: string[]
         } | null
 
         // Match by form_id
@@ -316,12 +317,32 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (!existingDeal) {
+            // Round-robin owner assignment. Mirrors the form-webhook edge
+            // function path so deals created from AC forms get the same
+            // rotation as deals created from native WordPress forms.
+            let assignedOwnerId: string | null = null
+            const roundRobinUsers = config?.round_robin_users || []
+            if (roundRobinUsers.length > 0) {
+              const { data: nextUserId, error: rrError } = await supabase.rpc('round_robin_next', {
+                p_context_type: 'automation',
+                p_context_id: automation.id,
+                p_user_ids: roundRobinUsers,
+              })
+              if (rrError) {
+                console.error('Round-robin error:', rrError)
+                assignedOwnerId = roundRobinUsers[0]
+              } else {
+                assignedOwnerId = nextUserId as string | null
+              }
+            }
+
             const { data: newDeal, error: dealError } = await supabase
               .from('deals')
               .insert({
                 contact_id: contactId,
                 pipeline_id: automation.pipeline_id,
                 current_stage_id: automation.trigger_stage_id,
+                owner_id: assignedOwnerId,
                 title: `${contact.first_name || 'New'} ${contact.last_name || 'Lead'}`,
                 deal_value: 15000,
                 source: `activecampaign:${formName}`,

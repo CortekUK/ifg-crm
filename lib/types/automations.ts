@@ -1,27 +1,8 @@
 import type { Pipeline, PipelineStage } from './pipelines'
 import type { Template } from './templates'
+import type { AutomationType, TriggerType, StepType } from '@/lib/constants/automations'
 
-export type AutomationType =
-  | 'deal_creation'
-  | 'initial_contact'
-  | 'follow_up'
-  | 'application_received'
-  | 'interview_reminder'
-  | 'post_interview'
-  | 'deposit_invoice'
-  | 'payment_overdue'
-  | 'welcome_sequence'
-  | 'pre_departure'
-  | 'custom'
-
-export type TriggerType =
-  | 'form_submission'
-  | 'enters_stage'
-  | 'stage_change'
-  | 'invoice_created'
-  | 'invoice_overdue'
-  | 'payment_received'
-  | 'time_before_date'
+export type { AutomationType, TriggerType, StepType }
 
 export interface AutomationStepStats {
   sent: number
@@ -37,7 +18,7 @@ export interface AutomationStep {
   id: string
   automation_id: string
   step_order: number
-  step_type: 'send_email' | 'wait' | 'send_sms' | 'move_to_stage' | 'create_deal' | 'notify' | 'create_portal_account'
+  step_type: StepType
   delay_days: number
   delay_hours: number
   email_template_id: string | null
@@ -96,6 +77,13 @@ export interface AutomationConfig {
   notify_admin?: boolean
   // For welcome sequence
   create_portal_account?: boolean
+  // For list assignment (static + dynamic)
+  static_list_ids?: string[]
+  dynamic_list_rules?: {
+    field: string
+    value: string
+    list_id: string
+  }[]
 }
 
 export interface Automation {
@@ -185,7 +173,7 @@ export interface AutomationTemplate {
   type: AutomationType
   trigger_type: TriggerType
   default_steps: {
-    step_type: AutomationStep['step_type']
+    step_type: StepType
     delay_days?: number
     delay_hours?: number
     description: string
@@ -223,6 +211,23 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       round_robin: true,
       final_stage: false
     }
+  },
+  {
+    id: 'list_assignment',
+    name: 'List Assignment (No Deal)',
+    description: 'Add contacts to lists from form submissions without creating a deal',
+    type: 'list_assignment',
+    trigger_type: 'form_submission',
+    default_steps: [],
+    configurable: {
+      emails: false,
+      wait_durations: false,
+      exit_stages: false,
+      round_robin: false,
+      final_stage: false
+    },
+    icon: 'form',
+    badge: 'List Only'
   },
   {
     id: 'initial_contact_3',

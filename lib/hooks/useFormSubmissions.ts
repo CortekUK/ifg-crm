@@ -139,48 +139,68 @@ export function useFormSubmissionStats(automationId?: string) {
 }
 
 /**
- * Fetch round-robin state for an automation
+ * Fetch round-robin state for an automation. Reads the unified cursor table
+ * (round_robin_cursors) and maps it back to the RoundRobinState shape that
+ * existed when round_robin_state was the only source.
  */
 export function useRoundRobinState(automationId: string | null) {
   return useQuery({
     queryKey: ['round-robin-state', automationId],
     queryFn: async () => {
       if (!automationId) return null
-      
+
       const supabase = createClient()
-      
+
       const { data, error } = await supabase
-        .from('round_robin_state')
+        .from('round_robin_cursors')
         .select(`
-          *,
-          last_assigned_user:profiles!round_robin_state_last_assigned_user_id_fkey(id, full_name, email)
+          context_type,
+          context_id,
+          last_assigned_user_id,
+          last_assigned_at,
+          updated_at,
+          last_assigned_user:profiles(id, full_name, email)
         `)
-        .eq('automation_id', automationId)
+        .eq('context_type', 'automation')
+        .eq('context_id', automationId)
         .single()
-      
+
       if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
-      
-      return data as RoundRobinState | null
+      if (!data) return null
+
+      const state: RoundRobinState = {
+        id: `${data.context_type}:${data.context_id}`,
+        automation_id: data.context_id,
+        last_assigned_user_id: data.last_assigned_user_id,
+        last_assigned_at: data.last_assigned_at,
+        created_at: data.last_assigned_at,
+        updated_at: data.updated_at,
+        last_assigned_user: Array.isArray(data.last_assigned_user)
+          ? data.last_assigned_user[0] ?? null
+          : data.last_assigned_user,
+      }
+      return state
     },
     enabled: !!automationId,
   })
 }
 
 /**
- * Reset round-robin state for an automation
+ * Reset round-robin state for an automation.
  */
 export function useResetRoundRobin() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (automationId: string) => {
       const supabase = createClient()
-      
+
       const { error } = await supabase
-        .from('round_robin_state')
+        .from('round_robin_cursors')
         .delete()
-        .eq('automation_id', automationId)
-      
+        .eq('context_type', 'automation')
+        .eq('context_id', automationId)
+
       if (error) throw error
     },
     onSuccess: (_, automationId) => {

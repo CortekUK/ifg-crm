@@ -5,6 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
 import { sendSMS } from '../_shared/clicksend.ts'
+import type { StepType } from '../_shared/automation-constants.ts'
+import { replaceMergeTags } from '../_shared/merge-tags.ts'
 
 interface ProcessingSummary {
   enrollmentsCreated: number
@@ -31,7 +33,7 @@ interface AutomationStep {
   id: string
   automation_id: string
   step_order: number
-  step_type: 'send_email' | 'wait' | 'send_sms' | 'move_to_stage' | 'create_deal'
+  step_type: StepType
   delay_days: number
   delay_hours: number
   email_template_id: string | null
@@ -53,6 +55,41 @@ interface Deal {
   id: string
   current_stage_id: string
   pipeline_id: string
+}
+
+// Step handler signature. Handlers run the side-effect for a step type
+// (send an email, move a stage, etc). Advancing the enrollment to the next
+// step is handled by the caller, not by the handler.
+type StepHandler = (
+  supabase: ReturnType<typeof createClient>,
+  enrollment: AutomationEnrollment,
+  step: AutomationStep,
+  summary: ProcessingSummary,
+) => Promise<void>
+
+// No-op handler for step types whose side-effect happens elsewhere
+// (create_deal runs in the form webhook) or hasn't been wired up yet
+// (notify, create_portal_account). Registering them here makes unknown
+// step types surface via the registry lookup instead of a silent fall-through.
+const noopStepHandler: StepHandler = async () => {}
+
+const waitStepHandler: StepHandler = async () => {
+  // Waits are realised by the delay on the next step's next_step_at.
+  // Nothing to execute at the moment the wait step itself runs.
+}
+
+// Registry: the single source of truth mapping step_type -> execution.
+// Record<StepType, ...> forces every value in STEP_TYPES to have an entry,
+// so adding a new step type to the constants file fails the build here
+// until a handler is registered.
+const stepHandlers: Record<StepType, StepHandler> = {
+  send_email: (s, e, st, sum) => processEmailStep(s, e, st, sum),
+  wait: waitStepHandler,
+  send_sms: (s, e, st, sum) => processSMSStep(s, e, st, sum),
+  move_to_stage: (s, e, st, sum) => processMoveToStageStep(s, e, st, sum),
+  create_deal: noopStepHandler,
+  notify: noopStepHandler,
+  create_portal_account: noopStepHandler,
 }
 
 Deno.serve(async (req) => {
@@ -360,6 +397,12 @@ async function processQueue(
   supabase: ReturnType<typeof createClient>,
   summary: ProcessingSummary
 ) {
+  // Reclaim any log reservations abandoned by a crashed/timed-out previous
+  // run before we try to dispatch new steps. Without this, the unique index
+  // would keep blocking re-sends for enrolments whose pending log never
+  // resolved.
+  await sweepStalePending(supabase)
+
   const now = new Date().toISOString()
 
   // Get enrollments ready to process
@@ -485,27 +528,15 @@ async function processQueue(
           throw new Error(`Failed to fetch step: ${stepError?.message}`)
         }
 
-        // Process based on step type
-        switch (currentStep.step_type) {
-          case 'send_email':
-            await processEmailStep(supabase, enrollment, currentStep, summary)
-            break
-
-          case 'wait':
-            // Wait steps just advance to next step
-            break
-
-          case 'move_to_stage':
-            await processMoveToStageStep(supabase, enrollment, currentStep, summary)
-            break
-
-          case 'send_sms':
-            await processSMSStep(supabase, enrollment, currentStep, summary)
-            break
-
-          case 'create_deal':
-            // Deal creation handled by form submission trigger
-            break
+        // Dispatch to the registered handler for this step type. The registry
+        // is the single place that maps a step_type value to its execution.
+        const handler = stepHandlers[currentStep.step_type]
+        if (!handler) {
+          summary.errors.push(
+            `No handler registered for step type "${currentStep.step_type}" (step ${currentStep.id})`,
+          )
+        } else {
+          await handler(supabase, enrollment, currentStep, summary)
         }
 
         summary.stepsProcessed++
@@ -582,38 +613,20 @@ async function processEmailStep(
   summary: ProcessingSummary
 ) {
   try {
-    // Get the enrollment's enrolled_at timestamp to check for logs from THIS enrollment cycle
+    // Pull enrolled_at for this cycle. It is written into each log row as
+    // enrolled_at_snapshot so the dedup unique index can distinguish re-enrolment
+    // cycles that share the same enrollment_id.
     const { data: enrollmentData } = await supabase
       .from('automation_enrollments')
       .select('enrolled_at')
       .eq('id', enrollment.id)
       .single()
 
-    const enrolledAt = enrollmentData?.enrolled_at
-
-    // Check if email was already sent (or is pending) for this enrollment + step IN THIS CYCLE
-    // (logs from before the current enrolled_at are from previous cycles and should be ignored)
-    let logQuery = supabase
-      .from('automation_logs')
-      .select('id')
-      .eq('enrollment_id', enrollment.id)
-      .eq('step_id', step.id)
-      .in('status', ['sent', 'pending'])
-
-    if (enrolledAt) {
-      logQuery = logQuery.gte('sent_at', enrolledAt)
-    }
-
-    const { data: existingLog } = await logQuery.limit(1)
-
-    if (existingLog && existingLog.length > 0) {
-      console.log(`Email already sent for enrollment ${enrollment.id} step ${step.id} in this cycle, skipping`)
-      return
-    }
+    const enrolledAt: string | null = enrollmentData?.enrolled_at ?? null
 
     if (!step.email_template_id) {
       summary.errors.push(`Email step ${step.id} has no template`)
-      await logStepExecution(supabase, enrollment, step, 'failed', 'No email template configured')
+      await logStepExecution(supabase, enrollment, step, 'failed', 'No email template configured', enrolledAt)
       return
     }
 
@@ -626,7 +639,7 @@ async function processEmailStep(
 
     if (dealError || !deal) {
       summary.errors.push(`Failed to fetch deal ${enrollment.deal_id}: ${dealError?.message || 'Not found'}`)
-      await logStepExecution(supabase, enrollment, step, 'failed', `Deal not found: ${dealError?.message || 'No data'}`)
+      await logStepExecution(supabase, enrollment, step, 'failed', `Deal not found: ${dealError?.message || 'No data'}`, enrolledAt)
       return
     }
 
@@ -648,14 +661,14 @@ async function processEmailStep(
 
     if (!contact?.email) {
       summary.errors.push(`Deal ${enrollment.deal_id} has no contact email`)
-      await logStepExecution(supabase, enrollment, step, 'failed', 'No contact email')
+      await logStepExecution(supabase, enrollment, step, 'failed', 'No contact email', enrolledAt)
       return
     }
 
     // Skip unsubscribed or bounced contacts
     if (contact.subscription_status && contact.subscription_status !== 'subscribed') {
       console.log(`Skipping email for enrollment ${enrollment.id} - contact ${contact.email} is ${contact.subscription_status}`)
-      await logStepExecution(supabase, enrollment, step, 'skipped', `Contact is ${contact.subscription_status}`)
+      await logStepExecution(supabase, enrollment, step, 'skipped', `Contact is ${contact.subscription_status}`, enrolledAt)
       return
     }
 
@@ -685,7 +698,7 @@ async function processEmailStep(
 
     if (templateError || !template) {
       summary.errors.push(`Failed to fetch template ${step.email_template_id}: ${templateError?.message}`)
-      await logStepExecution(supabase, enrollment, step, 'failed', 'Template not found')
+      await logStepExecution(supabase, enrollment, step, 'failed', 'Template not found', enrolledAt)
       return
     }
 
@@ -733,24 +746,16 @@ async function processEmailStep(
     // Get the from email (in Resend test mode, must use onboarding@resend.dev)
     const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
 
-    // Log step execution as 'pending' first (to get the log id)
-    // Updated to 'sent' after successful send, or 'failed' on error
-    const { data: logEntry, error: logError } = await supabase
-      .from('automation_logs')
-      .insert({
-        enrollment_id: enrollment.id,
-        step_id: step.id,
-        deal_id: enrollment.deal_id,
-        status: 'pending',
-        log_type: 'email_sent',
-        sent_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single()
-
-    if (logError) {
-      summary.errors.push(`Failed to create log entry: ${logError.message}`)
+    // Reserve the log slot BEFORE calling Resend. The partial unique index on
+    // automation_logs_dedup_active makes this insert the authoritative lock:
+    // if another worker already holds it for this (enrollment, step, cycle),
+    // the insert raises 23505 and we bail out instead of double-sending.
+    const reservation = await reserveLogSlot(supabase, enrollment, step, enrolledAt, 'email_sent')
+    if (reservation === 'conflict') {
+      console.log(`Skip: log slot already reserved for enrollment ${enrollment.id} step ${step.id} in this cycle`)
+      return
     }
+    const logEntryId = reservation.logId
 
     // Generate tracking ID for this email
     const trackingId = crypto.randomUUID()
@@ -759,7 +764,10 @@ async function processEmailStep(
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) {
       summary.errors.push('RESEND_API_KEY not configured')
-      await logStepExecution(supabase, enrollment, step, 'failed', 'RESEND_API_KEY not configured')
+      await supabase
+        .from('automation_logs')
+        .update({ status: 'failed', error_message: 'RESEND_API_KEY not configured' })
+        .eq('id', logEntryId)
       return
     }
 
@@ -778,24 +786,23 @@ async function processEmailStep(
       console.error('Full Resend error:', JSON.stringify(resendError))
       console.error('Resend error:', resendError)
       summary.errors.push(`Failed to send email to ${contact.email}: ${resendError.message}`)
-      
-      // Update log entry to failed
-      if (logEntry?.id) {
-        await supabase
-          .from('automation_logs')
-          .update({
-            status: 'failed',
-            error_message: resendError.message,
-          })
-          .eq('id', logEntry.id)
-      }
+
+      // Drop the reservation to 'failed' so retries (with a fresh pending row)
+      // are not blocked by the partial unique index.
+      await supabase
+        .from('automation_logs')
+        .update({
+          status: 'failed',
+          error_message: resendError.message,
+        })
+        .eq('id', logEntryId)
 
       // Log to email_sends table
       await supabase.from('email_sends').insert({
         tracking_id: trackingId,
         recipient_email: contact.email,
         recipient_contact_id: contact.id,
-        automation_log_id: logEntry?.id,
+        automation_log_id: logEntryId,
         subject: subject,
         status: 'failed',
         error_message: resendError.message,
@@ -807,20 +814,18 @@ async function processEmailStep(
 
     const messageId = emailData?.id || null
 
-    // Update log entry to 'sent' after successful send
-    if (logEntry?.id) {
-      await supabase
-        .from('automation_logs')
-        .update({ status: 'sent' })
-        .eq('id', logEntry.id)
-    }
+    // Finalize the reservation to 'sent'.
+    await supabase
+      .from('automation_logs')
+      .update({ status: 'sent', email_message_id: messageId })
+      .eq('id', logEntryId)
 
     // Log successful send to email_sends table
     await supabase.from('email_sends').insert({
       tracking_id: trackingId,
       recipient_email: contact.email,
       recipient_contact_id: contact.id,
-      automation_log_id: logEntry?.id,
+      automation_log_id: logEntryId,
       subject: subject,
       status: 'sent',
       resend_message_id: messageId,
@@ -952,7 +957,7 @@ async function processSMSStep(
       deal_owner_calendly: owner?.calendly_url || null,
     }
 
-    const processedContent = replaceSimpleTags(step.sms_content, mergeData)
+    const processedContent = replaceMergeTags(step.sms_content, mergeData)
 
     // Log step execution as 'pending' first
     const { data: logEntry, error: logError } = await supabase
@@ -1032,93 +1037,6 @@ async function processSMSStep(
 }
 
 /**
- * Replace merge tags in email content
- * Supports: {{field}}, {{field|fallback}}, {{#if field}}...{{/if}}, {{#unless field}}...{{/unless}}
- */
-function replaceMergeTags(content: string, data: Record<string, string | number | boolean | null | undefined>): string {
-  if (!content) return ''
-
-  let result = content
-
-  // Process conditional blocks first
-  result = processConditionalBlocks(result, data)
-
-  // Then replace simple tags (with optional fallback)
-  result = replaceSimpleTags(result, data)
-
-  return result
-}
-
-/**
- * Process conditional blocks: {{#if}}, {{#unless}}, equals/not_equals/contains
- */
-function processConditionalBlocks(template: string, data: Record<string, string | number | boolean | null | undefined>): string {
-  let result = template
-
-  // {{#if field_name equals "value"}}content{{/if}}
-  const equalsPattern = /\{\{#if\s+(\w+)\s+equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(equalsPattern, (_, fieldName, expectedValue, content) => {
-    const actualValue = data[fieldName]
-    return actualValue === expectedValue ? content : ''
-  })
-
-  // {{#if field_name not_equals "value"}}content{{/if}}
-  const notEqualsPattern = /\{\{#if\s+(\w+)\s+not_equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(notEqualsPattern, (_, fieldName, expectedValue, content) => {
-    const actualValue = data[fieldName]
-    return actualValue !== expectedValue ? content : ''
-  })
-
-  // {{#if field_name contains "value"}}content{{/if}}
-  const containsPattern = /\{\{#if\s+(\w+)\s+contains\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(containsPattern, (_, fieldName, value, content) => {
-    const fieldValue = String(data[fieldName] || '')
-    return fieldValue.toLowerCase().includes(value.toLowerCase()) ? content : ''
-  })
-
-  // {{#if field_name}}content{{/if}}
-  const truthyPattern = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(truthyPattern, (_, fieldName, content) => {
-    const value = data[fieldName]
-    return value && value !== '' ? content : ''
-  })
-
-  // {{#unless field_name}}content{{/unless}}
-  const unlessPattern = /\{\{#unless\s+(\w+)\}\}([\s\S]*?)\{\{\/unless\}\}/gi
-  result = result.replace(unlessPattern, (_, fieldName, content) => {
-    const value = data[fieldName]
-    return !value || value === '' ? content : ''
-  })
-
-  return result
-}
-
-/**
- * Replace simple merge tags: {{field_name}} or {{field_name|fallback}}
- */
-function replaceSimpleTags(template: string, data: Record<string, string | number | boolean | null | undefined>): string {
-  const tagPattern = /\{\{(\w+)(?:\|([^}]+))?\}\}/g
-
-  return template.replace(tagPattern, (_, fieldName, fallback) => {
-    const value = data[fieldName]
-
-    if (value !== null && value !== undefined && value !== '') {
-      // Format currency values
-      if (typeof value === 'number') {
-        return new Intl.NumberFormat('en-GB', {
-          style: 'currency',
-          currency: 'GBP',
-          minimumFractionDigits: 0,
-        }).format(value)
-      }
-      return String(value)
-    }
-
-    return fallback !== undefined ? fallback : ''
-  })
-}
-
-/**
  * Process a move_to_stage step - update the deal's stage
  */
 async function processMoveToStageStep(
@@ -1163,7 +1081,8 @@ async function logStepExecution(
   enrollment: AutomationEnrollment,
   step: AutomationStep,
   status: 'sent' | 'failed' | 'skipped',
-  errorMessage?: string
+  errorMessage?: string,
+  enrolledAtSnapshot?: string | null,
 ) {
   await supabase.from('automation_logs').insert({
     enrollment_id: enrollment.id,
@@ -1172,7 +1091,68 @@ async function logStepExecution(
     status,
     sent_at: new Date().toISOString(),
     error_message: errorMessage || null,
+    enrolled_at_snapshot: enrolledAtSnapshot ?? null,
   })
+}
+
+/**
+ * Reserve an automation_logs slot with status='pending' before calling an
+ * external provider (Resend, ClickSend). The partial unique index
+ * automation_logs_dedup_active on (enrollment_id, step_id, enrolled_at_snapshot)
+ * makes this insert the authoritative lock: if a concurrent worker has
+ * already reserved this slot in the same enrolment cycle, we receive a
+ * unique-violation (23505) and return 'conflict' so the caller can bail
+ * out before double-sending.
+ */
+async function reserveLogSlot(
+  supabase: ReturnType<typeof createClient>,
+  enrollment: AutomationEnrollment,
+  step: AutomationStep,
+  enrolledAtSnapshot: string | null,
+  logType: string = 'step_executed',
+): Promise<{ logId: string } | 'conflict'> {
+  const { data, error } = await supabase
+    .from('automation_logs')
+    .insert({
+      enrollment_id: enrollment.id,
+      step_id: step.id,
+      deal_id: enrollment.deal_id,
+      status: 'pending',
+      log_type: logType,
+      sent_at: new Date().toISOString(),
+      enrolled_at_snapshot: enrolledAtSnapshot,
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') return 'conflict'
+    throw error
+  }
+  return { logId: data.id }
+}
+
+/**
+ * Reclaim logs stuck in 'pending' status. A pending row is written just
+ * before we call an external provider; if the function crashes or times
+ * out between the reservation and the status update, the row sits at
+ * 'pending' forever and the unique index blocks retries. A 10-minute
+ * cutoff is well beyond any normal send latency, so anything older is
+ * safely considered abandoned.
+ */
+async function sweepStalePending(supabase: ReturnType<typeof createClient>) {
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const { error } = await supabase
+    .from('automation_logs')
+    .update({
+      status: 'failed',
+      error_message: 'Pending log reclaimed (process crash or timeout before completion)',
+    })
+    .eq('status', 'pending')
+    .lt('sent_at', cutoff)
+  if (error) {
+    console.error('Failed to sweep stale pending logs:', error)
+  }
 }
 
 /**

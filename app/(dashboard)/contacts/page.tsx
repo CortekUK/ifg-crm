@@ -70,6 +70,8 @@ function ContactsPageContent() {
   const [ownerFilter, setOwnerFilter] = useState('')
   const [graduationYearFilter, setGraduationYearFilter] = useState('')
   const [genderFilter, setGenderFilter] = useState('')
+  const [stateFilter, setStateFilter] = useState('')
+  const [phonePrefix, setPhonePrefix] = useState('')
 
   // Sort state
   const [sortBy, setSortBy] = useState('created_at')
@@ -113,6 +115,7 @@ function ContactsPageContent() {
 
   // Debounce search
   const debouncedSearch = useDebouncedValue(search, 300)
+  const phonePrefixDebounced = useDebouncedValue(phonePrefix, 300)
 
   // Build filters object
   const filters = {
@@ -125,6 +128,8 @@ function ContactsPageContent() {
     ...(ownerFilter && ownerFilter !== 'all' && { owner_id: ownerFilter }),
     ...(graduationYearFilter && graduationYearFilter !== 'all' && { graduation_year: parseInt(graduationYearFilter) }),
     ...(genderFilter && genderFilter !== 'all' && { gender: genderFilter }),
+    ...(stateFilter && stateFilter !== 'all' && { state: stateFilter }),
+    ...(phonePrefixDebounced && { phone_prefix: phonePrefixDebounced }),
   }
 
   // Fetch contacts
@@ -204,6 +209,8 @@ function ContactsPageContent() {
     setOwnerFilter('')
     setGraduationYearFilter('')
     setGenderFilter('')
+    setStateFilter('')
+    setPhonePrefix('')
     setPage(1)
   }, [])
 
@@ -224,32 +231,144 @@ function ContactsPageContent() {
     storeColumns(columns)
   }, [])
 
-  // Handle export
-  const handleExport = useCallback(() => {
-    if (contacts.length === 0) return
-    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'Position', 'Club', 'Graduation Year', 'Gender', 'GPA', 'Source']
-    const rows = contacts.map((c) => [
-      c.first_name || '',
-      c.last_name || '',
-      c.email || '',
-      c.phone || '',
-      c.country || '',
-      c.position || '',
-      c.club_name || '',
-      c.graduation_year?.toString() || '',
-      c.gender || '',
-      c.gpa?.toString() || '',
-      c.source || '',
+  // Export helpers
+  const [isExporting, setIsExporting] = useState(false)
+
+  const buildExportQuery = useCallback(async () => {
+    const supabase = createClient()
+
+    // Replicate the same filter logic from useContacts but without pagination
+    let contactIdsFromDeals: string[] | null = null
+
+    if (filters.pipeline_id) {
+      const { data: deals } = await supabase
+        .from('deals')
+        .select('contact_id')
+        .eq('pipeline_id', filters.pipeline_id)
+        .not('contact_id', 'is', null)
+      contactIdsFromDeals = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
+      if (contactIdsFromDeals.length === 0) return []
+    }
+
+    if (filters.recruiter_id) {
+      const { data: deals } = await supabase
+        .from('deals')
+        .select('contact_id')
+        .eq('deal_owner_id', filters.recruiter_id)
+        .not('contact_id', 'is', null)
+      const recruiterContactIds = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
+      if (contactIdsFromDeals) {
+        contactIdsFromDeals = contactIdsFromDeals.filter(id => recruiterContactIds.includes(id))
+      } else {
+        contactIdsFromDeals = recruiterContactIds
+      }
+      if (contactIdsFromDeals.length === 0) return []
+    }
+
+    if (filters.tag_id) {
+      const { data: tagEntries } = await supabase
+        .from('contact_tags')
+        .select('contact_id')
+        .eq('tag_id', filters.tag_id)
+      const tagContactIds = [...new Set((tagEntries || []).map(e => e.contact_id))] as string[]
+      if (contactIdsFromDeals) {
+        contactIdsFromDeals = contactIdsFromDeals.filter(id => tagContactIds.includes(id))
+      } else {
+        contactIdsFromDeals = tagContactIds
+      }
+      if (contactIdsFromDeals.length === 0) return []
+    }
+
+    let query = supabase.from('contacts').select('*')
+
+    if (contactIdsFromDeals) {
+      query = query.in('id', contactIdsFromDeals)
+    }
+    if (debouncedSearch) {
+      query = query.or(
+        `first_name.ilike.%${debouncedSearch}%,last_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,phone.ilike.%${debouncedSearch}%`
+      )
+    }
+    if (filters.subscription_status) query = query.eq('subscription_status', filters.subscription_status)
+    if (filters.graduation_year) query = query.eq('graduation_year', filters.graduation_year)
+    if (filters.gender) query = query.eq('gender', filters.gender)
+    if (filters.country) query = query.eq('country', filters.country)
+    if (filters.position) query = query.eq('position', filters.position)
+    if (filters.owner_id) query = query.eq('owner_id', filters.owner_id)
+    if (filters.state) query = query.eq('state', filters.state)
+    if (filters.phone_prefix) {
+      const p = filters.phone_prefix
+      query = query.or(
+        [
+          `phone.ilike.${p}%`,
+          `phone.ilike.+_${p}%`,
+          `phone.ilike.+__${p}%`,
+          `phone.ilike.+___${p}%`,
+          `phone.ilike.+_ ${p}%`,
+          `phone.ilike.+__ ${p}%`,
+          `phone.ilike.+___ ${p}%`,
+          `phone.ilike.(${p})%`,
+          `phone.ilike.+_(${p})%`,
+          `phone.ilike.+_ (${p})%`,
+          `phone.ilike.0${p}%`,
+        ].join(',')
+      )
+    }
+
+    if (sortBy) {
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' })
+    } else {
+      query = query.order('created_at', { ascending: false })
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  }, [filters, debouncedSearch, sortBy, sortOrder])
+
+  const exportToCSV = useCallback((rows: Contact[], filename: string) => {
+    const headers = [
+      'First Name', 'Last Name', 'Email', 'Phone', 'Country', 'State', 'City',
+      'Position', 'Club', 'Graduation Year', 'Gender', 'GPA', 'Date of Birth',
+      'Parent Name', 'Parent Email', 'Parent Phone',
+      'Source', 'Subscription Status', 'Notes',
+    ]
+    const csvRows = rows.map((c) => [
+      c.first_name || '', c.last_name || '', c.email || '', c.phone || '',
+      c.country || '', c.state || '', c.city || '',
+      c.position || '', c.club_name || '',
+      c.graduation_year?.toString() || '', c.gender || '', c.gpa?.toString() || '',
+      c.date_of_birth || '',
+      c.parent_name || '', c.parent_email || '', c.parent_phone || '',
+      c.source || '', c.subscription_status || '', c.notes || '',
     ])
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const csv = [headers, ...csvRows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
-  }, [contacts])
+  }, [])
+
+  // Handle export - fetches ALL filtered contacts, not just current page
+  const handleExport = useCallback(async () => {
+    setIsExporting(true)
+    try {
+      const allContacts = await buildExportQuery()
+      if (allContacts.length === 0) {
+        toast({ title: 'Nothing to export', description: 'No contacts match the current filters.' })
+        return
+      }
+      exportToCSV(allContacts, `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`)
+      toast({ title: 'Exported', description: `${allContacts.length} contact(s) exported to CSV.` })
+    } catch {
+      toast({ title: 'Export failed', description: 'Something went wrong. Please try again.', variant: 'destructive' })
+    } finally {
+      setIsExporting(false)
+    }
+  }, [buildExportQuery, exportToCSV])
 
   // Grid view handlers
   const handleEmailClick = useCallback((contact: Contact) => {
@@ -266,22 +385,9 @@ function ContactsPageContent() {
   const handleBulkExport = useCallback(() => {
     const selected = contacts.filter((c) => selectedIds.has(c.id))
     if (selected.length === 0) return
-    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'Position', 'Club', 'Graduation Year', 'Gender', 'GPA', 'Source']
-    const rows = selected.map((c) => [
-      c.first_name || '', c.last_name || '', c.email || '', c.phone || '',
-      c.country || '', c.position || '', c.club_name || '',
-      c.graduation_year?.toString() || '', c.gender || '', c.gpa?.toString() || '', c.source || '',
-    ])
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `contacts-selected-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    exportToCSV(selected, `contacts-selected-${new Date().toISOString().slice(0, 10)}.csv`)
     toast({ title: 'Exported', description: `${selected.length} contact(s) exported to CSV.` })
-  }, [contacts, selectedIds])
+  }, [contacts, selectedIds, exportToCSV])
 
   const handleBulkDelete = useCallback(async () => {
     try {
@@ -326,6 +432,7 @@ function ContactsPageContent() {
         onAddContact={() => setCreateModalOpen(true)}
         onImportClick={() => setImportModalOpen(true)}
         onExportClick={handleExport}
+        isExporting={isExporting}
       />
 
       {/* Stats */}
@@ -397,6 +504,16 @@ function ContactsPageContent() {
         genderFilter={genderFilter}
         onGenderFilterChange={(value) => {
           setGenderFilter(value)
+          setPage(1)
+        }}
+        stateFilter={stateFilter}
+        onStateFilterChange={(value) => {
+          setStateFilter(value)
+          setPage(1)
+        }}
+        phonePrefix={phonePrefix}
+        onPhonePrefixChange={(value) => {
+          setPhonePrefix(value)
           setPage(1)
         }}
         userId={userId}

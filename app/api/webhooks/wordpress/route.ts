@@ -295,6 +295,7 @@ export async function POST(request: NextRequest) {
       .select(`
         id,
         name,
+        automation_type,
         pipeline_id,
         trigger_stage_id,
         config,
@@ -306,9 +307,68 @@ export async function POST(request: NextRequest) {
     if (automations && automations.length > 0) {
       for (const automation of automations) {
         // Check if form matches automation config
-        const config = automation.config as { form_ids?: string[] } | null
-        if (config?.form_ids && !config.form_ids.includes(formData.form_id || '')) {
-          continue // Skip if form doesn't match
+        const config = automation.config as {
+          form_ids?: string[]
+          form_id?: string
+          static_list_ids?: string[]
+          dynamic_list_rules?: { field: string; value: string; list_id: string }[]
+        } | null
+
+        // Match by form_ids array or single form_id
+        const formIdFromSubmission = formData.form_id || ''
+        if (config?.form_ids && !config.form_ids.includes(formIdFromSubmission)) {
+          if (!config.form_id || config.form_id !== formIdFromSubmission) {
+            continue // Skip if form doesn't match
+          }
+        }
+
+        // ── List Assignment ──
+
+        // Static lists
+        if (config?.static_list_ids && config.static_list_ids.length > 0) {
+          const listInserts = config.static_list_ids.map(listId => ({
+            contact_id: contactId,
+            list_id: listId,
+            added_at: new Date().toISOString(),
+          }))
+          await supabase
+            .from('contact_lists')
+            .upsert(listInserts, { onConflict: 'contact_id,list_id' })
+        }
+
+        // Dynamic list rules
+        if (config?.dynamic_list_rules && config.dynamic_list_rules.length > 0) {
+          const matchingListIds: string[] = []
+          for (const rule of config.dynamic_list_rules) {
+            let contactValue: string | null = null
+            switch (rule.field) {
+              case 'gender': contactValue = (formData.gender as string) || null; break
+              case 'graduation_year': contactValue = String(normalized.graduation_year || ''); break
+              case 'position': contactValue = normalized.position; break
+              case 'sport': contactValue = normalized.sport; break
+              case 'country': contactValue = (formData.country as string) || null; break
+              case 'state': contactValue = (formData.state as string) || null; break
+            }
+            if (contactValue && contactValue.toLowerCase() === rule.value.toLowerCase()) {
+              matchingListIds.push(rule.list_id)
+            }
+          }
+          if (matchingListIds.length > 0) {
+            const dynamicInserts = matchingListIds.map(listId => ({
+              contact_id: contactId,
+              list_id: listId,
+              added_at: new Date().toISOString(),
+            }))
+            await supabase
+              .from('contact_lists')
+              .upsert(dynamicInserts, { onConflict: 'contact_id,list_id' })
+          }
+        }
+
+        // ── Deal Creation (skip for list_assignment type) ──
+        if (automation.automation_type === 'list_assignment') {
+          console.log(`List assignment automation ${automation.name} processed for contact ${contactId}`)
+          continue
         }
 
         // Create a deal for this contact

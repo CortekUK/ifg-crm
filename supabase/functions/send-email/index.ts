@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
+import { replaceMergeTags } from '../_shared/merge-tags.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -357,89 +358,6 @@ async function fetchContactData(
   }
 }
 
-/**
- * Replace merge tags in a template string
- */
-function replaceMergeTags(template: string, data: MergeTagData): string {
-  if (!template) return ''
-  
-  let result = template
-  
-  // Process conditional blocks first
-  result = processConditionalBlocks(result, data)
-  
-  // Then replace simple tags
-  result = replaceSimpleTags(result, data)
-  
-  return result
-}
-
-/**
- * Process conditional blocks
- */
-function processConditionalBlocks(template: string, data: MergeTagData): string {
-  let result = template
-  
-  // {{#if field_name equals "value"}}content{{/if}}
-  const equalsPattern = /\{\{#if\s+(\w+)\s+equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(equalsPattern, (_, fieldName, expectedValue, content) => {
-    const actualValue = data[fieldName]
-    return actualValue === expectedValue ? content : ''
-  })
-  
-  // {{#if field_name not_equals "value"}}content{{/if}}
-  const notEqualsPattern = /\{\{#if\s+(\w+)\s+not_equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(notEqualsPattern, (_, fieldName, expectedValue, content) => {
-    const actualValue = data[fieldName]
-    return actualValue !== expectedValue ? content : ''
-  })
-
-  // {{#if field_name contains "value"}}content{{/if}}
-  const containsPattern = /\{\{#if\s+(\w+)\s+contains\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(containsPattern, (_, fieldName, value, content) => {
-    const fieldValue = String(data[fieldName] || '')
-    return fieldValue.toLowerCase().includes(value.toLowerCase()) ? content : ''
-  })
-
-  // {{#if field_name}}content{{/if}}
-  const truthyPattern = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(truthyPattern, (_, fieldName, content) => {
-    const value = data[fieldName]
-    return value && value !== '' ? content : ''
-  })
-  
-  // {{#unless field_name}}content{{/unless}}
-  const unlessPattern = /\{\{#unless\s+(\w+)\}\}([\s\S]*?)\{\{\/unless\}\}/gi
-  result = result.replace(unlessPattern, (_, fieldName, content) => {
-    const value = data[fieldName]
-    return !value || value === '' ? content : ''
-  })
-  
-  return result
-}
-
-/**
- * Replace simple merge tags
- */
-function replaceSimpleTags(template: string, data: MergeTagData): string {
-  // {{field_name}} or {{field_name|fallback}}
-  const tagPattern = /\{\{(\w+)(?:\|([^}]+))?\}\}/g
-  
-  return template.replace(tagPattern, (_, fieldName, fallback) => {
-    const value = data[fieldName]
-    
-    if (value !== null && value !== undefined && value !== '') {
-      // Format currency values
-      if (typeof value === 'number') {
-        return new Intl.NumberFormat('en-GB', {
-          style: 'currency',
-          currency: 'GBP',
-          minimumFractionDigits: 0,
-        }).format(value)
-      }
-      return String(value)
-    }
-    
-    return fallback !== undefined ? fallback : ''
-  })
-}
+// Merge-tag replacement is delegated to the shared core so all email paths
+// (send-email, process-automations, process-campaigns, UI preview) behave
+// identically. See supabase/functions/_shared/merge-tags.ts.

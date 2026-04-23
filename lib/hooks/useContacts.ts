@@ -103,6 +103,28 @@ export function useContacts(params?: UseContactsParams) {
       if (params?.filters?.owner_id && params.filters.owner_id !== 'all') {
         query = query.eq('owner_id', params.filters.owner_id)
       }
+      if (params?.filters?.state && params.filters.state !== 'all') {
+        query = query.eq('state', params.filters.state)
+      }
+      if (params?.filters?.phone_prefix) {
+        // Area codes appear after optional country code: +1 949..., (949)..., 0161..., etc.
+        const p = params.filters.phone_prefix
+        query = query.or(
+          [
+            `phone.ilike.${p}%`,         // 9491234567
+            `phone.ilike.+_${p}%`,        // +19491234567 (1-digit country code)
+            `phone.ilike.+__${p}%`,       // +441234567890 (2-digit country code)
+            `phone.ilike.+___${p}%`,      // +3901234567890 (3-digit country code)
+            `phone.ilike.+_ ${p}%`,       // +1 9491234567
+            `phone.ilike.+__ ${p}%`,      // +44 2012345678
+            `phone.ilike.+___ ${p}%`,     // +391 021234567
+            `phone.ilike.(${p})%`,        // (949) 1234567
+            `phone.ilike.+_(${p})%`,      // +1(949)1234567
+            `phone.ilike.+_ (${p})%`,     // +1 (949) 1234567
+            `phone.ilike.0${p}%`,         // 02012345678 (domestic UK/EU)
+          ].join(',')
+        )
+      }
 
       // Apply sorting
       if (params?.sortBy) {

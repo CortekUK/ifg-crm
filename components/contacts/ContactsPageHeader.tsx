@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { LayoutGrid, List, UserPlus, Upload, Download } from 'lucide-react'
+import { LayoutGrid, List, UserPlus, Upload, Download, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ContactsPageHeaderProps {
@@ -10,6 +10,7 @@ interface ContactsPageHeaderProps {
   onAddContact: () => void
   onImportClick: () => void
   onExportClick: () => void
+  isExporting?: boolean
 }
 
 export function ContactsPageHeader({
@@ -18,6 +19,7 @@ export function ContactsPageHeader({
   onAddContact,
   onImportClick,
   onExportClick,
+  isExporting,
 }: ContactsPageHeaderProps) {
   return (
     <div className="banner-gradient rounded-xl p-6">
@@ -63,10 +65,11 @@ export function ContactsPageHeader({
           <Button
             variant="outline"
             onClick={onExportClick}
+            disabled={isExporting}
             className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
           >
-            <Download className="h-4 w-4 mr-2" />
-            Export
+            {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {isExporting ? 'Exporting...' : 'Export'}
           </Button>
 
           <Button

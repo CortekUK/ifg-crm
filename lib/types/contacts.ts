@@ -70,6 +70,8 @@ export interface UseContactsParams {
     tag_id?: string
     position?: string
     owner_id?: string
+    state?: string
+    phone_prefix?: string
   }
 }
 

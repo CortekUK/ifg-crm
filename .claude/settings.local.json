@@ -19,7 +19,19 @@
       "Bash(lsof -ti:3000)",
       "Bash(xargs kill:*)",
       "Bash(netstat -ano)",
-      "Bash(xargs -I{} taskkill.exe //F //PID {})"
+      "Bash(xargs -I{} taskkill.exe //F //PID {})",
+      "Bash(find /d/ifg-crm/supabase/functions -type f -name *.ts)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(xargs basename:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(curl *)",
+      "Bash(npx vercel *)",
+      "Bash(cat C:\\\\\\\\Users\\\\\\\\LENOVO~1\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\D--ifg-crm\\\\\\\\7c3e196e-8c52-4242-9efc-3f7f99d38585\\\\\\\\tasks\\\\\\\\b0xt816v4.output)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(supabase --version)",
+      "Bash(npx supabase *)",
+      "Bash(yes)"
     ]
   }
 }

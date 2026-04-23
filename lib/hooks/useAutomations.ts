@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Automation, AutomationLog, AutomationFilters, AutomationEnrollment, AutomationType, AutomationConfig } from '@/lib/types/automations'
+import { compileAutomationSteps, type CompiledStep } from '@/lib/automations/compile'
 
 export interface CreateAutomationInput {
   name: string
@@ -242,225 +243,19 @@ export function useAutomationStats(automationId: string | null) {
   })
 }
 
-// Helper function to build steps based on automation type and config
+// Stamp a compiled-step list with the automation_id and sequential step_order.
+// All shape logic lives in lib/automations/compile.ts; this hook only wires
+// the resulting rows to the DB.
 function buildAutomationSteps(
   automationId: string,
   automationType: AutomationType | undefined,
-  config: AutomationConfig | null | undefined
-): Array<{
-  automation_id: string
-  step_order: number
-  step_type: 'send_email' | 'wait' | 'send_sms' | 'move_to_stage' | 'create_deal'
-  delay_days: number
-  delay_hours: number
-  email_template_id: string | null
-  sms_content: string | null
-  target_stage_id: string | null
-  conditions: Record<string, unknown> | null
-}> {
-  const steps: Array<{
-    automation_id: string
-    step_order: number
-    step_type: 'send_email' | 'wait' | 'send_sms' | 'move_to_stage' | 'create_deal'
-    delay_days: number
-    delay_hours: number
-    email_template_id: string | null
-    sms_content: string | null
-    target_stage_id: string | null
-    conditions: Record<string, unknown> | null
-  }> = []
-
-  const emails = config?.emails || []
-  const waitDays = config?.wait_days || [3, 5, 7]
-
-  if (automationType === 'deal_creation') {
-    // Deal creation automation - single step to create deal
-    steps.push({
-      automation_id: automationId,
-      step_order: 1,
-      step_type: 'create_deal',
-      delay_days: 0,
-      delay_hours: 0,
-      email_template_id: null,
-      sms_content: null,
-      target_stage_id: null,
-      conditions: null,
-    })
-  } else if (automationType === 'initial_contact' || automationType === 'follow_up') {
-    // Email sequence automation - 3 emails with waits between
-    let stepOrder = 1
-
-    // Email 1
-    steps.push({
-      automation_id: automationId,
-      step_order: stepOrder++,
-      step_type: 'send_email',
-      delay_days: 0,
-      delay_hours: 0,
-      email_template_id: emails[0]?.template_id || null,
-      sms_content: null,
-      target_stage_id: null,
-      conditions: null,
-    })
-
-    // Wait 1
-    steps.push({
-      automation_id: automationId,
-      step_order: stepOrder++,
-      step_type: 'wait',
-      delay_days: waitDays[0] || 3,
-      delay_hours: 0,
-      email_template_id: null,
-      sms_content: null,
-      target_stage_id: null,
-      conditions: null,
-    })
-
-    // Email 2
-    steps.push({
-      automation_id: automationId,
-      step_order: stepOrder++,
-      step_type: 'send_email',
-      delay_days: 0,
-      delay_hours: 0,
-      email_template_id: emails[1]?.template_id || null,
-      sms_content: null,
-      target_stage_id: null,
-      conditions: null,
-    })
-
-    // Wait 2
-    steps.push({
-      automation_id: automationId,
-      step_order: stepOrder++,
-      step_type: 'wait',
-      delay_days: waitDays[1] || 5,
-      delay_hours: 0,
-      email_template_id: null,
-      sms_content: null,
-      target_stage_id: null,
-      conditions: null,
-    })
-
-    // Email 3
-    steps.push({
-      automation_id: automationId,
-      step_order: stepOrder++,
-      step_type: 'send_email',
-      delay_days: 0,
-      delay_hours: 0,
-      email_template_id: emails[2]?.template_id || null,
-      sms_content: null,
-      target_stage_id: null,
-      conditions: null,
-    })
-
-    // For follow_up type, add final wait and move_to_stage if configured
-    if (automationType === 'follow_up' && config?.final_stage_id) {
-      steps.push({
-        automation_id: automationId,
-        step_order: stepOrder++,
-        step_type: 'wait',
-        delay_days: waitDays[2] || 7,
-        delay_hours: 0,
-        email_template_id: null,
-        sms_content: null,
-        target_stage_id: null,
-        conditions: null,
-      })
-
-      steps.push({
-        automation_id: automationId,
-        step_order: stepOrder++,
-        step_type: 'move_to_stage',
-        delay_days: 0,
-        delay_hours: 0,
-        email_template_id: null,
-        sms_content: null,
-        target_stage_id: config.final_stage_id,
-        conditions: null,
-      })
-    }
-  } else if (automationType === 'deposit_invoice') {
-    // Deposit invoice: send email + 3 reminders with waits
-    let stepOrder = 1
-    const maxEmails = Math.max(emails.length, 4)
-    for (let i = 0; i < maxEmails; i++) {
-      if (i > 0) {
-        steps.push({
-          automation_id: automationId,
-          step_order: stepOrder++,
-          step_type: 'wait',
-          delay_days: waitDays[i - 1] || (i === 1 ? 3 : i === 2 ? 5 : 7),
-          delay_hours: 0,
-          email_template_id: null,
-          sms_content: null,
-          target_stage_id: null,
-          conditions: null,
-        })
-      }
-      steps.push({
-        automation_id: automationId,
-        step_order: stepOrder++,
-        step_type: 'send_email',
-        delay_days: 0,
-        delay_hours: 0,
-        email_template_id: emails[i]?.template_id || null,
-        sms_content: null,
-        target_stage_id: null,
-        conditions: null,
-      })
-    }
-  } else {
-    // All other types: single email (or multi-email with waits if configured)
-    // Works for: application_received, interview_reminder, post_interview,
-    //            welcome_sequence, payment_overdue, pre_departure
-    let stepOrder = 1
-
-    if (emails.length > 0) {
-      for (let i = 0; i < emails.length; i++) {
-        if (i > 0 && waitDays[i - 1]) {
-          steps.push({
-            automation_id: automationId,
-            step_order: stepOrder++,
-            step_type: 'wait',
-            delay_days: waitDays[i - 1] || 3,
-            delay_hours: 0,
-            email_template_id: null,
-            sms_content: null,
-            target_stage_id: null,
-            conditions: null,
-          })
-        }
-        steps.push({
-          automation_id: automationId,
-          step_order: stepOrder++,
-          step_type: 'send_email',
-          delay_days: 0,
-          delay_hours: 0,
-          email_template_id: emails[i]?.template_id || null,
-          sms_content: null,
-          target_stage_id: null,
-          conditions: null,
-        })
-      }
-    } else if (config?.single_template_id) {
-      // Single template shortcut
-      steps.push({
-        automation_id: automationId,
-        step_order: stepOrder++,
-        step_type: 'send_email',
-        delay_days: 0,
-        delay_hours: 0,
-        email_template_id: config.single_template_id,
-        sms_content: null,
-        target_stage_id: null,
-        conditions: null,
-      })
-    }
-  }
-
-  return steps
+  config: AutomationConfig | null | undefined,
+): Array<CompiledStep & { automation_id: string; step_order: number }> {
+  return compileAutomationSteps(automationType, config).map((step, index) => ({
+    ...step,
+    automation_id: automationId,
+    step_order: index + 1,
+  }))
 }
 
 export function useCreateAutomation() {

@@ -310,7 +310,7 @@ export function CreateInvoiceModal({
                     </SelectContent>
                   </Select>
                   ) : (
-                    <p className="text-xs text-muted-foreground py-2">All deals already have an active invoice linked. Cancel or delete an existing invoice to link a new one.</p>
+                    <p className="text-xs text-muted-foreground py-2">Initial invoice already sent/paid for this programme. You can still create an invoice without linking — the contact will be notified and can pay.</p>
                   )}
                 </div>
               )}

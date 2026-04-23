@@ -1,36 +1,16 @@
 /**
- * Merge Tag System for Email Templates
- * 
- * Supports:
- * - Simple tags: {{first_name}}, {{last_name}}, etc.
- * - Conditional blocks: {{#if field_name}}...{{/if}}
- * - Conditional equals: {{#if field_name equals "value"}}...{{/if}}
- * - Fallback values: {{first_name|Friend}}
+ * Merge-tag editor surface for email templates.
+ * Tag replacement itself lives in ./merge-tags-core.ts (mirrored to
+ * supabase/functions/_shared/merge-tags.ts for the Deno executors).
+ * This file adds the UI-facing catalog, preview, and validation helpers
+ * that only the Next.js app needs.
  */
 
-export interface MergeTagData {
-  // Contact fields
-  first_name?: string | null
-  last_name?: string | null
-  email?: string | null
-  phone?: string | null
-  
-  // Deal fields
-  deal_title?: string | null
-  deal_value?: number | null
-  deal_stage?: string | null
-  deal_pipeline?: string | null
-  
-  // Deal owner fields
-  deal_owner_name?: string | null
-  deal_owner_email?: string | null
-  deal_owner_phone?: string | null
-  deal_owner_calendly?: string | null
-  deal_owner_signature?: string | null
-  
-  // Custom fields
-  [key: string]: string | number | boolean | null | undefined
-}
+import { replaceMergeTags as coreReplaceMergeTags } from './merge-tags-core'
+import type { MergeTagData as CoreMergeTagData } from './merge-tags-core'
+
+// Re-export the type so existing imports from '@/lib/utils/mergeTags' keep working.
+export type MergeTagData = CoreMergeTagData
 
 export interface MergeTagDefinition {
   tag: string
@@ -168,152 +148,9 @@ export function getCategoryLabel(category: string): string {
   return labels[category] || category
 }
 
-/**
- * Replace merge tags in a template string
- * 
- * @param template - The template string containing merge tags
- * @param data - Object containing values for merge tags
- * @returns The template with merge tags replaced
- */
-export function replaceMergeTags(template: string, data: MergeTagData): string {
-  if (!template) return ''
-  
-  let result = template
-  
-  // Process conditional blocks first
-  result = processConditionalBlocks(result, data)
-  
-  // Then replace simple tags
-  result = replaceSimpleTags(result, data)
-  
-  return result
-}
-
-/**
- * Process conditional blocks in the template
- * Supports: {{#if field_name}}...{{/if}}
- * And: {{#if field_name equals "value"}}...{{/if}}
- */
-function processConditionalBlocks(template: string, data: MergeTagData): string {
-  let result = template
-  
-  // Match conditional blocks with equals comparison
-  // {{#if field_name equals "value"}}content{{/if}}
-  const equalsPattern = /\{\{#if\s+(\w+)\s+equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(equalsPattern, (match, fieldName, expectedValue, content) => {
-    const actualValue = getFieldValue(fieldName, data)
-    if (actualValue === expectedValue) {
-      return content
-    }
-    return ''
-  })
-  
-  // Match conditional blocks with not equals comparison
-  // {{#if field_name not_equals "value"}}content{{/if}}
-  const notEqualsPattern = /\{\{#if\s+(\w+)\s+not_equals\s+"([^"]+)"\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(notEqualsPattern, (match, fieldName, expectedValue, content) => {
-    const actualValue = getFieldValue(fieldName, data)
-    if (actualValue !== expectedValue) {
-      return content
-    }
-    return ''
-  })
-  
-  // Match simple conditional blocks (truthy check)
-  // {{#if field_name}}content{{/if}}
-  const truthyPattern = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/gi
-  result = result.replace(truthyPattern, (match, fieldName, content) => {
-    const value = getFieldValue(fieldName, data)
-    if (value && value !== '') {
-      return content
-    }
-    return ''
-  })
-  
-  // Match unless blocks (falsy check)
-  // {{#unless field_name}}content{{/unless}}
-  const unlessPattern = /\{\{#unless\s+(\w+)\}\}([\s\S]*?)\{\{\/unless\}\}/gi
-  result = result.replace(unlessPattern, (match, fieldName, content) => {
-    const value = getFieldValue(fieldName, data)
-    if (!value || value === '') {
-      return content
-    }
-    return ''
-  })
-  
-  return result
-}
-
-/**
- * Replace simple merge tags
- * Supports: {{field_name}} and {{field_name|fallback}}
- */
-function replaceSimpleTags(template: string, data: MergeTagData): string {
-  // Match tags with optional fallback: {{field_name}} or {{field_name|fallback}}
-  const tagPattern = /\{\{(\w+)(?:\|([^}]+))?\}\}/g
-  
-  return template.replace(tagPattern, (match, fieldName, fallback) => {
-    const value = getFieldValue(fieldName, data)
-    
-    if (value !== null && value !== undefined && value !== '') {
-      return formatValue(value)
-    }
-    
-    // Use fallback if provided
-    if (fallback !== undefined) {
-      return fallback
-    }
-    
-    // Return empty string if no value and no fallback
-    return ''
-  })
-}
-
-/**
- * Get field value from data object
- */
-function getFieldValue(fieldName: string, data: MergeTagData): string | number | boolean | null | undefined {
-  // Direct field lookup
-  if (fieldName in data) {
-    return data[fieldName]
-  }
-  
-  // Handle snake_case to camelCase conversion
-  const camelCase = fieldName.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
-  if (camelCase in data) {
-    return data[camelCase as keyof MergeTagData]
-  }
-  
-  return undefined
-}
-
-/**
- * Format value for display
- */
-function formatValue(value: string | number | boolean | null | undefined): string {
-  if (value === null || value === undefined) {
-    return ''
-  }
-  
-  if (typeof value === 'number') {
-    // Format currency if it looks like a monetary value
-    if (Number.isInteger(value) || value.toString().includes('.')) {
-      return new Intl.NumberFormat('en-GB', {
-        style: 'currency',
-        currency: 'GBP',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(value)
-    }
-    return value.toString()
-  }
-  
-  if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No'
-  }
-  
-  return String(value)
-}
+// Core replacement is delegated to merge-tags-core so the Next.js app and
+// the Deno edge functions share identical behaviour.
+export const replaceMergeTags = coreReplaceMergeTags
 
 /**
  * Preview merge tags with sample data

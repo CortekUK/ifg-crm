@@ -47,12 +47,15 @@ import {
   Bell,
   CreditCard,
   UserPlus,
+  ListPlus,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useTemplates } from '@/lib/hooks/useTemplates'
 import { useUsers } from '@/lib/hooks/useUsers'
+import { useLists } from '@/lib/hooks/useLists'
 import {
   AUTOMATION_TEMPLATES,
   type AutomationType,
@@ -115,6 +118,7 @@ export function ConfigureAutomationModal({
   const { data: stages = [] } = usePipelineStages(formData.pipeline_id ?? null)
   const { data: templates = [] } = useTemplates()
   const { data: users = [] } = useUsers()
+  const { data: lists = [] } = useLists()
 
   const recruiters = users.filter((u) => u.role === 'recruiter' || u.role === 'admin')
 
@@ -207,6 +211,8 @@ export function ConfigureAutomationModal({
         return <PartyPopper className="h-5 w-5" />
       case 'pre_departure':
         return <Plane className="h-5 w-5" />
+      case 'list_assignment':
+        return <ListPlus className="h-5 w-5" />
       default:
         return <Zap className="h-5 w-5" />
     }
@@ -234,6 +240,8 @@ export function ConfigureAutomationModal({
         return 'bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400'
       case 'pre_departure':
         return 'bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400'
+      case 'list_assignment':
+        return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400'
       default:
         return 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
     }
@@ -416,7 +424,8 @@ export function ConfigureAutomationModal({
 
                 <Separator />
 
-                {/* Pipeline & Trigger */}
+                {/* Pipeline & Trigger (hidden for list_assignment) */}
+                {selectedTemplate?.type !== 'list_assignment' && (
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                     {selectedTemplate?.type === 'deal_creation' ? 'Pipeline Settings' : 'Trigger Settings'}
@@ -519,8 +528,10 @@ export function ConfigureAutomationModal({
                   </div>
                 </div>
 
-                {/* Form Configuration (for deal creation) */}
-                {selectedTemplate?.type === 'deal_creation' && (
+                )}
+
+                {/* Form Configuration (for deal creation and list assignment) */}
+                {(selectedTemplate?.type === 'deal_creation' || selectedTemplate?.type === 'list_assignment') && (
                   <>
                     <Separator />
                     <div className="space-y-4">
@@ -689,6 +700,171 @@ export function ConfigureAutomationModal({
                         <p className="text-xs text-muted-foreground">
                           Configure your form to POST to this URL
                         </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* List Assignment (for deal_creation and list_assignment) */}
+                {(selectedTemplate?.type === 'deal_creation' || selectedTemplate?.type === 'list_assignment') && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
+                        <ListPlus className="h-4 w-4" />
+                        List Assignment
+                      </h3>
+
+                      {/* Static Lists */}
+                      <div className="space-y-2">
+                        <Label>Static Lists</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Contacts will always be added to these lists
+                        </p>
+                        {lists.length === 0 ? (
+                          <p className="text-sm text-muted-foreground italic">No lists created yet</p>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                            {lists.map((list) => (
+                              <div
+                                key={list.id}
+                                className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50 dark:hover:bg-slate-800"
+                              >
+                                <Checkbox
+                                  id={`static-list-${list.id}`}
+                                  checked={formData.config.static_list_ids?.includes(list.id) || false}
+                                  onCheckedChange={(checked) => {
+                                    const current = formData.config.static_list_ids || []
+                                    const newIds = checked
+                                      ? [...current, list.id]
+                                      : current.filter(id => id !== list.id)
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      config: { ...prev.config, static_list_ids: newIds },
+                                    }))
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`static-list-${list.id}`}
+                                  className="text-sm cursor-pointer flex-1"
+                                >
+                                  {list.name}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Dynamic List Rules */}
+                      <div className="space-y-2">
+                        <Label>Dynamic List Rules</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Add contacts to lists based on their form data
+                        </p>
+
+                        {(formData.config.dynamic_list_rules || []).map((rule, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground shrink-0">When</span>
+                            <Select
+                              value={rule.field}
+                              onValueChange={(value) => {
+                                const rules = [...(formData.config.dynamic_list_rules || [])]
+                                rules[index] = { ...rules[index], field: value }
+                                setFormData(prev => ({
+                                  ...prev,
+                                  config: { ...prev.config, dynamic_list_rules: rules },
+                                }))
+                              }}
+                            >
+                              <SelectTrigger className="w-[140px] h-8">
+                                <SelectValue placeholder="Field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="gender">Gender</SelectItem>
+                                <SelectItem value="graduation_year">Grad Year</SelectItem>
+                                <SelectItem value="country">Country</SelectItem>
+                                <SelectItem value="state">State</SelectItem>
+                                <SelectItem value="position">Position</SelectItem>
+                                <SelectItem value="sport">Sport</SelectItem>
+                              </SelectContent>
+                            </Select>
+
+                            <span className="text-sm text-muted-foreground">=</span>
+
+                            <Input
+                              placeholder="Value"
+                              className="w-[100px] h-8"
+                              value={rule.value}
+                              onChange={(e) => {
+                                const rules = [...(formData.config.dynamic_list_rules || [])]
+                                rules[index] = { ...rules[index], value: e.target.value }
+                                setFormData(prev => ({
+                                  ...prev,
+                                  config: { ...prev.config, dynamic_list_rules: rules },
+                                }))
+                              }}
+                            />
+
+                            <span className="text-sm text-muted-foreground shrink-0">add to</span>
+
+                            <Select
+                              value={rule.list_id}
+                              onValueChange={(value) => {
+                                const rules = [...(formData.config.dynamic_list_rules || [])]
+                                rules[index] = { ...rules[index], list_id: value }
+                                setFormData(prev => ({
+                                  ...prev,
+                                  config: { ...prev.config, dynamic_list_rules: rules },
+                                }))
+                              }}
+                            >
+                              <SelectTrigger className="w-[150px] h-8">
+                                <SelectValue placeholder="Select list" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {lists.map((list) => (
+                                  <SelectItem key={list.id} value={list.id}>
+                                    {list.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:text-red-700"
+                              onClick={() => {
+                                const rules = (formData.config.dynamic_list_rules || []).filter((_, i) => i !== index)
+                                setFormData(prev => ({
+                                  ...prev,
+                                  config: { ...prev.config, dynamic_list_rules: rules },
+                                }))
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => {
+                            const rules = [...(formData.config.dynamic_list_rules || []), { field: 'gender', value: '', list_id: '' }]
+                            setFormData(prev => ({
+                              ...prev,
+                              config: { ...prev.config, dynamic_list_rules: rules },
+                            }))
+                          }}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1.5" />
+                          Add Rule
+                        </Button>
                       </div>
                     </div>
                   </>
@@ -1074,8 +1250,8 @@ export function ConfigureAutomationModal({
                 onClick={handleSave}
                 disabled={
                   !formData.name ||
-                  !formData.pipeline_id ||
-                  (selectedTemplate?.type !== 'deal_creation' && !formData.trigger_stage_id) ||
+                  (selectedTemplate?.type !== 'list_assignment' && !formData.pipeline_id) ||
+                  (selectedTemplate?.type !== 'deal_creation' && selectedTemplate?.type !== 'list_assignment' && !formData.trigger_stage_id) ||
                   (selectedTemplate?.configurable.emails &&
                     !formData.config.emails?.some(e => e.template_id))
                 }
