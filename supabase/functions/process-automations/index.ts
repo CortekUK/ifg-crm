@@ -743,8 +743,11 @@ async function processEmailStep(
       fromName = template.fixed_from_name
     }
 
-    // Get the from email (in Resend test mode, must use onboarding@resend.dev)
-    const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
+    // Send AS the deal owner. Resend allows any address on a verified domain,
+    // so max@theinternationalfootballgroup.com etc. all work without per-user
+    // setup once the domain is verified. Falls back to the global FROM_EMAIL
+    // if the deal has no owner (or owner profile has no email).
+    const fromEmail = owner?.email || Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
 
     // Reserve the log slot BEFORE calling Resend. The partial unique index on
     // automation_logs_dedup_active makes this insert the authoritative lock:
