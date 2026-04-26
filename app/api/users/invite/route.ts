@@ -117,36 +117,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create invitation' }, { status: 500 })
     }
 
-    // Send invite via Supabase Auth (only if service role key is available)
-    let emailSent = false
+    // Generate the invite link without relying on email delivery. The link
+    // is returned in the response so the admin can share it manually via
+    // any channel (WhatsApp, Slack, in person, etc.). This is the right
+    // mode while real recruiter mailboxes on the verified domain are not
+    // yet provisioned — Supabase would otherwise try to send an email that
+    // could not be delivered.
+    let inviteLink: string | null = null
+    let linkError: string | null = null
     if (hasServiceRoleKey()) {
-      const { error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: {
-          full_name: fullName,
-          role: role || 'recruiter',
-          title: title || null,
-          sport: sport || 'football',
-          phone: phone || null,
-          calendly_url: calendlyUrl || null,
-          zoom_url: zoomUrl || null,
-          pipeline_assignments: pipelineIds || null,
+      const { data: linkData, error: authError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: {
+          data: {
+            full_name: fullName,
+            role: role || 'recruiter',
+            title: title || null,
+            sport: sport || 'football',
+            phone: phone || null,
+            calendly_url: calendlyUrl || null,
+            zoom_url: zoomUrl || null,
+            pipeline_assignments: pipelineIds || null,
+          },
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
         },
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
       })
 
       if (authError) {
-        // Log but don't fail - the invite record is still created
-        console.error('Error sending auth invite email:', authError)
+        // Log but don't fail — the invite record is still created so the
+        // admin can retry, and the user_invites row carries the metadata.
+        console.error('Error generating invite link:', authError)
+        linkError = authError.message
       } else {
-        emailSent = true
+        inviteLink = linkData?.properties?.action_link ?? null
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: emailSent
-        ? 'Invitation sent successfully'
-        : 'Invitation created (email not sent - configure SUPABASE_SERVICE_ROLE_KEY to enable)',
+      message: inviteLink
+        ? 'Invite created. Share the link below with the new user.'
+        : 'Invite record created (link generation failed or service role key missing).',
       invite: {
         id: invite.id,
         email: invite.email,
@@ -154,6 +166,8 @@ export async function POST(request: NextRequest) {
         role: invite.role,
         sport: invite.sport,
       },
+      invite_link: inviteLink,
+      link_error: linkError,
     })
   } catch (error) {
     console.error('Invite error:', error)

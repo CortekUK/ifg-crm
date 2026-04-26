@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, Send, Briefcase, GitBranch } from 'lucide-react'
+import { Loader2, Send, Briefcase, GitBranch, Copy, Check } from 'lucide-react'
 import { useInviteUser } from '@/lib/hooks/useUsers'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { toast } from '@/lib/hooks/use-toast'
@@ -40,10 +40,16 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
     pipelineIds: [] as string[],
   })
 
+  // After a successful invite, the API returns an action link the admin can
+  // share manually. We surface it here instead of closing the modal so the
+  // admin has a chance to copy it.
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+
   const inviteUser = useInviteUser()
   const { data: pipelines = [] } = usePipelines()
 
-  // Reset form when modal opens
+  // Reset form (and any previously shown link) when modal opens
   useEffect(() => {
     if (isOpen) {
       setFormData({
@@ -53,8 +59,21 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         title: '',
         pipelineIds: [],
       })
+      setInviteLink(null)
+      setLinkCopied(false)
     }
   }, [isOpen])
+
+  const copyLink = async () => {
+    if (!inviteLink) return
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      // Clipboard access can fail (e.g. insecure context) — fall back silently.
+    }
+  }
 
   const handleChange = (field: string, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -73,7 +92,7 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
     if (!formData.fullName || !formData.email) return
 
     try {
-      await inviteUser.mutateAsync({
+      const result = await inviteUser.mutateAsync({
         email: formData.email,
         fullName: formData.fullName,
         role: formData.role,
@@ -81,16 +100,26 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         pipelineIds: formData.pipelineIds.length > 0 ? formData.pipelineIds : undefined,
       })
 
-      toast({
-        title: 'Invitation sent',
-        description: `An invitation has been sent to ${formData.email}`,
-      })
-
-      onClose()
+      const link = (result as { invite_link?: string | null })?.invite_link ?? null
+      if (link) {
+        // Show link in the modal for the admin to copy. No auto-close.
+        setInviteLink(link)
+        toast({
+          title: 'Invite created',
+          description: `Copy the link below and share it with ${formData.email}.`,
+        })
+      } else {
+        // Fallback: link generation failed or env not configured. Close modal.
+        toast({
+          title: 'Invite recorded',
+          description: 'The invite was created but no shareable link was returned. Check server config.',
+        })
+        onClose()
+      }
     } catch (error) {
       console.error('Failed to invite user:', error)
       toast({
-        title: 'Failed to send invitation',
+        title: 'Failed to create invite',
         description: error instanceof Error ? error.message : 'An unexpected error occurred',
         variant: 'destructive',
       })
@@ -105,15 +134,55 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
-            Invite User
+            {inviteLink ? 'Invite Created' : 'Invite User'}
           </DialogTitle>
           <DialogDescription>
-            Send an invitation to a new team member. They&apos;ll receive an email to set up their account.
+            {inviteLink
+              ? 'Share the link below with the new team member to finish setup.'
+              : 'Create an invite link for a new team member. We’ll show you the link to share manually.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto max-h-[calc(90vh-200px)] pr-2">
-          <div className="space-y-6 py-4">
+          {/* Post-invite: show the action link the admin needs to share. */}
+          {inviteLink && (
+            <div className="space-y-3 py-4">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40 p-4 space-y-3">
+                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+                  Invite ready. Copy this link and send it to the user — they&apos;ll set their password and join.
+                </p>
+                <div className="flex items-stretch gap-2">
+                  <Input
+                    readOnly
+                    value={inviteLink}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={copyLink}
+                    className="shrink-0"
+                  >
+                    {linkCopied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-1" /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-1" /> Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
+                  This link is single-use. No email is sent — share it via WhatsApp, Slack, or whichever channel works.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className={`space-y-6 py-4 ${inviteLink ? 'hidden' : ''}`}>
             {/* Basic Details */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -230,26 +299,34 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
         </div>
 
         <DialogFooter className="gap-3 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!isValid || inviteUser.isPending}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {inviteUser.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Send className="mr-2 h-4 w-4" />
-                Send Invite
-              </>
-            )}
-          </Button>
+          {inviteLink ? (
+            <Button onClick={onClose} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Done
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={!isValid || inviteUser.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {inviteUser.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Create Invite
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

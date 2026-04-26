@@ -733,9 +733,22 @@ async function processEmailStep(
     const subject = replaceMergeTags(template.subject, mergeData)
     const htmlBody = replaceMergeTags(template.body_html, mergeData)
 
-    // Determine from name and reply_to
+    // Determine from name and reply_to.
+    //
+    // Reply-To routing: when INBOUND_REPLY_DOMAIN is set (e.g.
+    // reply.theinternationalfootballgroup.com), replies are routed to that
+    // subdomain — whose MX points at Resend Inbound — so the resend-inbound
+    // edge function can ingest them, thread them via In-Reply-To, and stop
+    // the automation if exit_on_reply is enabled.
+    //
+    // When INBOUND_REPLY_DOMAIN is unset, Reply-To falls back to the deal
+    // owner's email (legacy behaviour: replies go directly to the owner's
+    // mailbox, the CRM never sees them).
     let fromName = 'International Football Group'
-    let replyTo = owner?.email || undefined
+    const inboundReplyDomain = Deno.env.get('INBOUND_REPLY_DOMAIN')
+    let replyTo: string | undefined = inboundReplyDomain
+      ? `replies@${inboundReplyDomain}`
+      : owner?.email || undefined
 
     if (template.from_name_type === 'deal_owner' && owner?.full_name) {
       fromName = owner.full_name
