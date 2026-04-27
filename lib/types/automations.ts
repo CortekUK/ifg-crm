@@ -48,7 +48,10 @@ export interface AutomationConfig {
   // For deal creation
   round_robin_users?: string[]
   form_id?: string
-  form_source?: 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
+  // 'activecampaign' routes to /api/webhooks/activecampaign; the rest route
+  // to /api/webhooks/wordpress (the handler picks payload shape from the
+  // exact value).
+  form_source?: 'activecampaign' | 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
   field_mappings?: FieldMappings
   initial_stage_id?: string
   // For sequences

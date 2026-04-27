@@ -49,6 +49,8 @@ import {
   UserPlus,
   ListPlus,
   Trash2,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePipelines } from '@/lib/hooks/usePipelines'
@@ -56,6 +58,7 @@ import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useTemplates } from '@/lib/hooks/useTemplates'
 import { useUsers } from '@/lib/hooks/useUsers'
 import { useLists } from '@/lib/hooks/useLists'
+import { toast } from '@/lib/hooks/use-toast'
 import {
   AUTOMATION_TEMPLATES,
   type AutomationType,
@@ -545,20 +548,28 @@ export function ConfigureAutomationModal({
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="form_id">Form ID</Label>
+                          <Label htmlFor="form_id">
+                            Form ID <span className="text-red-500">*</span>
+                          </Label>
                           <Input
                             id="form_id"
-                            placeholder="e.g., form_123 or gravity_1"
+                            placeholder="e.g. summer, gap, uclan"
                             value={formData.config.form_id || ''}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              // Lowercase + trim + strip whitespace as the
+                              // user types so the token matches whatever ends
+                              // up in the webhook URL exactly. Mismatches
+                              // here are silent failures, so make them
+                              // impossible to introduce in the first place.
+                              const cleaned = e.target.value.toLowerCase().replace(/\s+/g, '')
                               setFormData((prev) => ({
                                 ...prev,
-                                config: { ...prev.config, form_id: e.target.value },
+                                config: { ...prev.config, form_id: cleaned },
                               }))
-                            }
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">
-                            The unique ID from your WordPress form
+                            Lowercase, no spaces. Must match the <code>?form_id=</code> in the webhook URL below.
                           </p>
                         </div>
 
@@ -569,9 +580,9 @@ export function ConfigureAutomationModal({
                             onValueChange={(value) =>
                               setFormData((prev) => ({
                                 ...prev,
-                                config: { 
-                                  ...prev.config, 
-                                  form_source: value as 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
+                                config: {
+                                  ...prev.config,
+                                  form_source: value as 'activecampaign' | 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
                                 },
                               }))
                             }
@@ -580,6 +591,7 @@ export function ConfigureAutomationModal({
                               <SelectValue placeholder="Select form plugin" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="activecampaign">ActiveCampaign</SelectItem>
                               <SelectItem value="gravity_forms">Gravity Forms</SelectItem>
                               <SelectItem value="wpforms">WPForms</SelectItem>
                               <SelectItem value="contact_form_7">Contact Form 7</SelectItem>
@@ -589,6 +601,11 @@ export function ConfigureAutomationModal({
                           </Select>
                         </div>
                       </div>
+
+                      <FormWebhookUrlBlock
+                        formId={formData.config.form_id}
+                        formSource={formData.config.form_source}
+                      />
 
                       <div className="space-y-3">
                         <Label>Field Mappings</Label>
@@ -1363,5 +1380,97 @@ export function ConfigureAutomationModal({
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// Renders the full webhook URL the client should paste into ActiveCampaign
+// or their WordPress form plugin. Token is the form_id; the endpoint switches
+// based on form_source so AC and WordPress users each see their correct URL.
+//
+// Lives outside the modal component so it can keep its own copy-confirmation
+// state without re-rendering everything else when the user clicks Copy.
+function FormWebhookUrlBlock({
+  formId,
+  formSource,
+}: {
+  formId: string | undefined
+  formSource: AutomationConfig['form_source']
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const token = (formId ?? '').trim()
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'
+
+  // ActiveCampaign has its own dedicated webhook endpoint (different payload
+  // shape). Everything else routes through the WordPress webhook handler.
+  const endpoint =
+    formSource === 'activecampaign'
+      ? '/api/webhooks/activecampaign'
+      : '/api/webhooks/wordpress'
+
+  const webhookUrl = token ? `${baseUrl}${endpoint}?form_id=${encodeURIComponent(token)}` : ''
+  const integrationLabel = formSource === 'activecampaign' ? 'ActiveCampaign' : 'WordPress'
+
+  const handleCopy = async () => {
+    if (!webhookUrl) return
+    try {
+      await navigator.clipboard.writeText(webhookUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast({
+        title: 'Copy failed',
+        description: 'Select the URL and copy manually.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30 p-3 space-y-2">
+      <Label className="text-xs font-semibold text-blue-900 dark:text-blue-200 uppercase tracking-wide">
+        Webhook URL to give to {integrationLabel}
+      </Label>
+      {token ? (
+        <>
+          <div className="flex items-stretch gap-2">
+            <Input
+              readOnly
+              value={webhookUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              className="font-mono text-xs"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCopy}
+              className="shrink-0"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-1" /> Copy
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80">
+            {formSource === 'activecampaign'
+              ? 'Paste into ActiveCampaign → Automation → Webhook action. The form_id token must stay exactly as shown.'
+              : 'Paste into your WordPress form plugin’s webhook setting. The form_id token must stay exactly as shown.'}
+          </p>
+        </>
+      ) : (
+        <p className="text-xs text-blue-800/80 dark:text-blue-300/80 italic">
+          Enter a Form ID above and the full webhook URL will appear here.
+        </p>
+      )}
+    </div>
   )
 }
