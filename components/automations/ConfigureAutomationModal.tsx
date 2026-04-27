@@ -1061,6 +1061,46 @@ export function ConfigureAutomationModal({
                         </label>
                       </div>
 
+                      {/* When the automation exits, optionally move the deal
+                          to a specific stage so recruiters don't have to do
+                          it manually after every reply. */}
+                      <div className="space-y-1.5 mb-4">
+                        <Label className="text-sm">When automation exits, move deal to:</Label>
+                        {!formData.pipeline_id ? (
+                          <p className="text-xs text-muted-foreground italic">
+                            Select a pipeline first to choose an exit stage.
+                          </p>
+                        ) : (
+                          <Select
+                            value={formData.config.exit_to_stage_id ?? '__none__'}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  exit_to_stage_id: value === '__none__' ? null : value,
+                                },
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Don't move the deal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
+                              {stages.map((stage) => (
+                                <SelectItem key={stage.id} value={stage.id}>
+                                  {stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          When a contact reply ends the sequence, the deal jumps to this stage automatically.
+                        </p>
+                      </div>
+
                       {!formData.pipeline_id ? (
                         <p className="text-sm text-muted-foreground italic">
                           Select a pipeline first to see available exit stages

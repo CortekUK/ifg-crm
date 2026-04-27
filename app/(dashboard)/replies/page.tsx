@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Inbox, MessagesSquare, Sparkles, Briefcase } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { EmailReplyList } from '@/components/email/EmailReplyList'
 import { EmailDetailSheet } from '@/components/email/EmailDetailSheet'
 import { MatchEmailModal } from '@/components/email/MatchEmailModal'
 import { useEmailReplies, useEmailReplyCounts } from '@/lib/hooks/useEmailReplies'
+import { useContact } from '@/lib/hooks/useContacts'
 
 // SMS Replies Components
 import { SMSReplyTabs } from '@/components/sms/SMSReplyTabs'
@@ -26,7 +27,7 @@ import { useSMSMessages, useSMSMessageCounts } from '@/lib/hooks/useSMSMessages'
 import { SmartMatchModal } from '@/components/replies/SmartMatchModal'
 import { SmartDealModal } from '@/components/replies/SmartDealModal'
 
-import { useMarkEmailAsSpam } from '@/lib/hooks/useEmailReplies'
+import { useMarkEmailAsSpam, useUnmarkEmailSpam } from '@/lib/hooks/useEmailReplies'
 import { useMarkSMSAsSpam } from '@/lib/hooks/useSMSMessages'
 
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -35,11 +36,19 @@ import type { SMSMessage } from '@/lib/types/sms'
 
 export default function RepliesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Deep-link from automation detail: /replies?contactId=<id> filters to a
+  // contact and auto-opens their most recent matched reply.
+  const contactIdParam = searchParams.get('contactId')
+
   const [activeTab, setActiveTab] = useState<'email' | 'sms'>('email')
   const [userId, setUserId] = useState<string | null>(null)
 
-  // Email state
-  const [emailTab, setEmailTab] = useState<'unmatched' | 'matched' | 'spam'>('unmatched')
+  // Email state — start on Matched tab when deep-linking from a stopped enrollment,
+  // because reply-driven exits always come from already-matched replies.
+  const [emailTab, setEmailTab] = useState<'unmatched' | 'matched' | 'spam'>(
+    contactIdParam ? 'matched' : 'unmatched'
+  )
   const [selectedEmail, setSelectedEmail] = useState<EmailReply | null>(null)
   const [matchEmailModalOpen, setMatchEmailModalOpen] = useState(false)
   const [emailToMatch, setEmailToMatch] = useState<EmailReply | null>(null)
@@ -72,16 +81,35 @@ export default function RepliesPage() {
 
   // Mutations
   const markEmailSpam = useMarkEmailAsSpam()
+  const unmarkEmailSpam = useUnmarkEmailSpam()
   const markSMSSpam = useMarkSMSAsSpam()
 
   // Fetch data
   const emailRepliesQuery = useEmailReplies(emailTab)
-  const { data: emailCounts } = useEmailReplyCounts()
+  const { data: emailCounts } = useEmailReplyCounts(contactIdParam)
+  const { data: filteredContact } = useContact(contactIdParam)
   const smsMessagesQuery = useSMSMessages(smsTab)
   const { data: smsCounts } = useSMSMessageCounts()
 
-  const emailReplies = emailRepliesQuery.data?.pages?.flat() || []
+  const allEmailReplies = emailRepliesQuery.data?.pages?.flat() || []
+  const emailReplies = useMemo(
+    () => contactIdParam
+      ? allEmailReplies.filter((r) => r.contact_id === contactIdParam)
+      : allEmailReplies,
+    [contactIdParam, allEmailReplies]
+  )
   const smsMessages = smsMessagesQuery.data?.pages?.flat() || []
+
+  // Auto-open the most recent reply for a deep-linked contact. Runs once when
+  // the filtered results first appear; do not re-open if the user has dismissed.
+  const [hasAutoOpened, setHasAutoOpened] = useState(false)
+  useEffect(() => {
+    if (!contactIdParam || hasAutoOpened || selectedEmail) return
+    if (emailReplies.length > 0) {
+      setSelectedEmail(emailReplies[0])
+      setHasAutoOpened(true)
+    }
+  }, [contactIdParam, emailReplies, hasAutoOpened, selectedEmail])
 
   // Get selected replies for bulk processing
   const selectedEmailReplies = useMemo(
@@ -151,6 +179,10 @@ export default function RepliesPage() {
     markEmailSpam.mutate({ replyId: reply.id, matchedById: userId })
   }
 
+  const handleUnmarkEmailSpam = (reply: EmailReply) => {
+    unmarkEmailSpam.mutate({ replyId: reply.id })
+  }
+
   const handleMarkSMSSpam = (message: SMSMessage) => {
     if (!userId) return
     markSMSSpam.mutate({ messageId: message.id, matchedById: userId })
@@ -160,6 +192,31 @@ export default function RepliesPage() {
     <div className="space-y-6">
       {/* Banner */}
       <PageHeader subtitle="View and manage email and SMS responses from players. Match replies to contacts and deals." />
+
+      {/* Contact filter banner — shown when deep-linked from automation detail */}
+      {contactIdParam && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm">
+            <Inbox className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span className="text-blue-900 dark:text-blue-200">
+              Showing replies from{' '}
+              <span className="font-semibold">
+                {filteredContact
+                  ? `${filteredContact.first_name ?? ''} ${filteredContact.last_name ?? ''}`.trim() || filteredContact.email
+                  : 'this contact'}
+              </span>
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.replace('/replies')}
+            className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+          >
+            Show all replies
+          </Button>
+        </div>
+      )}
 
       {/* Main Tabs - Email vs SMS */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'email' | 'sms')}>
@@ -305,6 +362,7 @@ export default function RepliesPage() {
             onMatchClick={handleMatchEmail}
             onViewContact={handleViewContact}
             onMarkSpam={handleMarkEmailSpam}
+            onUnmarkSpam={handleUnmarkEmailSpam}
             onViewFull={setSelectedEmail}
             hasNextPage={emailRepliesQuery.hasNextPage}
             onLoadMore={() => emailRepliesQuery.fetchNextPage()}

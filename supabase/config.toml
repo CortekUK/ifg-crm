@@ -370,6 +370,27 @@ port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 
+# Public webhook endpoints — JWT verification must stay off so external
+# providers (Resend, Calendly, ClickSend, etc.) can deliver events. Each
+# function does its own signature/secret check inside the handler.
+[functions.resend-inbound]
+verify_jwt = false
+
+[functions.calendly-webhook]
+verify_jwt = false
+
+[functions.clicksend-webhook]
+verify_jwt = false
+
+[functions.clicksend-inbound]
+verify_jwt = false
+
+[functions.form-webhook]
+verify_jwt = false
+
+[functions.email-webhook]
+verify_jwt = false
+
 # Experimental features may be deprecated any time
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)

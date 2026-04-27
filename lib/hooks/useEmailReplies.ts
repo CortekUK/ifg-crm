@@ -45,6 +45,7 @@ export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatch
           *,
           contact:contacts(*),
           campaign:campaigns(*, pipeline:pipelines(id, name, programme_id, programme:programmes(id, name))),
+          pipeline:pipelines!email_replies_pipeline_id_fkey(id, name, programme_id, programme:programmes(id, name)),
           matched_by:profiles(*)
         `)
         .order('received_at', { ascending: false })
@@ -92,15 +93,22 @@ export function useContactEmailReplies(contactId: string | null) {
   })
 }
 
-// Hook for email reply counts
-export function useEmailReplyCounts() {
+// Hook for email reply counts. When `contactId` is set, counts are scoped to
+// that contact only — used by the deep-link from the automation detail sheet
+// so the tab badges match the filtered list rather than the global totals.
+export function useEmailReplyCounts(contactId?: string | null) {
   const supabase = createClient()
 
   return useQuery<EmailReplyCounts>({
-    queryKey: ['email-reply-counts'],
+    queryKey: ['email-reply-counts', contactId ?? null],
     queryFn: async () => {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
+
+      const scoped = () => {
+        const q = supabase.from('email_replies').select('*', { count: 'exact', head: true })
+        return contactId ? q.eq('contact_id', contactId) : q
+      }
 
       const [
         { count: unmatched },
@@ -111,34 +119,13 @@ export function useEmailReplyCounts() {
         { count: negative },
         { count: question },
       ] = await Promise.all([
-        supabase
-          .from('email_replies')
-          .select('*', { count: 'exact', head: true })
-          .eq('match_status', 'unmatched'),
-        supabase
-          .from('email_replies')
-          .select('*', { count: 'exact', head: true })
-          .in('match_status', ['auto_matched', 'manually_matched']),
-        supabase
-          .from('email_replies')
-          .select('*', { count: 'exact', head: true })
-          .eq('match_status', 'spam'),
-        supabase
-          .from('email_replies')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', today.toISOString()),
-        supabase
-          .from('email_replies')
-          .select('*', { count: 'exact', head: true })
-          .eq('ai_intent', 'positive'),
-        supabase
-          .from('email_replies')
-          .select('*', { count: 'exact', head: true })
-          .eq('ai_intent', 'negative'),
-        supabase
-          .from('email_replies')
-          .select('*', { count: 'exact', head: true })
-          .eq('ai_intent', 'question'),
+        scoped().eq('match_status', 'unmatched'),
+        scoped().in('match_status', ['auto_matched', 'manually_matched']),
+        scoped().eq('match_status', 'spam'),
+        scoped().gte('created_at', today.toISOString()),
+        scoped().eq('ai_intent', 'positive'),
+        scoped().eq('ai_intent', 'negative'),
+        scoped().eq('ai_intent', 'question'),
       ])
 
       return {
@@ -163,10 +150,45 @@ export function useMarkEmailAsSpam() {
     mutationFn: async ({ replyId, matchedById }: { replyId: string; matchedById: string }) => {
       const { data, error } = await supabase
         .from('email_replies')
-        .update({ 
+        .update({
           match_status: 'spam',
           matched_by_id: matchedById,
         })
+        .eq('id', replyId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
+    },
+  })
+}
+
+// Reverse of mark-as-spam. We send the reply back through the matched/unmatched
+// flow: keep contact_id if there was one (auto_matched), otherwise unmatched.
+export function useUnmarkEmailSpam() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ replyId }: { replyId: string }) => {
+      const { data: existing, error: fetchError } = await supabase
+        .from('email_replies')
+        .select('contact_id')
+        .eq('id', replyId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      const nextStatus = existing?.contact_id ? 'auto_matched' : 'unmatched'
+
+      const { data, error } = await supabase
+        .from('email_replies')
+        .update({ match_status: nextStatus })
         .eq('id', replyId)
         .select()
         .single()

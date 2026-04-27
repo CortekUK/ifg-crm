@@ -5,8 +5,16 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Trash2, UserPlus, Eye, ExternalLink } from 'lucide-react'
-import { formatRelativeTime } from '@/lib/utils/format'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Trash2, UserPlus, Eye, ExternalLink, MoreVertical, Undo2 } from 'lucide-react'
+import { formatRelativeTime, formatDateTime } from '@/lib/utils/format'
+import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import { cn } from '@/lib/utils'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
 
@@ -15,18 +23,20 @@ interface EmailReplyCardProps {
   onMatchClick: (reply: EmailReply) => void
   onViewContact: (contactId: string) => void
   onMarkSpam: (reply: EmailReply) => void
+  onUnmarkSpam?: (reply: EmailReply) => void
   onViewFull: (reply: EmailReply) => void
   selectable?: boolean
   selected?: boolean
   onSelectChange?: (reply: EmailReply, selected: boolean) => void
 }
 
-const intentConfig: Record<EmailIntent, { label: string; className: string }> = {
+// Unknown intent intentionally omitted — we render no badge in that case so
+// the column doesn't fill with grey "Unknown" pills that carry no signal.
+const intentConfig: Record<Exclude<EmailIntent, 'unknown'>, { label: string; className: string }> = {
   positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
   negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
   neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
   question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
-  unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' },
 }
 
 export function EmailReplyCard({
@@ -34,6 +44,7 @@ export function EmailReplyCard({
   onMatchClick,
   onViewContact,
   onMarkSpam,
+  onUnmarkSpam,
   onViewFull,
   selectable = false,
   selected = false,
@@ -41,8 +52,11 @@ export function EmailReplyCard({
 }: EmailReplyCardProps) {
   const isMatched = reply.match_status === 'auto_matched' || reply.match_status === 'manually_matched'
   const isSpam = reply.match_status === 'spam'
-  const intent = reply.ai_intent || 'unknown'
-  const intentInfo = intentConfig[intent]
+  const intent = reply.ai_intent as EmailIntent | null
+  const intentInfo = intent && intent !== 'unknown' ? intentConfig[intent] : null
+  // List previews used to dump the full quoted thread; strip it so the user
+  // sees what the contact actually wrote.
+  const cleanPreview = trimQuotedContent(reply.body_preview || '') || (reply.body_preview ?? '')
 
   const getInitials = (name?: string | null, email?: string) => {
     if (name) {
@@ -100,15 +114,19 @@ export function EmailReplyCard({
           {reply.subject || '(No subject)'}
         </p>
         <p className={cn('text-[11px] text-muted-foreground truncate max-w-[280px]', isSpam && 'line-through')}>
-          {reply.body_preview || '(No content)'}
+          {cleanPreview || '(No content)'}
         </p>
       </TableCell>
 
-      {/* Intent */}
+      {/* Intent — only render a badge when classification produced a real signal */}
       <TableCell>
-        <Badge className={cn('text-[10px] font-medium', intentInfo.className)}>
-          {intentInfo.label}
-        </Badge>
+        {intentInfo ? (
+          <Badge className={cn('text-[10px] font-medium', intentInfo.className)}>
+            {intentInfo.label}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground/50 text-xs">—</span>
+        )}
       </TableCell>
 
       {/* Campaign */}
@@ -120,86 +138,89 @@ export function EmailReplyCard({
         )}
       </TableCell>
 
-      {/* Pipeline */}
+      {/* Pipeline — direct join on email_replies.pipeline_id (covers both
+          automation and campaign sources). Falls back to the campaign-side
+          join for old rows that predate the direct column being populated. */}
       <TableCell className="text-sm text-muted-foreground">
-        {reply.campaign?.pipeline ? (
-          <span className="truncate block max-w-[100px]">{reply.campaign.pipeline.name}</span>
-        ) : (
-          <span className="text-muted-foreground/50">—</span>
-        )}
+        {(() => {
+          const pipeline = reply.pipeline ?? reply.campaign?.pipeline ?? null
+          return pipeline ? (
+            <span className="truncate block max-w-[100px]">{pipeline.name}</span>
+          ) : (
+            <span className="text-muted-foreground/50">—</span>
+          )
+        })()}
       </TableCell>
 
-      {/* Status */}
-      <TableCell>
-        {!isMatched && !isSpam && (
-          <Badge variant="outline" className="text-[10px] bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
-            Unmatched
-          </Badge>
-        )}
-        {isMatched && (
-          <Badge variant="outline" className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
-            Matched
-          </Badge>
-        )}
-        {isSpam && (
-          <Badge variant="outline" className="text-[10px] bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700">
-            Spam
-          </Badge>
-        )}
-      </TableCell>
-
-      {/* Date */}
+      {/* Received — relative time ("3 minutes ago", "1 day ago").
+          Hover reveals the full timestamp. */}
       <TableCell className="text-xs text-muted-foreground">
-        {formatRelativeTime(reply.created_at)}
+        <span title={formatDateTime(reply.received_at || reply.created_at)}>
+          {formatRelativeTime(reply.received_at || reply.created_at)}
+        </span>
       </TableCell>
 
-      {/* Actions */}
+      {/* Actions — primary action stays inline, the rest live in a kebab menu */}
       <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onViewFull(reply)}
-            className="h-7 w-7 p-0 text-muted-foreground"
-            title="View"
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </Button>
-
           {!isMatched && !isSpam && (
-            <>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => onMatchClick(reply)}
-                className="h-7 px-2 text-xs"
-              >
-                <UserPlus className="h-3.5 w-3.5 mr-1" />
-                Match
-              </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onMatchClick(reply)}
+              className="h-7 px-2 text-xs"
+            >
+              <UserPlus className="h-3.5 w-3.5 mr-1" />
+              Match
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onMarkSpam(reply)}
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
-                title="Mark as spam"
+                className="h-7 w-7 p-0 text-muted-foreground"
+                title="More actions"
+                aria-label="More actions"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <MoreVertical className="h-3.5 w-3.5" />
               </Button>
-            </>
-          )}
-
-          {isMatched && reply.contact && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onViewContact(reply.contact!.id)}
-              className="h-7 px-2 text-xs"
-            >
-              <ExternalLink className="h-3.5 w-3.5 mr-1" />
-              Contact
-            </Button>
-          )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => onViewFull(reply)}>
+                <Eye className="h-3.5 w-3.5 mr-2" />
+                View reply
+              </DropdownMenuItem>
+              {isMatched && reply.contact && (
+                <DropdownMenuItem onClick={() => onViewContact(reply.contact!.id)}>
+                  <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                  Open contact
+                </DropdownMenuItem>
+              )}
+              {!isMatched && !isSpam && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onMarkSpam(reply)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Mark as spam
+                  </DropdownMenuItem>
+                </>
+              )}
+              {isSpam && onUnmarkSpam && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onUnmarkSpam(reply)}>
+                    <Undo2 className="h-3.5 w-3.5 mr-2" />
+                    Restore from spam
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </TableCell>
     </TableRow>

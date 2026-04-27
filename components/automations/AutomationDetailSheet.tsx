@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Sheet,
   SheetContent,
@@ -40,13 +41,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { Users, Send, Eye, Pencil, Clock, CheckCircle2, CheckCircle, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight, Trash2, Loader2, MousePointer, Mail } from 'lucide-react'
+import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight, Trash2, Loader2, MousePointer, Mail } from 'lucide-react'
 import { useAutomation, useAutomationEnrollments, useToggleAutomation, useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment, useDeleteAutomation } from '@/lib/hooks/useAutomations'
 import { useAutomationEmailStats, useAutomationEmailSends } from '@/lib/hooks/useAutomationEmailStats'
 import { useEmailSendsRealtime } from '@/lib/hooks/useCampaignRealtime'
 import { AutomationWorkflowPreview } from './AutomationWorkflowPreview'
 import { EnrollContactModal } from './EnrollContactModal'
-import { formatDate, formatDateTime } from '@/lib/utils/format'
+import { formatDateTime } from '@/lib/utils/format'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface AutomationDetailSheetProps {
@@ -62,6 +63,7 @@ export function AutomationDetailSheet({
   onClose,
   onEdit,
 }: AutomationDetailSheetProps) {
+  const router = useRouter()
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false)
   const [enrollmentToUnenroll, setEnrollmentToUnenroll] = useState<{ id: string; name: string } | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -241,10 +243,15 @@ export function AutomationDetailSheet({
     }
   }
 
-  // Calculate totals from real email_sends data
+  // Calculate totals from real email_sends data. Open / click figures are
+  // intentionally not surfaced — pixel-based open tracking and link rewriting
+  // aren't reliable through the SES backend, so the numbers were misleading
+  // (often 0% even on engaged sequences). We focus on what we can prove:
+  // delivered, failed, bounced.
   const totalSent = emailStats?.totalSent || 0
   const totalDelivered = emailStats?.totalDelivered || 0
-  const avgOpenRate = emailStats?.avgOpenRate || 0
+  const totalFailed = emailStats?.totalFailed || 0
+  const totalBounced = emailStats?.totalBounced || 0
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -396,7 +403,7 @@ export function AutomationDetailSheet({
                           </div>
                         </div>
                         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
-                          <div className="grid grid-cols-5 text-center divide-x divide-slate-200 dark:divide-slate-700">
+                          <div className="grid grid-cols-4 text-center divide-x divide-slate-200 dark:divide-slate-700">
                             <div className="px-2">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{totalSent}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
@@ -405,16 +412,12 @@ export function AutomationDetailSheet({
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{totalDelivered}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Delivered</p>
                             </button>
-                            <button onClick={() => { setEmailStatusFilter('opened'); setActiveTab('activity') }} className="px-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-                              <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalOpened || 0}</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">{avgOpenRate.toFixed(1)}% opened</p>
-                            </button>
-                            <button onClick={() => { setEmailStatusFilter('clicked'); setActiveTab('activity') }} className="px-2 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                              <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalClicked || 0}</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">{(emailStats?.avgClickRate || 0).toFixed(1)}% clicked</p>
+                            <button onClick={() => { setEmailStatusFilter('failed'); setActiveTab('activity') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{totalFailed}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Failed</p>
                             </button>
                             <button onClick={() => { setEmailStatusFilter('bounced'); setActiveTab('activity') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
-                              <p className="text-xl font-bold text-gray-900 dark:text-white">{emailStats?.totalBounced || 0}</p>
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{totalBounced}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Bounced</p>
                             </button>
                           </div>
@@ -445,7 +448,7 @@ export function AutomationDetailSheet({
                                     {step.template?.name || 'No template'}
                                   </p>
                                 </div>
-                                <div className="grid grid-cols-5 text-center divide-x divide-slate-100 dark:divide-slate-800 px-1 py-2">
+                                <div className="grid grid-cols-4 text-center divide-x divide-slate-100 dark:divide-slate-800 px-1 py-2">
                                   <div className="px-1">
                                     <p className="text-sm font-semibold text-gray-900 dark:text-white">{stepStats?.sent || 0}</p>
                                     <p className="text-[10px] text-muted-foreground">Sent</p>
@@ -455,20 +458,12 @@ export function AutomationDetailSheet({
                                     <p className="text-[10px] text-muted-foreground">Delivered</p>
                                   </div>
                                   <div className="px-1">
-                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{stepStats?.opened || 0}</p>
-                                    <p className="text-[10px] text-muted-foreground">Opened</p>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{stepStats?.failed || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground">Failed</p>
                                   </div>
                                   <div className="px-1">
-                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                      {stepStats?.openRate?.toFixed(1) || '0.0'}%
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground">Open Rate</p>
-                                  </div>
-                                  <div className="px-1">
-                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                      {stepStats?.clickRate?.toFixed(1) || '0.0'}%
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground">Click Rate</p>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{stepStats?.bounced || 0}</p>
+                                    <p className="text-[10px] text-muted-foreground">Bounced</p>
                                   </div>
                                 </div>
                               </div>
@@ -486,8 +481,7 @@ export function AutomationDetailSheet({
                     {[
                       { key: null, label: 'All' },
                       { key: 'delivered', label: 'Delivered' },
-                      { key: 'opened', label: 'Opened' },
-                      { key: 'clicked', label: 'Clicked' },
+                      { key: 'failed', label: 'Failed' },
                       { key: 'bounced', label: 'Bounced' },
                     ].map((f) => (
                       <button
@@ -524,8 +518,6 @@ export function AutomationDetailSheet({
                             <TableHead>Step</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Sent At</TableHead>
-                            <TableHead>Opened</TableHead>
-                            <TableHead>Clicked</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -589,26 +581,6 @@ export function AutomationDetailSheet({
                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                                       {formatDateTime(send.sent_at)}
                                     </span>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">-</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {send.opened_at ? (
-                                    <div className="flex items-center gap-1">
-                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                                      <span className="text-xs text-muted-foreground">{formatDate(send.opened_at)}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">-</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {send.clicked_at ? (
-                                    <div className="flex items-center gap-1">
-                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                                      <span className="text-xs text-muted-foreground">{formatDate(send.clicked_at)}</span>
-                                    </div>
                                   ) : (
                                     <span className="text-muted-foreground text-xs">-</span>
                                   )}
@@ -864,11 +836,25 @@ export function AutomationDetailSheet({
                             ? `${contact.first_name} ${contact.last_name}`
                             : deal?.title || 'Unknown'
                           const stoppedBadge = getStoppedReasonBadge(enrollment.stopped_reason)
+                          const isReplyExit = stoppedBadge.label === 'Replied' && contact?.id
 
                           return (
                             <div
                               key={enrollment.id}
-                              className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700"
+                              role={isReplyExit ? 'button' : undefined}
+                              tabIndex={isReplyExit ? 0 : undefined}
+                              onClick={isReplyExit ? () => router.push(`/replies?contactId=${contact!.id}`) : undefined}
+                              onKeyDown={isReplyExit ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  router.push(`/replies?contactId=${contact!.id}`)
+                                }
+                              } : undefined}
+                              className={cn(
+                                'flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 transition-colors',
+                                isReplyExit && 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800'
+                              )}
+                              title={isReplyExit ? 'View their reply' : undefined}
                             >
                               <Avatar className="h-7 w-7">
                                 <AvatarFallback className="bg-red-100 dark:bg-red-900/50 text-red-600 text-xs">

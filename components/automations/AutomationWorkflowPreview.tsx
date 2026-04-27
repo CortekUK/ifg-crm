@@ -188,18 +188,23 @@ export function AutomationWorkflowPreview({
                       </p>
                     )}
 
-                    {/* Stats */}
+                    {/* Stats — opens/clicks intentionally omitted: tracking
+                        pixels and link rewriting aren't reliable through the
+                        send pipeline, and the numbers were misleading. We
+                        surface the actionable signals (delivered + failed). */}
                     {showStats && step.stats && (
                       <div className="flex items-center gap-3 text-xs mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                         <span className="text-muted-foreground">
                           <span className="font-semibold text-gray-700 dark:text-gray-300">{step.stats.sent ?? 0}</span> sent
                         </span>
                         <span className="text-muted-foreground">
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">{(step.stats.open_rate ?? 0).toFixed(0)}%</span> opened
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">{step.stats.delivered ?? 0}</span> delivered
                         </span>
-                        <span className="text-muted-foreground">
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">{(step.stats.click_rate ?? 0).toFixed(0)}%</span> clicked
-                        </span>
+                        {(step.stats.failed ?? 0) > 0 && (
+                          <span className="text-red-600 dark:text-red-400">
+                            <span className="font-semibold">{step.stats.failed}</span> failed
+                          </span>
+                        )}
                       </div>
                     )}
 

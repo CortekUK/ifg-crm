@@ -5,6 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { sendSMS } from '../_shared/clicksend.ts'
+import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -671,14 +672,25 @@ async function sendEmail(
       }
     }
 
+    // Generate trackingId up-front so we can use it as the local part of
+    // both the Reply-To (VERP) and the Message-ID we set on the outbound.
+    // The contact's reply lands at replies+{tracking_id}@reply.<domain>, so
+    // the inbound webhook recovers it from the To: header — no Message-ID
+    // guessing needed even if SES rewrites our custom header.
+    const trackingId = crypto.randomUUID()
+    const trackingReplyTo = buildReplyToAddress(trackingId)
+
     // Send via Resend directly
     const resend = new Resend(resendApiKey)
     const { data, error: resendError } = await resend.emails.send({
       from: `${params.from_name} <${params.from_email}>`,
       to: [params.to],
-      reply_to: params.reply_to,
+      reply_to: trackingReplyTo ?? params.reply_to,
       subject: processedSubject,
       html: processedBody,
+      headers: {
+        'Message-ID': buildOutboundMessageId(trackingId),
+      },
     })
 
     if (resendError) {
@@ -687,7 +699,6 @@ async function sendEmail(
     }
 
     const messageId = data?.id || null
-    const trackingId = crypto.randomUUID()
 
     // Log to email_sends table
     await supabase.from('email_sends').insert({

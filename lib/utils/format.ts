@@ -63,6 +63,41 @@ export function formatPercentage(num: number, decimals: number = 0): string {
   }).format(num / 100)
 }
 
+// Compact, calendar-aware date for list views (replies, sends, etc.).
+// Today shows time-of-day, this year shows day+month, older shows full date.
+// Pair with `formatDateTime` in a tooltip when you want the full timestamp.
+export function formatListDate(date: Date | string): string {
+  const then = new Date(date)
+  const now = new Date()
+
+  const sameDay = then.toDateString() === now.toDateString()
+  if (sameDay) {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(then)
+  }
+
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (then.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday'
+  }
+
+  if (then.getFullYear() === now.getFullYear()) {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+    }).format(then)
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(then)
+}
+
 // Format relative time (e.g., "2 hours ago", "in 3 days")
 export function formatRelativeTime(date: Date | string): string {
   const now = new Date()

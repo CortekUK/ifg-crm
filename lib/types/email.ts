@@ -13,6 +13,8 @@ export interface EmailReply {
   from_name: string | null
   subject: string | null
   body_preview: string | null
+  body: string | null
+  html_body: string | null
   campaign_id: string | null
   pipeline_id: string | null
   ai_intent: EmailIntent | null

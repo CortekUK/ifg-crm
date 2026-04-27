@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook } from 'npm:svix@1.15.0'
+import { extractTrackingUuids, extractTrackingIdFromTo } from '../_shared/message-id.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -131,51 +132,107 @@ Deno.serve(async (req) => {
       .single()
 
     const contactId = contact?.id || null
-    const matchStatus = contact ? 'matched' : 'unmatched'
+    // Use the canonical enum values the rest of the app expects. Previously
+    // this set 'matched' which isn't a valid match_status, so the row fell
+    // back to 'unmatched' and was only ever flipped to 'manually_matched' by
+    // a human. As a result no reply was ever marked auto_matched.
+    const matchStatus = contact ? 'auto_matched' : 'unmatched'
 
     if (contactError && contactError.code !== 'PGRST116') {
       console.error('Error finding contact:', contactError)
     }
 
     // ============================================
-    // 2. TRY TO LINK TO ORIGINAL EMAIL (if reply)
+    // 2. FETCH FULL EMAIL BODY + HEADERS FROM RESEND API
     // ============================================
-    let linkedEmailSendId: string | null = null
+    // Resend's email.received webhook only carries metadata. We need the body
+    // (for display + AI classification) and the In-Reply-To / References
+    // headers (for thread stitching). Both come from /emails/receiving/{id}.
+    const fetched = await fetchInboundBody(event.data.email_id)
+    const replyText = fetched.text || stripHtml(fetched.html || '')
+    const inReplyTo = fetched.inReplyTo || event.data.in_reply_to || null
+    const references = fetched.references || null
+    const inboundTo = fetched.to ?? (event.data.to as string[] | undefined) ?? null
 
-    if (event.data.in_reply_to) {
-      // Try to find the original email by message_id
-      const { data: originalEmail } = await supabase
-        .from('email_sends')
-        .select('id, automation_log_id')
-        .eq('resend_message_id', event.data.in_reply_to.replace(/[<>]/g, ''))
-        .single()
+    // ============================================
+    // 2.5 RESOLVE THE OUTBOUND EMAIL THIS REPLIES TO
+    // ============================================
+    // Primary path: VERP — extract the tracking_id from the To: address
+    // (replies+{tracking_id}@reply.<domain>) and look up email_sends directly.
+    // Falls through to In-Reply-To header matching if VERP isn't present.
+    const linkedEmailSendId = await resolveThreadEmailSendId(
+      supabase,
+      contactId,
+      inboundTo,
+      inReplyTo,
+      references
+    )
 
-      if (originalEmail) {
-        linkedEmailSendId = originalEmail.id
+    // Once we know the originating email_send, derive campaign_id and
+    // pipeline_id so the Replies list can show which programme the contact
+    // was contacted under. Done here (rather than in the trigger) so the
+    // values are present from the very first read of the row.
+    const replySourceMeta = await deriveReplySourceMeta(supabase, linkedEmailSendId)
+
+    // ============================================
+    // 3. CREATE EMAIL REPLY RECORD (idempotent on message_id)
+    // ============================================
+    // Resend retries failed webhook deliveries, and our fixes today caused a
+    // backlog of retries to land at once. We dedupe by RFC Message-Id (unique
+    // partial index, migration 084) so retries become no-ops.
+    const messageId = event.data.message_id || null
+    let replyRecord: { id: string } | null = null
+
+    if (messageId) {
+      // Short-circuit duplicates without touching the table — avoids needless
+      // load and lets us return 200 fast so Resend stops retrying.
+      const { data: existing } = await supabase
+        .from('email_replies')
+        .select('id')
+        .eq('message_id', messageId)
+        .maybeSingle()
+
+      if (existing) {
+        console.log(`Duplicate webhook for message_id ${messageId}, skipping (existing reply ${existing.id})`)
+        return new Response(
+          JSON.stringify({ success: true, deduped: true, reply_id: existing.id }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
     }
 
-    // ============================================
-    // 3. CREATE EMAIL REPLY RECORD
-    // ============================================
-    const { data: replyRecord, error: insertError } = await supabase
+    const { data: insertedReply, error: insertError } = await supabase
       .from('email_replies')
       .insert({
         contact_id: contactId,
         email_send_id: linkedEmailSendId,
+        campaign_id: replySourceMeta.campaignId,
+        pipeline_id: replySourceMeta.pipelineId,
         from_email: fromEmail,
         from_name: fromName || null,
         subject: event.data.subject || null,
-        body_preview: truncateText(event.data.text || stripHtml(event.data.html || ''), 500),
-        message_id: event.data.message_id || null,
-        in_reply_to: event.data.in_reply_to || null,
+        body_preview: truncateText(replyText, 500),
+        body: replyText || null,
+        html_body: fetched.html || null,
+        message_id: messageId,
+        in_reply_to: inReplyTo,
         received_at: event.created_at || new Date().toISOString(),
+        match_status: matchStatus,
         processed: false,  // Will be processed by check-replies or process-automations
       })
       .select('id')
       .single()
 
     if (insertError) {
+      // 23505 = unique_violation. Treat as a successful dedupe — concurrent
+      // retry won the race, our work is done.
+      if ((insertError as { code?: string }).code === '23505') {
+        console.log(`Race-condition duplicate for message_id ${messageId}, skipping`)
+        return new Response(
+          JSON.stringify({ success: true, deduped: true }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       console.error('Error creating email reply record:', insertError)
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to create reply record' }),
@@ -183,12 +240,12 @@ Deno.serve(async (req) => {
       )
     }
 
+    replyRecord = insertedReply
     console.log(`Created email reply record: ${replyRecord.id}, contact: ${contactId}, match_status: ${matchStatus}`)
 
     // ============================================
     // 3.5 CLASSIFY REPLY INTENT WITH AI
     // ============================================
-    const replyText = event.data.text || stripHtml(event.data.html || '')
     const aiIntent = await classifyIntent(replyText)
 
     if (aiIntent) {
@@ -199,82 +256,10 @@ Deno.serve(async (req) => {
       console.log(`Classified reply ${replyRecord.id} intent: ${aiIntent}`)
     }
 
-    // ============================================
-    // 4. CHECK FOR IMMEDIATE EXIT CONDITIONS
-    // ============================================
-    let enrollmentsStopped = 0
-
-    if (contactId) {
-      // Find active enrollments for this contact's deals where exit_on_reply is enabled
-      const { data: enrollmentsToStop, error: enrollmentError } = await supabase
-        .from('automation_enrollments')
-        .select(`
-          id,
-          automation_id,
-          deal_id,
-          automation:automations(exit_on_reply, config)
-        `)
-        .eq('status', 'active')
-        .in('deal_id', 
-          supabase
-            .from('deals')
-            .select('id')
-            .eq('contact_id', contactId)
-        )
-
-      if (enrollmentError) {
-        console.error('Error finding enrollments to stop:', enrollmentError)
-      } else if (enrollmentsToStop && enrollmentsToStop.length > 0) {
-        for (const enrollment of enrollmentsToStop) {
-          // Check if automation should exit on reply
-          const automation = enrollment.automation as { exit_on_reply?: boolean; config?: { exit_on_reply?: boolean } } | null
-          const exitOnReply = automation?.exit_on_reply ?? automation?.config?.exit_on_reply ?? true
-
-          if (exitOnReply) {
-            // Stop the enrollment
-            const { error: stopError } = await supabase
-              .from('automation_enrollments')
-              .update({
-                status: 'stopped',
-                stopped_reason: 'Contact replied to email',
-                next_step_at: null,
-              })
-              .eq('id', enrollment.id)
-
-            if (stopError) {
-              console.error(`Failed to stop enrollment ${enrollment.id}:`, stopError)
-            } else {
-              enrollmentsStopped++
-              console.log(`Stopped enrollment ${enrollment.id} - contact replied`)
-
-              // Log the stop in automation_logs
-              await supabase.from('automation_logs').insert({
-                enrollment_id: enrollment.id,
-                step_id: null,
-                deal_id: enrollment.deal_id,
-                status: 'skipped',
-                sent_at: new Date().toISOString(),
-                log_type: 'enrollment_stopped',
-                error_message: 'Contact replied to email',
-              })
-            }
-          }
-        }
-      }
-    }
-
-    // ============================================
-    // 5. MARK REPLY AS PROCESSED (if we stopped enrollments)
-    // ============================================
-    if (enrollmentsStopped > 0) {
-      await supabase
-        .from('email_replies')
-        .update({
-          processed: true,
-          processed_at: new Date().toISOString(),
-        })
-        .eq('id', replyRecord.id)
-    }
+    // Exit-on-reply is now handled by the email_reply_match_stops_enrollments
+    // trigger (migration 083). The trigger fires on insert and on any later
+    // update of contact_id, so Smart Match and manual match get the same
+    // exit behaviour as auto-match without us having to call anything here.
 
     return new Response(
       JSON.stringify({
@@ -283,7 +268,6 @@ Deno.serve(async (req) => {
         contact_id: contactId,
         match_status: matchStatus,
         ai_intent: aiIntent || null,
-        enrollments_stopped: enrollmentsStopped,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -296,6 +280,67 @@ Deno.serve(async (req) => {
     )
   }
 })
+
+/**
+ * Walk back from email_send to figure out which campaign and/or pipeline this
+ * reply belongs to, so the Replies list can render those columns.
+ *
+ * Two paths through the schema:
+ *   - Campaign blast:   email_send.campaign_id      → campaigns.pipeline_id
+ *   - Automation drip:  email_send.automation_log_id → automation_logs.enrollment_id
+ *                       → automation_enrollments.automation_id → automations.pipeline_id
+ *
+ * Returns nulls (not undefined) so the insert column list works regardless.
+ */
+async function deriveReplySourceMeta(
+  supabase: ReturnType<typeof createClient>,
+  emailSendId: string | null
+): Promise<{ campaignId: string | null; pipelineId: string | null }> {
+  if (!emailSendId) return { campaignId: null, pipelineId: null }
+
+  const { data: send, error } = await supabase
+    .from('email_sends')
+    .select('campaign_id, automation_log_id')
+    .eq('id', emailSendId)
+    .single()
+
+  if (error || !send) {
+    if (error) console.error('deriveReplySourceMeta: email_sends lookup failed:', error)
+    return { campaignId: null, pipelineId: null }
+  }
+
+  // Campaign path — the simpler of the two.
+  if (send.campaign_id) {
+    const { data: campaign } = await supabase
+      .from('campaigns')
+      .select('pipeline_id')
+      .eq('id', send.campaign_id)
+      .single()
+    return {
+      campaignId: send.campaign_id,
+      pipelineId: campaign?.pipeline_id ?? null,
+    }
+  }
+
+  // Automation path — chase the chain to get the automation's pipeline.
+  if (send.automation_log_id) {
+    const { data: log } = await supabase
+      .from('automation_logs')
+      .select('enrollment:automation_enrollments(automation:automations(pipeline_id))')
+      .eq('id', send.automation_log_id)
+      .single()
+
+    const enrollment = (log as unknown as {
+      enrollment?: { automation?: { pipeline_id?: string | null } | null } | null
+    } | null)?.enrollment
+    return {
+      campaignId: null,
+      pipelineId: enrollment?.automation?.pipeline_id ?? null,
+    }
+  }
+
+  return { campaignId: null, pipelineId: null }
+}
 
 /**
  * Classify the intent of a reply using Claude AI
@@ -348,24 +393,178 @@ async function classifyIntent(text: string): Promise<string | null> {
 }
 
 /**
- * Parse an email address from "Name <email@example.com>" format
+ * Fetch the full body + headers of an inbound email from Resend.
+ * The email.received webhook only contains metadata; we need the In-Reply-To
+ * header (for thread stitching) and the rendered text/html (for display).
+ * Both come from GET /emails/receiving/{id}.
+ */
+async function fetchInboundBody(
+  emailId: string
+): Promise<{
+  text: string | null
+  html: string | null
+  inReplyTo: string | null
+  references: string | null
+  to: string[] | null
+}> {
+  const apiKey = Deno.env.get('RESEND_API_KEY')
+  const empty = { text: null, html: null, inReplyTo: null, references: null, to: null }
+  if (!apiKey || !emailId) return empty
+
+  try {
+    const response = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+
+    if (!response.ok) {
+      console.error(`Resend inbound fetch failed: ${response.status} ${await response.text()}`)
+      return empty
+    }
+
+    const body = await response.json() as {
+      text?: string | null
+      html?: string | null
+      headers?: Record<string, string | string[]> | null
+      in_reply_to?: string | null
+      references?: string | string[] | null
+      to?: string[] | string | null
+    }
+
+    // Header keys arrive case-insensitively across providers — normalize.
+    const headers: Record<string, string> = {}
+    for (const [k, v] of Object.entries(body.headers ?? {})) {
+      headers[k.toLowerCase()] = Array.isArray(v) ? v.join(' ') : (v ?? '')
+    }
+
+    const inReplyTo =
+      body.in_reply_to ??
+      headers['in-reply-to'] ??
+      null
+
+    const referencesRaw = body.references ?? headers['references'] ?? null
+    const references = Array.isArray(referencesRaw) ? referencesRaw.join(' ') : referencesRaw
+
+    // The receiving response's `to` field (or `to` header) carries the
+    // VERP-encoded address we set as Reply-To on the outbound — that's how
+    // we recover the tracking_id.
+    const toRaw = body.to ?? headers['to'] ?? null
+    const to = Array.isArray(toRaw) ? toRaw : (toRaw ? [toRaw] : null)
+
+    return {
+      text: body.text ?? null,
+      html: body.html ?? null,
+      inReplyTo,
+      references,
+      to,
+    }
+  } catch (err) {
+    console.error('Resend inbound fetch error:', err)
+    return empty
+  }
+}
+
+/**
+ * Resolve which outbound email_send a reply is threading to.
+ *
+ * Strategy (in order of confidence):
+ *   0. VERP Reply-To — the To: header on the inbound looks like
+ *      `replies+{tracking_id}@reply.<domain>`. The local part's `+UUID`
+ *      segment is exactly our `email_sends.tracking_id`. This is the
+ *      bulletproof path: SES preserves Reply-To verbatim, so it always works.
+ *   1. Custom Message-ID — local part of our `Message-ID` header. SES often
+ *      rewrites this, but if it survives, the In-Reply-To references it.
+ *   2. Resend's own internal email_id — stored as `resend_message_id`. Last
+ *      resort, in case the SES-generated In-Reply-To happens to contain it.
+ *
+ * Returns null when nothing matches. The DB trigger then falls back to a
+ * "most recent send to this contact" heuristic — see migration 086.
+ */
+async function resolveThreadEmailSendId(
+  supabase: ReturnType<typeof createClient>,
+  contactId: string | null,
+  toAddress: string | string[] | null,
+  inReplyTo: string | null,
+  references: string | null
+): Promise<string | null> {
+  // Path 0: VERP — extract the tracking_id from the "To:" header. Works
+  // even when contactId is unknown, because the address itself identifies
+  // the originating send.
+  const verpTrackingId = extractTrackingIdFromTo(toAddress)
+  if (verpTrackingId) {
+    const { data, error } = await supabase
+      .from('email_sends')
+      .select('id')
+      .eq('tracking_id', verpTrackingId)
+      .maybeSingle()
+    if (data?.id) return data.id
+    if (error) console.error('Thread resolution by VERP tracking_id failed:', error)
+  }
+
+  if (!contactId) return null
+
+  const headerBlob = [inReplyTo ?? '', references ?? ''].join(' ')
+  const candidates = extractTrackingUuids(headerBlob)
+  if (candidates.length === 0) return null
+
+  // Path 1: tracking_id appearing inside In-Reply-To (custom Message-ID).
+  const byTracking = await supabase
+    .from('email_sends')
+    .select('id, sent_at')
+    .eq('recipient_contact_id', contactId)
+    .in('tracking_id', candidates)
+    .order('sent_at', { ascending: false })
+    .limit(1)
+
+  if (byTracking.data?.[0]?.id) {
+    return byTracking.data[0].id
+  }
+  if (byTracking.error) {
+    console.error('Thread resolution by tracking_id failed:', byTracking.error)
+  }
+
+  // Path 2: resend_message_id.
+  const byResendId = await supabase
+    .from('email_sends')
+    .select('id, sent_at')
+    .eq('recipient_contact_id', contactId)
+    .in('resend_message_id', candidates)
+    .order('sent_at', { ascending: false })
+    .limit(1)
+
+  if (byResendId.data?.[0]?.id) {
+    return byResendId.data[0].id
+  }
+  if (byResendId.error) {
+    console.error('Thread resolution by resend_message_id failed:', byResendId.error)
+  }
+
+  return null
+}
+
+/**
+ * Parse an email address from "Name <email@example.com>" format.
+ * For bare emails (no angle brackets) the whole string is the address —
+ * the previous version's regex greedily split bare addresses like
+ * gd.team.all@gmail.com into name="gd.team.al" + email="l@gmail.com".
  */
 function parseEmailAddress(from: string): { email: string | null; name: string | null } {
   if (!from) return { email: null, name: null }
+  const trimmed = from.trim()
 
-  // Try to match "Name <email@example.com>" format
-  const match = from.match(/^(?:"?([^"<]*)"?\s*)?<?([^<>\s]+@[^<>\s]+)>?$/)
-  
-  if (match) {
-    return {
-      name: match[1]?.trim() || null,
-      email: match[2]?.toLowerCase() || null,
+  // "Name <email@example.com>" — only treat as name+email when angle brackets are present
+  if (trimmed.includes('<')) {
+    const match = trimmed.match(/^"?([^"<]*?)"?\s*<\s*([^<>\s]+@[^<>\s]+)\s*>\s*$/)
+    if (match) {
+      return {
+        name: match[1]?.trim() || null,
+        email: match[2]?.toLowerCase() || null,
+      }
     }
   }
 
-  // If no match, assume the whole string is an email
-  if (from.includes('@')) {
-    return { email: from.toLowerCase().trim(), name: null }
+  // Bare email (no angle brackets) — the whole string is the address
+  if (trimmed.includes('@')) {
+    return { email: trimmed.toLowerCase(), name: null }
   }
 
   return { email: null, name: null }

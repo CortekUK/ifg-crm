@@ -171,7 +171,7 @@ export function MatchEmailModal({
                           {reply.from_name || reply.from_email}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {formatRelativeTime(reply.created_at)}
+                          {formatRelativeTime(reply.received_at || reply.created_at)}
                         </span>
                       </div>
                       {reply.from_name && (

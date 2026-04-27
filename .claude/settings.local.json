@@ -31,7 +31,9 @@
       "Bash(echo \"EXIT=$?\")",
       "Bash(supabase --version)",
       "Bash(npx supabase *)",
-      "Bash(yes)"
+      "Bash(yes)",
+      "WebFetch(domain:resend.com)",
+      "Bash(SUPABASE_ACCESS_TOKEN=sbp_d4b1dbfb38add4578ceea0a55303f951c3bf495f npx supabase link --project-ref jiuxsintslqryrvgevmc)"
     ]
   }
 }

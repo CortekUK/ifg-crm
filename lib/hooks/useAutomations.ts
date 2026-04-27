@@ -277,6 +277,7 @@ export function useCreateAutomation() {
           stop_on_stage_ids: input.stop_on_stage_ids || [],
           config: input.config || null,
           exit_on_reply: input.config?.exit_on_reply ?? true,
+          exit_to_stage_id: input.config?.exit_to_stage_id || null,
           is_active: false, // Paused by default
         })
         .select()
@@ -327,6 +328,7 @@ export function useUpdateAutomation() {
           stop_on_stage_ids: input.stop_on_stage_ids || [],
           config: input.config || null,
           exit_on_reply: input.config?.exit_on_reply ?? true,
+          exit_to_stage_id: input.config?.exit_to_stage_id || null,
         })
         .eq('id', input.id)
         .select()

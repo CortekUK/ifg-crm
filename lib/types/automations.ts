@@ -7,10 +7,8 @@ export type { AutomationType, TriggerType, StepType }
 export interface AutomationStepStats {
   sent: number
   delivered: number
-  opened: number
-  clicked: number
-  open_rate: number
-  click_rate: number
+  failed: number
+  bounced: number
   in_queue: number
 }
 
@@ -62,6 +60,9 @@ export interface AutomationConfig {
   wait_days?: number[]
   // Exit conditions
   exit_on_reply?: boolean
+  // Stage to move the deal to when the automation exits (e.g. on reply).
+  // Null/undefined = don't move the deal, just stop the enrollment.
+  exit_to_stage_id?: string | null
   // Final action
   final_stage_id?: string
   // For time-based triggers (pre-departure)
@@ -97,6 +98,7 @@ export interface Automation {
   stop_on_stage_ids: string[]
   config?: AutomationConfig | null
   exit_on_reply?: boolean
+  exit_to_stage_id?: string | null
   is_active: boolean
   created_at: string
   updated_at: string

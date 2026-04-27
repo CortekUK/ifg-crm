@@ -7,6 +7,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { sendSMS } from '../_shared/clicksend.ts'
 import type { StepType } from '../_shared/automation-constants.ts'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
+import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 
 interface ProcessingSummary {
   enrollmentsCreated: number
@@ -744,11 +745,10 @@ async function processEmailStep(
     // When INBOUND_REPLY_DOMAIN is unset, Reply-To falls back to the deal
     // owner's email (legacy behaviour: replies go directly to the owner's
     // mailbox, the CRM never sees them).
+    // Reply-To uses VERP-style sub-addressing (replies+{tracking_id}@reply.<domain>)
+    // — built later, once the trackingId for THIS send is generated. Decide the
+    // fallback now so we know whether to override below.
     let fromName = 'International Football Group'
-    const inboundReplyDomain = Deno.env.get('INBOUND_REPLY_DOMAIN')
-    let replyTo: string | undefined = inboundReplyDomain
-      ? `replies@${inboundReplyDomain}`
-      : owner?.email || undefined
 
     if (template.from_name_type === 'deal_owner' && owner?.full_name) {
       fromName = owner.full_name
@@ -773,8 +773,12 @@ async function processEmailStep(
     }
     const logEntryId = reservation.logId
 
-    // Generate tracking ID for this email
+    // Generate tracking ID for this email. Used twice: once as the local part
+    // of the Reply-To we set below (so the inbound webhook can recover it from
+    // the contact's reply), and once as the email_sends.tracking_id value.
     const trackingId = crypto.randomUUID()
+    const trackingReplyTo = buildReplyToAddress(trackingId)
+    const replyTo: string | undefined = trackingReplyTo ?? owner?.email ?? undefined
 
     // Get Resend API key and send email directly
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
@@ -789,13 +793,19 @@ async function processEmailStep(
 
     const resend = new Resend(resendApiKey)
 
-    // Send email via Resend API directly
+    // Send email via Resend API directly. We set our own Message-ID header
+    // (using trackingId as the local part) so a contact's reply lands with
+    // an In-Reply-To value we can directly look up in email_sends — no
+    // UUID-fishing in headers, no fallback heuristics needed.
     const { data: emailData, error: resendError } = await resend.emails.send({
       from: `${fromName} <${fromEmail}>`,
       to: [contact.email],
       reply_to: replyTo,
       subject: subject,
       html: htmlBody,
+      headers: {
+        'Message-ID': buildOutboundMessageId(trackingId),
+      },
     })
 
     if (resendError) {

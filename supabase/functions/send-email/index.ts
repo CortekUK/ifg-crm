@@ -5,6 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
+import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -131,13 +132,26 @@ Deno.serve(async (req) => {
     // Initialize Resend client
     const resend = new Resend(resendApiKey)
 
+    // Generate the tracking_id up-front so we can encode it in BOTH the
+    // Reply-To (VERP) and Message-ID. The Reply-To path is the one that
+    // works reliably — SES rewrites custom Message-IDs, but it preserves the
+    // local part of Reply-To, so contact replies land at
+    // replies+{tracking_id}@reply.<domain> which the inbound webhook parses
+    // to find the originating email_sends row.
+    const trackingId = body.tracking_id || crypto.randomUUID()
+    const messageIdHeader = buildOutboundMessageId(trackingId)
+    const trackingReplyTo = buildReplyToAddress(trackingId)
+
     // Send email via Resend
     const { data, error: resendError } = await resend.emails.send({
       from: `${fromName} <${body.from_email}>`,
       to: [body.to],
-      reply_to: replyTo,
+      reply_to: trackingReplyTo ?? replyTo,
       subject: processedSubject,
       html: processedBody,
+      headers: {
+        'Message-ID': messageIdHeader,
+      },
     })
 
     if (resendError) {
@@ -145,9 +159,9 @@ Deno.serve(async (req) => {
       console.error('Resend error:', resendError)
       
       // Log failed send to database if we have tracking info
-      if (body.tracking_id) {
+      if (body.tracking_id || body.contact_id || body.campaign_id) {
         await logEmailSend({
-          tracking_id: body.tracking_id,
+          tracking_id: trackingId,
           recipient_email: body.to,
           recipient_contact_id: body.contact_id,
           campaign_id: body.campaign_id,
@@ -169,7 +183,7 @@ Deno.serve(async (req) => {
     // Log successful send to database if we have tracking info
     if (body.tracking_id || body.contact_id || body.campaign_id) {
       await logEmailSend({
-        tracking_id: body.tracking_id || crypto.randomUUID(),
+        tracking_id: trackingId,
         recipient_email: body.to,
         recipient_contact_id: body.contact_id,
         campaign_id: body.campaign_id,

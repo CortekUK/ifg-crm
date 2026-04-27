@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -12,14 +13,16 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
-  Mail,
   ExternalLink,
   Tag,
   GitBranch,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatDateLong, formatRelativeTime } from '@/lib/utils/format'
+import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
 
 interface EmailDetailSheetProps {
@@ -28,12 +31,13 @@ interface EmailDetailSheetProps {
   onClose: () => void
 }
 
-const intentConfig: Record<EmailIntent, { label: string; color: string }> = {
+// 'unknown' is intentionally absent — when the AI couldn't classify a reply we
+// show no intent badge at all rather than a meaningless pill.
+const intentConfig: Record<Exclude<EmailIntent, 'unknown'>, { label: string; color: string }> = {
   positive: { label: 'Positive', color: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700' },
   negative: { label: 'Negative', color: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700' },
   neutral: { label: 'Neutral', color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600' },
   question: { label: 'Question', color: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700' },
-  unknown: { label: 'Unknown', color: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600' },
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -49,12 +53,20 @@ export function EmailDetailSheet({
   onClose,
 }: EmailDetailSheetProps) {
   const router = useRouter()
+  const [showFullThread, setShowFullThread] = useState(false)
 
   if (!reply) return null
 
-  const intent = reply.ai_intent || 'unknown'
-  const intentInfo = intentConfig[intent]
+  const intent = reply.ai_intent as EmailIntent | null
+  const intentInfo = intent && intent !== 'unknown' ? intentConfig[intent] : null
   const status = statusConfig[reply.match_status] || statusConfig.unmatched
+
+  // What the contact actually wrote — quoted history stripped so a reader
+  // doesn't have to scroll past the original outbound email to find the reply.
+  const trimmedReply = trimQuotedContent(reply.body || reply.body_preview || '')
+  const fullText = (reply.body || reply.body_preview || '').trim()
+  const hasTrimmedContent = trimmedReply.length > 0 && trimmedReply !== fullText
+  const hasFullThread = !!reply.html_body || (fullText.length > 0 && fullText !== trimmedReply)
 
   const getInitials = (name?: string | null, email?: string) => {
     if (name) {
@@ -91,7 +103,7 @@ export function EmailDetailSheet({
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-1">
-                {formatDateLong(reply.created_at)} ({formatRelativeTime(reply.created_at)})
+                {formatDateLong(reply.received_at || reply.created_at)} ({formatRelativeTime(reply.received_at || reply.created_at)})
               </p>
             </div>
           </div>
@@ -100,10 +112,12 @@ export function EmailDetailSheet({
             <Badge variant="outline" className={status.className}>
               {status.label}
             </Badge>
-            <Badge variant="outline" className={intentInfo.color}>
-              <Sparkles className="h-3 w-3 mr-1" />
-              {intentInfo.label}
-            </Badge>
+            {intentInfo && (
+              <Badge variant="outline" className={intentInfo.color}>
+                <Sparkles className="h-3 w-3 mr-1" />
+                {intentInfo.label}
+              </Badge>
+            )}
             {reply.campaign && (
               <Badge variant="secondary" className="gap-1">
                 <Tag className="h-3 w-3" />
@@ -113,7 +127,10 @@ export function EmailDetailSheet({
           </div>
         </SheetHeader>
 
-        <ScrollArea className="flex-1">
+        {/* min-h-0 is required for ScrollArea to shrink below its content
+            inside flex-col — without it the area grows past the viewport
+            and the page becomes unscrollable. */}
+        <ScrollArea className="flex-1 min-h-0">
           <div className="px-6 py-5 space-y-5">
             {/* Subject + Message Content - most important, shown first */}
             <div>
@@ -121,12 +138,47 @@ export function EmailDetailSheet({
               <p className="text-base font-medium text-gray-900 dark:text-white mb-4">
                 {reply.subject || '(No subject)'}
               </p>
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Message</h3>
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                  {reply.body_preview || '(No content)'}
-                </p>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Message</h3>
+                {hasFullThread && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFullThread((v) => !v)}
+                    className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {showFullThread ? (
+                      <>
+                        <ChevronUp className="h-3.5 w-3.5 mr-1" /> Hide full thread
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3.5 w-3.5 mr-1" /> Show full thread
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
+              {showFullThread && reply.html_body ? (
+                <iframe
+                  title="Email body"
+                  sandbox=""
+                  srcDoc={reply.html_body}
+                  className="w-full min-h-[400px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white"
+                />
+              ) : (
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                  <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {(showFullThread ? fullText : trimmedReply) || '(No content)'}
+                  </p>
+                  {!showFullThread && hasTrimmedContent && (
+                    <p className="mt-3 text-[11px] text-muted-foreground italic">
+                      Quoted history hidden — click <span className="font-medium">Show full thread</span> to expand.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Separator />
@@ -135,21 +187,26 @@ export function EmailDetailSheet({
             <div>
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Details</h3>
               <div className="space-y-3">
-                {/* Pipeline */}
-                {reply.campaign?.pipeline && (
-                  <div className="flex items-start justify-between">
-                    <span className="text-sm text-muted-foreground shrink-0">Pipeline</span>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">{reply.campaign.pipeline.name}</span>
+                {/* Pipeline — prefer the direct join, fall back to the
+                    campaign's pipeline for legacy rows. */}
+                {(() => {
+                  const pipeline = reply.pipeline ?? reply.campaign?.pipeline ?? null
+                  if (!pipeline) return null
+                  return (
+                    <div className="flex items-start justify-between">
+                      <span className="text-sm text-muted-foreground shrink-0">Pipeline</span>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{pipeline.name}</span>
+                        </div>
+                        {pipeline.programme && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{pipeline.programme.name}</p>
+                        )}
                       </div>
-                      {reply.campaign.pipeline.programme && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{reply.campaign.pipeline.programme.name}</p>
-                      )}
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
 
                 {/* Campaign */}
                 {reply.campaign && (

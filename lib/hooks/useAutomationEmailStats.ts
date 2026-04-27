@@ -19,6 +19,7 @@ export interface AutomationEmailStatsResult {
   totalOpened: number
   totalClicked: number
   totalBounced: number
+  totalFailed: number
   avgOpenRate: number
   avgClickRate: number
   byStep: Record<string, AutomationStepEmailStats>
@@ -37,7 +38,8 @@ export function useAutomationEmailStats(automationId: string | null) {
       if (!automationId) {
         return {
           totalSent: 0, totalDelivered: 0, totalOpened: 0,
-          totalClicked: 0, totalBounced: 0, avgOpenRate: 0, avgClickRate: 0,
+          totalClicked: 0, totalBounced: 0, totalFailed: 0,
+          avgOpenRate: 0, avgClickRate: 0,
           byStep: {},
         }
       }
@@ -52,7 +54,8 @@ export function useAutomationEmailStats(automationId: string | null) {
       if (!enrollmentIds || enrollmentIds.length === 0) {
         return {
           totalSent: 0, totalDelivered: 0, totalOpened: 0,
-          totalClicked: 0, totalBounced: 0, avgOpenRate: 0, avgClickRate: 0,
+          totalClicked: 0, totalBounced: 0, totalFailed: 0,
+          avgOpenRate: 0, avgClickRate: 0,
           byStep: {},
         }
       }
@@ -67,7 +70,8 @@ export function useAutomationEmailStats(automationId: string | null) {
       if (!logs || logs.length === 0) {
         return {
           totalSent: 0, totalDelivered: 0, totalOpened: 0,
-          totalClicked: 0, totalBounced: 0, avgOpenRate: 0, avgClickRate: 0,
+          totalClicked: 0, totalBounced: 0, totalFailed: 0,
+          avgOpenRate: 0, avgClickRate: 0,
           byStep: {},
         }
       }
@@ -93,6 +97,7 @@ export function useAutomationEmailStats(automationId: string | null) {
       let totalOpened = 0
       let totalClicked = 0
       let totalBounced = 0
+      let totalFailed = 0
 
       for (const send of (sends || [])) {
         const stepId = send.automation_log_id ? logToStep.get(send.automation_log_id) : undefined
@@ -136,6 +141,7 @@ export function useAutomationEmailStats(automationId: string | null) {
         }
         if (send.status === 'failed') {
           stats.failed++
+          totalFailed++
         }
       }
 
@@ -154,6 +160,7 @@ export function useAutomationEmailStats(automationId: string | null) {
         totalOpened,
         totalClicked,
         totalBounced,
+        totalFailed,
         avgOpenRate,
         avgClickRate,
         byStep,

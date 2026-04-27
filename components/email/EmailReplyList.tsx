@@ -23,6 +23,7 @@ interface EmailReplyListProps {
   onMatchClick: (reply: EmailReply) => void
   onViewContact: (contactId: string) => void
   onMarkSpam: (reply: EmailReply) => void
+  onUnmarkSpam?: (reply: EmailReply) => void
   onViewFull: (reply: EmailReply) => void
   emptyMessage?: string
   hasNextPage?: boolean
@@ -33,9 +34,12 @@ interface EmailReplyListProps {
   onSelectChange?: (reply: EmailReply, selected: boolean) => void
 }
 
-type SortKey = 'from' | 'subject' | 'intent' | 'campaign' | 'status' | 'date'
+type SortKey = 'from' | 'subject' | 'intent' | 'campaign' | 'received'
 type SortOrder = 'asc' | 'desc'
 
+// Status column was dropped — it duplicated the active tab (Unmatched/Matched/Spam).
+// "Date" column renamed to "Received" since the cell shows relative time
+// ("3 minutes ago"), not a calendar date.
 const columns: { key: SortKey | 'checkbox' | 'pipeline' | 'actions'; label: string; sortable: boolean; className?: string }[] = [
   { key: 'checkbox', label: '', sortable: false, className: 'w-10' },
   { key: 'from', label: 'From', sortable: true, className: 'w-[200px]' },
@@ -43,9 +47,8 @@ const columns: { key: SortKey | 'checkbox' | 'pipeline' | 'actions'; label: stri
   { key: 'intent', label: 'Intent', sortable: true, className: 'w-[90px]' },
   { key: 'campaign', label: 'Campaign', sortable: true, className: 'w-[140px]' },
   { key: 'pipeline', label: 'Pipeline', sortable: false, className: 'w-[120px]' },
-  { key: 'status', label: 'Status', sortable: true, className: 'w-[100px]' },
-  { key: 'date', label: 'Date', sortable: true, className: 'w-[100px]' },
-  { key: 'actions', label: '', sortable: false, className: 'w-[140px]' },
+  { key: 'received', label: 'Received', sortable: true, className: 'w-[110px]' },
+  { key: 'actions', label: '', sortable: false, className: 'w-[100px]' },
 ]
 
 export function EmailReplyList({
@@ -54,8 +57,9 @@ export function EmailReplyList({
   onMatchClick,
   onViewContact,
   onMarkSpam,
+  onUnmarkSpam,
   onViewFull,
-  emptyMessage = 'No emails to display.',
+  emptyMessage = 'Replies from contacts will appear here once they respond to one of your emails.',
   hasNextPage,
   onLoadMore,
   isLoadingMore,
@@ -63,7 +67,7 @@ export function EmailReplyList({
   selectedIds,
   onSelectChange,
 }: EmailReplyListProps) {
-  const [sortBy, setSortBy] = useState<SortKey>('date')
+  const [sortBy, setSortBy] = useState<SortKey>('received')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
   const handleSort = (key: SortKey) => {
@@ -104,13 +108,10 @@ export function EmailReplyList({
           comparison = campaignA.localeCompare(campaignB)
           break
         }
-        case 'status': {
-          const statusOrder = { spam: 0, unmatched: 1, auto_matched: 2, manually_matched: 3 }
-          comparison = (statusOrder[a.match_status as keyof typeof statusOrder] ?? 1) - (statusOrder[b.match_status as keyof typeof statusOrder] ?? 1)
-          break
-        }
-        case 'date': {
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case 'received': {
+          const aDate = a.received_at || a.created_at
+          const bDate = b.received_at || b.created_at
+          comparison = new Date(aDate).getTime() - new Date(bDate).getTime()
           break
         }
       }
@@ -174,9 +175,8 @@ export function EmailReplyList({
                 <TableCell><Skeleton className="h-5 w-14" /></TableCell>
                 <TableCell><Skeleton className="h-3 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-3 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-3 w-16" /></TableCell>
-                <TableCell><Skeleton className="h-7 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-7 w-16" /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -189,8 +189,8 @@ export function EmailReplyList({
     return (
       <div className="border rounded-lg p-12 text-center bg-white dark:bg-slate-900 dark:border-slate-700">
         <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No emails</h3>
-        <p className="text-muted-foreground">{emptyMessage}</p>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No replies yet</h3>
+        <p className="text-muted-foreground max-w-md mx-auto">{emptyMessage}</p>
       </div>
     )
   }
@@ -233,6 +233,7 @@ export function EmailReplyList({
                 onMatchClick={onMatchClick}
                 onViewContact={onViewContact}
                 onMarkSpam={onMarkSpam}
+                onUnmarkSpam={onUnmarkSpam}
                 onViewFull={onViewFull}
                 selectable={selectable}
                 selected={selectedIds?.has(reply.id)}
