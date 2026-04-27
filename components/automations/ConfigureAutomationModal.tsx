@@ -1404,15 +1404,23 @@ function FormWebhookUrlBlock({
       ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'
 
-  // ActiveCampaign has its own dedicated webhook endpoint (different payload
-  // shape). Everything else routes through the WordPress webhook handler.
-  const endpoint =
-    formSource === 'activecampaign'
-      ? '/api/webhooks/activecampaign'
-      : '/api/webhooks/wordpress'
+  // The two webhook endpoints expect different payload shapes:
+  //   /api/webhooks/wordpress     — Gravity Forms, WPForms, Contact Form 7,
+  //                                 Elementor (each has its own field-naming
+  //                                 convention; the handler dispatches on
+  //                                 form_source).
+  //   /api/webhooks/activecampaign — AC's contact[…] form-encoded payload.
+  //
+  // Bias the default toward ActiveCampaign: it's the dominant integration
+  // for IFG, and existing automations created before the dropdown had an
+  // AC option have form_source = null/'generic' — sending them to the
+  // WordPress endpoint would silently break their wiring.
+  const wordpressPlugins = ['gravity_forms', 'wpforms', 'contact_form_7', 'elementor_forms']
+  const isWordpress = !!formSource && wordpressPlugins.includes(formSource)
+  const endpoint = isWordpress ? '/api/webhooks/wordpress' : '/api/webhooks/activecampaign'
 
   const webhookUrl = token ? `${baseUrl}${endpoint}?form_id=${encodeURIComponent(token)}` : ''
-  const integrationLabel = formSource === 'activecampaign' ? 'ActiveCampaign' : 'WordPress'
+  const integrationLabel = isWordpress ? 'WordPress' : 'ActiveCampaign'
 
   const handleCopy = async () => {
     if (!webhookUrl) return
