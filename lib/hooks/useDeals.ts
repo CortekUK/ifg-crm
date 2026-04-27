@@ -377,3 +377,30 @@ export function useUpdateDeal() {
     },
   })
 }
+
+// Hard-delete a deal. Schema FKs cascade:
+//   automation_enrollments → CASCADE
+//   email_sends            → SET NULL on deal_id (so historical sends remain
+//                            but lose deal linkage)
+//   deal_activities        → CASCADE (audit trail goes with the deal)
+// Caller is responsible for confirmation UX. Admin-gate at the call site.
+export function useDeleteDeal() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (dealId: string) => {
+      const { error } = await supabase
+        .from('deals')
+        .delete()
+        .eq('id', dealId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline-deal-counts'] })
+      queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
+    },
+  })
+}

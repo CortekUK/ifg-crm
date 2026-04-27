@@ -51,7 +51,18 @@ import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
-import { useUpdateDeal, useDeal, useDealAutomations } from '@/lib/hooks/useDeals'
+import { useUpdateDeal, useDeleteDeal, useDeal, useDealAutomations } from '@/lib/hooks/useDeals'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Trash2 } from 'lucide-react'
 import { formatDate, formatRelativeTime, formatCurrency, formatTimeAgo } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useDealActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
@@ -128,6 +139,8 @@ export function DealDetailSheet({
   const moveDeal = useMoveDeal()
   const addNote = useAddDealNote()
   const updateDeal = useUpdateDeal()
+  const deleteDeal = useDeleteDeal()
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const unenroll = useUnenrollFromAutomation()
   const pauseEnrollment = usePauseEnrollment()
   const resumeEnrollment = useResumeEnrollment()
@@ -281,6 +294,25 @@ export function DealDetailSheet({
     }
   }
 
+  const handleDeleteDeal = async () => {
+    if (!deal) return
+    try {
+      await deleteDeal.mutateAsync(deal.id)
+      setIsDeleteDialogOpen(false)
+      toast({
+        title: 'Deal deleted',
+        description: `${deal.contact?.first_name ?? ''} ${deal.contact?.last_name ?? ''}`.trim() || deal.title,
+      })
+      onClose()
+    } catch (error) {
+      toast({
+        title: 'Failed to delete deal',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const handleSaveOwner = async (newOwnerId: string | null) => {
     if (!deal || !newOwnerId) return
     try {
@@ -388,6 +420,19 @@ export function DealDetailSheet({
                 {deal.pipeline && <span className="text-xs text-muted-foreground">{deal.pipeline.name}</span>}
               </div>
             </div>
+            {/* Admin-only delete. Hard-delete with cascade — see useDeleteDeal. */}
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                className="text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
+                title="Delete deal"
+                aria-label="Delete deal"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
           {/* Quick Actions */}
@@ -1031,6 +1076,40 @@ export function DealDetailSheet({
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      {/* Delete confirmation — admin-only. Lists what cascades so the user
+          knows what they're losing before clicking through. */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this deal?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                <strong>{deal.contact ? `${deal.contact.first_name} ${deal.contact.last_name}` : deal.title}</strong>
+                {deal.pipeline && <span className="text-muted-foreground"> — {deal.pipeline.name}</span>}
+              </span>
+              <span className="block">
+                This will also remove the deal&apos;s automation enrollments and activity log.
+                Any sent emails stay in the database but are no longer linked to a deal.
+              </span>
+              <span className="block font-medium text-red-600">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteDeal.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteDeal()
+              }}
+              disabled={deleteDeal.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteDeal.isPending ? 'Deleting…' : 'Delete deal'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }

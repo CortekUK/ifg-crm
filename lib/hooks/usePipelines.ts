@@ -146,20 +146,48 @@ export function useDeletePipeline() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (pipelineId: string) => {
-      // Check if pipeline has any deals
+    mutationFn: async (input: string | { pipelineId: string; force?: boolean }) => {
+      // Backwards-compatible: accept either a bare pipelineId (legacy
+      // call sites) or an object with a force flag.
+      const pipelineId = typeof input === 'string' ? input : input.pipelineId
+      const force = typeof input === 'string' ? false : !!input.force
+
+      // Only block on deals that are still ACTIVE — won/lost deals are
+      // historical records and shouldn't keep the pipeline alive forever.
+      // When force=true, we wipe active deals first so the cascade on
+      // `pipelines.id` handles the rest.
       const { count, error: countError } = await supabase
         .from('deals')
         .select('*', { count: 'exact', head: true })
         .eq('pipeline_id', pipelineId)
+        .eq('status', 'active')
 
       if (countError) throw countError
 
-      if (count && count > 0) {
-        throw new Error(`Cannot delete pipeline with ${count} active deals. Move or delete the deals first.`)
+      if (count && count > 0 && !force) {
+        const err = new Error(
+          `Cannot delete pipeline — ${count} active deal${count === 1 ? '' : 's'} still in it. ` +
+          `Mark them won/lost or delete them first.`,
+        ) as Error & { code?: string; activeDealCount?: number }
+        err.code = 'PIPELINE_HAS_ACTIVE_DEALS'
+        err.activeDealCount = count
+        throw err
       }
 
-      // Delete pipeline (stages will cascade delete due to FK constraint)
+      if (force && count && count > 0) {
+        // Hard-delete active deals before the pipeline goes. FK cascades on
+        // deals (automation_enrollments, deal_activities, etc.) clean up
+        // their dependents.
+        const { error: dealsDeleteError } = await supabase
+          .from('deals')
+          .delete()
+          .eq('pipeline_id', pipelineId)
+          .eq('status', 'active')
+        if (dealsDeleteError) throw dealsDeleteError
+      }
+
+      // Delete pipeline (stages, won/lost deals, and their FK children
+      // cascade-delete via the existing constraints).
       const { error } = await supabase
         .from('pipelines')
         .delete()

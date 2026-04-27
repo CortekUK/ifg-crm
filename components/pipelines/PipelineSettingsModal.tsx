@@ -93,6 +93,10 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
   // Delete confirmations
   const [showDeletePipelineDialog, setShowDeletePipelineDialog] = useState(false)
   const [stageToDelete, setStageToDelete] = useState<PipelineStage | null>(null)
+  // When the first delete attempt fails because of active deals we surface
+  // a second-level confirmation that offers to wipe the deals + pipeline
+  // together. State holds the count so the dialog text is accurate.
+  const [forceDeletePrompt, setForceDeletePrompt] = useState<{ count: number } | null>(null)
 
   const { data: programmes = [] } = useProgrammes()
   const { data: stages = [], isLoading: stagesLoading } = usePipelineStages(pipeline?.id || null)
@@ -155,6 +159,35 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
         description: `${pipeline.name} has been deleted.`,
       })
       setShowDeletePipelineDialog(false)
+      onClose()
+    } catch (error) {
+      // Active-deals block? Hand off to the force-delete dialog instead of
+      // showing a dead-end toast. The user told the system "yes delete this
+      // pipeline" — the next question is "do you also want the deals gone?"
+      const err = error as Error & { code?: string; activeDealCount?: number }
+      if (err.code === 'PIPELINE_HAS_ACTIVE_DEALS' && typeof err.activeDealCount === 'number') {
+        setShowDeletePipelineDialog(false)
+        setForceDeletePrompt({ count: err.activeDealCount })
+        return
+      }
+
+      toast({
+        title: 'Failed to delete pipeline',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleForceDeletePipeline = async () => {
+    if (!pipeline) return
+    try {
+      await deletePipeline.mutateAsync({ pipelineId: pipeline.id, force: true })
+      toast({
+        title: 'Pipeline deleted',
+        description: `${pipeline.name} and its deals removed.`,
+      })
+      setForceDeletePrompt(null)
       onClose()
     } catch (error) {
       toast({
@@ -740,7 +773,10 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeletePipeline}
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeletePipeline()
+              }}
               className="bg-red-600 hover:bg-red-700"
             >
               {deletePipeline.isPending ? (
@@ -748,6 +784,47 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
               ) : (
                 'Delete'
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Second-level confirmation: pipeline still has active deals.
+          Offers a single destructive action that removes the deals AND the
+          pipeline together, so admins don't have to delete each deal first. */}
+      <AlertDialog
+        open={!!forceDeletePrompt}
+        onOpenChange={(open) => !open && setForceDeletePrompt(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pipeline still has active deals</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                <strong>&quot;{pipeline.name}&quot;</strong> contains{' '}
+                <strong>{forceDeletePrompt?.count}</strong> active deal
+                {forceDeletePrompt?.count === 1 ? '' : 's'}.
+              </span>
+              <span className="block">
+                Deleting the pipeline will also remove every deal in it and their
+                automation enrollments / activity logs.
+              </span>
+              <span className="block font-medium text-red-600">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePipeline.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleForceDeletePipeline()
+              }}
+              disabled={deletePipeline.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletePipeline.isPending
+                ? 'Deleting…'
+                : `Delete pipeline + ${forceDeletePrompt?.count ?? 0} deal${forceDeletePrompt?.count === 1 ? '' : 's'}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

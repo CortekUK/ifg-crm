@@ -20,6 +20,8 @@ import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
 import { ErrorState } from '@/components/ui/error-state'
+import { Button } from '@/components/ui/button'
+import { GitBranch, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const PIPELINE_STORAGE_KEY = 'ifg-crm-selected-pipeline'
@@ -94,17 +96,20 @@ export default function PipelinesPage() {
     }
   }, [])
 
-  // Set default pipeline when data loads (only if not already set)
+  // Set default pipeline when data loads, OR when the currently-selected
+  // pipeline disappears (e.g. just deleted). Without the second branch the
+  // page hangs onto a stale UUID and shows an empty board until refresh.
   useEffect(() => {
-    if (pipelines.length > 0 && !selectedPipelineId) {
-      // Check if stored pipeline still exists
-      const stored = localStorage.getItem(PIPELINE_STORAGE_KEY)
-      if (stored && pipelines.some(p => p.id === stored)) {
-        setSelectedPipelineId(stored)
-      } else {
-        setSelectedPipelineId(pipelines[0].id)
-      }
-    }
+    if (pipelines.length === 0) return
+    const stillExists = selectedPipelineId && pipelines.some(p => p.id === selectedPipelineId)
+    if (stillExists) return
+
+    const stored = localStorage.getItem(PIPELINE_STORAGE_KEY)
+    const next = stored && pipelines.some(p => p.id === stored)
+      ? stored
+      : pipelines[0].id
+    setSelectedPipelineId(next)
+    localStorage.setItem(PIPELINE_STORAGE_KEY, next)
   }, [pipelines, selectedPipelineId])
 
   // Save selected pipeline to localStorage
@@ -318,6 +323,47 @@ export default function PipelinesPage() {
     : undefined
 
   const isLoading = pipelinesLoading || stagesLoading || dealsLoading
+
+  // No pipelines exist (fresh install or all deleted) — show a focused empty
+  // state instead of the full board, which would otherwise render as a
+  // dropdown-with-no-options + an empty kanban grid.
+  if (!pipelinesLoading && pipelines.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center text-center py-20 px-6 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <div className="h-16 w-16 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-4">
+            <GitBranch className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h2 className="font-oswald text-2xl font-bold uppercase text-gray-900 dark:text-white mb-2">
+            No pipelines yet
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-md mb-6">
+            Pipelines organise your deals into stages — Initial Lead, Engaged, Won, etc.
+            Create one to start tracking contacts through your recruitment process.
+          </p>
+          {isAdmin ? (
+            <Button
+              onClick={() => setCreatePipelineModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              size="lg"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create your first pipeline
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">
+              Ask an admin to create a pipeline before you can manage deals.
+            </p>
+          )}
+        </div>
+
+        <CreatePipelineModal
+          isOpen={createPipelineModalOpen}
+          onClose={() => setCreatePipelineModalOpen(false)}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className={cn(
