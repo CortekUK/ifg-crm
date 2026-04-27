@@ -29,7 +29,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Calendar } from '@/components/ui/calendar'
 import { Slider } from '@/components/ui/slider'
-import { Check, ChevronsUpDown, Loader2, PoundSterling, CalendarIcon, TrendingUp } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2, PoundSterling, CalendarIcon, TrendingUp, Plane, GraduationCap, Video } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
@@ -67,6 +67,14 @@ export function AddDealModal({
   const [winProbability, setWinProbability] = useState<number | null>(null)
   const [forecastedCloseDate, setForecastedCloseDate] = useState<Date | undefined>()
   const [datePickerOpen, setDatePickerOpen] = useState(false)
+  // Programme dates — drive the Pre-Departure (#11) and Interview Reminder
+  // automations. All optional.
+  const [programmeStartDate, setProgrammeStartDate] = useState<Date | undefined>()
+  const [interviewDate, setInterviewDate] = useState<Date | undefined>()
+  const [arrivalDate, setArrivalDate] = useState<Date | undefined>()
+  const [programmeDatePickerOpen, setProgrammeDatePickerOpen] = useState(false)
+  const [interviewDatePickerOpen, setInterviewDatePickerOpen] = useState(false)
+  const [arrivalDatePickerOpen, setArrivalDatePickerOpen] = useState(false)
 
   const debouncedSearch = useDebouncedValue(contactSearch, 300)
   const { data: contacts = [], isLoading: isSearching } = useSearchContacts(debouncedSearch)
@@ -83,6 +91,9 @@ export function AddDealModal({
       setDescription('')
       setWinProbability(null)
       setForecastedCloseDate(undefined)
+      setProgrammeStartDate(undefined)
+      setInterviewDate(undefined)
+      setArrivalDate(undefined)
     }
   }, [isOpen, defaultDealValue, userId])
 
@@ -103,6 +114,9 @@ export function AddDealModal({
         description: description || undefined,
         winProbability: winProbability ?? undefined,
         forecastedCloseDate: forecastedCloseDate ? forecastedCloseDate.toISOString().split('T')[0] : undefined,
+        programmeStartDate: programmeStartDate ? programmeStartDate.toISOString().split('T')[0] : undefined,
+        interviewDate: interviewDate ? interviewDate.toISOString().split('T')[0] : undefined,
+        arrivalDate: arrivalDate ? arrivalDate.toISOString().split('T')[0] : undefined,
       })
 
       toast({
@@ -381,6 +395,167 @@ export function AddDealModal({
                   placeholder="Add a detailed description of this deal..."
                   rows={4}
                 />
+              </div>
+            </div>
+
+            {/* Programme Dates — drive Pre-Departure / Interview Reminder
+                automations. All three are optional; pick whichever apply. */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                Programme Dates (Optional)
+              </h3>
+
+              {/* Programme Start Date */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Programme Start Date
+                </Label>
+                <Popover open={programmeDatePickerOpen} onOpenChange={setProgrammeDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !programmeStartDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {programmeStartDate ? formatDate(programmeStartDate.toISOString()) : 'Select a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={programmeStartDate}
+                      onSelect={(date) => {
+                        setProgrammeStartDate(date)
+                        setProgrammeDatePickerOpen(false)
+                      }}
+                      initialFocus
+                    />
+                    {programmeStartDate && (
+                      <div className="p-2 border-t">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={() => {
+                            setProgrammeStartDate(undefined)
+                            setProgrammeDatePickerOpen(false)
+                          }}
+                        >
+                          Clear date
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">
+                  Used by Pre-Departure automations to schedule prep emails before this date.
+                </p>
+              </div>
+
+              {/* Interview Date */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  Interview Date
+                </Label>
+                <Popover open={interviewDatePickerOpen} onOpenChange={setInterviewDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !interviewDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {interviewDate ? formatDate(interviewDate.toISOString()) : 'Select a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={interviewDate}
+                      onSelect={(date) => {
+                        setInterviewDate(date)
+                        setInterviewDatePickerOpen(false)
+                      }}
+                      initialFocus
+                    />
+                    {interviewDate && (
+                      <div className="p-2 border-t">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={() => {
+                            setInterviewDate(undefined)
+                            setInterviewDatePickerOpen(false)
+                          }}
+                        >
+                          Clear date
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Arrival Date */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Plane className="h-4 w-4" />
+                  Arrival Date
+                </Label>
+                <Popover open={arrivalDatePickerOpen} onOpenChange={setArrivalDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !arrivalDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {arrivalDate ? formatDate(arrivalDate.toISOString()) : 'Select a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={arrivalDate}
+                      onSelect={(date) => {
+                        setArrivalDate(date)
+                        setArrivalDatePickerOpen(false)
+                      }}
+                      initialFocus
+                    />
+                    {arrivalDate && (
+                      <div className="p-2 border-t">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={() => {
+                            setArrivalDate(undefined)
+                            setArrivalDatePickerOpen(false)
+                          }}
+                        >
+                          Clear date
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>

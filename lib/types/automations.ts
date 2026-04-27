@@ -60,9 +60,12 @@ export interface AutomationConfig {
   wait_days?: number[]
   // Exit conditions
   exit_on_reply?: boolean
-  // Stage to move the deal to when the automation exits (e.g. on reply).
+  // Stage to move the deal to when the contact replies (positive outcome).
   // Null/undefined = don't move the deal, just stop the enrollment.
   exit_to_stage_id?: string | null
+  // Stage to move the deal to when the sequence completes WITHOUT a reply
+  // (no engagement). Typically a "Lost" / "No Reply" / "Dead" stage.
+  no_reply_stage_id?: string | null
   // Final action
   final_stage_id?: string
   // For time-based triggers (pre-departure)
@@ -99,6 +102,7 @@ export interface Automation {
   config?: AutomationConfig | null
   exit_on_reply?: boolean
   exit_to_stage_id?: string | null
+  no_reply_stage_id?: string | null
   is_active: boolean
   created_at: string
   updated_at: string

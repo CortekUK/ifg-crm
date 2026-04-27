@@ -68,6 +68,11 @@ export interface Deal {
   win_probability?: number | null // 0-100 percentage
   forecasted_close_date?: string | null // ISO date string
   description?: string | null // Additional notes/description
+  // Programme date fields — used by the time_before_date automation trigger
+  // (Pre-Departure template) to know when each milestone is.
+  programme_start_date?: string | null // ISO date string (YYYY-MM-DD)
+  interview_date?: string | null
+  arrival_date?: string | null
   contact?: {
     id: string
     first_name: string

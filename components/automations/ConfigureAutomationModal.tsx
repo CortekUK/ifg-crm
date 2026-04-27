@@ -1061,45 +1061,78 @@ export function ConfigureAutomationModal({
                         </label>
                       </div>
 
-                      {/* When the automation exits, optionally move the deal
-                          to a specific stage so recruiters don't have to do
-                          it manually after every reply. */}
-                      <div className="space-y-1.5 mb-4">
-                        <Label className="text-sm">When automation exits, move deal to:</Label>
-                        {!formData.pipeline_id ? (
-                          <p className="text-xs text-muted-foreground italic">
-                            Select a pipeline first to choose an exit stage.
-                          </p>
-                        ) : (
-                          <Select
-                            value={formData.config.exit_to_stage_id ?? '__none__'}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                config: {
-                                  ...prev.config,
-                                  exit_to_stage_id: value === '__none__' ? null : value,
-                                },
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Don't move the deal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
-                              {stages.map((stage) => (
-                                <SelectItem key={stage.id} value={stage.id}>
-                                  {stage.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          When a contact reply ends the sequence, the deal jumps to this stage automatically.
+                      {/* Two outcomes, two destinations. */}
+                      {!formData.pipeline_id ? (
+                        <p className="text-xs text-muted-foreground italic mb-4">
+                          Select a pipeline first to choose exit stages.
                         </p>
-                      </div>
+                      ) : (
+                        <div className="space-y-4 mb-4">
+                          {/* Replied — engaged outcome */}
+                          <div className="space-y-1.5">
+                            <Label className="text-sm">When contact replies, move deal to:</Label>
+                            <Select
+                              value={formData.config.exit_to_stage_id ?? '__none__'}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    exit_to_stage_id: value === '__none__' ? null : value,
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Don't move the deal" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
+                                {stages.map((stage) => (
+                                  <SelectItem key={`replied-${stage.id}`} value={stage.id}>
+                                    {stage.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              Positive outcome — typically an &quot;Engaged&quot; or &quot;Interested&quot; stage.
+                            </p>
+                          </div>
+
+                          {/* No reply — sequence finished without engagement */}
+                          <div className="space-y-1.5">
+                            <Label className="text-sm">When sequence finishes without reply, move deal to:</Label>
+                            <Select
+                              value={formData.config.no_reply_stage_id ?? '__none__'}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    no_reply_stage_id: value === '__none__' ? null : value,
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Don't move the deal" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
+                                {stages.map((stage) => (
+                                  <SelectItem key={`noreply-${stage.id}`} value={stage.id}>
+                                    {stage.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              Negative outcome — typically a &quot;No Reply&quot;, &quot;Lost&quot; or &quot;Dead&quot; stage.
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {!formData.pipeline_id ? (
                         <p className="text-sm text-muted-foreground italic">
@@ -1261,11 +1294,37 @@ export function ConfigureAutomationModal({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="programme_start_date">Programme Start Date</SelectItem>
+                            <SelectItem value="interview_date">Interview Date</SelectItem>
                             <SelectItem value="arrival_date">Arrival Date</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                          Emails will be scheduled based on this date from the pipeline/programme settings
+                          Which date column on the deal the cron should watch.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Days Before</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={formData.config.days_before ?? ''}
+                          placeholder="e.g. 30"
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            const parsed = raw === '' ? undefined : Math.max(0, Number(raw))
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: {
+                                ...prev.config,
+                                days_before: Number.isFinite(parsed) ? parsed : undefined,
+                              },
+                            }))
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Enrol the deal this many days before its target date. The sequence then runs from there.
                         </p>
                       </div>
                     </div>

@@ -278,6 +278,7 @@ export function useCreateAutomation() {
           config: input.config || null,
           exit_on_reply: input.config?.exit_on_reply ?? true,
           exit_to_stage_id: input.config?.exit_to_stage_id || null,
+          no_reply_stage_id: input.config?.no_reply_stage_id || null,
           is_active: false, // Paused by default
         })
         .select()
@@ -329,6 +330,7 @@ export function useUpdateAutomation() {
           config: input.config || null,
           exit_on_reply: input.config?.exit_on_reply ?? true,
           exit_to_stage_id: input.config?.exit_to_stage_id || null,
+          no_reply_stage_id: input.config?.no_reply_stage_id || null,
         })
         .eq('id', input.id)
         .select()

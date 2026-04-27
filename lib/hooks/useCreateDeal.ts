@@ -12,6 +12,10 @@ interface CreateDealParams {
   description?: string
   winProbability?: number
   forecastedCloseDate?: string
+  // Programme dates — drive the time_before_date automation trigger.
+  programmeStartDate?: string
+  interviewDate?: string
+  arrivalDate?: string
   // Source tracking for Smart Process
   source?: 'manual' | 'smart_process' | 'automation' | 'import'
   campaignId?: string
@@ -34,6 +38,9 @@ export function useCreateDeal() {
       description,
       winProbability,
       forecastedCloseDate,
+      programmeStartDate,
+      interviewDate,
+      arrivalDate,
       source,
       campaignId,
       campaignName,
@@ -52,6 +59,9 @@ export function useCreateDeal() {
           description: description || null,
           win_probability: winProbability ?? null,
           forecasted_close_date: forecastedCloseDate || null,
+          programme_start_date: programmeStartDate || null,
+          interview_date: interviewDate || null,
+          arrival_date: arrivalDate || null,
           source: source || 'manual',
         })
         .select()

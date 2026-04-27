@@ -517,6 +517,34 @@ async function processQueue(
           continue
         }
 
+        // ============================================
+        // STOP-ON-PAYMENT - Halt deposit/invoice sequences once any related
+        // invoice on this deal flips to 'paid'. The flag is set per
+        // automation in config.stop_on_payment (Deposit Invoice template).
+        // ============================================
+        const { data: automationMeta } = await supabase
+          .from('automations')
+          .select('config')
+          .eq('id', enrollment.automation_id)
+          .single()
+
+        const stopOnPayment = (automationMeta?.config as { stop_on_payment?: boolean } | null)?.stop_on_payment === true
+        if (stopOnPayment) {
+          const { data: paidInvoices } = await supabase
+            .from('invoices')
+            .select('id')
+            .eq('deal_id', enrollment.deal_id)
+            .eq('status', 'paid')
+            .limit(1)
+
+          if (paidInvoices && paidInvoices.length > 0) {
+            await stopEnrollment(supabase, enrollment, 'Deposit paid')
+            summary.enrollmentsStopped++
+            console.log(`Stopped enrollment ${enrollment.id} - deposit invoice paid`)
+            continue
+          }
+        }
+
         // Get current step details
         const { data: currentStep, error: stepError } = await supabase
           .from('automation_steps')
@@ -859,6 +887,119 @@ async function processEmailStep(
     })
 
     summary.emailsQueued++
+
+    // ============================================
+    // notify_parent — Application Received template (#5) sends a parallel
+    // copy of the email to the contact's parent_email when the automation's
+    // config.notify_parent flag is set. Failures here do NOT block the
+    // primary send (it already went through).
+    // ============================================
+    try {
+      const { data: automationCfg } = await supabase
+        .from('automations')
+        .select('config')
+        .eq('id', enrollment.automation_id)
+        .single()
+
+      const cfg = (automationCfg?.config ?? {}) as { notify_parent?: boolean; create_portal_account?: boolean }
+      const notifyParent = cfg.notify_parent === true
+      if (notifyParent && contact.parent_email) {
+        const parentSubject = `[Parent Copy] ${subject}`
+        const parentTrackingId = crypto.randomUUID()
+        const { error: parentSendError } = await resend.emails.send({
+          from: `${fromName} <${fromEmail}>`,
+          to: [contact.parent_email],
+          reply_to: replyTo,
+          subject: parentSubject,
+          html: htmlBody,
+          headers: {
+            'Message-ID': buildOutboundMessageId(parentTrackingId),
+          },
+        })
+
+        if (parentSendError) {
+          console.warn(`notify_parent: copy to ${contact.parent_email} failed:`, parentSendError.message)
+        } else {
+          // Track the parent copy as its own email_sends row so it shows up
+          // in metrics and so a parent's reply could thread back.
+          await supabase.from('email_sends').insert({
+            tracking_id: parentTrackingId,
+            recipient_email: contact.parent_email,
+            recipient_contact_id: contact.id,
+            automation_log_id: logEntryId,
+            subject: parentSubject,
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          })
+          console.log(`notify_parent: copy delivered to ${contact.parent_email}`)
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('notify_parent: unexpected error', notifyErr)
+    }
+
+    // ============================================
+    // create_portal_account — Welcome Sequence template (#10) provisions a
+    // player_portal account for the contact when the automation's
+    // config.create_portal_account flag is set. Mirrors the manual flow at
+    // app/api/portal/invite/route.ts. Idempotent: a player profile or a
+    // pending invite for this contact short-circuits the call.
+    // ============================================
+    try {
+      const { data: automationCfg2 } = await supabase
+        .from('automations')
+        .select('config')
+        .eq('id', enrollment.automation_id)
+        .single()
+
+      const createPortal = (automationCfg2?.config as { create_portal_account?: boolean } | null)?.create_portal_account === true
+      if (createPortal && contact.email) {
+        // Already a player? skip.
+        const { data: existingPlayer } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('contact_id', contact.id)
+          .eq('role', 'player')
+          .maybeSingle()
+
+        // Pending invite already in flight? skip.
+        const { data: pendingInvite } = await supabase
+          .from('player_invites')
+          .select('id')
+          .eq('contact_id', contact.id)
+          .eq('status', 'pending')
+          .maybeSingle()
+
+        if (!existingPlayer && !pendingInvite) {
+          const { error: portalInviteError } = await supabase.auth.admin.inviteUserByEmail(
+            contact.email,
+            {
+              data: {
+                full_name: `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || contact.email,
+                role: 'player',
+                contact_id: contact.id,
+              },
+              redirectTo: `${Deno.env.get('NEXT_PUBLIC_APP_URL') ?? ''}/auth/callback`,
+            },
+          )
+
+          if (portalInviteError) {
+            console.warn(`create_portal_account: invite failed for ${contact.email}: ${portalInviteError.message}`)
+          } else {
+            await supabase.from('player_invites').insert({
+              contact_id: contact.id,
+              email: contact.email,
+              invited_by: enrollment.send_as_user_id ?? null,
+            })
+            console.log(`create_portal_account: portal invite sent to ${contact.email}`)
+          }
+        } else {
+          console.log(`create_portal_account: skipped — existing player profile or pending invite for ${contact.email}`)
+        }
+      }
+    } catch (portalErr) {
+      console.warn('create_portal_account: unexpected error', portalErr)
+    }
     console.log(`Sent email to ${contact.email} for enrollment ${enrollment.id}, message_id: ${messageId}`)
 
   } catch (err) {

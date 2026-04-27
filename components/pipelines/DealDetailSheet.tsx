@@ -99,6 +99,10 @@ export function DealDetailSheet({
   const [editProbability, setEditProbability] = useState<number | null>(null)
   const [editDescription, setEditDescription] = useState('')
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+  // One picker open at a time for the three programme dates.
+  const [isProgrammeStartOpen, setIsProgrammeStartOpen] = useState(false)
+  const [isInterviewDateOpen, setIsInterviewDateOpen] = useState(false)
+  const [isArrivalDateOpen, setIsArrivalDateOpen] = useState(false)
   const [isAddListOpen, setIsAddListOpen] = useState(false)
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [isAddTagOpen, setIsAddTagOpen] = useState(false)
@@ -246,6 +250,34 @@ export function DealDetailSheet({
       toast({ title: 'Forecasted close date updated', description: date ? `Set to ${formatDate(date.toISOString())}` : 'Cleared' })
     } catch (error) {
       toast({ title: 'Failed to update', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+    }
+  }
+
+  // Generic saver for the three programme date columns. Keeps the toast text
+  // human-readable and routes to the correct closer.
+  const saveProgrammeDate = async (
+    field: 'programme_start_date' | 'interview_date' | 'arrival_date',
+    label: string,
+    date: Date | undefined,
+    closePopover: () => void,
+  ) => {
+    if (!deal) return
+    try {
+      await updateDeal.mutateAsync({
+        dealId: deal.id,
+        updates: { [field]: date ? date.toISOString().split('T')[0] : null },
+      })
+      closePopover()
+      toast({
+        title: `${label} updated`,
+        description: date ? `Set to ${formatDate(date.toISOString())}` : 'Cleared',
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to update',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -803,6 +835,83 @@ export function DealDetailSheet({
                         {deal.forecasted_close_date && (
                           <div className="p-2 border-t">
                             <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => handleSaveForecastedDate(undefined)}>Clear date</Button>
+                          </div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Programme dates — feed the time_before_date trigger
+                      (Pre-Departure) and Interview Reminder automations. */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Programme Start</span>
+                    <Popover open={isProgrammeStartOpen} onOpenChange={setIsProgrammeStartOpen}>
+                      <PopoverTrigger asChild>
+                        <button className="flex items-center gap-1 text-sm font-medium hover:text-blue-600">
+                          {deal.programme_start_date ? formatDate(deal.programme_start_date) : <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}
+                          <Pencil className="h-3 w-3 opacity-50" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end">
+                        <CalendarComponent
+                          mode="single"
+                          selected={deal.programme_start_date ? new Date(deal.programme_start_date) : undefined}
+                          onSelect={(date) => saveProgrammeDate('programme_start_date', 'Programme start', date, () => setIsProgrammeStartOpen(false))}
+                          initialFocus
+                        />
+                        {deal.programme_start_date && (
+                          <div className="p-2 border-t">
+                            <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => saveProgrammeDate('programme_start_date', 'Programme start', undefined, () => setIsProgrammeStartOpen(false))}>Clear date</Button>
+                          </div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Interview Date</span>
+                    <Popover open={isInterviewDateOpen} onOpenChange={setIsInterviewDateOpen}>
+                      <PopoverTrigger asChild>
+                        <button className="flex items-center gap-1 text-sm font-medium hover:text-blue-600">
+                          {deal.interview_date ? formatDate(deal.interview_date) : <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}
+                          <Pencil className="h-3 w-3 opacity-50" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end">
+                        <CalendarComponent
+                          mode="single"
+                          selected={deal.interview_date ? new Date(deal.interview_date) : undefined}
+                          onSelect={(date) => saveProgrammeDate('interview_date', 'Interview date', date, () => setIsInterviewDateOpen(false))}
+                          initialFocus
+                        />
+                        {deal.interview_date && (
+                          <div className="p-2 border-t">
+                            <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => saveProgrammeDate('interview_date', 'Interview date', undefined, () => setIsInterviewDateOpen(false))}>Clear date</Button>
+                          </div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Arrival Date</span>
+                    <Popover open={isArrivalDateOpen} onOpenChange={setIsArrivalDateOpen}>
+                      <PopoverTrigger asChild>
+                        <button className="flex items-center gap-1 text-sm font-medium hover:text-blue-600">
+                          {deal.arrival_date ? formatDate(deal.arrival_date) : <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}
+                          <Pencil className="h-3 w-3 opacity-50" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end">
+                        <CalendarComponent
+                          mode="single"
+                          selected={deal.arrival_date ? new Date(deal.arrival_date) : undefined}
+                          onSelect={(date) => saveProgrammeDate('arrival_date', 'Arrival date', date, () => setIsArrivalDateOpen(false))}
+                          initialFocus
+                        />
+                        {deal.arrival_date && (
+                          <div className="p-2 border-t">
+                            <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => saveProgrammeDate('arrival_date', 'Arrival date', undefined, () => setIsArrivalDateOpen(false))}>Clear date</Button>
                           </div>
                         )}
                       </PopoverContent>
