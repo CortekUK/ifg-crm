@@ -5,6 +5,7 @@ import type { Profile } from './pipelines'
 export type InvoiceType = 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled'
 export type PaymentMethod = 'stripe' | 'bank_transfer' | 'website' | 'manual' | 'cash' | 'other'
+export type InvoiceRecipientType = 'player' | 'guardian'
 
 export interface Invoice {
   id: string
@@ -23,6 +24,7 @@ export interface Invoice {
   stripe_payment_intent_id: string | null
   xero_invoice_id: string | null
   payment_method: PaymentMethod | null
+  recipient_type: InvoiceRecipientType
   notes: string | null
   created_by_id: string
   created_at: string
@@ -65,5 +67,6 @@ export interface CreateInvoiceInput {
   currency?: string
   due_date: string
   notes?: string
+  recipient_type?: InvoiceRecipientType
   created_by_id: string
 }

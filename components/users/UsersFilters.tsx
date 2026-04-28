@@ -20,9 +20,14 @@ export interface UsersFiltersState {
 interface UsersFiltersProps {
   filters: UsersFiltersState
   onFiltersChange: (filters: UsersFiltersState) => void
+  showRoleFilter?: boolean
 }
 
-export function UsersFilters({ filters, onFiltersChange }: UsersFiltersProps) {
+export function UsersFilters({
+  filters,
+  onFiltersChange,
+  showRoleFilter = true,
+}: UsersFiltersProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-4">
       {/* Search */}
@@ -36,23 +41,25 @@ export function UsersFilters({ filters, onFiltersChange }: UsersFiltersProps) {
         />
       </div>
 
-      {/* Role Filter */}
-      <Select
-        value={filters.role}
-        onValueChange={(value) =>
-          onFiltersChange({ ...filters, role: value as UserRole | 'all' })
-        }
-      >
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="All Roles" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Roles</SelectItem>
-          <SelectItem value="super_admin">Super Admin</SelectItem>
-          <SelectItem value="admin">Admin</SelectItem>
-          <SelectItem value="recruiter">Recruiter</SelectItem>
-        </SelectContent>
-      </Select>
+      {/* Role Filter — only meaningful for the staff tab */}
+      {showRoleFilter && (
+        <Select
+          value={filters.role}
+          onValueChange={(value) =>
+            onFiltersChange({ ...filters, role: value as UserRole | 'all' })
+          }
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All Roles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="super_admin">Super Admin</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="recruiter">Recruiter</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
 
       {/* Status Filter */}
       <Select

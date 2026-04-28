@@ -42,7 +42,7 @@ import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
 import { useContactDeals, useCreateInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
-import type { InvoiceType } from '@/lib/types/invoices'
+import type { InvoiceType, InvoiceRecipientType } from '@/lib/types/invoices'
 
 interface CreateInvoiceModalProps {
   isOpen: boolean
@@ -68,6 +68,10 @@ export function CreateInvoiceModal({
   const [contactOpen, setContactOpen] = useState(false)
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
   const [selectedContactName, setSelectedContactName] = useState('')
+  const [selectedContactEmail, setSelectedContactEmail] = useState<string | null>(null)
+  const [selectedContactParentEmail, setSelectedContactParentEmail] = useState<string | null>(null)
+  const [selectedContactParentName, setSelectedContactParentName] = useState<string | null>(null)
+  const [recipientType, setRecipientType] = useState<InvoiceRecipientType>('player')
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null)
   const [type, setType] = useState<InvoiceType>('deposit')
   const [description, setDescription] = useState('')
@@ -115,6 +119,10 @@ export function CreateInvoiceModal({
       setContactSearch('')
       setSelectedContactId(null)
       setSelectedContactName('')
+      setSelectedContactEmail(null)
+      setSelectedContactParentEmail(null)
+      setSelectedContactParentName(null)
+      setRecipientType('player')
       setSelectedDealId(null)
       setType('deposit')
       setDescription('')
@@ -141,9 +149,20 @@ export function CreateInvoiceModal({
 
   const finalAmount = calculateFinalAmount()
 
-  const handleSelectContact = (contact: { id: string; first_name: string; last_name: string }) => {
+  const handleSelectContact = (contact: {
+    id: string
+    first_name: string
+    last_name: string
+    email?: string | null
+    parent_email?: string | null
+    parent_name?: string | null
+  }) => {
     setSelectedContactId(contact.id)
     setSelectedContactName(`${contact.first_name} ${contact.last_name}`)
+    setSelectedContactEmail(contact.email ?? null)
+    setSelectedContactParentEmail(contact.parent_email ?? null)
+    setSelectedContactParentName(contact.parent_name ?? null)
+    setRecipientType('player') // Default to player on every contact change
     setSelectedDealId(null) // Reset deal when contact changes
     setContactOpen(false)
   }
@@ -169,6 +188,7 @@ export function CreateInvoiceModal({
         amount: finalAmount,
         due_date: format(dueDate, 'yyyy-MM-dd'),
         notes: notes || undefined,
+        recipient_type: recipientType,
         created_by_id: userId,
       })
 
@@ -312,6 +332,65 @@ export function CreateInvoiceModal({
                   ) : (
                     <p className="text-xs text-muted-foreground py-2">Initial invoice already sent/paid for this programme. You can still create an invoice without linking — the contact will be notified and can pay.</p>
                   )}
+                </div>
+              )}
+
+              {/* Send invoice email to: player OR guardian. Either can pay. */}
+              {selectedContactId && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Send invoice email to <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRecipientType('player')}
+                      className={cn(
+                        'text-left rounded-lg border px-3 py-2.5 transition-colors',
+                        recipientType === 'player'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      )}
+                    >
+                      <div className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+                        Player
+                      </div>
+                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {selectedContactName}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate">
+                        {selectedContactEmail || 'No email on file'}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!selectedContactParentEmail}
+                      onClick={() => setRecipientType('guardian')}
+                      className={cn(
+                        'text-left rounded-lg border px-3 py-2.5 transition-colors',
+                        recipientType === 'guardian'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
+                        !selectedContactParentEmail &&
+                          'opacity-50 cursor-not-allowed hover:border-slate-200 dark:hover:border-slate-700'
+                      )}
+                    >
+                      <div className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+                        Guardian
+                      </div>
+                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {selectedContactParentName || 'Parent / Guardian'}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate">
+                        {selectedContactParentEmail ||
+                          'No guardian email on contact'}
+                      </div>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Either party can pay the invoice — this only controls who
+                    receives the email.
+                  </p>
                 </div>
               )}
             </div>

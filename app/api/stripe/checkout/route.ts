@@ -11,14 +11,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get player's contact_id
+    // Resolve the player's contact id — guardians map to their linked player.
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, contact_id')
+      .select('role, contact_id, guardian_for_contact_id')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'player' || !profile.contact_id) {
+    const playerContactId =
+      profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
+
+    if (profile?.role !== 'player' || !playerContactId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
       .from('invoices')
       .select('id, invoice_number, description, amount, currency, status, contact_id')
       .eq('id', invoice_id)
-      .eq('contact_id', profile.contact_id)
+      .eq('contact_id', playerContactId)
       .single()
 
     if (invoiceError || !invoice) {
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest) {
     const { data: contact } = await supabase
       .from('contacts')
       .select('email, first_name, last_name')
-      .eq('id', profile.contact_id)
+      .eq('id', playerContactId)
       .single()
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -80,7 +83,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         invoice_id: invoice.id,
         invoice_number: invoice.invoice_number,
-        contact_id: profile.contact_id,
+        contact_id: playerContactId,
       },
     })
 

@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UsersPageHeader } from '@/components/users/UsersPageHeader'
 import { UsersFilters, UsersFiltersState } from '@/components/users/UsersFilters'
 import { UsersTable } from '@/components/users/UsersTable'
+import { PlayerPortalDialog } from '@/components/users/PlayerPortalDialog'
 import { InviteUserModal } from '@/components/users/InviteUserModal'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { DeleteUserModal } from '@/components/users/DeleteUserModal'
@@ -32,6 +33,7 @@ type ConfirmAction =
 export default function UsersPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [playerDialogUser, setPlayerDialogUser] = useState<UserOrInvite | null>(null)
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
   const [isConfirmLoading, setIsConfirmLoading] = useState(false)
@@ -58,8 +60,12 @@ export default function UsersPage() {
     usersAndInvites.filter((u) => u.role !== 'player'),
     [usersAndInvites]
   )
+  // Players tab counts and lists exclude guardian profiles (those have
+  // guardian_for_contact_id set). Guardians live inside the player dialog.
   const playerUsers = useMemo(() =>
-    usersAndInvites.filter((u) => u.role === 'player'),
+    usersAndInvites.filter(
+      (u) => u.role === 'player' && !u.guardian_for_contact_id
+    ),
     [usersAndInvites]
   )
 
@@ -107,19 +113,44 @@ export default function UsersPage() {
     if (!invite.is_invite) return
 
     try {
-      // Re-invite by calling the invite API (will clean up old invite and create new one)
-      await inviteUser.mutateAsync({
-        email: invite.email,
-        fullName: invite.full_name || '',
-        role: invite.role,
-        title: invite.title || undefined,
-        pipelineIds: invite.pipeline_assignments,
-      })
+      // Player invites are surfaced from unconfirmed profile rows (not user_invites),
+      // so they go through the dedicated portal endpoint with contact_id.
+      // Guardian profiles point at the player's contact via guardian_for_contact_id;
+      // we route those through the same endpoint with invite_guardian:true.
+      if (invite.role === 'player') {
+        const isGuardian = !!invite.guardian_for_contact_id
+        const targetContactId = isGuardian
+          ? invite.guardian_for_contact_id!
+          : invite.contact_id
+        if (!targetContactId) {
+          throw new Error('Player invite is missing contact link')
+        }
+        const res = await fetch('/api/portal/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contact_id: targetContactId,
+            invite_guardian: isGuardian,
+            resend: true,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to resend invitation')
+      } else {
+        await inviteUser.mutateAsync({
+          email: invite.email,
+          fullName: invite.full_name || '',
+          role: invite.role,
+          title: invite.title || undefined,
+          pipelineIds: invite.pipeline_assignments,
+        })
+      }
 
       toast({
         title: 'Invitation resent',
         description: `A new invitation has been sent to ${invite.email}.`,
       })
+      refetch()
     } catch (error) {
       console.error('Failed to resend invite:', error)
       toast({
@@ -148,12 +179,19 @@ export default function UsersPage() {
         })
       } else if (confirmAction.type === 'cancel-invite') {
         const { invite } = confirmAction
-        const { error } = await supabase
-          .from('user_invites')
-          .delete()
-          .eq('id', invite.id)
 
-        if (error) throw error
+        // Player "invites" are profile rows (unconfirmed). Cancel = full delete
+        // of the auth user, which cascades the profile + player_invites row.
+        if (invite.role === 'player') {
+          await deleteUser.mutateAsync(invite.id)
+        } else {
+          const { error } = await supabase
+            .from('user_invites')
+            .delete()
+            .eq('id', invite.id)
+
+          if (error) throw error
+        }
 
         toast({
           title: 'Invitation cancelled',
@@ -216,8 +254,11 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <UsersPageHeader onInviteClick={() => setInviteModalOpen(true)} />
+      {/* Page Header — only on Staff tab. Players are invited from the
+          contact sheet, not via this page. */}
+      {activeTab === 'staff' && (
+        <UsersPageHeader onInviteClick={() => setInviteModalOpen(true)} />
+      )}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'staff' | 'players')}>
@@ -232,14 +273,23 @@ export default function UsersPage() {
       </Tabs>
 
       {/* Filters */}
-      <UsersFilters filters={filters} onFiltersChange={setFilters} />
+      <UsersFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        showRoleFilter={activeTab === 'staff'}
+      />
 
-      {/* Users Table */}
+      {/* Users Table — for players, row click opens PlayerPortalDialog instead
+          of EditUserModal so admin can manage guardian access from the same place. */}
       <UsersTable
         users={filteredUsers}
         isLoading={isLoading}
         hasActiveFilters={hasActiveFilters}
-        onEdit={handleEdit}
+        onEdit={
+          activeTab === 'players'
+            ? (user) => setPlayerDialogUser(user as unknown as UserOrInvite)
+            : handleEdit
+        }
         onDeactivate={handleDeactivate}
         onDelete={handleDelete}
         onResendInvite={handleResendInvite}
@@ -257,6 +307,13 @@ export default function UsersPage() {
         user={editingUser}
         isOpen={!!editingUser}
         onClose={() => setEditingUser(null)}
+      />
+
+      {/* Player Portal Dialog — opened on player row click; shows guardian inline */}
+      <PlayerPortalDialog
+        user={playerDialogUser}
+        onClose={() => setPlayerDialogUser(null)}
+        onDelete={(u) => setDeletingUser(u)}
       />
 
       {/* Delete User Confirmation Modal */}

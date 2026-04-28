@@ -2,13 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { User, UserInvite, UserOrInvite, UpdateUserInput } from '@/lib/types/users'
 
+type AuthStatus = {
+  last_sign_in_at: string | null
+  email_confirmed_at: string | null
+}
+
 export function useUsers() {
   const supabase = createClient()
 
   return useQuery<User[]>({
     queryKey: ['users'],
     queryFn: async () => {
-      const [profilesResult, lastLoginResult] = await Promise.all([
+      const [profilesResult, authStatusResult] = await Promise.all([
         supabase
           .from('profiles')
           .select('*')
@@ -18,12 +23,18 @@ export function useUsers() {
 
       if (profilesResult.error) throw profilesResult.error
 
-      const lastLoginMap: Record<string, string | null> = lastLoginResult || {}
+      const authStatusMap: Record<string, AuthStatus> = authStatusResult || {}
 
-      return (profilesResult.data || []).map(user => ({
-        ...user,
-        last_login_at: lastLoginMap[user.id] || null,
-      }))
+      return (profilesResult.data || []).map(user => {
+        const auth = authStatusMap[user.id]
+        return {
+          ...user,
+          last_login_at: auth?.last_sign_in_at || null,
+          email_confirmed_at: auth?.email_confirmed_at || null,
+          // password_set_at comes through from the profile row as-is; it's
+          // the bullet-proof activation signal we maintain ourselves.
+        }
+      })
     },
   })
 }
@@ -81,23 +92,64 @@ export function useUsersAndInvites() {
     // Then existing users (excluding those with a pending invite to avoid duplicates)
     ...(usersQuery.data || [])
       .filter((user) => !pendingEmails.has(user.email.toLowerCase()))
-      .map((user): UserOrInvite => ({
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role,
-        title: user.title,
-        sport: user.sport,
-        calendly_url: user.calendly_url,
-        zoom_url: user.zoom_url,
-        phone: user.phone,
-        avatar_url: user.avatar_url,
-        is_active: user.is_active,
-        created_at: user.created_at,
-        last_login_at: user.last_login_at,
-        is_invite: false,
-        pipeline_assignments: user.pipeline_assignments || [],
-      })),
+      .map((user): UserOrInvite => {
+        // Players are surfaced as pending invites until profiles.password_set_at
+        // is stamped. That bit is set ONLY by /api/auth/mark-password-set,
+        // which runs immediately after supabase.auth.updateUser({password})
+        // succeeds — the only place we can confidently say a real password
+        // was saved. Supabase's email_confirmed_at / last_sign_in_at /
+        // identities all flip earlier (on magic-link click) and lie to us.
+        const isUnconfirmedPlayer =
+          user.role === 'player' && !user.password_set_at
+
+        if (isUnconfirmedPlayer) {
+          // Default expiry matches player_invites table (created_at + 7 days)
+          const expiresAt = new Date(
+            new Date(user.created_at).getTime() + 7 * 24 * 60 * 60 * 1000
+          ).toISOString()
+          return {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role,
+            title: user.title,
+            sport: user.sport,
+            calendly_url: user.calendly_url,
+            zoom_url: user.zoom_url,
+            phone: user.phone,
+            avatar_url: user.avatar_url,
+            created_at: user.created_at,
+            is_invite: true,
+            invite_status: 'pending',
+            expires_at: expiresAt,
+            email_confirmed_at: null,
+            contact_id: user.contact_id ?? null,
+            guardian_for_contact_id: user.guardian_for_contact_id ?? null,
+            pipeline_assignments: user.pipeline_assignments || [],
+          }
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+          title: user.title,
+          sport: user.sport,
+          calendly_url: user.calendly_url,
+          zoom_url: user.zoom_url,
+          phone: user.phone,
+          avatar_url: user.avatar_url,
+          is_active: user.is_active,
+          created_at: user.created_at,
+          last_login_at: user.last_login_at,
+          email_confirmed_at: user.email_confirmed_at,
+          contact_id: user.contact_id ?? null,
+          guardian_for_contact_id: user.guardian_for_contact_id ?? null,
+          is_invite: false,
+          pipeline_assignments: user.pipeline_assignments || [],
+        }
+      }),
   ]
 
   return {

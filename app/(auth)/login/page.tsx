@@ -10,6 +10,14 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Eye,
   EyeOff,
   Mail,
@@ -35,6 +43,32 @@ function LoginContent() {
     urlError ? ERROR_MESSAGES[urlError] || urlError : null
   )
   const [rememberMe, setRememberMe] = useState(false)
+  const [recoveryOpen, setRecoveryOpen] = useState(false)
+  const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [recoverySubmitting, setRecoverySubmitting] = useState(false)
+  const [recoveryDone, setRecoveryDone] = useState(false)
+
+  const handleRecoverySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!recoveryEmail) return
+    setRecoverySubmitting(true)
+    try {
+      await fetch('/api/auth/send-recovery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: recoveryEmail }),
+      })
+      setRecoveryDone(true)
+    } finally {
+      setRecoverySubmitting(false)
+    }
+  }
+
+  const closeRecovery = () => {
+    setRecoveryOpen(false)
+    setRecoveryDone(false)
+    setRecoveryEmail('')
+  }
 
   async function handleSubmit(formData: FormData) {
     setIsLoading(true)
@@ -204,6 +238,16 @@ function LoginContent() {
                   'Sign In'
                 )}
               </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setRecoveryOpen(true)}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Forgot password? / First time logging in?
+                </button>
+              </div>
             </form>
 
             {/* Contact Admin */}
@@ -218,6 +262,62 @@ function LoginContent() {
           </div>
         </div>
       </div>
+
+      <Dialog open={recoveryOpen} onOpenChange={(o) => (!o ? closeRecovery() : null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set up or reset your password</DialogTitle>
+            <DialogDescription>
+              Enter the email your invitation was sent to. We&apos;ll email you a
+              link to set a new password — works whether you&apos;ve logged in
+              before or are setting up for the first time.
+            </DialogDescription>
+          </DialogHeader>
+          {recoveryDone ? (
+            <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 px-3 py-3 text-sm text-green-800 dark:text-green-300">
+              If that email is on file, a password setup link is on its way.
+              Check your inbox (and spam folder).
+            </div>
+          ) : (
+            <form onSubmit={handleRecoverySubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-recovery-email" className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Email Address
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-gray-400 dark:text-gray-500" />
+                  <Input
+                    id="admin-recovery-email"
+                    type="email"
+                    required
+                    autoFocus
+                    placeholder="you@example.com"
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    disabled={recoverySubmitting}
+                    className="pl-10 h-11"
+                  />
+                </div>
+              </div>
+              <DialogFooter className="sm:justify-end gap-2">
+                <Button type="button" variant="outline" onClick={closeRecovery} disabled={recoverySubmitting}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={recoverySubmitting || !recoveryEmail}>
+                  {recoverySubmitting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      Sending…
+                    </>
+                  ) : (
+                    'Send setup link'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

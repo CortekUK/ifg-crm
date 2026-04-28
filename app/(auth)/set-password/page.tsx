@@ -68,6 +68,11 @@ export default function SetPasswordPage() {
         return
       }
 
+      // Stamp profiles.password_set_at — the truth source for "user really
+      // has a working password". Done before accept-invite so even if invite
+      // bookkeeping fails we still mark the password.
+      await fetch('/api/auth/mark-password-set', { method: 'POST' })
+
       // Accept invite (marks invite as accepted + copies pipeline assignments)
       await fetch('/api/auth/accept-invite', { method: 'POST' })
 

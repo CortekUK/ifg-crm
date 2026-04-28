@@ -62,28 +62,30 @@ export default function PortalAnalyticsPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('contact_id, created_at')
+        .select('contact_id, guardian_for_contact_id, created_at')
         .eq('id', user.id)
         .single()
 
-      if (!profile?.contact_id) return
+      const playerContactId =
+        profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
+      if (!playerContactId) return
 
       const [invoicesRes, paymentsRes] = await Promise.all([
         supabase
           .from('invoices')
           .select('id, amount, status, currency, due_date, created_at, type')
-          .eq('contact_id', profile.contact_id),
+          .eq('contact_id', playerContactId),
         supabase
           .from('payments')
           .select('id, amount, payment_date, payment_method')
-          .eq('contact_id', profile.contact_id)
+          .eq('contact_id', playerContactId)
           .order('payment_date', { ascending: false }),
       ])
 
       setData({
         invoices: invoicesRes.data || [],
         payments: paymentsRes.data || [],
-        accountCreated: profile.created_at,
+        accountCreated: profile?.created_at ?? null,
       })
 
       setLoading(false)

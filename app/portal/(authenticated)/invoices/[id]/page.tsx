@@ -62,17 +62,19 @@ export default function PortalInvoiceDetailPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('contact_id')
+        .select('contact_id, guardian_for_contact_id')
         .eq('id', user.id)
         .single()
 
-      if (!profile?.contact_id) return
+      const playerContactId =
+        profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
+      if (!playerContactId) return
 
       const { data: inv } = await supabase
         .from('invoices')
         .select('*')
         .eq('id', params.id)
-        .eq('contact_id', profile.contact_id)
+        .eq('contact_id', playerContactId)
         .single()
 
       if (!inv) {

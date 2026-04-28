@@ -17,7 +17,11 @@ export interface User {
   is_active: boolean
   created_at: string
   updated_at: string
-  last_login_at?: string
+  last_login_at?: string | null
+  email_confirmed_at?: string | null
+  password_set_at?: string | null
+  contact_id?: string | null
+  guardian_for_contact_id?: string | null
   pipeline_assignments?: string[] // IDs of pipelines the user is assigned to
 }
 
@@ -52,8 +56,12 @@ export interface UserOrInvite {
   avatar_url?: string | null
   is_active?: boolean
   created_at: string
-  last_login_at?: string
+  last_login_at?: string | null
+  email_confirmed_at?: string | null
+  password_set_at?: string | null
   pipeline_assignments?: string[]
+  contact_id?: string | null
+  guardian_for_contact_id?: string | null
   // Invite-specific fields
   is_invite: boolean
   invite_status?: InviteStatus

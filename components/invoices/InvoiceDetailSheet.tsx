@@ -266,6 +266,51 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                     <span className="text-sm text-slate-500">Sent Date</span>
                     <span className="text-sm font-medium">{invoice.sent_at ? formatDateLong(invoice.sent_at) : 'Not sent'}</span>
                   </div>
+                  {(() => {
+                    // Show who the invoice email was addressed to. Resolved the
+                    // same way the send route does, so the record matches what
+                    // actually went out. Either party can still pay.
+                    const recipientType = invoice.recipient_type || 'player'
+                    const isGuardian = recipientType === 'guardian'
+                    const sentToEmail = isGuardian
+                      ? invoice.contact?.parent_email || invoice.contact?.email
+                      : invoice.contact?.email
+                    const sentToName = isGuardian
+                      ? invoice.contact?.parent_name || 'Guardian'
+                      : invoice.contact
+                        ? `${invoice.contact.first_name} ${invoice.contact.last_name}`
+                        : 'Player'
+                    return (
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-sm text-slate-500 shrink-0">Sent To</span>
+                        <div className="text-right min-w-0">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <span
+                              className={cn(
+                                'text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded',
+                                isGuardian
+                                  ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                                  : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                              )}
+                            >
+                              {isGuardian ? 'Guardian' : 'Player'}
+                            </span>
+                            <span className="text-sm font-medium truncate">
+                              {sentToName}
+                            </span>
+                          </div>
+                          {sentToEmail && (
+                            <a
+                              href={`mailto:${sentToEmail}`}
+                              className="text-xs text-blue-600 hover:underline truncate block"
+                            >
+                              {sentToEmail}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Type</span>
                     <span className="text-sm font-medium">{typeLabels[invoice.type]}</span>

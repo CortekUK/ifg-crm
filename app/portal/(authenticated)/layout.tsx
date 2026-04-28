@@ -15,10 +15,12 @@ export default async function PortalLayout({
     redirect('/portal/login')
   }
 
-  // Get profile with contact link
+  // Get profile with contact link. Guardians have contact_id NULL and
+  // guardian_for_contact_id pointing at the player; resolve to the player's
+  // contact so the portal renders their data identically.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, contact_id')
+    .select('full_name, role, contact_id, guardian_for_contact_id')
     .eq('id', user.id)
     .single()
 
@@ -26,13 +28,16 @@ export default async function PortalLayout({
     redirect('/dashboard')
   }
 
+  const playerContactId =
+    profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
+
   // Get contact details
   let contact = null
-  if (profile?.contact_id) {
+  if (playerContactId) {
     const { data } = await supabase
       .from('contacts')
       .select('id, first_name, last_name, email, phone')
-      .eq('id', profile.contact_id)
+      .eq('id', playerContactId)
       .single()
     contact = data
   }

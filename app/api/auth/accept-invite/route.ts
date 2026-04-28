@@ -21,7 +21,17 @@ export async function POST() {
 
     const admin = getSupabaseAdmin()
 
-    // Find pending invite for this user's email
+    // Player flow — mark any matching pending player_invites row as accepted.
+    // The profile already exists (created at invite time by handle_new_user); no
+    // pipeline assignment to copy. Multiple rows may match if admin resent —
+    // accept them all.
+    await admin
+      .from('player_invites')
+      .update({ status: 'accepted' })
+      .eq('email', user.email!)
+      .eq('status', 'pending')
+
+    // Staff flow — find pending user_invites row, mark accepted, copy pipelines.
     const { data: invite } = await admin
       .from('user_invites')
       .select('id, pipeline_ids')
@@ -30,17 +40,15 @@ export async function POST() {
       .single()
 
     if (!invite) {
-      // No invite found — this is fine for password-reset flow
+      // No staff invite — that's expected for player accounts and password resets.
       return NextResponse.json({ success: true })
     }
 
-    // Mark invite as accepted
     await admin
       .from('user_invites')
       .update({ status: 'accepted' })
       .eq('id', invite.id)
 
-    // Copy pipeline_ids to profile's pipeline_assignments
     if (invite.pipeline_ids && invite.pipeline_ids.length > 0) {
       await admin
         .from('profiles')

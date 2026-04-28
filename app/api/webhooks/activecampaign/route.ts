@@ -30,6 +30,30 @@ function parseActiveCampaignPayload(body: string): Record<string, string> {
   return result
 }
 
+// Fuzzy lookup. Tries every key that loosely matches any of the given names
+// (case-insensitive, space/underscore-tolerant). AC sends fields under names
+// like "contact.fields.date_of_birth.val" but client setups vary — they
+// sometimes use the field's display label ("Date of Birth"), sometimes a
+// custom slug, sometimes a numeric field id. This iterates over the whole
+// payload once and matches against all reasonable spellings, instead of
+// depending on hard-coded combinations that miss when AC's wording shifts.
+function pickField(data: Record<string, string>, names: string[]): string | null {
+  const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, '')
+  const wanted = names.map(normalize)
+  for (const [rawKey, value] of Object.entries(data)) {
+    if (!value) continue
+    const cleaned = value.trim()
+    if (!cleaned) continue
+    const tail = rawKey.split('.').pop() ?? rawKey   // strip "contact.fields." prefix etc.
+    const tailNorm = normalize(tail)
+    const fullNorm = normalize(rawKey)
+    if (wanted.includes(tailNorm) || wanted.some((w) => fullNorm.endsWith(w))) {
+      return cleaned
+    }
+  }
+  return null
+}
+
 function extractContactFromAC(data: Record<string, string>): {
   first_name: string | null
   last_name: string | null
@@ -43,45 +67,22 @@ function extractContactFromAC(data: Record<string, string>): {
   length_of_stay: string | null
 } {
   return {
-    first_name: data['contact.first_name'] || data['first_name'] || null,
-    last_name: data['contact.last_name'] || data['last_name'] || null,
-    email: data['contact.email'] || data['email'] || null,
-    phone: data['contact.phone'] || data['phone'] || null,
-    date_of_birth:
-      data['contact.fields.date_of_birth.val'] ||
-      data['contact.fields.Date of Birth.val'] ||
-      data['contact.fields.date_of_birth'] ||
-      data['date_of_birth'] ||
-      null,
-    gender:
-      data['contact.fields.gender.val'] ||
-      data['contact.fields.Gender.val'] ||
-      data['contact.fields.gender'] ||
-      data['gender'] ||
-      null,
-    country:
-      data['contact.fields.country.val'] ||
-      data['contact.fields.Country.val'] ||
-      data['contact.fields.country'] ||
-      data['country'] ||
-      null,
-    position:
-      data['contact.fields.football_position.val'] ||
-      data['contact.fields.Football Position.val'] ||
-      data['contact.fields.position.val'] ||
-      data['contact.fields.football_position'] ||
-      data['position'] ||
-      null,
-    expected_year_of_entry:
-      data['contact.fields.expected_year_of_entry.val'] ||
-      data['contact.fields.Expected Year Of Entry.val'] ||
-      data['contact.fields.expected_year_of_entry'] ||
-      null,
-    length_of_stay:
-      data['contact.fields.length_of_stay.val'] ||
-      data['contact.fields.Length Of Stay.val'] ||
-      data['contact.fields.length_of_stay'] ||
-      null,
+    first_name: pickField(data, ['first_name', 'firstname', 'fname', 'first']),
+    last_name: pickField(data, ['last_name', 'lastname', 'lname', 'surname', 'last']),
+    email: pickField(data, ['email', 'email_address', 'emailaddress']),
+    phone: pickField(data, ['phone', 'phone_number', 'phonenumber', 'mobile', 'tel', 'telephone']),
+    date_of_birth: pickField(data, [
+      'date_of_birth', 'dateofbirth', 'dob', 'birthdate', 'birth_date',
+    ]),
+    gender: pickField(data, ['gender', 'sex']),
+    country: pickField(data, ['country', 'nationality']),
+    position: pickField(data, [
+      'football_position', 'position', 'playing_position', 'role',
+    ]),
+    expected_year_of_entry: pickField(data, [
+      'expected_year_of_entry', 'year_of_entry', 'entry_year', 'expectedyear',
+    ]),
+    length_of_stay: pickField(data, ['length_of_stay', 'duration', 'stay_length']),
   }
 }
 
@@ -162,6 +163,30 @@ export async function POST(request: NextRequest) {
 
     let contactId: string
 
+    // Only male/female pass through — anything else (Other/Prefer not to say
+    // etc.) gets set to null because the contacts.gender enum only allows
+    // those two. Length-of-stay and expected-year-of-entry have no dedicated
+    // column on contacts, so they go into custom_fields JSONB instead.
+    const normalizedGender = contact.gender?.toLowerCase() === 'male'
+      ? 'male'
+      : contact.gender?.toLowerCase() === 'female'
+        ? 'female'
+        : null
+
+    const customFields: Record<string, string> = {}
+    if (contact.length_of_stay) customFields.length_of_stay = contact.length_of_stay
+    if (contact.expected_year_of_entry) {
+      customFields.expected_year_of_entry = contact.expected_year_of_entry
+    }
+
+    // graduation_year is a real column — try to coerce expected_year_of_entry
+    // when it parses cleanly as a 4-digit year (otherwise leave null and let
+    // the raw value live in custom_fields above).
+    const yearCandidate = contact.expected_year_of_entry
+      ? parseInt(contact.expected_year_of_entry.replace(/\D/g, ''), 10)
+      : NaN
+    const graduationYear = yearCandidate >= 1900 && yearCandidate <= 2100 ? yearCandidate : null
+
     if (existingContact) {
       contactId = existingContact.id
 
@@ -170,13 +195,22 @@ export async function POST(request: NextRequest) {
       if (contact.first_name) updates.first_name = contact.first_name
       if (contact.last_name) updates.last_name = contact.last_name
       if (contact.phone) updates.phone = contact.phone
-      if (contact.gender) {
-        const g = contact.gender.toLowerCase()
-        if (g === 'male' || g === 'female') updates.gender = g
-      }
+      if (normalizedGender) updates.gender = normalizedGender
       if (contact.country) updates.country = contact.country
       if (contact.position) updates.position = contact.position
       if (contact.date_of_birth) updates.date_of_birth = contact.date_of_birth
+      if (graduationYear) updates.graduation_year = graduationYear
+      if (Object.keys(customFields).length > 0) {
+        // Merge instead of overwrite — preserves any custom fields set by
+        // other paths (manual edit, other webhook).
+        const { data: existingFields } = await supabase
+          .from('contacts')
+          .select('custom_fields')
+          .eq('id', contactId)
+          .single()
+        const existing = (existingFields?.custom_fields ?? {}) as Record<string, unknown>
+        updates.custom_fields = { ...existing, ...customFields }
+      }
 
       if (Object.keys(updates).length > 0) {
         await supabase
@@ -187,10 +221,6 @@ export async function POST(request: NextRequest) {
 
       console.log(`Updated existing contact: ${contactId}`)
     } else {
-      // Create new contact
-      const normalizedGender = contact.gender?.toLowerCase() === 'male' ? 'male'
-        : contact.gender?.toLowerCase() === 'female' ? 'female'
-        : null
       const { data: newContact, error: createError } = await supabase
         .from('contacts')
         .insert({
@@ -201,6 +231,11 @@ export async function POST(request: NextRequest) {
           gender: normalizedGender,
           country: contact.country,
           position: contact.position,
+          // Previously these were extracted but never written. Now wired so
+          // the contact carries everything the form actually collected.
+          date_of_birth: contact.date_of_birth,
+          graduation_year: graduationYear,
+          custom_fields: Object.keys(customFields).length > 0 ? customFields : {},
           source: 'website_form',
         })
         .select('id')

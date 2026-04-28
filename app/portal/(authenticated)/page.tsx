@@ -49,17 +49,19 @@ export default function PortalDashboardPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('contact_id')
+        .select('contact_id, guardian_for_contact_id')
         .eq('id', user.id)
         .single()
 
-      if (!profile?.contact_id) return
+      const playerContactId =
+        profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
+      if (!playerContactId) return
 
       // Fetch invoices
       const { data: invoices } = await supabase
         .from('invoices')
         .select('id, invoice_number, description, amount, currency, status, due_date')
-        .eq('contact_id', profile.contact_id)
+        .eq('contact_id', playerContactId)
         .order('created_at', { ascending: false })
 
       const allInvoices = invoices || []
@@ -80,7 +82,7 @@ export default function PortalDashboardPage() {
       const { data: deals } = await supabase
         .from('deals')
         .select('pipeline:pipelines(name)')
-        .eq('contact_id', profile.contact_id)
+        .eq('contact_id', playerContactId)
         .limit(1)
         .single()
 

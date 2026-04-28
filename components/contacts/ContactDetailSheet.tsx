@@ -49,6 +49,8 @@ import {
 import { formatDate, formatRelativeTime, formatTimeAgo } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useContact, useUpdateContact, useContactDeals, useContactActivities, useContactLists, useContactLastContacted, useContactAutomations, useContactTags, useAddTagToContact, useRemoveTagFromContact, useContactInvoices, useContactNotes, useAddContactNote, useDeleteContactNote } from '@/lib/hooks/useContacts'
+import { usePortalStatus } from '@/lib/hooks/usePortalStatus'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTags } from '@/lib/hooks/useTags'
 import { useCalendlyEvents, useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
 import { useLists, useAddContactsToList, useRemoveContactFromList } from '@/lib/hooks/useLists'
@@ -61,9 +63,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreVertical, Pause, Play, MessageCircle, UserPlus } from 'lucide-react'
+import { MoreVertical, Pause, Play, MessageCircle, UserPlus, ShieldCheck, RotateCw } from 'lucide-react'
 import { LogReplyModal } from './LogReplyModal'
 import { AddDealFromContactSheet } from './AddDealFromContactSheet'
+import { GuardianAccessPanel } from './GuardianAccessPanel'
 import { OwnerSelect } from '@/components/ui/owner-select'
 
 interface ContactDetailSheetProps {
@@ -146,6 +149,8 @@ export function ContactDetailSheet({
   const { data: allTags = [] } = useTags()
   const { data: invoices = [], isLoading: invoicesLoading } = useContactInvoices(contactId)
   const { data: notes = [], isLoading: notesLoading } = useContactNotes(contactId)
+  const { data: portalStatus } = usePortalStatus(contactId)
+  const queryClient = useQueryClient()
 
   const addToList = useAddContactsToList()
   const removeFromList = useRemoveContactFromList()
@@ -385,23 +390,27 @@ export function ContactDetailSheet({
                 <span className="text-xs">Edit</span>
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-col h-auto py-2 gap-1"
-              disabled={isInviting}
-              onClick={async () => {
-                if (!contact) return
+            {(() => {
+              const state = portalStatus?.state ?? 'none'
+              const isActive = state === 'active'
+              const isInvited = state === 'invited'
+
+              const handlePortalClick = async () => {
+                if (!contact || isActive) return
                 setIsInviting(true)
                 try {
                   const res = await fetch('/api/portal/invite', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contact_id: contact.id }),
+                    body: JSON.stringify({ contact_id: contact.id, resend: isInvited }),
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    toast({ title: 'Invitation sent', description: data.message })
+                    toast({
+                      title: isInvited ? 'Invitation resent' : 'Invitation sent',
+                      description: data.message,
+                    })
+                    queryClient.invalidateQueries({ queryKey: ['portal-status', contact.id] })
                   } else {
                     toast({ title: 'Error', description: data.error, variant: 'destructive' })
                   }
@@ -409,11 +418,40 @@ export function ContactDetailSheet({
                   toast({ title: 'Error', description: 'Failed to send invite', variant: 'destructive' })
                 }
                 setIsInviting(false)
-              }}
-            >
-              {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              <span className="text-xs">Portal</span>
-            </Button>
+              }
+
+              const Icon = isActive ? ShieldCheck : isInvited ? RotateCw : UserPlus
+              const label = isActive ? 'Portal Active' : isInvited ? 'Resend' : 'Portal'
+
+              return (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    'flex-col h-auto py-2 gap-1',
+                    isActive && 'border-green-500/40 text-green-700 dark:text-green-400 cursor-default'
+                  )}
+                  disabled={isInviting || isActive}
+                  title={
+                    isActive && portalStatus?.last_sign_in_at
+                      ? `Last login ${formatDate(portalStatus.last_sign_in_at)}`
+                      : isActive
+                        ? 'Player has activated their portal account'
+                        : isInvited
+                          ? 'Invite pending — click to resend'
+                          : 'Send portal invitation'
+                  }
+                  onClick={handlePortalClick}
+                >
+                  {isInviting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
+                  <span className="text-xs">{label}</span>
+                </Button>
+              )
+            })()}
           </div>
         </SheetHeader>
 
@@ -505,6 +543,15 @@ export function ContactDetailSheet({
                   )}
                 </div>
               </div>
+
+              {/* Guardian Access — uses parent_name / parent_email from the
+                  contact itself. Locked until the player's portal is active. */}
+              <GuardianAccessPanel
+                contactId={contact.id}
+                parentName={contact.parent_name}
+                parentEmail={contact.parent_email}
+                portalStatus={portalStatus}
+              />
 
               {/* Status */}
               <div className="space-y-4">

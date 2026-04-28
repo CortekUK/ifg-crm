@@ -44,15 +44,17 @@ export default function PortalSettingsPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('contact_id')
+        .select('contact_id, guardian_for_contact_id')
         .eq('id', user.id)
         .single()
 
-      if (profile?.contact_id) {
+      const playerContactId =
+        profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
+      if (playerContactId) {
         const { data } = await supabase
           .from('contacts')
           .select('first_name, last_name, email, phone, country, city, club_name, position, graduation_year, parent_name, parent_email, parent_phone')
-          .eq('id', profile.contact_id)
+          .eq('id', playerContactId)
           .single()
 
         setContact(data)

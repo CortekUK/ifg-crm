@@ -99,17 +99,19 @@ export default function PortalInvoicesPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('contact_id')
+        .select('contact_id, guardian_for_contact_id')
         .eq('id', user.id)
         .single()
 
-      if (!profile?.contact_id) return
-      setContactId(profile.contact_id)
+      const playerContactId =
+        profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
+      if (!playerContactId) return
+      setContactId(playerContactId)
 
       const { data } = await supabase
         .from('invoices')
         .select('id, invoice_number, description, amount, currency, status, type, due_date, paid_at, sent_at, payment_method, notes, created_at, deal:deals(pipeline:pipelines(name))')
-        .eq('contact_id', profile.contact_id)
+        .eq('contact_id', playerContactId)
         .order('created_at', { ascending: false })
 
       setInvoices((data || []).map((inv) => {

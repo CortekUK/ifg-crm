@@ -30,7 +30,7 @@ export async function POST(
     // Get invoice with contact
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, invoice_number, description, amount, currency, status, due_date, contact_id, deal_id')
+      .select('id, invoice_number, description, amount, currency, status, due_date, contact_id, deal_id, recipient_type')
       .eq('id', invoiceId)
       .single()
 
@@ -41,12 +41,31 @@ export async function POST(
     // Get contact
     const { data: contact } = await supabase
       .from('contacts')
-      .select('id, email, first_name, last_name')
+      .select('id, email, first_name, last_name, parent_email, parent_name')
       .eq('id', invoice.contact_id)
       .single()
 
     if (!contact) {
       return NextResponse.json({ error: 'Contact not found' }, { status: 404 })
+    }
+
+    // Resolve who the email goes to. Either party can still pay — Stripe
+    // checkout is keyed off the invoice metadata, not the recipient address.
+    const recipientType = invoice.recipient_type || 'player'
+    const recipientEmail =
+      recipientType === 'guardian'
+        ? contact.parent_email || contact.email
+        : contact.email
+    const recipientName =
+      recipientType === 'guardian'
+        ? contact.parent_name || `${contact.first_name} ${contact.last_name}`
+        : `${contact.first_name} ${contact.last_name}`
+
+    if (!recipientEmail) {
+      return NextResponse.json(
+        { error: 'No recipient email available for this invoice' },
+        { status: 400 }
+      )
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'
@@ -80,7 +99,7 @@ export async function POST(
       mode: 'payment',
       success_url: `${appUrl}/portal/payments/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/portal/payments/cancelled?invoice_id=${invoiceId}`,
-      customer_email: contact.email,
+      customer_email: recipientEmail,
       metadata: {
         invoice_id: invoice.id,
         invoice_number: invoice.invoice_number,
@@ -139,11 +158,11 @@ export async function POST(
 
     const resend = new Resend(resendApiKey)
     const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
-    const contactName = `${contact.first_name} ${contact.last_name}`
+    const playerName = `${contact.first_name} ${contact.last_name}`
 
     await resend.emails.send({
       from: `IFG <${fromEmail}>`,
-      to: [contact.email],
+      to: [recipientEmail],
       subject: `Invoice ${invoice.invoice_number} - ${formattedAmount} Due`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -152,7 +171,12 @@ export async function POST(
             <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">${invoice.invoice_number}</p>
           </div>
           <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none;">
-            <p>Hi ${contactName},</p>
+            <p>Hi ${recipientName},</p>
+            ${
+              recipientType === 'guardian'
+                ? `<p style="color: #64748b; font-size: 13px;">This invoice is for ${playerName}.</p>`
+                : ''
+            }
             <p>You have a new invoice from The International Football Group. Please find the details below:</p>
 
             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
@@ -217,7 +241,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `Invoice sent to ${contact.email} with payment link`,
+      message: `Invoice sent to ${recipientEmail} with payment link`,
     })
   } catch (error) {
     console.error('Send invoice with link error:', error)
