@@ -44,7 +44,7 @@ const columns: { key: SortKey | 'checkbox' | 'pipeline' | 'actions'; label: stri
   { key: 'checkbox', label: '', sortable: false, className: 'w-10' },
   { key: 'from', label: 'From', sortable: true, className: 'w-[200px]' },
   { key: 'subject', label: 'Subject', sortable: true },
-  { key: 'intent', label: 'Intent', sortable: true, className: 'w-[90px]' },
+  { key: 'intent', label: 'Intent', sortable: true, className: 'w-[100px]' },
   { key: 'campaign', label: 'Campaign', sortable: true, className: 'w-[140px]' },
   { key: 'pipeline', label: 'Pipeline', sortable: false, className: 'w-[120px]' },
   { key: 'received', label: 'Received', sortable: true, className: 'w-[110px]' },
@@ -97,9 +97,17 @@ export function EmailReplyList({
           break
         }
         case 'intent': {
-          const intentA = a.ai_intent || 'unknown'
-          const intentB = b.ai_intent || 'unknown'
-          comparison = intentA.localeCompare(intentB)
+          // Sort positive first, then question, then neutral, negative, unknown/null
+          const order: Record<string, number> = {
+            positive: 0,
+            question: 1,
+            neutral: 2,
+            negative: 3,
+            unknown: 4,
+          }
+          const rankA = order[a.ai_intent ?? 'unknown'] ?? 5
+          const rankB = order[b.ai_intent ?? 'unknown'] ?? 5
+          comparison = rankA - rankB
           break
         }
         case 'campaign': {

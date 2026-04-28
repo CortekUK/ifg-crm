@@ -11,6 +11,7 @@ interface ContactsPageHeaderProps {
   onImportClick: () => void
   onExportClick: () => void
   isExporting?: boolean
+  isAdmin?: boolean
 }
 
 export function ContactsPageHeader({
@@ -20,6 +21,7 @@ export function ContactsPageHeader({
   onImportClick,
   onExportClick,
   isExporting,
+  isAdmin = false,
 }: ContactsPageHeaderProps) {
   return (
     <div className="banner-gradient rounded-xl p-6">
@@ -53,14 +55,16 @@ export function ContactsPageHeader({
             </button>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={onImportClick}
-            className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Import CSV
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={onImportClick}
+              className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import CSV
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -72,13 +76,15 @@ export function ContactsPageHeader({
             {isExporting ? 'Exporting...' : 'Export'}
           </Button>
 
-          <Button
-            onClick={onAddContact}
-            className="bg-white text-blue-600 hover:bg-blue-50"
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Contact
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={onAddContact}
+              className="bg-white text-blue-600 hover:bg-blue-50"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Contact
+            </Button>
+          )}
         </div>
       </div>
     </div>

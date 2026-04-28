@@ -18,6 +18,15 @@ import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import { cn } from '@/lib/utils'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
 
+// Five labels coloured for quick scanning. Unknown gets no badge — empty cell
+// means "no signal" rather than dragging the eye to a useless pill.
+const intentConfig: Record<Exclude<EmailIntent, 'unknown'>, { label: string; className: string }> = {
+  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
+  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
+  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
+  question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+}
+
 interface EmailReplyCardProps {
   reply: EmailReply
   onMatchClick: (reply: EmailReply) => void
@@ -28,15 +37,6 @@ interface EmailReplyCardProps {
   selectable?: boolean
   selected?: boolean
   onSelectChange?: (reply: EmailReply, selected: boolean) => void
-}
-
-// Unknown intent intentionally omitted — we render no badge in that case so
-// the column doesn't fill with grey "Unknown" pills that carry no signal.
-const intentConfig: Record<Exclude<EmailIntent, 'unknown'>, { label: string; className: string }> = {
-  positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
-  negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
-  neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
-  question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
 }
 
 export function EmailReplyCard({

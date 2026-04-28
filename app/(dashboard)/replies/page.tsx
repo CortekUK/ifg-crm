@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 // Email Replies Components
 import { EmailReplyTabs } from '@/components/email/EmailReplyTabs'
 import { EmailReplyList } from '@/components/email/EmailReplyList'
+import { IntentFilterChips } from '@/components/email/IntentFilterChips'
 import { EmailDetailSheet } from '@/components/email/EmailDetailSheet'
 import { MatchEmailModal } from '@/components/email/MatchEmailModal'
 import { useEmailReplies, useEmailReplyCounts } from '@/lib/hooks/useEmailReplies'
@@ -46,6 +47,7 @@ export default function RepliesPage() {
 
   // Email state — start on Matched tab when deep-linking from a stopped enrollment,
   // because reply-driven exits always come from already-matched replies.
+  const [emailIntentFilter, setEmailIntentFilter] = useState<'all' | 'positive' | 'question' | 'negative' | 'neutral' | 'unknown'>('all')
   const [emailTab, setEmailTab] = useState<'unmatched' | 'matched' | 'spam'>(
     contactIdParam ? 'matched' : 'unmatched'
   )
@@ -92,11 +94,39 @@ export default function RepliesPage() {
   const { data: smsCounts } = useSMSMessageCounts()
 
   const allEmailReplies = emailRepliesQuery.data?.pages?.flat() || []
-  const emailReplies = useMemo(
+  // Apply contact deep-link filter first; intent filter is layered on top so
+  // counts under the chips reflect the contact context too.
+  const contactScopedReplies = useMemo(
     () => contactIdParam
       ? allEmailReplies.filter((r) => r.contact_id === contactIdParam)
       : allEmailReplies,
     [contactIdParam, allEmailReplies]
+  )
+  // Counts per intent — drives the chip badges. 'unknown' bucket covers null
+  // (never classified), the literal 'unknown' label, and anything else.
+  const emailIntentCounts = useMemo(() => {
+    const counts = { all: contactScopedReplies.length, positive: 0, question: 0, negative: 0, neutral: 0, unknown: 0 }
+    for (const r of contactScopedReplies) {
+      const k = r.ai_intent ?? 'unknown'
+      if (k === 'positive' || k === 'question' || k === 'negative' || k === 'neutral') {
+        counts[k]++
+      } else {
+        counts.unknown++
+      }
+    }
+    return counts
+  }, [contactScopedReplies])
+  const emailReplies = useMemo(
+    () => emailIntentFilter === 'all'
+      ? contactScopedReplies
+      : contactScopedReplies.filter((r) => {
+          const k = r.ai_intent ?? 'unknown'
+          if (emailIntentFilter === 'unknown') {
+            return k !== 'positive' && k !== 'question' && k !== 'negative' && k !== 'neutral'
+          }
+          return k === emailIntentFilter
+        }),
+    [emailIntentFilter, contactScopedReplies]
   )
   const smsMessages = smsMessagesQuery.data?.pages?.flat() || []
 
@@ -355,6 +385,13 @@ export default function RepliesPage() {
               </div>
             )}
           </div>
+
+          {/* Intent filter chips — quickly slice replies by AI-classified intent. */}
+          <IntentFilterChips
+            value={emailIntentFilter}
+            onChange={setEmailIntentFilter}
+            counts={emailIntentCounts}
+          />
 
           <EmailReplyList
             replies={emailReplies}

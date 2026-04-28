@@ -13,14 +13,24 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   ExternalLink,
   Tag,
   GitBranch,
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Check,
+  Edit3,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from '@/lib/hooks/use-toast'
 import { formatDateLong, formatRelativeTime } from '@/lib/utils/format'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
@@ -54,12 +64,44 @@ export function EmailDetailSheet({
 }: EmailDetailSheetProps) {
   const router = useRouter()
   const [showFullThread, setShowFullThread] = useState(false)
+  const queryClient = useQueryClient()
+
+  // Manual override — admin can correct the AI label when classification is
+  // wrong. Writes directly to email_replies.ai_intent and invalidates the list
+  // so chips/counts update immediately.
+  const updateIntent = useMutation({
+    mutationFn: async ({ id, intent }: { id: string; intent: EmailIntent | null }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('email_replies')
+        .update({ ai_intent: intent })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
+    },
+  })
 
   if (!reply) return null
 
   const intent = reply.ai_intent as EmailIntent | null
   const intentInfo = intent && intent !== 'unknown' ? intentConfig[intent] : null
   const status = statusConfig[reply.match_status] || statusConfig.unmatched
+
+  const handleSetIntent = async (next: EmailIntent | null) => {
+    try {
+      await updateIntent.mutateAsync({ id: reply.id, intent: next })
+      toast({ title: 'Intent updated' })
+    } catch (err) {
+      toast({
+        title: 'Failed to update intent',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // What the contact actually wrote — quoted history stripped so a reader
   // doesn't have to scroll past the original outbound email to find the reply.
@@ -112,12 +154,64 @@ export function EmailDetailSheet({
             <Badge variant="outline" className={status.className}>
               {status.label}
             </Badge>
-            {intentInfo && (
-              <Badge variant="outline" className={intentInfo.color}>
-                <Sparkles className="h-3 w-3 mr-1" />
-                {intentInfo.label}
-              </Badge>
-            )}
+            {/* Intent — clickable popover lets admin override the AI label.
+                Always shown so an unclassified reply can also be set manually. */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-full"
+                  title="Click to override the AI intent label"
+                >
+                  {intentInfo ? (
+                    <Badge variant="outline" className={`${intentInfo.color} cursor-pointer hover:opacity-80`}>
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      {intentInfo.label}
+                      <Edit3 className="h-2.5 w-2.5 ml-1 opacity-60" />
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="cursor-pointer hover:opacity-80 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Set intent
+                      <Edit3 className="h-2.5 w-2.5 ml-1 opacity-60" />
+                    </Badge>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-56 p-1">
+                <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Override intent
+                </div>
+                {(['positive', 'question', 'negative', 'neutral'] as const).map((opt) => {
+                  const cfg = intentConfig[opt]
+                  const isCurrent = intent === opt
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={updateIntent.isPending}
+                      onClick={() => handleSetIntent(opt)}
+                      className="w-full flex items-center justify-between gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 text-left disabled:opacity-50"
+                    >
+                      <Badge variant="outline" className={cfg.color}>
+                        {cfg.label}
+                      </Badge>
+                      {isCurrent && <Check className="h-3.5 w-3.5 text-green-600" />}
+                    </button>
+                  )
+                })}
+                <div className="border-t my-1 dark:border-slate-700" />
+                <button
+                  type="button"
+                  disabled={updateIntent.isPending}
+                  onClick={() => handleSetIntent(null)}
+                  className="w-full flex items-center justify-between gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 text-left text-muted-foreground disabled:opacity-50"
+                >
+                  Clear intent
+                  {intent === null && <Check className="h-3.5 w-3.5 text-green-600" />}
+                </button>
+              </PopoverContent>
+            </Popover>
             {reply.campaign && (
               <Badge variant="secondary" className="gap-1">
                 <Tag className="h-3 w-3" />

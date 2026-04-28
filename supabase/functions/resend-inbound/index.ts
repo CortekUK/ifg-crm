@@ -343,7 +343,14 @@ async function deriveReplySourceMeta(
 }
 
 /**
- * Classify the intent of a reply using Claude AI
+ * Classify the intent of a reply using OpenAI gpt-4o-mini.
+ * Returns one of: positive | negative | neutral | question | unknown
+ * Or null when classification was skipped or failed (caller stores NULL).
+ *
+ * Guardrails:
+ *   - skip if body > 2000 chars (cost cap; long emails are usually quoted threads)
+ *   - skip if body is empty
+ *   - on API failure, return null silently (don't break the inbound pipeline)
  */
 const CLASSIFICATION_PROMPT = `You are classifying the intent of a reply to a business outreach/recruitment email.
 
@@ -356,33 +363,46 @@ Classify as exactly one of:
 
 Respond with ONLY the classification word, nothing else.`
 
+const MAX_CLASSIFICATION_CHARS = 2000
+
 async function classifyIntent(text: string): Promise<string | null> {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const apiKey = Deno.env.get('OPENAI_API_KEY')
   if (!apiKey || !text) return null
 
+  // Cost guardrail: long emails (typically quoted threads) eat tokens for no
+  // gain. The intent of a 5000-char message is in the first paragraph anyway;
+  // skip rather than send the whole thing.
+  if (text.length > MAX_CLASSIFICATION_CHARS) {
+    console.log(`Skipping intent classification (length ${text.length} > ${MAX_CLASSIFICATION_CHARS})`)
+    return null
+  }
+
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 10,
-        system: CLASSIFICATION_PROMPT,
-        messages: [{ role: 'user', content: text }],
+        model: 'gpt-4o-mini',
+        max_tokens: 5,
+        temperature: 0,
+        messages: [
+          { role: 'system', content: CLASSIFICATION_PROMPT },
+          { role: 'user', content: text },
+        ],
       }),
     })
 
     if (!response.ok) {
-      console.error('Claude API error:', response.status)
+      const errBody = await response.text().catch(() => '')
+      console.error('OpenAI API error:', response.status, errBody.slice(0, 200))
       return null
     }
 
     const result = await response.json()
-    const intent = result.content?.[0]?.text?.trim().toLowerCase()
+    const intent = result.choices?.[0]?.message?.content?.trim().toLowerCase()
 
     const validIntents = ['positive', 'negative', 'neutral', 'question', 'unknown']
     return validIntents.includes(intent) ? intent : null

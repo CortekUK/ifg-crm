@@ -32,6 +32,7 @@ interface PipelineFiltersProps {
   onFullscreenToggle?: () => void
   onOpenSettings?: () => void
   settingsDisabled?: boolean
+  isAdmin?: boolean
 }
 
 export function PipelineFilters({
@@ -51,6 +52,7 @@ export function PipelineFilters({
   onFullscreenToggle,
   onOpenSettings,
   settingsDisabled = false,
+  isAdmin = false,
 }: PipelineFiltersProps) {
   // Extract unique owners from deals
   const owners = useMemo(() => {
@@ -66,7 +68,7 @@ export function PipelineFilters({
     return Array.from(ownerMap.values()).sort((a, b) => a.name.localeCompare(b.name))
   }, [deals])
 
-  const hasFilters = search || ownerFilter !== 'all' || statusFilter !== 'all'
+  const hasFilters = search || (isAdmin && ownerFilter !== 'all') || statusFilter !== 'all'
 
   const handleClearFilters = () => {
     onSearchChange('')
@@ -79,20 +81,22 @@ export function PipelineFilters({
       {/* Row 1: Filters + Search + Settings */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="flex flex-wrap gap-2">
-          <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
-            <SelectTrigger className="w-[140px] h-9">
-              <SelectValue placeholder="All Owners" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Owners</SelectItem>
-              {userId && <SelectItem value={userId}>My Deals</SelectItem>}
-              {owners.filter(o => o.id !== userId).map((owner) => (
-                <SelectItem key={owner.id} value={owner.id}>
-                  {owner.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isAdmin && (
+            <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
+              <SelectTrigger className="w-[140px] h-9">
+                <SelectValue placeholder="All Owners" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Owners</SelectItem>
+                {userId && <SelectItem value={userId}>My Deals</SelectItem>}
+                {owners.filter(o => o.id !== userId).map((owner) => (
+                  <SelectItem key={owner.id} value={owner.id}>
+                    {owner.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Select value={statusFilter} onValueChange={onStatusFilterChange}>
             <SelectTrigger className="w-[130px] h-9">
@@ -124,7 +128,7 @@ export function PipelineFilters({
               className="pl-9 h-9"
             />
           </div>
-          {onOpenSettings && (
+          {isAdmin && onOpenSettings && (
             <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={onOpenSettings} disabled={settingsDisabled}>
               <Settings className="h-4 w-4" />
             </Button>

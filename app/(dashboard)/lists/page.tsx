@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +30,14 @@ import { toast } from '@/lib/hooks/use-toast'
 import type { List, ListFilters } from '@/lib/types/lists'
 
 export default function ListsPage() {
+  // ⚠️ All hooks must be declared before any early-return; otherwise React
+  // sees a different hook order on renders that take the redirect branch
+  // versus the normal branch and throws "change in the order of Hooks".
+  const router = useRouter()
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const isAdmin =
+    currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+
   const [filters, setFilters] = useState<ListFilters>({})
   const [selectedList, setSelectedList] = useState<List | null>(null)
   const [editingList, setEditingList] = useState<List | null>(null)
@@ -43,6 +53,13 @@ export default function ListsPage() {
   const { data: stats, isLoading: statsLoading } = useListStats()
   const deleteList = useDeleteList()
   const bulkDeleteLists = useBulkDeleteLists()
+
+  // List management is admin-only. Recruiters get bounced back to /contacts.
+  useEffect(() => {
+    if (!userLoading && currentUser && !isAdmin) {
+      router.replace('/contacts')
+    }
+  }, [userLoading, currentUser, isAdmin, router])
 
   const handleSearch = (search: string) => {
     setFilters((prev) => ({ ...prev, search }))
@@ -116,6 +133,17 @@ export default function ListsPage() {
   const totalSelectedContacts = lists
     .filter((l) => selectedIds.has(l.id))
     .reduce((sum, l) => sum + (l.contact_count || 0), 0)
+
+  // While we're checking the role, or while a non-admin is being redirected
+  // out, render only a spinner. All hooks above already ran in their stable
+  // order, so this branch is safe to take after them.
+  if (userLoading || (currentUser && !isAdmin)) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

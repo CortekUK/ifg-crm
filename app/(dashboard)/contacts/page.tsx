@@ -20,6 +20,7 @@ import { useContacts, useBulkDeleteContacts, useBulkUpdateContactSubscription } 
 import { useContactStats } from '@/lib/hooks/useContactStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { useAddContactsToList, useLists } from '@/lib/hooks/useLists'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Contact } from '@/lib/types/contacts'
@@ -85,6 +86,10 @@ function ContactsPageContent() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+
+  // Current user — used to gate admin-only UI surface area.
+  const { data: currentUser } = useCurrentUser()
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
 
   // Handle URL ?id= param from global search
   useEffect(() => {
@@ -416,6 +421,7 @@ function ContactsPageContent() {
         onImportClick={() => setImportModalOpen(true)}
         onExportClick={handleExport}
         isExporting={isExporting}
+        isAdmin={isAdmin}
       />
 
       {/* Stats */}
@@ -427,15 +433,18 @@ function ContactsPageContent() {
         isLoading={statsLoading}
       />
 
-      {/* Tabs */}
-      <Tabs defaultValue="contacts">
-        <TabsList>
-          <TabsTrigger value="contacts">Contacts</TabsTrigger>
-          <TabsTrigger value="lists" asChild>
-            <Link href="/lists">Lists</Link>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Tabs — Lists is admin-only (recruiters can read lists for filtering
+          but can't manage them, so the management page is hidden). */}
+      {isAdmin && (
+        <Tabs defaultValue="contacts">
+          <TabsList>
+            <TabsTrigger value="contacts">Contacts</TabsTrigger>
+            <TabsTrigger value="lists" asChild>
+              <Link href="/lists">Lists</Link>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {/* Filters */}
       <ContactFilters

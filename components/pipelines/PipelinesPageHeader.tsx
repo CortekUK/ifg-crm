@@ -21,6 +21,7 @@ interface PipelinesPageHeaderProps {
   onAddDeal?: () => void
   isLoading: boolean
   dealCounts: Record<string, number>
+  isAdmin?: boolean
 }
 
 export function PipelinesPageHeader({
@@ -32,6 +33,7 @@ export function PipelinesPageHeader({
   onAddDeal,
   isLoading,
   dealCounts,
+  isAdmin = false,
 }: PipelinesPageHeaderProps) {
   return (
     <div className="banner-gradient rounded-xl p-6">
@@ -77,15 +79,17 @@ export function PipelinesPageHeader({
                 Add Deal
               </Button>
             )}
-            <Button
-              size="sm"
-              onClick={onOpenCreate}
-              disabled={isLoading}
-              className="bg-white text-blue-600 hover:bg-blue-50 h-8"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Add</span> Pipeline
-            </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                onClick={onOpenCreate}
+                disabled={isLoading}
+                className="bg-white text-blue-600 hover:bg-blue-50 h-8"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Add</span> Pipeline
+              </Button>
+            )}
           </div>
         </div>
       </div>

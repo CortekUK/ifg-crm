@@ -381,6 +381,7 @@ export default function PipelinesPage() {
           onAddDeal={handleAddDealFromHeader}
           isLoading={pipelinesLoading}
           dealCounts={dealCounts}
+          isAdmin={isAdmin}
         />
       )}
 
@@ -402,6 +403,7 @@ export default function PipelinesPage() {
         onFullscreenToggle={() => setIsFullscreen((prev) => !prev)}
         onOpenSettings={() => setSettingsModalOpen(true)}
         settingsDisabled={!selectedPipelineId || pipelinesLoading}
+        isAdmin={isAdmin}
       />
 
       {/* Stats */}
