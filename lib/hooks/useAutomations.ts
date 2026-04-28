@@ -157,6 +157,22 @@ export function useAutomationLogs(filters?: AutomationFilters) {
   return useQuery<AutomationLog[]>({
     queryKey: ['automation-logs', filters],
     queryFn: async () => {
+      // Workflow filter — previously ignored. PostgREST can't apply an .eq
+      // on a nested joined column reliably without !inner, so we resolve
+      // step IDs for the automation up front and filter logs by step_id IN.
+      let stepIdsForWorkflow: string[] | null = null
+      if (filters?.workflow && filters.workflow !== 'all') {
+        const { data: steps } = await supabase
+          .from('automation_steps')
+          .select('id')
+          .eq('automation_id', filters.workflow)
+        stepIdsForWorkflow = (steps || []).map((s) => s.id)
+        if (stepIdsForWorkflow.length === 0) {
+          // No steps → no logs can match; bail without an empty IN() clause
+          return []
+        }
+      }
+
       let query = supabase
         .from('automation_logs')
         .select(`
@@ -171,7 +187,10 @@ export function useAutomationLogs(filters?: AutomationFilters) {
         .order('sent_at', { ascending: false })
         .limit(100)
 
-      // Apply filters
+      if (stepIdsForWorkflow) {
+        query = query.in('step_id', stepIdsForWorkflow)
+      }
+
       if (filters?.status && filters.status !== 'all') {
         query = query.eq('status', filters.status)
       }
@@ -197,8 +216,13 @@ export function useToggleAutomation() {
 
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: (_data, { automationId }) => {
+      // Pause/resume affects how the runner schedules new sends but also how
+      // the detail sheet displays its enrollments — invalidate everything
+      // tied to this automation so the UI doesn't lag behind the DB.
       queryClient.invalidateQueries({ queryKey: ['automations'] })
+      queryClient.invalidateQueries({ queryKey: ['automation-enrollments', automationId] })
+      queryClient.invalidateQueries({ queryKey: ['automation-stats', automationId] })
     },
   })
 }
@@ -577,6 +601,10 @@ export function useUnenrollFromAutomation() {
         queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
         queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
       }
+      // The list view caches total_enrolled per automation — invalidate it so
+      // pause/resume/unenroll updates the row count immediately, not after a
+      // background refetch interval.
+      queryClient.invalidateQueries({ queryKey: ['automations'] })
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
       queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
     },
@@ -603,6 +631,10 @@ export function usePauseEnrollment() {
         queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
         queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
       }
+      // The list view caches total_enrolled per automation — invalidate it so
+      // pause/resume/unenroll updates the row count immediately, not after a
+      // background refetch interval.
+      queryClient.invalidateQueries({ queryKey: ['automations'] })
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
       queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
     },
@@ -656,6 +688,10 @@ export function useResumeEnrollment() {
         queryClient.invalidateQueries({ queryKey: ['automation-enrollments', variables.automationId] })
         queryClient.invalidateQueries({ queryKey: ['automation-stats', variables.automationId] })
       }
+      // The list view caches total_enrolled per automation — invalidate it so
+      // pause/resume/unenroll updates the row count immediately, not after a
+      // background refetch interval.
+      queryClient.invalidateQueries({ queryKey: ['automations'] })
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
       queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
     },

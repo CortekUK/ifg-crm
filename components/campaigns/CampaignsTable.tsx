@@ -222,8 +222,6 @@ export function CampaignsTable({
               <TableHead className="w-[90px]">Status</TableHead>
               <TableHead className="w-[80px] text-center">Recipients</TableHead>
               <TableHead className="w-[80px] text-center">Delivered</TableHead>
-              <TableHead className="w-[80px] text-center">Open Rate</TableHead>
-              <TableHead className="w-[80px] text-center">Click Rate</TableHead>
               <TableHead className="w-[100px]">Sent Date</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
@@ -238,8 +236,6 @@ export function CampaignsTable({
                 <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-8 w-8" /></TableCell>
               </TableRow>
@@ -292,8 +288,6 @@ export function CampaignsTable({
                 </div>
               </TableHead>
               <TableHead className="w-[80px] text-center">Delivered</TableHead>
-              <TableHead className="w-[80px] text-center">Open Rate</TableHead>
-              <TableHead className="w-[80px] text-center">Click Rate</TableHead>
               <TableHead className="w-[100px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('date')}>
                 <div className="flex items-center gap-1">
                   Date <CampaignSortIcon field="date" activeField={sortField} dir={sortDir} />
@@ -310,18 +304,20 @@ export function CampaignsTable({
               const totalRecipients = recipientLists.reduce((sum, list) => sum + (list.contact_count || 0), 0)
               const recipients = campaign.recipient_count || totalRecipients
               
-              // Use actual stats if available, otherwise show placeholder
-              const deliveredCount = campaign.delivered_count || 0
+              // delivered_count is updated by the Resend webhook handler when
+              // an "email.delivered" event fires. If that's not configured (or
+              // events haven't arrived yet), fall back to processed_recipients
+              // — the count of emails the campaign runner actually pushed
+               // through Resend's API. That's the most reliable "left our system"
+              // signal we have without webhook acknowledgement.
+              const deliveredCount =
+                campaign.delivered_count ||
+                campaign.processed_recipients ||
+                0
               const totalSent = campaign.total_recipients || recipients
               const deliveredDisplay = campaign.status === 'sent' && totalSent > 0
                 ? `${deliveredCount}/${totalSent}`
                 : '-'
-              const openRate = campaign.status === 'sent' && campaign.open_count !== undefined
-                ? `${((campaign.open_count / (deliveredCount || 1)) * 100).toFixed(1)}%`
-                : campaign.status === 'sent' ? '-' : '-'
-              const clickRate = campaign.status === 'sent' && campaign.click_count !== undefined
-                ? `${((campaign.click_count / (deliveredCount || 1)) * 100).toFixed(1)}%`
-                : campaign.status === 'sent' ? '-' : '-'
 
               return (
                 <TableRow
@@ -462,8 +458,6 @@ export function CampaignsTable({
                       : formatNumber(recipients)}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-center">{deliveredDisplay}</TableCell>
-                  <TableCell className="text-muted-foreground text-center">{openRate}</TableCell>
-                  <TableCell className="text-muted-foreground text-center">{clickRate}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {campaign.sent_at
                       ? formatDate(campaign.sent_at)

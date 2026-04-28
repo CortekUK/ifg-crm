@@ -174,26 +174,65 @@ export function useDeletePipeline() {
         throw err
       }
 
-      if (force && count && count > 0) {
-        // Hard-delete active deals before the pipeline goes. FK cascades on
-        // deals (automation_enrollments, deal_activities, etc.) clean up
-        // their dependents.
+      if (force) {
+        // Hard-delete EVERY deal in this pipeline before the pipeline goes,
+        // not just the active ones. Won/lost deals still reference
+        // pipeline_stages.id via a NO ACTION FK (deals.current_stage_id) —
+        // when the pipeline cascade-deletes its stages, that FK violation
+        // rolls back the whole transaction. Wiping all deals first lets the
+        // cascade work cleanly. FK cascades on deals (automation_enrollments,
+        // deal_activities, invoices, etc.) clean up their dependents.
         const { error: dealsDeleteError } = await supabase
           .from('deals')
           .delete()
           .eq('pipeline_id', pipelineId)
-          .eq('status', 'active')
-        if (dealsDeleteError) throw dealsDeleteError
+        if (dealsDeleteError) {
+          console.error('Force-delete: failed to wipe deals', dealsDeleteError)
+          throw new Error(`Failed to delete deals: ${dealsDeleteError.message}`)
+        }
       }
 
-      // Delete pipeline (stages, won/lost deals, and their FK children
-      // cascade-delete via the existing constraints).
+      // The DB schema *should* SET NULL on automations.pipeline_id and
+      // campaigns.pipeline_id when a pipeline is deleted, but in practice the
+      // automations FK has been seen to violate (e.g. constraint dropped/
+      // recreated without SET NULL). Null these references out explicitly
+      // before deleting the pipeline so the cascade can complete cleanly.
+      const [automationsNullErr, campaignsNullErr] = await Promise.all([
+        supabase
+          .from('automations')
+          .update({ pipeline_id: null })
+          .eq('pipeline_id', pipelineId)
+          .then((r) => r.error),
+        supabase
+          .from('campaigns')
+          .update({ pipeline_id: null })
+          .eq('pipeline_id', pipelineId)
+          .then((r) => r.error),
+      ])
+      if (automationsNullErr) {
+        console.error('Failed to null automations.pipeline_id', automationsNullErr)
+        throw new Error(
+          `Failed to detach automations from pipeline: ${automationsNullErr.message}`
+        )
+      }
+      if (campaignsNullErr) {
+        console.error('Failed to null campaigns.pipeline_id', campaignsNullErr)
+        throw new Error(
+          `Failed to detach campaigns from pipeline: ${campaignsNullErr.message}`
+        )
+      }
+
+      // Delete pipeline (stages, deals, and their FK children cascade-delete
+      // via the existing constraints).
       const { error } = await supabase
         .from('pipelines')
         .delete()
         .eq('id', pipelineId)
 
-      if (error) throw error
+      if (error) {
+        console.error('Pipeline delete failed', error)
+        throw new Error(error.message || 'Pipeline delete failed')
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipelines'] })

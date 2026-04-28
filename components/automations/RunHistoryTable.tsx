@@ -98,7 +98,6 @@ export function RunHistoryTable({
                 <TableHead>Step</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Sent At</TableHead>
-                <TableHead>Opened</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -109,7 +108,6 @@ export function RunHistoryTable({
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -133,16 +131,25 @@ export function RunHistoryTable({
                 <TableHead>Step</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Sent At</TableHead>
-                <TableHead>Opened</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {logs.map((log) => {
                 const contact = log.deal?.contact
                 const status = statusConfig[log.status]
-                const automationName = log.step?.automation?.name || 'Unknown'
+                const automationId = log.step?.automation_id
+                // The nested join doesn't pull the automation's full steps
+                // array, so log.step.automation.steps is always undefined and
+                // we got "X of 0" everywhere. The page passes the full
+                // automations list (with steps joined) — use it as the source
+                // of truth for both the workflow name and total step count.
+                const automation = automationId
+                  ? automations.find((a) => a.id === automationId)
+                  : null
+                const automationName =
+                  automation?.name || log.step?.automation?.name || 'Unknown'
                 const stepOrder = log.step?.step_order || 0
-                const totalSteps = log.step?.automation?.steps?.length || 0
+                const totalSteps = automation?.steps?.length ?? 0
 
                 return (
                   <TableRow key={log.id}>
@@ -180,11 +187,6 @@ export function RunHistoryTable({
                     {/* Sent At */}
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDateTime(log.sent_at)}
-                    </TableCell>
-
-                    {/* Opened */}
-                    <TableCell className="text-sm text-muted-foreground">
-                      —
                     </TableCell>
                   </TableRow>
                 )

@@ -149,6 +149,30 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
     }
   }
 
+  // Translate raw Postgres / Supabase errors into something a non-engineer
+  // can act on. The DB messages are accurate but unreadable ("violates
+  // foreign key constraint X on table Y") — map the common ones to friendly
+  // copy and fall back to the raw text for anything we don't recognise.
+  const friendlyDeleteError = (raw: string): string => {
+    const m = raw.toLowerCase()
+    if (m.includes('foreign key constraint') && m.includes('automation')) {
+      return 'Some automations are still attached to this pipeline. Detach or delete those automations first, then try again.'
+    }
+    if (m.includes('foreign key constraint') && m.includes('campaign')) {
+      return 'A campaign is still linked to this pipeline. Detach or delete the campaign first.'
+    }
+    if (m.includes('foreign key constraint') && m.includes('stage')) {
+      return 'A stage in this pipeline is still referenced by something else. Try the force-delete option, or contact support if it persists.'
+    }
+    if (m.includes('foreign key constraint')) {
+      return 'Something else is still linked to this pipeline. Try the force-delete option to wipe related items.'
+    }
+    if (m.includes('permission denied') || m.includes('row-level security') || m.includes('rls')) {
+      return 'You don\'t have permission to delete pipelines. Ask an admin.'
+    }
+    return raw
+  }
+
   const handleDeletePipeline = async () => {
     if (!pipeline) return
 
@@ -172,8 +196,8 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
       }
 
       toast({
-        title: 'Failed to delete pipeline',
-        description: error instanceof Error ? error.message : 'An error occurred',
+        title: 'Couldn\'t delete pipeline',
+        description: error instanceof Error ? friendlyDeleteError(error.message) : 'Something went wrong.',
         variant: 'destructive',
       })
     }
@@ -191,8 +215,8 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
       onClose()
     } catch (error) {
       toast({
-        title: 'Failed to delete pipeline',
-        description: error instanceof Error ? error.message : 'An error occurred',
+        title: 'Couldn\'t delete pipeline',
+        description: error instanceof Error ? friendlyDeleteError(error.message) : 'Something went wrong.',
         variant: 'destructive',
       })
     }

@@ -69,6 +69,7 @@ export function AutomationDetailSheet({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [emailStatusFilter, setEmailStatusFilter] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [showAllActive, setShowAllActive] = useState(false)
 
   const { data: automation, isLoading } = useAutomation(automationId)
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
@@ -638,7 +639,7 @@ export function AutomationDetailSheet({
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {activeEnrollments.slice(0, 10).map((enrollment) => {
+                        {(showAllActive ? activeEnrollments : activeEnrollments.slice(0, 10)).map((enrollment) => {
                           const deal = enrollment.deal
                           const contact = deal?.contact
                           const name = contact
@@ -708,9 +709,16 @@ export function AutomationDetailSheet({
                           )
                         })}
                         {activeEnrollments.length > 10 && (
-                          <p className="text-xs text-muted-foreground text-center pt-2">
-                            +{activeEnrollments.length - 10} more enrolled
-                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs text-muted-foreground"
+                            onClick={() => setShowAllActive((s) => !s)}
+                          >
+                            {showAllActive
+                              ? 'Show less'
+                              : `Show all ${activeEnrollments.length}`}
+                          </Button>
                         )}
                       </div>
                     )}

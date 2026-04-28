@@ -467,7 +467,7 @@ export function CampaignDetailSheet({
                         <Skeleton className="h-[72px]" />
                       ) : statsWithRates && statsWithRates.total > 0 ? (
                         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
-                          <div className="grid grid-cols-5 text-center divide-x divide-slate-200 dark:divide-slate-700">
+                          <div className="grid grid-cols-3 text-center divide-x divide-slate-200 dark:divide-slate-700">
                             <div className="px-2">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.total)}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
@@ -475,14 +475,6 @@ export function CampaignDetailSheet({
                             <button onClick={() => { setSendStatusFilter('delivered'); setActiveTab('emails') }} className="px-2 hover:text-green-600 dark:hover:text-green-400 transition-colors">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.delivered)}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Delivered</p>
-                            </button>
-                            <button onClick={() => { setSendStatusFilter('opened'); setActiveTab('emails') }} className="px-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.opened)}</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">{statsWithRates.openRate.toFixed(1)}% opened</p>
-                            </button>
-                            <button onClick={() => { setSendStatusFilter('clicked'); setActiveTab('emails') }} className="px-2 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.clicked)}</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">{statsWithRates.clickRate.toFixed(1)}% clicked</p>
                             </button>
                             <button onClick={() => { setSendStatusFilter('bounced'); setActiveTab('emails') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.bounced)}</p>
@@ -507,8 +499,6 @@ export function CampaignDetailSheet({
                       {[
                         { key: null, label: 'All' },
                         { key: 'delivered', label: 'Delivered' },
-                        { key: 'opened', label: 'Opened' },
-                        { key: 'clicked', label: 'Clicked' },
                         { key: 'bounced', label: 'Bounced' },
                       ].map((f) => (
                         <button
@@ -545,8 +535,6 @@ export function CampaignDetailSheet({
                             <TableHead>Recipient</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Sent At</TableHead>
-                            <TableHead>Opened</TableHead>
-                            <TableHead>Clicked</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -595,26 +583,6 @@ export function CampaignDetailSheet({
                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                                       {formatDateTime(send.sent_at)}
                                     </span>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">-</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {send.opened_at ? (
-                                    <div className="flex items-center gap-1">
-                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                                      <span className="text-xs text-muted-foreground">{formatDate(send.opened_at)}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">-</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {send.clicked_at ? (
-                                    <div className="flex items-center gap-1">
-                                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                                      <span className="text-xs text-muted-foreground">{formatDate(send.clicked_at)}</span>
-                                    </div>
                                   ) : (
                                     <span className="text-muted-foreground text-xs">-</span>
                                   )}
