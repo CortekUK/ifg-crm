@@ -37,19 +37,30 @@ export default function PortalLoginPage() {
   const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [recoverySubmitting, setRecoverySubmitting] = useState(false)
-  const [recoveryDone, setRecoveryDone] = useState(false)
+  const [recoveryResult, setRecoveryResult] = useState<{
+    status: 'sent' | 'not_found' | 'not_activated'
+    message: string
+  } | null>(null)
 
   const handleRecoverySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!recoveryEmail) return
     setRecoverySubmitting(true)
     try {
-      await fetch('/api/auth/send-recovery', {
+      const res = await fetch('/api/auth/send-recovery', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: recoveryEmail }),
       })
-      setRecoveryDone(true)
+      const data = await res.json()
+      if (data?.status) {
+        setRecoveryResult(data)
+      } else {
+        setRecoveryResult({
+          status: 'sent',
+          message: 'If that email is on file, a password setup link is on its way.',
+        })
+      }
     } finally {
       setRecoverySubmitting(false)
     }
@@ -57,7 +68,7 @@ export default function PortalLoginPage() {
 
   const closeRecovery = () => {
     setRecoveryOpen(false)
-    setRecoveryDone(false)
+    setRecoveryResult(null)
     setRecoveryEmail('')
   }
 
@@ -94,6 +105,13 @@ export default function PortalLoginPage() {
           return
         }
       }
+
+      // signInWithPassword succeeded → the user genuinely has a working
+      // password. Stamp profiles.password_set_at if not already set. This
+      // self-heals accounts that set their password before this code shipped
+      // (the set-password page only started stamping recently) and acts as a
+      // belt-and-braces backup for any future magic-link edge case.
+      await fetch('/api/auth/mark-password-set', { method: 'POST' })
 
       router.replace('/portal')
     } catch {
@@ -270,10 +288,22 @@ export default function PortalLoginPage() {
               or are setting up for the first time.
             </DialogDescription>
           </DialogHeader>
-          {recoveryDone ? (
-            <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 px-3 py-3 text-sm text-green-800 dark:text-green-300">
-              If that email is on file, a password setup link is on its way.
-              Check your inbox (and spam folder).
+          {recoveryResult ? (
+            <div
+              className={
+                recoveryResult.status === 'sent'
+                  ? 'rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 px-3 py-3 text-sm text-green-800 dark:text-green-300'
+                  : recoveryResult.status === 'not_found'
+                    ? 'rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-3 py-3 text-sm text-red-800 dark:text-red-300'
+                    : 'rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-3 text-sm text-amber-800 dark:text-amber-300'
+              }
+            >
+              {recoveryResult.message}
+              {recoveryResult.status === 'sent' && (
+                <span className="block mt-1 text-xs opacity-80">
+                  Check your inbox (and spam folder).
+                </span>
+              )}
             </div>
           ) : (
             <form onSubmit={handleRecoverySubmit} className="space-y-3">

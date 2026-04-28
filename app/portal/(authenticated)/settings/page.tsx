@@ -35,6 +35,8 @@ export default function PortalSettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
+  const [isGuardian, setIsGuardian] = useState(false)
+  const [accountEmail, setAccountEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -42,11 +44,15 @@ export default function PortalSettingsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      setAccountEmail(user.email ?? null)
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('contact_id, guardian_for_contact_id')
         .eq('id', user.id)
         .single()
+
+      setIsGuardian(!!profile?.guardian_for_contact_id)
 
       const playerContactId =
         profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
@@ -223,9 +229,32 @@ export default function PortalSettingsPage() {
       {/* Change Password */}
       <Card className="bg-white dark:bg-slate-900">
         <CardContent className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wide">
-            Change Password
-          </h2>
+          <div className="flex items-start justify-between mb-4 gap-3">
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
+                Change Password
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Updates the password for{' '}
+                <span className="font-medium text-slate-700 dark:text-slate-200">
+                  {accountEmail || 'this account'}
+                </span>{' '}
+                only. {isGuardian
+                  ? 'The player\'s portal password is not affected.'
+                  : 'Guardian passwords (if any) are not affected.'}
+              </p>
+            </div>
+            <span
+              className={cn(
+                'shrink-0 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded',
+                isGuardian
+                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+              )}
+            >
+              {isGuardian ? 'Guardian' : 'Player'}
+            </span>
+          </div>
           <form onSubmit={handlePasswordChange} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="new-password" className="text-xs">New Password</Label>

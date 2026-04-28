@@ -8,10 +8,17 @@ import { PortalBottomNav } from './PortalBottomNav'
 
 interface PortalShellProps {
   playerName: string
+  displayName: string
+  isGuardian: boolean
   children: React.ReactNode
 }
 
-export function PortalShell({ playerName, children }: PortalShellProps) {
+export function PortalShell({
+  playerName,
+  displayName,
+  isGuardian,
+  children,
+}: PortalShellProps) {
   const router = useRouter()
 
   const handleLogout = async () => {
@@ -27,10 +34,13 @@ export function PortalShell({ playerName, children }: PortalShellProps) {
 
       {/* Main Content */}
       <div className="md:pl-64">
-        <PortalHeader playerName={playerName} />
-        <main className="p-4 md:p-6 pb-24 md:pb-6">
-          {children}
-        </main>
+        <PortalHeader
+          playerName={playerName}
+          displayName={displayName}
+          isGuardian={isGuardian}
+          onLogout={handleLogout}
+        />
+        <main className="p-4 md:p-6 pb-24 md:pb-6">{children}</main>
       </div>
 
       {/* Mobile Bottom Nav */}

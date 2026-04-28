@@ -18,17 +18,26 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
 
-  // Check role to determine redirect destination
+  // Check role to determine redirect destination, and self-heal
+  // password_set_at if missing (signInWithPassword succeeded → real password
+  // exists, regardless of whether set-password ran our stamp endpoint).
   let destination = '/dashboard'
   if (authData.user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, password_set_at')
       .eq('id', authData.user.id)
       .single()
 
     if (profile?.role === 'player') {
       destination = '/portal'
+    }
+
+    if (profile && !profile.password_set_at) {
+      await supabase
+        .from('profiles')
+        .update({ password_set_at: new Date().toISOString() })
+        .eq('id', authData.user.id)
     }
   }
 

@@ -2,7 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Moon, Sun, Search, X, ReceiptPoundSterling, CreditCard, Info } from 'lucide-react'
+import { Bell, Moon, Sun, Search, X, ReceiptPoundSterling, CreditCard, Info, LogOut, Settings as SettingsIcon, ShieldCheck } from 'lucide-react'
+import Link from 'next/link'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +25,9 @@ import { formatDistanceToNow } from 'date-fns'
 
 interface PortalHeaderProps {
   playerName: string
+  displayName: string
+  isGuardian: boolean
+  onLogout: () => void
 }
 
 const searchRoutes = [
@@ -25,7 +37,12 @@ const searchRoutes = [
   { label: 'Settings', href: '/portal/settings', keywords: ['settings', 'profile', 'password', 'theme'] },
 ]
 
-export function PortalHeader({ playerName }: PortalHeaderProps) {
+export function PortalHeader({
+  playerName,
+  displayName,
+  isGuardian,
+  onLogout,
+}: PortalHeaderProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -39,7 +56,10 @@ export function PortalHeader({ playerName }: PortalHeaderProps) {
   const notifications = notifData?.notifications || []
   const unreadCount = notifData?.unreadCount || 0
 
-  const initials = playerName
+  // Avatar shows the logged-in user's initials. For a guardian that's the
+  // parent's initials, not the player's — clearer for the guardian to see
+  // their own identity even though the portal data shows the player.
+  const initials = displayName
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -205,11 +225,64 @@ export function PortalHeader({ playerName }: PortalHeaderProps) {
             </PopoverContent>
           </Popover>
 
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-blue-600 text-white text-xs font-medium">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="relative flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Account menu"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback
+                    className={cn(
+                      'text-xs font-medium text-white',
+                      isGuardian ? 'bg-purple-600' : 'bg-blue-600'
+                    )}
+                  >
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                {isGuardian && (
+                  <span
+                    className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-white border-2 border-white dark:border-slate-900"
+                    title="Guardian account"
+                  >
+                    <ShieldCheck className="h-2.5 w-2.5" />
+                  </span>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
+                <span className="text-sm font-semibold truncate">{displayName}</span>
+                <span
+                  className={cn(
+                    'text-[10px] uppercase tracking-wider font-semibold w-fit px-1.5 py-0.5 rounded',
+                    isGuardian
+                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                      : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                  )}
+                >
+                  {isGuardian ? `Guardian for ${playerName}` : 'Player'}
+                </span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/portal/settings" className="cursor-pointer">
+                  <SettingsIcon className="h-4 w-4 mr-2" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onLogout}
+                className="cursor-pointer text-red-600 focus:text-red-700"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
