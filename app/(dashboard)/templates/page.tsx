@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { TemplatesPageHeader } from '@/components/templates/TemplatesPageHeader'
 import { TemplateStats } from '@/components/templates/TemplateStats'
 import { TemplateFilters } from '@/components/templates/TemplateFilters'
@@ -10,7 +12,7 @@ import { TemplatesTable } from '@/components/templates/TemplatesTable'
 import { DeleteTemplateDialog } from '@/components/templates/DeleteTemplateDialog'
 import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal'
 import { ImportHTMLModal } from '@/components/templates/ImportHTMLModal'
-import { useTemplates, useDeleteTemplate, useDuplicateTemplate } from '@/lib/hooks/useTemplates'
+import { useTemplates, useDeleteTemplate, useDuplicateTemplate, useUsedTemplateIds } from '@/lib/hooks/useTemplates'
 import { useTemplateStats } from '@/lib/hooks/useTemplateStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
@@ -19,8 +21,14 @@ import { ErrorState } from '@/components/ui/error-state'
 
 export default function TemplatesPage() {
   const router = useRouter()
+  // All hooks declared before any early-return so React sees a stable order.
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const isAdmin =
+    currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+
   const [filters, setFilters] = useState<TemplateFiltersType>({})
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [showUnused, setShowUnused] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
@@ -34,6 +42,13 @@ export default function TemplatesPage() {
 
   // Fetch templates
   const { data: templates = [], isLoading, error, refetch, isFetching } = useTemplates(debouncedFilters)
+  const { data: usedTemplateIds } = useUsedTemplateIds()
+  const visibleTemplates = showUnused
+    ? templates.filter((t) => !usedTemplateIds?.has(t.id))
+    : templates
+  const unusedCount = usedTemplateIds
+    ? templates.filter((t) => !usedTemplateIds.has(t.id)).length
+    : undefined
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useTemplateStats()
@@ -41,6 +56,14 @@ export default function TemplatesPage() {
   // Mutations
   const deleteTemplate = useDeleteTemplate()
   const duplicateTemplate = useDuplicateTemplate()
+
+  // Templates are admin-managed. Recruiters get bounced back to dashboard.
+  // Hooks above stay in stable order; the early-return is below.
+  useEffect(() => {
+    if (!userLoading && currentUser && !isAdmin) {
+      router.replace('/dashboard')
+    }
+  }, [userLoading, currentUser, isAdmin, router])
 
   const handleCreate = () => {
     router.push('/templates/editor')
@@ -102,6 +125,15 @@ export default function TemplatesPage() {
     setImportModalOpen(true)
   }
 
+  // While role is being checked or non-admin is being redirected, show spinner.
+  if (userLoading || (currentUser && !isAdmin)) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -127,6 +159,9 @@ export default function TemplatesPage() {
         onFiltersChange={setFilters}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        showUnused={showUnused}
+        onShowUnusedChange={setShowUnused}
+        unusedCount={unusedCount}
       />
 
       {/* Error State */}
@@ -144,7 +179,7 @@ export default function TemplatesPage() {
       {viewMode === 'grid' && (
         <div className="hidden sm:block">
           <TemplatesGrid
-            templates={templates}
+            templates={visibleTemplates}
             isLoading={isLoading}
             onEdit={handleEdit}
             onDelete={handleDeleteClick}
@@ -156,7 +191,7 @@ export default function TemplatesPage() {
       {/* Always show table on mobile, or when list mode on desktop */}
       <div className={viewMode === 'grid' ? 'sm:hidden' : ''}>
         <TemplatesTable
-          templates={templates}
+          templates={visibleTemplates}
           isLoading={isLoading}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}

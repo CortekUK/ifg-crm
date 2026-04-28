@@ -18,9 +18,20 @@ interface TemplateFiltersProps {
   onFiltersChange: (filters: TemplateFiltersType) => void
   viewMode: 'grid' | 'list'
   onViewModeChange: (mode: 'grid' | 'list') => void
+  showUnused: boolean
+  onShowUnusedChange: (showUnused: boolean) => void
+  unusedCount?: number
 }
 
-export function TemplateFilters({ filters, onFiltersChange, viewMode, onViewModeChange }: TemplateFiltersProps) {
+export function TemplateFilters({
+  filters,
+  onFiltersChange,
+  viewMode,
+  onViewModeChange,
+  showUnused,
+  onShowUnusedChange,
+  unusedCount,
+}: TemplateFiltersProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
       {/* Search */}
@@ -51,6 +62,26 @@ export function TemplateFilters({ filters, onFiltersChange, viewMode, onViewMode
           <SelectItem value="transactional">Transactional</SelectItem>
         </SelectContent>
       </Select>
+
+      {/* Unused chip — toggle to surface orphan templates that no automation
+          step or campaign references. Useful for periodic cleanup. */}
+      <Button
+        type="button"
+        variant={showUnused ? 'default' : 'outline'}
+        size="sm"
+        className={cn('h-9 gap-1.5', showUnused && 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600')}
+        onClick={() => onShowUnusedChange(!showUnused)}
+      >
+        Unused
+        {typeof unusedCount === 'number' && (
+          <span className={cn(
+            'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
+            showUnused ? 'bg-white/25 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+          )}>
+            {unusedCount}
+          </span>
+        )}
+      </Button>
 
       {/* View Mode Toggle - hidden on mobile (always list on mobile) */}
       <div className="hidden sm:flex items-center border rounded-lg p-0.5 bg-muted/30 dark:bg-slate-800/50 ml-auto">

@@ -132,31 +132,81 @@ export function useTemplateUsage(templateId: string) {
   return useQuery({
     queryKey: ['template-usage', templateId],
     queryFn: async () => {
-      // Check if template is used in automations
-      const { data: automationSteps, error } = await supabase
-        .from('automation_steps')
-        .select('id, automation:automations(id, name)')
-        .eq('template_id', templateId)
+      // Two consumers: automation_steps and campaigns. Both reference the
+      // template via FK. We surface both so the delete dialog can warn the
+      // admin before nuking a template that's still active somewhere.
+      const [stepsRes, campaignsRes] = await Promise.all([
+        supabase
+          .from('automation_steps')
+          .select('id, automation:automations(id, name)')
+          .eq('template_id', templateId),
+        supabase
+          .from('campaigns')
+          .select('id, name, status')
+          .eq('email_template_id', templateId),
+      ])
 
-      if (error) throw error
+      if (stepsRes.error) throw stepsRes.error
+      if (campaignsRes.error) throw campaignsRes.error
 
-      const automations = automationSteps
-        ?.map((step) => {
-          const automation = step.automation as unknown as { id: string; name: string }[] | { id: string; name: string } | null
-          // Handle both array and object cases from Supabase join
-          if (Array.isArray(automation)) {
-            return automation[0] || null
-          }
-          return automation
+      const automations = (stepsRes.data || [])
+        .map((step) => {
+          const a = step.automation as unknown as
+            | { id: string; name: string }[]
+            | { id: string; name: string }
+            | null
+          if (Array.isArray(a)) return a[0] || null
+          return a
         })
         .filter((a): a is { id: string; name: string } => a !== null)
-        .filter((v, i, arr) => arr.findIndex((a) => a.id === v.id) === i) // unique
+        .filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i)
+
+      const campaigns = (campaignsRes.data || []) as {
+        id: string
+        name: string
+        status: string
+      }[]
 
       return {
-        usedInAutomations: automations || [],
-        isUsed: (automations?.length || 0) > 0,
+        usedInAutomations: automations,
+        usedInCampaigns: campaigns,
+        isUsed: automations.length > 0 || campaigns.length > 0,
       }
     },
     enabled: !!templateId,
+  })
+}
+
+/**
+ * Returns the set of template IDs that are referenced by at least one
+ * automation step or campaign — used to power the "Unused" filter chip on
+ * the templates page so admins can spot orphaned templates.
+ */
+export function useUsedTemplateIds() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['template-used-ids'],
+    queryFn: async () => {
+      const [stepsRes, campaignsRes] = await Promise.all([
+        supabase
+          .from('automation_steps')
+          .select('template_id')
+          .not('template_id', 'is', null),
+        supabase
+          .from('campaigns')
+          .select('email_template_id')
+          .not('email_template_id', 'is', null),
+      ])
+
+      const ids = new Set<string>()
+      for (const r of stepsRes.data || []) {
+        if (r.template_id) ids.add(r.template_id)
+      }
+      for (const c of campaignsRes.data || []) {
+        if (c.email_template_id) ids.add(c.email_template_id)
+      }
+      return ids
+    },
   })
 }

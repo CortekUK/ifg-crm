@@ -51,20 +51,57 @@ export function DeleteTemplateDialog({
                 Checking template usage...
               </div>
             ) : usage?.isUsed ? (
-              <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+              <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 space-y-2">
                 <p className="text-amber-800 dark:text-amber-200 font-medium text-sm">
-                  Warning: This template is used in {usage.usedInAutomations.length} automation(s):
-                </p>
-                <ul className="mt-2 text-sm text-amber-700 dark:text-amber-300 list-disc list-inside">
-                  {usage.usedInAutomations.slice(0, 5).map((automation) => (
-                    <li key={automation.id}>{automation.name}</li>
-                  ))}
-                  {usage.usedInAutomations.length > 5 && (
-                    <li>...and {usage.usedInAutomations.length - 5} more</li>
+                  Warning: this template is currently referenced by{' '}
+                  {usage.usedInAutomations.length > 0 && (
+                    <>
+                      <strong>{usage.usedInAutomations.length}</strong> automation
+                      {usage.usedInAutomations.length === 1 ? '' : 's'}
+                    </>
                   )}
-                </ul>
-                <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-                  Deleting this template will affect these automations.
+                  {usage.usedInAutomations.length > 0 && usage.usedInCampaigns.length > 0 && ' and '}
+                  {usage.usedInCampaigns.length > 0 && (
+                    <>
+                      <strong>{usage.usedInCampaigns.length}</strong> campaign
+                      {usage.usedInCampaigns.length === 1 ? '' : 's'}
+                    </>
+                  )}
+                  .
+                </p>
+                {usage.usedInAutomations.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase">Automations</p>
+                    <ul className="mt-1 text-sm text-amber-700 dark:text-amber-300 list-disc list-inside">
+                      {usage.usedInAutomations.slice(0, 5).map((a) => (
+                        <li key={a.id}>{a.name}</li>
+                      ))}
+                      {usage.usedInAutomations.length > 5 && (
+                        <li>…and {usage.usedInAutomations.length - 5} more</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {usage.usedInCampaigns.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase">Campaigns</p>
+                    <ul className="mt-1 text-sm text-amber-700 dark:text-amber-300 list-disc list-inside">
+                      {usage.usedInCampaigns.slice(0, 5).map((c) => (
+                        <li key={c.id}>
+                          {c.name}
+                          {c.status && (
+                            <span className="ml-1 text-[10px] uppercase opacity-70">({c.status})</span>
+                          )}
+                        </li>
+                      ))}
+                      {usage.usedInCampaigns.length > 5 && (
+                        <li>…and {usage.usedInCampaigns.length - 5} more</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-xs text-amber-700 dark:text-amber-300 italic">
+                  Deleting will null these references — affected automation steps will fail to send and campaigns will lose their template.
                 </p>
               </div>
             ) : null}
