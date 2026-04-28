@@ -314,12 +314,20 @@ export async function POST(request: NextRequest) {
           dynamic_list_rules?: { field: string; value: string; list_id: string }[]
         } | null
 
-        // Match by form_ids array or single form_id
+        // Match by form_id. The previous nested-if logic short-circuited
+        // when config.form_ids was missing, letting every form-trigger
+        // automation fire on any form submission. Correct rule: if any
+        // form-id filter is set on the automation, the incoming formId MUST
+        // be in it. If no filter is set, the automation is treated as
+        // "any form submission".
         const formIdFromSubmission = formData.form_id || ''
-        if (config?.form_ids && !config.form_ids.includes(formIdFromSubmission)) {
-          if (!config.form_id || config.form_id !== formIdFromSubmission) {
-            continue // Skip if form doesn't match
-          }
+        const filterFormIds = config?.form_ids?.length
+          ? config.form_ids
+          : config?.form_id
+            ? [config.form_id]
+            : null
+        if (filterFormIds && !filterFormIds.includes(formIdFromSubmission)) {
+          continue
         }
 
         // ── List Assignment ──

@@ -291,11 +291,20 @@ export async function POST(request: NextRequest) {
           round_robin_users?: string[]
         } | null
 
-        // Match by form_id
-        if (config?.form_ids && !config.form_ids.includes(formId)) {
-          if (!config.form_id || config.form_id !== formId) {
-            continue
-          }
+        // Match by form_id. The previous nested-if logic short-circuited
+        // when config.form_ids was missing, letting *every* form-trigger
+        // automation fire on *any* form submission — a contact submitting one
+        // form ended up enrolled in all 5 deal-creation automations.
+        // Correct rule: if any form-id filter is set on the automation, the
+        // incoming formId MUST be in it. If no filter is set, the automation
+        // is treated as "any form submission" (rare, but supported).
+        const filterFormIds = config?.form_ids?.length
+          ? config.form_ids
+          : config?.form_id
+            ? [config.form_id]
+            : null
+        if (filterFormIds && !filterFormIds.includes(formId)) {
+          continue
         }
 
         // Static list assignment
