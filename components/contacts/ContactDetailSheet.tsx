@@ -360,26 +360,7 @@ export function ContactDetailSheet({
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-5 gap-2 mt-4">
-            <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" asChild>
-              <a href={`mailto:${contact.email}`}>
-                <Mail className="h-4 w-4" />
-                <span className="text-xs">Email</span>
-              </a>
-            </Button>
-            <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" asChild={!!contact.phone} disabled={!contact.phone}>
-              {contact.phone ? (
-                <a href={`tel:${contact.phone}`}>
-                  <Phone className="h-4 w-4" />
-                  <span className="text-xs">Call</span>
-                </a>
-              ) : (
-                <>
-                  <Phone className="h-4 w-4" />
-                  <span className="text-xs">Call</span>
-                </>
-              )}
-            </Button>
+          <div className="grid grid-cols-3 gap-2 mt-4">
             <Button variant="outline" size="sm" className="flex-col h-auto py-2 gap-1" onClick={() => setIsLogReplyOpen(true)}>
               <MessageCircle className="h-4 w-4" />
               <span className="text-xs">Log Reply</span>

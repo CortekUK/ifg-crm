@@ -17,8 +17,6 @@ import { createClient } from '@/lib/supabase/client'
 interface ContactFiltersProps {
   search: string
   onSearchChange: (value: string) => void
-  statusFilter: string
-  onStatusFilterChange: (value: string) => void
   programmeFilter?: string
   onProgrammeFilterChange?: (value: string) => void
   countryFilter?: string
@@ -29,8 +27,6 @@ interface ContactFiltersProps {
   onTagFilterChange?: (value: string) => void
   positionFilter?: string
   onPositionFilterChange?: (value: string) => void
-  ownerFilter?: string
-  onOwnerFilterChange?: (value: string) => void
   graduationYearFilter?: string
   onGraduationYearFilterChange?: (value: string) => void
   genderFilter?: string
@@ -39,7 +35,6 @@ interface ContactFiltersProps {
   onStateFilterChange?: (value: string) => void
   phonePrefix?: string
   onPhonePrefixChange?: (value: string) => void
-  userId?: string | null
   onClearFilters: () => void
   trailing?: React.ReactNode
 }
@@ -47,8 +42,6 @@ interface ContactFiltersProps {
 export function ContactFilters({
   search,
   onSearchChange,
-  statusFilter,
-  onStatusFilterChange,
   programmeFilter = '',
   onProgrammeFilterChange,
   countryFilter = '',
@@ -59,8 +52,6 @@ export function ContactFilters({
   onTagFilterChange,
   positionFilter = '',
   onPositionFilterChange,
-  ownerFilter = '',
-  onOwnerFilterChange,
   graduationYearFilter = '',
   onGraduationYearFilterChange,
   genderFilter = '',
@@ -69,7 +60,6 @@ export function ContactFilters({
   onStateFilterChange,
   phonePrefix = '',
   onPhonePrefixChange,
-  userId,
   onClearFilters,
   trailing,
 }: ContactFiltersProps) {
@@ -165,12 +155,11 @@ export function ContactFilters({
   const currentYear = new Date().getFullYear()
   const gradYears = Array.from({ length: 9 }, (_, i) => currentYear - 2 + i)
 
-  const hasFilters = search || statusFilter || programmeFilter || countryFilter ||
-    recruiterFilter || tagFilter || positionFilter || ownerFilter ||
+  const hasFilters = search || programmeFilter || countryFilter ||
+    recruiterFilter || tagFilter || positionFilter ||
     graduationYearFilter || genderFilter || stateFilter || phonePrefix
 
   const activeFilterCount = [
-    statusFilter && statusFilter !== 'all',
     programmeFilter && programmeFilter !== 'all',
     countryFilter && countryFilter !== 'all',
     stateFilter && stateFilter !== 'all',
@@ -179,7 +168,6 @@ export function ContactFilters({
     genderFilter && genderFilter !== 'all',
     recruiterFilter && recruiterFilter !== 'all',
     tagFilter && tagFilter !== 'all',
-    ownerFilter && ownerFilter !== 'all',
     phonePrefix,
   ].filter(Boolean).length
 
@@ -247,31 +235,6 @@ export function ContactFilters({
       {/* Collapsible Filter Dropdowns */}
       {showAllFilters && (
         <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/50 rounded-lg border">
-          {/* Owner / My Contacts Filter */}
-          {userId && onOwnerFilterChange && (
-            <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
-              <SelectTrigger className="w-[150px] h-9">
-                <SelectValue placeholder="All Contacts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Contacts</SelectItem>
-                <SelectItem value={userId}>My Contacts</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger className="w-[130px] h-9">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="subscribed">Subscribed</SelectItem>
-              <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
-            </SelectContent>
-          </Select>
-
           {/* Programme Filter */}
           <Select
             value={programmeFilter}

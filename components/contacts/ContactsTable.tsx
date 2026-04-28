@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowUpDown, ArrowUp, ArrowDown, Mail, MessageSquare } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import type { Contact } from '@/lib/types/contacts'
 import { cn } from '@/lib/utils'
@@ -43,7 +43,6 @@ const ALL_TABLE_COLUMNS = [
   { key: 'tags', label: 'Tags', sortable: false },
   { key: 'source', label: 'Source', sortable: true, sortKey: 'source' },
   { key: 'created_at', label: 'Date Created', sortable: true, sortKey: 'created_at' },
-  { key: 'status', label: 'Status', sortable: true, sortKey: 'subscription_status' },
   { key: 'football_background', label: 'Football BG', sortable: false },
   { key: 'academic_background', label: 'Academic BG', sortable: false },
   { key: 'degree_choice', label: 'Degree', sortable: false },
@@ -53,7 +52,7 @@ const ALL_TABLE_COLUMNS = [
 ]
 
 const DEFAULT_VISIBLE = [
-  'name', 'email', 'phone', 'graduation_year', 'country', 'source', 'status',
+  'name', 'email', 'phone', 'graduation_year', 'country', 'source',
 ]
 
 export function ContactsTable({
@@ -177,33 +176,6 @@ export function ContactsTable({
         )
       case 'created_at':
         return <span className="text-muted-foreground">{formatDate(contact.created_at)}</span>
-      case 'status':
-        return (
-          <div className="flex items-center gap-1.5">
-            <div
-              className={cn(
-                "p-1 rounded",
-                contact.email_subscribed !== false
-                  ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400"
-                  : "bg-red-100 dark:bg-red-900/40 text-red-500 dark:text-red-400"
-              )}
-              title={contact.email_subscribed !== false ? "Email subscribed" : "Email unsubscribed"}
-            >
-              <Mail className="h-3.5 w-3.5" />
-            </div>
-            <div
-              className={cn(
-                "p-1 rounded",
-                contact.sms_subscribed !== false
-                  ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400"
-                  : "bg-red-100 dark:bg-red-900/40 text-red-500 dark:text-red-400"
-              )}
-              title={contact.sms_subscribed !== false ? "SMS subscribed" : "SMS unsubscribed"}
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-            </div>
-          </div>
-        )
       case 'football_background':
       case 'academic_background':
       case 'degree_choice':
@@ -284,13 +256,12 @@ export function ContactsTable({
             </TableHead>
             {columns.map((col) => {
               const colWidth: Record<string, string> = {
-                name: 'w-[22%]',
-                email: 'w-[22%]',
-                phone: 'w-[14%]',
-                graduation_year: 'w-[9%]',
-                country: 'w-[13%]',
-                source: 'w-[11%]',
-                status: 'w-[7%]',
+                name: 'w-[24%]',
+                email: 'w-[24%]',
+                phone: 'w-[15%]',
+                graduation_year: 'w-[10%]',
+                country: 'w-[14%]',
+                source: 'w-[13%]',
               }
               return (
                 <TableHead

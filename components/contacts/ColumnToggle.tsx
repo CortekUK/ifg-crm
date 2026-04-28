@@ -27,7 +27,6 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: 'tags', label: 'Tags' },
   { key: 'source', label: 'Source' },
   { key: 'created_at', label: 'Date Created' },
-  { key: 'status', label: 'Status' },
   { key: 'football_background', label: 'Football BG' },
   { key: 'academic_background', label: 'Academic BG' },
   { key: 'degree_choice', label: 'Degree' },
@@ -37,7 +36,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
 ]
 
 export const DEFAULT_VISIBLE_COLUMNS = [
-  'name', 'email', 'phone', 'graduation_year', 'country', 'source', 'status',
+  'name', 'email', 'phone', 'graduation_year', 'country', 'source',
 ]
 
 const STORAGE_KEY = 'contacts-table-columns'

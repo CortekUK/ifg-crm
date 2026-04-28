@@ -61,13 +61,11 @@ function ContactsPageContent() {
 
   // Filter state
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
   const [programmeFilter, setProgrammeFilter] = useState('')
   const [countryFilter, setCountryFilter] = useState('')
   const [recruiterFilter, setRecruiterFilter] = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [positionFilter, setPositionFilter] = useState('')
-  const [ownerFilter, setOwnerFilter] = useState('')
   const [graduationYearFilter, setGraduationYearFilter] = useState('')
   const [genderFilter, setGenderFilter] = useState('')
   const [stateFilter, setStateFilter] = useState('')
@@ -87,15 +85,6 @@ function ContactsPageContent() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
-
-  // Current user ID
-  const [userId, setUserId] = useState<string | null>(null)
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUserId(data.user.id)
-    })
-  }, [])
 
   // Handle URL ?id= param from global search
   useEffect(() => {
@@ -119,13 +108,11 @@ function ContactsPageContent() {
 
   // Build filters object
   const filters = {
-    ...(statusFilter && statusFilter !== 'all' && { subscription_status: statusFilter }),
     ...(programmeFilter && programmeFilter !== 'all' && { pipeline_id: programmeFilter }),
     ...(countryFilter && countryFilter !== 'all' && { country: countryFilter }),
     ...(recruiterFilter && recruiterFilter !== 'all' && { recruiter_id: recruiterFilter }),
     ...(tagFilter && tagFilter !== 'all' && { tag_id: tagFilter }),
     ...(positionFilter && positionFilter !== 'all' && { position: positionFilter }),
-    ...(ownerFilter && ownerFilter !== 'all' && { owner_id: ownerFilter }),
     ...(graduationYearFilter && graduationYearFilter !== 'all' && { graduation_year: parseInt(graduationYearFilter) }),
     ...(genderFilter && genderFilter !== 'all' && { gender: genderFilter }),
     ...(stateFilter && stateFilter !== 'all' && { state: stateFilter }),
@@ -200,13 +187,11 @@ function ContactsPageContent() {
   // Handle filter clear
   const handleClearFilters = useCallback(() => {
     setSearch('')
-    setStatusFilter('')
     setProgrammeFilter('')
     setCountryFilter('')
     setRecruiterFilter('')
     setTagFilter('')
     setPositionFilter('')
-    setOwnerFilter('')
     setGraduationYearFilter('')
     setGenderFilter('')
     setStateFilter('')
@@ -289,12 +274,10 @@ function ContactsPageContent() {
         `first_name.ilike.%${debouncedSearch}%,last_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,phone.ilike.%${debouncedSearch}%`
       )
     }
-    if (filters.subscription_status) query = query.eq('subscription_status', filters.subscription_status)
     if (filters.graduation_year) query = query.eq('graduation_year', filters.graduation_year)
     if (filters.gender) query = query.eq('gender', filters.gender)
     if (filters.country) query = query.eq('country', filters.country)
     if (filters.position) query = query.eq('position', filters.position)
-    if (filters.owner_id) query = query.eq('owner_id', filters.owner_id)
     if (filters.state) query = query.eq('state', filters.state)
     if (filters.phone_prefix) {
       const p = filters.phone_prefix
@@ -461,11 +444,6 @@ function ContactsPageContent() {
           setSearch(value)
           setPage(1)
         }}
-        statusFilter={statusFilter}
-        onStatusFilterChange={(value) => {
-          setStatusFilter(value)
-          setPage(1)
-        }}
         programmeFilter={programmeFilter}
         onProgrammeFilterChange={(value) => {
           setProgrammeFilter(value)
@@ -491,11 +469,6 @@ function ContactsPageContent() {
           setPositionFilter(value)
           setPage(1)
         }}
-        ownerFilter={ownerFilter}
-        onOwnerFilterChange={(value) => {
-          setOwnerFilter(value)
-          setPage(1)
-        }}
         graduationYearFilter={graduationYearFilter}
         onGraduationYearFilterChange={(value) => {
           setGraduationYearFilter(value)
@@ -516,7 +489,6 @@ function ContactsPageContent() {
           setPhonePrefix(value)
           setPage(1)
         }}
-        userId={userId}
         onClearFilters={handleClearFilters}
         trailing={viewMode === 'list' ? (
           <ColumnToggle
