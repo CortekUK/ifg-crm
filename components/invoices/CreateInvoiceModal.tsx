@@ -445,6 +445,11 @@ export function CreateInvoiceModal({
                           setDueDate(date)
                           setDueDateOpen(false)
                         }}
+                        disabled={(date) => {
+                          const today = new Date()
+                          today.setHours(0, 0, 0, 0)
+                          return date < today
+                        }}
                         initialFocus
                       />
                     </PopoverContent>

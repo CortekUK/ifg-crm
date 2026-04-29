@@ -781,88 +781,103 @@ export function ConfigureAutomationModal({
                         </p>
 
                         {(formData.config.dynamic_list_rules || []).map((rule, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground shrink-0">When</span>
-                            <Select
-                              value={rule.field}
-                              onValueChange={(value) => {
-                                const rules = [...(formData.config.dynamic_list_rules || [])]
-                                rules[index] = { ...rules[index], field: value }
-                                setFormData(prev => ({
-                                  ...prev,
-                                  config: { ...prev.config, dynamic_list_rules: rules },
-                                }))
-                              }}
-                            >
-                              <SelectTrigger className="w-[140px] h-8">
-                                <SelectValue placeholder="Field" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="gender">Gender</SelectItem>
-                                <SelectItem value="graduation_year">Grad Year</SelectItem>
-                                <SelectItem value="country">Country</SelectItem>
-                                <SelectItem value="state">State</SelectItem>
-                                <SelectItem value="position">Position</SelectItem>
-                                <SelectItem value="sport">Sport</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <div
+                            key={index}
+                            className="rounded-lg border bg-slate-50/60 dark:bg-slate-900/40 p-3"
+                          >
+                            <div className="flex flex-wrap items-end gap-2">
+                              <div className="flex-1 min-w-[140px] space-y-1">
+                                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  When field
+                                </Label>
+                                <Select
+                                  value={rule.field}
+                                  onValueChange={(value) => {
+                                    const rules = [...(formData.config.dynamic_list_rules || [])]
+                                    rules[index] = { ...rules[index], field: value }
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      config: { ...prev.config, dynamic_list_rules: rules },
+                                    }))
+                                  }}
+                                >
+                                  <SelectTrigger className="h-9 w-full">
+                                    <SelectValue placeholder="Field" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="gender">Gender</SelectItem>
+                                    <SelectItem value="graduation_year">Grad Year</SelectItem>
+                                    <SelectItem value="country">Country</SelectItem>
+                                    <SelectItem value="state">State</SelectItem>
+                                    <SelectItem value="position">Position</SelectItem>
+                                    <SelectItem value="sport">Sport</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                            <span className="text-sm text-muted-foreground">=</span>
+                              <div className="flex-1 min-w-[120px] space-y-1">
+                                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Equals
+                                </Label>
+                                <Input
+                                  placeholder="Value"
+                                  className="h-9 w-full"
+                                  value={rule.value}
+                                  onChange={(e) => {
+                                    const rules = [...(formData.config.dynamic_list_rules || [])]
+                                    rules[index] = { ...rules[index], value: e.target.value }
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      config: { ...prev.config, dynamic_list_rules: rules },
+                                    }))
+                                  }}
+                                />
+                              </div>
 
-                            <Input
-                              placeholder="Value"
-                              className="w-[100px] h-8"
-                              value={rule.value}
-                              onChange={(e) => {
-                                const rules = [...(formData.config.dynamic_list_rules || [])]
-                                rules[index] = { ...rules[index], value: e.target.value }
-                                setFormData(prev => ({
-                                  ...prev,
-                                  config: { ...prev.config, dynamic_list_rules: rules },
-                                }))
-                              }}
-                            />
+                              <div className="flex-[2] min-w-[180px] space-y-1">
+                                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Add to list
+                                </Label>
+                                <Select
+                                  value={rule.list_id}
+                                  onValueChange={(value) => {
+                                    const rules = [...(formData.config.dynamic_list_rules || [])]
+                                    rules[index] = { ...rules[index], list_id: value }
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      config: { ...prev.config, dynamic_list_rules: rules },
+                                    }))
+                                  }}
+                                >
+                                  <SelectTrigger className="h-9 w-full">
+                                    <SelectValue placeholder="Select list" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {lists.map((list) => (
+                                      <SelectItem key={list.id} value={list.id}>
+                                        {list.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                            <span className="text-sm text-muted-foreground shrink-0">add to</span>
-
-                            <Select
-                              value={rule.list_id}
-                              onValueChange={(value) => {
-                                const rules = [...(formData.config.dynamic_list_rules || [])]
-                                rules[index] = { ...rules[index], list_id: value }
-                                setFormData(prev => ({
-                                  ...prev,
-                                  config: { ...prev.config, dynamic_list_rules: rules },
-                                }))
-                              }}
-                            >
-                              <SelectTrigger className="w-[150px] h-8">
-                                <SelectValue placeholder="Select list" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {lists.map((list) => (
-                                  <SelectItem key={list.id} value={list.id}>
-                                    {list.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-500 hover:text-red-700"
-                              onClick={() => {
-                                const rules = (formData.config.dynamic_list_rules || []).filter((_, i) => i !== index)
-                                setFormData(prev => ({
-                                  ...prev,
-                                  config: { ...prev.config, dynamic_list_rules: rules },
-                                }))
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                onClick={() => {
+                                  const rules = (formData.config.dynamic_list_rules || []).filter((_, i) => i !== index)
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    config: { ...prev.config, dynamic_list_rules: rules },
+                                  }))
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
 

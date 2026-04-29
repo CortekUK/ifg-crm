@@ -271,7 +271,7 @@ export function AutomationDetailSheet({
         ) : (
           <>
             <SheetHeader className="px-6 pt-6 pb-4 border-b bg-white dark:bg-slate-900 shrink-0">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-4 pr-10">
                 <div className="flex-1 min-w-0">
                   <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
                     {automation.name}
