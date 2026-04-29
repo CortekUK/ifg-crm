@@ -1,7 +1,7 @@
 // Supabase Edge Function: Process Automations
 // This function handles automation triggers, processes the queue, and checks exit conditions
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'1. 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
 import { sendSMS } from '../_shared/clicksend.ts'
