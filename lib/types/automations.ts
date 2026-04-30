@@ -54,6 +54,10 @@ export interface AutomationConfig {
   form_source?: 'activecampaign' | 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
   field_mappings?: FieldMappings
   initial_stage_id?: string
+  // For deal_creation: optional email to send immediately after the deal is
+  // created. Compiles to a send_email step that runs right after create_deal,
+  // so the contact gets a welcome/initial email the moment the form fires.
+  initial_email_template_id?: string | null
   // For sequences
   emails?: {
     step: number

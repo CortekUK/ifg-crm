@@ -479,33 +479,59 @@ export function ConfigureAutomationModal({
                     </div>
 
                     {selectedTemplate?.type === 'deal_creation' ? (
-                      <div className="space-y-2">
-                        <Label>Initial Stage</Label>
-                        <Select
-                          value={formData.config.initial_stage_id || ''}
-                          onValueChange={(value) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              config: { ...prev.config, initial_stage_id: value },
-                            }))
-                          }
-                          disabled={!formData.pipeline_id}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="First stage (default)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {stages.map((stage) => (
-                              <SelectItem key={stage.id} value={stage.id}>
-                                {stage.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          New deals will start in this stage (defaults to first stage)
-                        </p>
-                      </div>
+                      <>
+                        <div className="space-y-2">
+                          <Label>Initial Stage</Label>
+                          <Select
+                            value={formData.config.initial_stage_id || ''}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: { ...prev.config, initial_stage_id: value },
+                              }))
+                            }
+                            disabled={!formData.pipeline_id}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="First stage (default)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {stages.map((stage) => (
+                                <SelectItem key={stage.id} value={stage.id}>
+                                  {stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            New deals will start in this stage (defaults to first stage)
+                          </p>
+                        </div>
+
+                        {/* Welcome email — sent immediately after the deal is
+                            created. Optional; if blank the automation just
+                            creates the deal without sending anything. */}
+                        <div className="space-y-2">
+                          <Label>Welcome Email (sent on deal creation)</Label>
+                          <TemplateSearchSelect
+                            templates={templates}
+                            value={formData.config.initial_email_template_id || ''}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  initial_email_template_id: value || null,
+                                },
+                              }))
+                            }
+                            placeholder="No email — just create the deal"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Sent to the contact the moment their deal lands in the initial stage.
+                          </p>
+                        </div>
+                      </>
                     ) : selectedTemplate?.trigger_type === 'invoice_created' ||
                        selectedTemplate?.trigger_type === 'invoice_overdue' ||
                        selectedTemplate?.trigger_type === 'payment_received' ? (

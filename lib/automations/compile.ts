@@ -204,7 +204,16 @@ function depositInvoiceSequence(config: AutomationConfig | null | undefined): Co
 // lib/constants/automations.ts fails the build here until a compiler is
 // registered.
 export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
-  deal_creation: () => [createDealStep()],
+  // create_deal runs in the form webhook; the optional send_email step that
+  // follows fires the welcome/initial email once the cron picks the
+  // enrollment up. If no template is set we fall back to the legacy
+  // "create deal and stop" shape so existing automations are unchanged.
+  deal_creation: (config) => {
+    const initialEmailId = config?.initial_email_template_id
+    return initialEmailId
+      ? [createDealStep(), emailStep(initialEmailId)]
+      : [createDealStep()]
+  },
   list_assignment: () => [],
   initial_contact: (config) => threeEmailSequence(config),
   follow_up: (config) => threeEmailSequence(config, { finalStageId: config?.final_stage_id }),
