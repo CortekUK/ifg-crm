@@ -21,6 +21,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -31,7 +36,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Switch } from '@/components/ui/switch'
-import { Loader2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Pencil, Send, Mail, MessageSquare, TrendingUp } from 'lucide-react'
+import { Loader2, Plus, Trash2, GripVertical, Pencil, Send, Mail, MessageSquare, TrendingUp, Check } from 'lucide-react'
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
 import { useUpdatePipeline, useDeletePipeline, usePipelineCampaigns } from '@/lib/hooks/usePipelines'
 import { formatDate, formatNumber } from '@/lib/utils/format'
 import { usePipelineStages, useCreateStage, useUpdateStage, useDeleteStage, useReorderStages } from '@/lib/hooks/usePipelineStages'
@@ -45,19 +51,10 @@ interface PipelineSettingsModalProps {
   onClose: () => void
 }
 
-const STAGE_TYPES: Array<{ value: PipelineStage['stage_type']; label: string }> = [
-  { value: 'lead', label: 'Lead' },
-  { value: 'contact', label: 'Contact' },
-  { value: 'meeting', label: 'Meeting' },
-  { value: 'follow_up', label: 'Follow Up' },
-  { value: 'documents', label: 'Documents' },
-  { value: 'applied', label: 'Applied' },
-  { value: 'offer', label: 'Offer' },
-  { value: 'payment', label: 'Payment' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'lost', label: 'Lost' },
-  { value: 'dormant', label: 'Dormant' },
-]
+// stage_type is no longer exposed in the UI — new stages default to
+// 'contact' (a safe semantic match for most mid-pipeline stages). The
+// internal stage_type field still drives a few code paths (e.g. the
+// 'lost' bypass for backward-move confirmation in the kanban).
 
 const STAGE_COLORS = [
   '#3b82f6', // blue
@@ -86,7 +83,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
   // Stage editing state
   const [editingStage, setEditingStage] = useState<PipelineStage | null>(null)
   const [newStageName, setNewStageName] = useState('')
-  const [newStageType, setNewStageType] = useState<PipelineStage['stage_type']>('lead')
+  const [newStageType, setNewStageType] = useState<PipelineStage['stage_type']>('contact')
   const [newStageColor, setNewStageColor] = useState('#3b82f6')
   const [isAddingStage, setIsAddingStage] = useState(false)
   
@@ -239,7 +236,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
       })
 
       setNewStageName('')
-      setNewStageType('lead')
+      setNewStageType('contact')
       setNewStageColor('#3b82f6')
       setIsAddingStage(false)
     } catch (error) {
@@ -318,7 +315,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
     }
 
     const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    
+
     // Swap display orders
     const newStages = sortedStages.map((stage, index) => {
       if (index === currentIndex) {
@@ -334,6 +331,38 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
       await reorderStages.mutateAsync({
         pipelineId: pipeline.id,
         stages: newStages,
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to reorder stages',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Drag-and-drop reorder. We rebuild the display_order of every stage
+  // from its new index in the sorted list (rather than just swapping
+  // pairs) so the values stay contiguous and the user can drag any
+  // stage to any position in one move.
+  const handleStagesDragEnd = async (result: DropResult) => {
+    if (!pipeline) return
+    const { destination, source } = result
+    if (!destination) return
+    if (destination.index === source.index) return
+
+    const reordered = [...sortedStages]
+    const [moved] = reordered.splice(source.index, 1)
+    reordered.splice(destination.index, 0, moved)
+    const updates = reordered.map((stage, index) => ({
+      id: stage.id,
+      display_order: index,
+    }))
+
+    try {
+      await reorderStages.mutateAsync({
+        pipelineId: pipeline.id,
+        stages: updates,
       })
     } catch (error) {
       toast({
@@ -458,38 +487,45 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                 </div>
               ) : (
                 <>
-                  {/* Existing Stages */}
-                  <div className="space-y-2">
-                    {sortedStages.map((stage, index) => (
-                      <div
-                        key={stage.id}
-                        className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
-                      >
-                        <div className="flex flex-col gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={() => handleMoveStage(stage.id, 'up')}
-                            disabled={index === 0 || reorderStages.isPending}
-                          >
-                            <ChevronUp className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={() => handleMoveStage(stage.id, 'down')}
-                            disabled={index === sortedStages.length - 1 || reorderStages.isPending}
-                          >
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        
+                  {/* Existing Stages — drag the GripVertical handle to
+                      reorder. handleStagesDragEnd rewrites the
+                      display_order of every stage from its new index in
+                      the list. */}
+                  <DragDropContext onDragEnd={handleStagesDragEnd}>
+                    <Droppable droppableId="stages-list">
+                      {(provided) => (
                         <div
-                          className="w-4 h-4 rounded-full shrink-0"
-                          style={{ backgroundColor: stage.color }}
-                        />
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className="space-y-2"
+                        >
+                          {sortedStages.map((stage, index) => (
+                            <Draggable
+                              key={stage.id}
+                              draggableId={stage.id}
+                              index={index}
+                              isDragDisabled={reorderStages.isPending || !!editingStage}
+                            >
+                              {(dragProvided, snapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className={`flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg ${
+                                    snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''
+                                  }`}
+                                >
+                                  <div
+                                    {...dragProvided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+                                    aria-label="Drag to reorder"
+                                  >
+                                    <GripVertical className="h-4 w-4" />
+                                  </div>
+
+                                  <div
+                                    className="w-4 h-4 rounded-full shrink-0"
+                                    style={{ backgroundColor: stage.color }}
+                                  />
                         
                         {editingStage?.id === stage.id ? (
                           <div className="flex-1 space-y-2">
@@ -498,46 +534,45 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                               onChange={(e) => setEditingStage({ ...editingStage, name: e.target.value })}
                               className="h-8"
                             />
-                            <div className="flex gap-2">
-                              <Select
-                                value={editingStage.stage_type}
-                                onValueChange={(v) => setEditingStage({ ...editingStage, stage_type: v as PipelineStage['stage_type'] })}
-                              >
-                                <SelectTrigger className="h-8 flex-1">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {STAGE_TYPES.map((type) => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                      {type.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Select
-                                value={editingStage.color}
-                                onValueChange={(v) => setEditingStage({ ...editingStage, color: v })}
-                              >
-                                <SelectTrigger className="h-8 w-20">
-                                  <div
-                                    className="w-4 h-4 rounded-full"
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  type="button"
+                                  className="h-8 w-full justify-start gap-2 font-normal"
+                                >
+                                  <span
+                                    className="h-4 w-4 rounded-full shrink-0"
                                     style={{ backgroundColor: editingStage.color }}
                                   />
-                                </SelectTrigger>
-                                <SelectContent>
+                                  <span className="text-xs text-muted-foreground">Pick a colour</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-3" align="start">
+                                <div className="grid grid-cols-6 gap-2">
                                   {STAGE_COLORS.map((color) => (
-                                    <SelectItem key={color} value={color}>
-                                      <div className="flex items-center gap-2">
-                                        <div
-                                          className="w-4 h-4 rounded-full"
-                                          style={{ backgroundColor: color }}
-                                        />
-                                      </div>
-                                    </SelectItem>
+                                    <button
+                                      key={color}
+                                      type="button"
+                                      onClick={() => setEditingStage({ ...editingStage, color })}
+                                      className="h-7 w-7 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
+                                      style={{
+                                        backgroundColor: color,
+                                        boxShadow:
+                                          editingStage.color === color
+                                            ? `0 0 0 2px ${color}, 0 0 0 4px white`
+                                            : undefined,
+                                      }}
+                                      aria-label={`Pick colour ${color}`}
+                                    >
+                                      {editingStage.color === color && (
+                                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                                      )}
+                                    </button>
                                   ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
@@ -561,7 +596,6 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                           <>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-slate-900 dark:text-white">{stage.name}</p>
-                              <p className="text-xs text-muted-foreground">{stage.stage_type}</p>
                             </div>
                             <Button
                               variant="ghost"
@@ -581,11 +615,21 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                             </Button>
                           </>
                         )}
-                      </div>
-                    ))}
-                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
 
-                  {/* Add Stage Form */}
+                  {/* Add Stage Form. stage_type is hidden — defaults to
+                      'contact' which is a safe semantic match for most
+                      mid-pipeline stages. The colour picker is a clickable
+                      swatch grid (the previous shadcn Select-with-coloured-
+                      dots was confusing and click targets were tiny). */}
                   {isAddingStage ? (
                     <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
                       <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Add New Stage</h4>
@@ -594,45 +638,47 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                         onChange={(e) => setNewStageName(e.target.value)}
                         placeholder="Stage name"
                       />
-                      <div className="flex gap-2">
-                        <Select
-                          value={newStageType}
-                          onValueChange={(v) => setNewStageType(v as PipelineStage['stage_type'])}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Stage type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STAGE_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={newStageColor}
-                          onValueChange={setNewStageColor}
-                        >
-                          <SelectTrigger className="w-20">
-                            <div
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: newStageColor }}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STAGE_COLORS.map((color) => (
-                              <SelectItem key={color} value={color}>
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-4 h-4 rounded-full"
-                                    style={{ backgroundColor: color }}
-                                  />
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Colour</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              type="button"
+                              className="w-full justify-start gap-2 font-normal"
+                            >
+                              <span
+                                className="h-4 w-4 rounded-full shrink-0"
+                                style={{ backgroundColor: newStageColor }}
+                              />
+                              <span className="text-sm text-muted-foreground">Pick a colour</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-3" align="start">
+                            <div className="grid grid-cols-6 gap-2">
+                              {STAGE_COLORS.map((color) => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  onClick={() => setNewStageColor(color)}
+                                  className="h-7 w-7 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
+                                  style={{
+                                    backgroundColor: color,
+                                    boxShadow:
+                                      newStageColor === color
+                                        ? `0 0 0 2px ${color}, 0 0 0 4px white`
+                                        : undefined,
+                                  }}
+                                  aria-label={`Pick colour ${color}`}
+                                >
+                                  {newStageColor === color && (
+                                    <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -651,7 +697,7 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                           onClick={() => {
                             setIsAddingStage(false)
                             setNewStageName('')
-                            setNewStageType('lead')
+                            setNewStageType('contact')
                             setNewStageColor('#3b82f6')
                           }}
                           className="flex-1"

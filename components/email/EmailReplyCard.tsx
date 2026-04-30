@@ -50,7 +50,14 @@ export function EmailReplyCard({
   selected = false,
   onSelectChange,
 }: EmailReplyCardProps) {
-  const isMatched = reply.match_status === 'auto_matched' || reply.match_status === 'manually_matched'
+  // 'deal_created' replies have already been matched and converted to
+  // a deal — they're "more than matched", so the Match button should
+  // never reappear on them. Treat them the same as auto/manually
+  // matched for visibility rules.
+  const isMatched =
+    reply.match_status === 'auto_matched' ||
+    reply.match_status === 'manually_matched' ||
+    reply.match_status === 'deal_created'
   const isSpam = reply.match_status === 'spam'
   const intent = reply.ai_intent as EmailIntent | null
   const intentInfo = intent && intent !== 'unknown' ? intentConfig[intent] : null

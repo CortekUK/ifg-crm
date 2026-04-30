@@ -3,9 +3,10 @@
 import { cn } from '@/lib/utils'
 
 interface EmailReplyTabsProps {
-  activeTab: 'unmatched' | 'matched' | 'spam'
-  onTabChange: (tab: 'unmatched' | 'matched' | 'spam') => void
+  activeTab: 'all' | 'unmatched' | 'matched' | 'spam'
+  onTabChange: (tab: 'all' | 'unmatched' | 'matched' | 'spam') => void
   counts: {
+    all: number
     unmatched: number
     matched: number
     spam: number
@@ -14,6 +15,7 @@ interface EmailReplyTabsProps {
 
 export function EmailReplyTabs({ activeTab, onTabChange, counts }: EmailReplyTabsProps) {
   const tabs = [
+    { id: 'all' as const, label: 'All', count: counts.all, color: 'blue' },
     { id: 'unmatched' as const, label: 'Unmatched', count: counts.unmatched, color: 'red' },
     { id: 'matched' as const, label: 'Matched', count: counts.matched, color: 'green' },
     { id: 'spam' as const, label: 'Spam', count: counts.spam, color: 'gray' },

@@ -32,6 +32,7 @@ export interface EmailReply {
 }
 
 export interface EmailReplyCounts {
+  all: number
   unmatched: number
   matched: number
   spam: number

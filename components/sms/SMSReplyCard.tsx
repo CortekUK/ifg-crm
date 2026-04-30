@@ -39,7 +39,10 @@ export function SMSReplyCard({
   selected = false,
   onSelectChange,
 }: SMSReplyCardProps) {
-  const isMatched = message.match_status === 'auto_matched' || message.match_status === 'manually_matched'
+  const isMatched =
+    message.match_status === 'auto_matched' ||
+    message.match_status === 'manually_matched' ||
+    message.match_status === 'deal_created'
   const isSpam = message.match_status === 'spam'
   const intent = message.ai_intent || 'unknown'
   const intentInfo = intentConfig[intent]

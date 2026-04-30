@@ -52,16 +52,56 @@ function getOwnerInitials(owner: Deal['owner']): string {
   return owner.email.slice(0, 2).toUpperCase()
 }
 
-// Map of reply intent → left-bar colour. When a contact has replied and
-// the AI classified the reply, we use this colour instead of the
-// time-in-stage heuristic, because intent is a much stronger signal.
-const intentColours: Record<string, { color: string; label: string }> = {
-  positive: { color: 'bg-green-500', label: 'Positive reply' },
-  negative: { color: 'bg-red-500', label: 'Negative reply' },
-  question: { color: 'bg-amber-500', label: 'Has a question' },
-  neutral: { color: 'bg-slate-400', label: 'Neutral reply' },
-  unsubscribe: { color: 'bg-red-700', label: 'Unsubscribe' },
-  unknown: { color: 'bg-slate-400', label: 'Reply intent unknown' },
+// Reply-intent visual mapping. The same mapping drives both the
+// left-edge status bar and the small badge under the contact name, so
+// they're always in sync. Colours intentionally diverge from the
+// time-in-stage heuristic palette (which uses bg-green-500 etc.) so an
+// intent-driven card is visually distinct from a fresh "Hot" deal.
+const intentColours: Record<
+  string,
+  {
+    bar: string
+    badgeBg: string
+    badgeText: string
+    label: string
+  }
+> = {
+  positive: {
+    bar: 'bg-emerald-500',
+    badgeBg: 'bg-emerald-100 dark:bg-emerald-900/50',
+    badgeText: 'text-emerald-700 dark:text-emerald-300',
+    label: 'Positive',
+  },
+  negative: {
+    bar: 'bg-rose-500',
+    badgeBg: 'bg-rose-100 dark:bg-rose-900/50',
+    badgeText: 'text-rose-700 dark:text-rose-300',
+    label: 'Negative',
+  },
+  question: {
+    bar: 'bg-amber-500',
+    badgeBg: 'bg-amber-100 dark:bg-amber-900/50',
+    badgeText: 'text-amber-700 dark:text-amber-300',
+    label: 'Question',
+  },
+  neutral: {
+    bar: 'bg-slate-400',
+    badgeBg: 'bg-slate-100 dark:bg-slate-800',
+    badgeText: 'text-slate-700 dark:text-slate-300',
+    label: 'Neutral',
+  },
+  unsubscribe: {
+    bar: 'bg-rose-800',
+    badgeBg: 'bg-rose-100 dark:bg-rose-900/60',
+    badgeText: 'text-rose-800 dark:text-rose-200',
+    label: 'Unsubscribe',
+  },
+  unknown: {
+    bar: 'bg-slate-400',
+    badgeBg: 'bg-slate-100 dark:bg-slate-800',
+    badgeText: 'text-slate-700 dark:text-slate-300',
+    label: 'Unclassified',
+  },
 }
 
 // Determine status indicator color based on deal age/activity (or reply
@@ -75,7 +115,8 @@ function getStatusColor(deal: Deal): { color: string; label: string } {
   // set by the resend-inbound edge function when a matched reply is
   // classified.
   if (deal.intent && intentColours[deal.intent]) {
-    return intentColours[deal.intent]
+    const i = intentColours[deal.intent]
+    return { color: i.bar, label: `${i.label} reply` }
   }
 
   const timeInStage = deal.time_in_stage || 0
@@ -174,6 +215,22 @@ export function DealCard({ deal, index, onClick, isDragDisabled, compact = false
                   "font-medium truncate leading-tight",
                   compact ? "text-[11px]" : "text-sm"
                 )}>{contactName}</p>
+                {/* Reply intent badge — appears once a reply has been
+                    classified and assigned to this deal. Tells the
+                    recruiter at a glance whether the contact is
+                    interested, asking a question, or unsubscribing. */}
+                {deal.intent && intentColours[deal.intent] && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full font-semibold',
+                      intentColours[deal.intent].badgeBg,
+                      intentColours[deal.intent].badgeText,
+                      compact ? 'mt-0.5 px-1.5 text-[9px]' : 'mt-1 px-2 py-0.5 text-[10px]',
+                    )}
+                  >
+                    {intentColours[deal.intent].label}
+                  </span>
+                )}
                 <p className={cn(
                   "font-semibold text-green-600",
                   compact ? "text-[11px]" : "text-base mt-0.5"

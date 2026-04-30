@@ -27,6 +27,13 @@ import { useSMSMessages, useSMSMessageCounts } from '@/lib/hooks/useSMSMessages'
 // Smart Match & Smart Deal
 import { SmartMatchModal } from '@/components/replies/SmartMatchModal'
 import { SmartDealModal } from '@/components/replies/SmartDealModal'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 import { useMarkEmailAsSpam, useUnmarkEmailSpam } from '@/lib/hooks/useEmailReplies'
 import { useMarkSMSAsSpam } from '@/lib/hooks/useSMSMessages'
@@ -48,7 +55,11 @@ export default function RepliesPage() {
   // Email state — start on Matched tab when deep-linking from a stopped enrollment,
   // because reply-driven exits always come from already-matched replies.
   const [emailIntentFilter, setEmailIntentFilter] = useState<'all' | 'positive' | 'question' | 'negative' | 'neutral' | 'unknown'>('all')
-  const [emailTab, setEmailTab] = useState<'unmatched' | 'matched' | 'spam'>(
+  // Coarse filters: 'all' shows everything, 'none' shows replies with
+  // no campaign/pipeline at all, otherwise a specific id is matched.
+  const [emailCampaignFilter, setEmailCampaignFilter] = useState<string>('all')
+  const [emailPipelineFilter, setEmailPipelineFilter] = useState<string>('all')
+  const [emailTab, setEmailTab] = useState<'all' | 'unmatched' | 'matched' | 'spam'>(
     contactIdParam ? 'matched' : 'unmatched'
   )
   const [selectedEmail, setSelectedEmail] = useState<EmailReply | null>(null)
@@ -102,11 +113,50 @@ export default function RepliesPage() {
       : allEmailReplies,
     [contactIdParam, allEmailReplies]
   )
+  // Distinct campaigns + pipelines pulled from the currently-loaded
+  // replies, so the filter dropdowns only offer options that actually
+  // have matches in view.
+  const campaignOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of contactScopedReplies) {
+      if (r.campaign_id) {
+        map.set(r.campaign_id, r.campaign?.name || 'Untitled campaign')
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [contactScopedReplies])
+  const pipelineOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of contactScopedReplies) {
+      if (r.pipeline_id) {
+        map.set(r.pipeline_id, r.pipeline?.name || 'Untitled pipeline')
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [contactScopedReplies])
+
+  // Apply campaign + pipeline filters before the intent layer so the
+  // intent counts reflect only what's currently visible.
+  const filteredScopedReplies = useMemo(() => {
+    let rows = contactScopedReplies
+    if (emailCampaignFilter !== 'all') {
+      rows = rows.filter((r) =>
+        emailCampaignFilter === 'none' ? !r.campaign_id : r.campaign_id === emailCampaignFilter,
+      )
+    }
+    if (emailPipelineFilter !== 'all') {
+      rows = rows.filter((r) =>
+        emailPipelineFilter === 'none' ? !r.pipeline_id : r.pipeline_id === emailPipelineFilter,
+      )
+    }
+    return rows
+  }, [contactScopedReplies, emailCampaignFilter, emailPipelineFilter])
+
   // Counts per intent — drives the chip badges. 'unknown' bucket covers null
   // (never classified), the literal 'unknown' label, and anything else.
   const emailIntentCounts = useMemo(() => {
-    const counts = { all: contactScopedReplies.length, positive: 0, question: 0, negative: 0, neutral: 0, unknown: 0 }
-    for (const r of contactScopedReplies) {
+    const counts = { all: filteredScopedReplies.length, positive: 0, question: 0, negative: 0, neutral: 0, unknown: 0 }
+    for (const r of filteredScopedReplies) {
       const k = r.ai_intent ?? 'unknown'
       if (k === 'positive' || k === 'question' || k === 'negative' || k === 'neutral') {
         counts[k]++
@@ -115,18 +165,18 @@ export default function RepliesPage() {
       }
     }
     return counts
-  }, [contactScopedReplies])
+  }, [filteredScopedReplies])
   const emailReplies = useMemo(
     () => emailIntentFilter === 'all'
-      ? contactScopedReplies
-      : contactScopedReplies.filter((r) => {
+      ? filteredScopedReplies
+      : filteredScopedReplies.filter((r) => {
           const k = r.ai_intent ?? 'unknown'
           if (emailIntentFilter === 'unknown') {
             return k !== 'positive' && k !== 'question' && k !== 'negative' && k !== 'neutral'
           }
           return k === emailIntentFilter
         }),
-    [emailIntentFilter, contactScopedReplies]
+    [emailIntentFilter, filteredScopedReplies]
   )
   const smsMessages = smsMessagesQuery.data?.pages?.flat() || []
 
@@ -335,7 +385,7 @@ export default function RepliesPage() {
         {/* Email Tab */}
         <TabsContent value="email" className="space-y-6 mt-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <EmailReplyTabs activeTab={emailTab} onTabChange={setEmailTab} counts={emailCounts || { unmatched: 0, matched: 0, spam: 0 }} />
+            <EmailReplyTabs activeTab={emailTab} onTabChange={setEmailTab} counts={emailCounts || { all: 0, unmatched: 0, matched: 0, spam: 0 }} />
             {emailTab === 'unmatched' && emailReplies.length > 0 && (
               <div className="flex items-center gap-2">
                 <Button
@@ -360,18 +410,25 @@ export default function RepliesPage() {
                 </Button>
               </div>
             )}
-            {emailTab === 'matched' && emailReplies.length > 0 && (
+            {(emailTab === 'matched' || emailTab === 'all') && emailReplies.length > 0 && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const allIds = new Set(emailReplies.map(r => r.id))
-                    setSelectedEmailIds(allIds)
+                    // Smart Deal only operates on matched replies (it
+                    // needs a contact_id), so on the All tab we
+                    // pre-select only the matched ones to avoid a noisy
+                    // selection that includes unmatched/spam rows the
+                    // modal would have to filter out anyway.
+                    const eligibleIds = new Set(
+                      emailReplies.filter((r) => !!r.contact_id).map((r) => r.id),
+                    )
+                    setSelectedEmailIds(eligibleIds)
                   }}
                   className="shrink-0"
                 >
-                  Select All ({emailReplies.length})
+                  Select All ({emailReplies.filter((r) => !!r.contact_id).length})
                 </Button>
                 <Button
                   onClick={() => setSmartDealOpen(true)}
@@ -383,6 +440,53 @@ export default function RepliesPage() {
                   Smart Deal{selectedEmailIds.size > 0 ? ` (${selectedEmailIds.size})` : ''}
                 </Button>
               </div>
+            )}
+          </div>
+
+          {/* Coarse filters — campaign + pipeline. 'No campaign' /
+              'No pipeline' surface the orphan replies that previously
+              vanished after Smart Deal could not place them. */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={emailCampaignFilter} onValueChange={setEmailCampaignFilter}>
+              <SelectTrigger className="h-8 w-48 text-xs">
+                <SelectValue placeholder="All campaigns" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All campaigns</SelectItem>
+                <SelectItem value="none">No campaign</SelectItem>
+                {campaignOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={emailPipelineFilter} onValueChange={setEmailPipelineFilter}>
+              <SelectTrigger className="h-8 w-48 text-xs">
+                <SelectValue placeholder="All pipelines" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All pipelines</SelectItem>
+                <SelectItem value="none">No pipeline</SelectItem>
+                {pipelineOptions.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(emailCampaignFilter !== 'all' || emailPipelineFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground"
+                onClick={() => {
+                  setEmailCampaignFilter('all')
+                  setEmailPipelineFilter('all')
+                }}
+              >
+                Clear filters
+              </Button>
             )}
           </div>
 

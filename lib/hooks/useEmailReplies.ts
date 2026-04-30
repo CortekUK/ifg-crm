@@ -31,8 +31,11 @@ export interface CreateEmailReplyInput {
 
 const PAGE_SIZE = 20
 
-// Hook for fetching email replies by tab/status (for email-replies page)
-export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatched') {
+// Hook for fetching email replies by tab/status (for email-replies page).
+// 'all' returns every reply regardless of match_status — including
+// 'deal_created' replies that were promoted via Smart Deal, which would
+// otherwise vanish from the tabs entirely.
+export function useEmailReplies(tab: 'all' | 'unmatched' | 'matched' | 'spam' = 'unmatched') {
   const supabase = createClient()
 
   return useInfiniteQuery<EmailReplyType[]>({
@@ -58,6 +61,7 @@ export function useEmailReplies(tab: 'unmatched' | 'matched' | 'spam' = 'unmatch
       } else if (tab === 'spam') {
         query = query.eq('match_status', 'spam')
       }
+      // tab === 'all' — no filter, return everything
 
       const { data, error } = await query
 
@@ -111,6 +115,7 @@ export function useEmailReplyCounts(contactId?: string | null) {
       }
 
       const [
+        { count: all },
         { count: unmatched },
         { count: matched },
         { count: spam },
@@ -119,6 +124,10 @@ export function useEmailReplyCounts(contactId?: string | null) {
         { count: negative },
         { count: question },
       ] = await Promise.all([
+        // 'all' — every reply regardless of match_status, including
+        // 'deal_created' (promoted via Smart Deal), which the other
+        // tabs intentionally exclude.
+        scoped(),
         scoped().eq('match_status', 'unmatched'),
         scoped().in('match_status', ['auto_matched', 'manually_matched']),
         scoped().eq('match_status', 'spam'),
@@ -129,6 +138,7 @@ export function useEmailReplyCounts(contactId?: string | null) {
       ])
 
       return {
+        all: all || 0,
         unmatched: unmatched || 0,
         matched: matched || 0,
         spam: spam || 0,

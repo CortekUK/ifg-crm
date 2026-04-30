@@ -53,6 +53,9 @@ const intentConfig: Record<Exclude<EmailIntent, 'unknown'>, { label: string; col
 const statusConfig: Record<string, { label: string; className: string }> = {
   auto_matched: { label: 'Auto-matched', className: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700' },
   manually_matched: { label: 'Manually matched', className: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700' },
+  // Replies that were promoted into deals via Smart Deal. Visually
+  // strongest "matched" state since a deal exists for them.
+  deal_created: { label: 'Deal created', className: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700' },
   spam: { label: 'Spam', className: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700' },
   unmatched: { label: 'Unmatched', className: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700' },
 }
@@ -122,7 +125,12 @@ export function EmailDetailSheet({
     return email?.slice(0, 2).toUpperCase() || '??'
   }
 
-  const isMatched = reply.match_status === 'auto_matched' || reply.match_status === 'manually_matched'
+  // Treat deal_created the same as the other matched statuses — once a
+  // deal exists for the reply, the contact is definitely matched.
+  const isMatched =
+    reply.match_status === 'auto_matched' ||
+    reply.match_status === 'manually_matched' ||
+    reply.match_status === 'deal_created'
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>

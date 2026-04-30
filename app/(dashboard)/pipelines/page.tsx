@@ -23,6 +23,16 @@ import { ErrorState } from '@/components/ui/error-state'
 import { Button } from '@/components/ui/button'
 import { GitBranch, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 const PIPELINE_STORAGE_KEY = 'ifg-crm-selected-pipeline'
 const KANBAN_ZOOM_KEY = 'ifg-crm-kanban-zoom'
@@ -53,6 +63,16 @@ export default function PipelinesPage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const [createPipelineModalOpen, setCreatePipelineModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  // Backward stage moves get a confirmation popup — they auto-stop any
+  // active automation enrollment and may re-trigger the stage's
+  // automation again, which is a destructive enough operation to gate
+  // on a click.
+  const [pendingBackwardMove, setPendingBackwardMove] = useState<{
+    dealId: string
+    newStageId: string
+    oldStage: PipelineStage
+    newStage: PipelineStage
+  } | null>(null)
 
   // Fetch current user (with role)
   const { data: currentUser } = useCurrentUser()
@@ -220,6 +240,25 @@ export default function PipelinesPage() {
     async (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => {
       if (!selectedPipelineId) return
 
+      // List-view stage changes go through the same backward-confirmation
+      // gate as drag-drop. The kanban path already gates earlier, so by
+      // the time it calls handleStageChange the move is confirmed; only
+      // the list view triggers the dialog here.
+      const isBackward =
+        oldStage &&
+        newStage &&
+        newStage.display_order < oldStage.display_order &&
+        newStage.stage_type !== 'lost'
+      if (isBackward) {
+        setPendingBackwardMove({
+          dealId,
+          newStageId,
+          oldStage,
+          newStage,
+        })
+        return
+      }
+
       const supabase = createClient()
 
       // Auto-stop any active automation enrollments for this deal
@@ -245,6 +284,50 @@ export default function PipelinesPage() {
     },
     [executeMoveDeals, selectedPipelineId]
   )
+
+  // Confirm callback fired by the backward-move dialog. Bypasses the
+  // backward check (we know it's intentional) and runs the same DB
+  // updates handleStageChange would have done.
+  const confirmBackwardMove = useCallback(async () => {
+    if (!pendingBackwardMove || !selectedPipelineId) return
+    const { dealId, newStageId, oldStage, newStage } = pendingBackwardMove
+    setPendingBackwardMove(null)
+
+    const supabase = createClient()
+    const { data: activeEnrollments } = await supabase
+      .from('automation_enrollments')
+      .select('id')
+      .eq('deal_id', dealId)
+      .eq('status', 'active')
+
+    if (activeEnrollments && activeEnrollments.length > 0) {
+      await supabase
+        .from('automation_enrollments')
+        .update({
+          status: 'stopped',
+          stopped_reason: 'Auto-stopped on backward stage move',
+          next_step_at: null,
+        })
+        .in('id', activeEnrollments.map((e) => e.id))
+    }
+
+    // If we're moving to a stage that sits BEFORE Contact Response in
+    // this pipeline, wipe the deal's intent. Reasoning: the recruiter
+    // is re-running the outreach, so the previous reply's intent is
+    // stale context — the next reply needs to be classified fresh and
+    // the card shouldn't keep showing a green/red badge from a stale
+    // conversation. If there's no Contact Response stage configured we
+    // skip the wipe (no anchor to compare against).
+    const responseStage = stages.find((s) => s.name === 'Contact Response')
+    if (responseStage && newStage.display_order < responseStage.display_order) {
+      await supabase
+        .from('deals')
+        .update({ intent: null })
+        .eq('id', dealId)
+    }
+
+    executeMoveDeals(dealId, newStageId, oldStage.name, newStage.name)
+  }, [pendingBackwardMove, selectedPipelineId, executeMoveDeals, stages])
 
   // Check if current user can move a specific deal
   const canMoveDeal = useCallback(
@@ -286,6 +369,27 @@ export default function PipelinesPage() {
 
         const oldStage = stages.find((s) => s.id === source.droppableId)
         const newStage = stages.find((s) => s.id === destination.droppableId)
+
+        // Backward move (lower display_order) → confirmation gate.
+        // Skip the gate when the destination is "Lost" (stage_type='lost')
+        // since dropping a deal into Lost is a deliberate finishing
+        // action, not a regression.
+        const isBackward =
+          oldStage &&
+          newStage &&
+          newStage.display_order < oldStage.display_order &&
+          newStage.stage_type !== 'lost'
+
+        if (isBackward) {
+          setPendingBackwardMove({
+            dealId: draggableId,
+            newStageId: destination.droppableId,
+            oldStage,
+            newStage,
+          })
+          return
+        }
+
         await handleStageChange(draggableId, destination.droppableId, oldStage, newStage)
       }
     },
@@ -482,6 +586,64 @@ export default function PipelinesPage() {
         isOpen={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
       />
+
+      {/* Backward stage move confirmation. The deal will be moved
+          backwards in the pipeline, any active automation enrollment
+          will be stopped, and the destination stage's automation (if
+          any) will re-trigger via the on_deal_stage_change DB trigger.
+          That second part is the real reason we gate this — re-firing
+          a sequence on a deal that already finished it is rarely
+          intended, so make the user confirm. */}
+      <AlertDialog
+        open={!!pendingBackwardMove}
+        onOpenChange={(open) => {
+          if (!open) setPendingBackwardMove(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move deal backwards?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingBackwardMove ? (
+                <>
+                  This will move the deal from{' '}
+                  <strong>{pendingBackwardMove.oldStage.name}</strong> back to{' '}
+                  <strong>{pendingBackwardMove.newStage.name}</strong>.
+                  <br />
+                  <br />
+                  Any active automation on this deal will be stopped, and any
+                  automation attached to{' '}
+                  <strong>{pendingBackwardMove.newStage.name}</strong> will
+                  re-trigger from the start.
+                  {(() => {
+                    const responseStage = stages.find((s) => s.name === 'Contact Response')
+                    if (
+                      responseStage &&
+                      pendingBackwardMove.newStage.display_order < responseStage.display_order
+                    ) {
+                      return (
+                        <>
+                          <br />
+                          <br />
+                          The deal's reply intent tag will be cleared so the
+                          next reply is classified fresh.
+                        </>
+                      )
+                    }
+                    return null
+                  })()}
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBackwardMove}>
+              Move and re-trigger
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   )

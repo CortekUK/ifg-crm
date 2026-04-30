@@ -39,6 +39,7 @@ const intentConfig: Record<SMSIntent, { label: string; color: string }> = {
 const statusConfig: Record<string, { label: string; className: string }> = {
   auto_matched: { label: 'Auto-matched', className: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700' },
   manually_matched: { label: 'Manually matched', className: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700' },
+  deal_created: { label: 'Deal created', className: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700' },
   spam: { label: 'Spam', className: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700' },
   unmatched: { label: 'Unmatched', className: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700' },
 }
@@ -69,7 +70,10 @@ export function SMSDetailSheet({
     ? `${message.contact.first_name} ${message.contact.last_name}`
     : formatPhoneNumber(message.phone_number)
 
-  const isMatched = message.match_status === 'auto_matched' || message.match_status === 'manually_matched'
+  const isMatched =
+    message.match_status === 'auto_matched' ||
+    message.match_status === 'manually_matched' ||
+    message.match_status === 'deal_created'
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
