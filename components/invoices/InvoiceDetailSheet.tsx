@@ -85,18 +85,20 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
   const handleSend = async () => {
     if (!invoiceId) return
     try {
-      // Send invoice with payment link email
+      // Send invoice with payment link email. If the email send fails we
+      // surface the error and keep the invoice in 'draft' so the user can
+      // retry — silently flipping to 'sent' was hiding broken sends.
       const res = await fetch(`/api/invoices/${invoiceId}/send-with-link`, {
         method: 'POST',
       })
       const data = await res.json()
 
       if (!res.ok) {
-        // Fallback to just marking as sent if email fails
-        await updateStatus.mutateAsync({ invoiceId, status: 'sent' })
         toast({
-          title: 'Invoice marked as sent',
-          description: data.error || 'Email could not be sent but invoice status updated.',
+          title: 'Failed to send invoice',
+          description:
+            data.error ||
+            'Email could not be sent. Invoice kept as draft — please retry or check your email/Stripe configuration.',
           variant: 'destructive',
         })
         return
@@ -109,7 +111,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
     } catch {
       toast({
         title: 'Failed to send invoice',
-        description: 'Something went wrong. Please try again.',
+        description: 'Something went wrong. Invoice kept as draft — please try again.',
         variant: 'destructive',
       })
     }

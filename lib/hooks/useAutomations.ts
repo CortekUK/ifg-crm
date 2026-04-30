@@ -43,38 +43,72 @@ export function useAutomations() {
         return []
       }
 
-      // Fetch trigger stages and enrollment counts in parallel
+      // Fetch trigger stages, enrollments, and logs in parallel.
+      // Enrollment count = total all-time, not just active (so the column doesn't
+      // drop back to 0 once a deal completes the sequence).
+      // In-queue = active enrollments with a next step scheduled.
+      // Last run = max sent_at across all logs whose step belongs to the automation.
       const triggerStageIds = data
         .map((a) => a.trigger_stage_id)
         .filter((id): id is string => !!id)
       const automationIds = data.map((a) => a.id)
+      const allStepIds = data.flatMap((a) =>
+        ((a.steps as { id: string }[] | null) || []).map((s) => s.id)
+      )
+      const stepToAutomation = new Map<string, string>()
+      data.forEach((a) =>
+        ((a.steps as { id: string }[] | null) || []).forEach((s) =>
+          stepToAutomation.set(s.id, a.id)
+        )
+      )
 
-      const [{ data: enrollmentCounts }, stagesResult] = await Promise.all([
+      const [enrollmentsResult, stagesResult, logsResult] = await Promise.all([
         supabase
           .from('automation_enrollments')
-          .select('automation_id')
-          .in('automation_id', automationIds)
-          .eq('status', 'active'),
+          .select('automation_id, status, next_step_at')
+          .in('automation_id', automationIds),
         triggerStageIds.length > 0
           ? supabase.from('pipeline_stages').select('id, name').in('id', triggerStageIds)
           : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        allStepIds.length > 0
+          ? supabase
+              .from('automation_logs')
+              .select('step_id, sent_at')
+              .in('step_id', allStepIds)
+              .not('sent_at', 'is', null)
+              .order('sent_at', { ascending: false })
+          : Promise.resolve({ data: [] as { step_id: string; sent_at: string }[] }),
       ])
 
-      // Count enrollments per automation
-      const enrollmentCountMap = new Map<string, number>()
-      enrollmentCounts?.forEach((e) => {
-        const count = enrollmentCountMap.get(e.automation_id) || 0
-        enrollmentCountMap.set(e.automation_id, count + 1)
+      const totalEnrolledMap = new Map<string, number>()
+      const inQueueMap = new Map<string, number>()
+      enrollmentsResult.data?.forEach((e) => {
+        totalEnrolledMap.set(e.automation_id, (totalEnrolledMap.get(e.automation_id) || 0) + 1)
+        if (e.status === 'active' && e.next_step_at) {
+          inQueueMap.set(e.automation_id, (inQueueMap.get(e.automation_id) || 0) + 1)
+        }
+      })
+
+      const lastRunMap = new Map<string, string>()
+      logsResult.data?.forEach((log) => {
+        const automationId = stepToAutomation.get(log.step_id)
+        if (!automationId) return
+        const existing = lastRunMap.get(automationId)
+        if (!existing || log.sent_at > existing) {
+          lastRunMap.set(automationId, log.sent_at)
+        }
       })
 
       const stageMap = new Map(stagesResult.data?.map((s) => [s.id, s]) || [])
 
       return data.map((automation) => ({
         ...automation,
-        trigger_stage: automation.trigger_stage_id 
-          ? stageMap.get(automation.trigger_stage_id) || null 
+        trigger_stage: automation.trigger_stage_id
+          ? stageMap.get(automation.trigger_stage_id) || null
           : null,
-        total_enrolled: enrollmentCountMap.get(automation.id) || 0,
+        total_enrolled: totalEnrolledMap.get(automation.id) || 0,
+        total_in_queue: inQueueMap.get(automation.id) || 0,
+        last_run_at: lastRunMap.get(automation.id) || null,
       }))
     },
   })

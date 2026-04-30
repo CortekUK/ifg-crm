@@ -76,6 +76,13 @@ export interface AutomationConfig {
   date_field?: 'programme_start_date' | 'interview_date' | 'arrival_date'
   // For payment-related automations
   stop_on_payment?: boolean
+  // Deposit Invoice automations: where the deal lands in two outcomes.
+  //   paid_stage_id   — moved here when an invoice on the deal becomes
+  //                     'paid' and stop_on_payment fires.
+  //   unpaid_stage_id — moved here if the entire reminder sequence
+  //                     completes without a paid invoice.
+  paid_stage_id?: string | null
+  unpaid_stage_id?: string | null
   // For single-email automations
   single_template_id?: string
   // For notifications
@@ -84,12 +91,27 @@ export interface AutomationConfig {
   notify_admin?: boolean
   // For welcome sequence
   create_portal_account?: boolean
+  // Welcome Sequence: when the player activates their portal account
+  // (sets their password — profiles.password_set_at IS NOT NULL), the
+  // enrollment exits and the deal moves to this stage. Optional; if
+  // unset, the automation just runs to the end of its email list.
+  activated_stage_id?: string | null
   // For list assignment (static + dynamic)
   static_list_ids?: string[]
   dynamic_list_rules?: {
     field: string
     value: string
     list_id: string
+  }[]
+  // For meeting_scheduler:
+  // 1. Send schedule_email_template_id immediately when the trigger fires.
+  // 2. For each entry in reminders[], wait until that many hours/days
+  //    before deals.interview_date, then send template_id.
+  schedule_email_template_id?: string
+  reminders?: {
+    template_id: string
+    before_value: number
+    before_unit: 'hours' | 'days'
   }[]
 }
 
@@ -301,14 +323,15 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     }
   },
   {
-    id: 'interview_reminder',
-    name: 'Interview Reminder',
-    description: 'Send reminder email 24 hours before scheduled interview',
-    type: 'interview_reminder',
+    id: 'meeting_scheduler',
+    name: 'Meeting Scheduler',
+    description: 'Send a booking link when the trigger fires, then up to 2 reminders before the meeting (hours or days before).',
+    type: 'meeting_scheduler',
     trigger_type: 'enters_stage',
     default_steps: [
-      { step_type: 'wait', delay_hours: 0, description: 'Wait until 24h before interview' },
-      { step_type: 'send_email', description: 'Send interview reminder with meeting link' }
+      { step_type: 'send_email', description: 'Send schedule-meeting link' },
+      { step_type: 'wait_until_before_date', description: 'Wait until X before interview_date' },
+      { step_type: 'send_email', description: 'Reminder (optional)' }
     ],
     configurable: {
       emails: true,
@@ -338,9 +361,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
   {
     id: 'deposit_invoice',
     name: 'Deposit Invoice & Reminder',
-    description: 'Send deposit invoice with payment link, then follow-up reminders until paid',
+    description: 'Send deposit invoice with payment link, then follow-up reminders until paid. Fires automatically when an invoice is sent for a deal in this pipeline.',
     type: 'deposit_invoice',
-    trigger_type: 'enters_stage',
+    trigger_type: 'invoice_created',
     default_steps: [
       { step_type: 'send_email', description: 'Send deposit invoice with payment link' },
       { step_type: 'wait', delay_days: 3, description: 'Wait 3 days' },

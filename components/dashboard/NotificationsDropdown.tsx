@@ -183,7 +183,11 @@ export function NotificationsDropdown() {
               variant="ghost"
               size="sm"
               className="w-full text-xs text-gray-500"
-              onClick={() => clearAll.mutate()}
+              onClick={() =>
+                clearAll.mutate(undefined, {
+                  onSuccess: () => setOpen(false),
+                })
+              }
               disabled={clearAll.isPending}
             >
               {clearAll.isPending ? 'Clearing...' : 'Clear all notifications'}

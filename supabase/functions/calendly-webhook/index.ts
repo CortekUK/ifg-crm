@@ -267,8 +267,18 @@ async function handleInviteeCreated(
 
   console.log('Created Calendly event:', createdEvent?.id)
 
-  // If we have a deal, log the activity
+  // If we have a deal, propagate the meeting start to deals.interview_date
+  // so the meeting_scheduler automation can fire its reminders relative to
+  // it. log the activity, and consider auto-moving the deal stage.
   if (dealId) {
+    const { error: dealUpdateError } = await supabase
+      .from('deals')
+      .update({ interview_date: eventData.start_time })
+      .eq('id', dealId)
+    if (dealUpdateError) {
+      console.error('Failed to update deal.interview_date:', dealUpdateError)
+    }
+
     await supabase.from('deal_activities').insert({
       deal_id: dealId,
       activity_type: 'meeting_scheduled',

@@ -39,7 +39,7 @@ import { CalendarIcon, Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
-import { useContactDeals, useCreateInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
+import { useContactDeals, useCreateInvoice } from '@/lib/hooks/useInvoices'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
 import type { InvoiceType, InvoiceRecipientType } from '@/lib/types/invoices'
@@ -86,7 +86,6 @@ export function CreateInvoiceModal({
   const { data: contacts = [], isLoading: contactsLoading } = useSearchContacts(debouncedSearch)
   const { data: deals = [] } = useContactDeals(selectedContactId)
   const createInvoice = useCreateInvoice()
-  const updateStatus = useUpdateInvoiceStatus()
 
   // Check which deals already have an active invoice linked
   const [dealsWithInvoice, setDealsWithInvoice] = useState<Set<string>>(new Set())
@@ -112,6 +111,18 @@ export function CreateInvoiceModal({
 
   // Filter deals: hide ones that already have an active invoice
   const availableDeals = deals.filter(d => !dealsWithInvoice.has(d.id))
+
+  // Auto-link the contact's most recent unlinked deal so the invoice
+  // doesn't slip out with deal_id=null. Without this the auto-move-to-
+  // Invoice-Sent stage and the deposit_invoice automation never fire.
+  // Runs whenever the candidate set changes; only sets a value if the
+  // user hasn't already chosen something.
+  useEffect(() => {
+    if (selectedDealId === null && availableDeals.length > 0) {
+      setSelectedDealId(availableDeals[0].id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableDeals.map((d) => d.id).join(',')])
 
   // Reset form when modal opens
   useEffect(() => {
@@ -192,29 +203,56 @@ export function CreateInvoiceModal({
         created_by_id: userId,
       })
 
-      if (sendNow && invoice) {
-        try {
-          const res = await fetch(`/api/invoices/${invoice.id}/send-with-link`, {
-            method: 'POST',
-          })
-          const data = await res.json()
-          if (!res.ok) {
-            // Fallback to just marking as sent
-            await updateStatus.mutateAsync({ invoiceId: invoice.id, status: 'sent' })
-          }
-        } catch {
-          await updateStatus.mutateAsync({ invoiceId: invoice.id, status: 'sent' })
-        }
+      // Close the modal first so the user gets immediate feedback, then
+      // resolve the send-email step in the background and toast the
+      // outcome (success or failure) afterwards. Previously we awaited
+      // the send before closing, which left the modal frozen for several
+      // seconds while Resend/Stripe replied.
+      const recipientName = selectedContactName
+      const invoiceNumber = invoice?.invoice_number || ''
+      onClose()
+
+      if (!sendNow || !invoice) {
+        toast({
+          title: 'Invoice created',
+          description: 'Invoice saved as draft.',
+        })
+        return
       }
 
+      // Show optimistic toast, then update with the real outcome.
       toast({
-        title: sendNow ? 'Invoice sent' : 'Invoice created',
-        description: sendNow
-          ? `Invoice ${invoice?.invoice_number || ''} sent to ${selectedContactName} with payment link.`
-          : `Invoice saved as draft.`,
+        title: 'Sending invoice…',
+        description: `Sending ${invoiceNumber} to ${recipientName} with payment link.`,
       })
 
-      onClose()
+      let sendError: string | null = null
+      try {
+        const res = await fetch(`/api/invoices/${invoice.id}/send-with-link`, {
+          method: 'POST',
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          sendError =
+            data.error ||
+            `Email could not be sent (HTTP ${res.status}). Invoice kept as draft.`
+        }
+      } catch {
+        sendError = 'Email send failed (network error). Invoice kept as draft.'
+      }
+
+      if (sendError) {
+        toast({
+          title: 'Invoice created — email failed',
+          description: sendError + ' You can retry from the invoice detail view.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Invoice sent',
+          description: `Invoice ${invoiceNumber} sent to ${recipientName} with payment link.`,
+        })
+      }
     } catch (error) {
       toast({
         title: 'Failed to create invoice',
@@ -231,7 +269,7 @@ export function CreateInvoiceModal({
     parseFloat(amount) > 0 &&
     dueDate
 
-  const isSubmitting = createInvoice.isPending || updateStatus.isPending
+  const isSubmitting = createInvoice.isPending
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -270,7 +308,11 @@ export function CreateInvoiceModal({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] p-0">
-                    <Command>
+                    {/* shouldFilter=false disables cmdk's client-side scoring,
+                        so we rely on the server-side filter from
+                        useSearchContacts. Without this, cmdk's fuzzy match
+                        rejects rows the server already validated. */}
+                    <Command shouldFilter={false}>
                       <CommandInput
                         placeholder="Search contacts..."
                         value={contactSearch}
@@ -493,7 +535,7 @@ export function CreateInvoiceModal({
                 <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Discount / Scholarship</Label>
                 <div className="flex gap-2">
                   <Select value={discountType} onValueChange={(v) => setDiscountType(v as 'none' | 'percentage' | 'fixed')}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-[170px] shrink-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

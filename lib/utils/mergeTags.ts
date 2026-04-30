@@ -15,7 +15,7 @@ export type MergeTagData = CoreMergeTagData
 export interface MergeTagDefinition {
   tag: string
   label: string
-  category: 'contact' | 'deal' | 'owner' | 'custom'
+  category: 'contact' | 'deal' | 'owner' | 'meeting' | 'custom'
   description: string
   example: string
 }
@@ -120,6 +120,46 @@ export const MERGE_TAGS: MergeTagDefinition[] = [
     description: 'Email signature of the deal owner',
     example: 'Best regards,\nNathan',
   },
+
+  // Meeting / Calendly tags. {{schedule_link}} is the recruiter's Calendly
+  // booking page (use this for "Schedule Your Meeting" CTAs). The other
+  // four come from the deal's most recent booked Calendly event and are
+  // ideal for reminder emails sent before the meeting.
+  {
+    tag: '{{schedule_link}}',
+    label: 'Schedule Link',
+    category: 'meeting',
+    description: 'Recruiter\'s Calendly booking link (for "schedule a meeting" CTAs)',
+    example: 'https://calendly.com/nathan/30min',
+  },
+  {
+    tag: '{{meeting_link}}',
+    label: 'Meeting Join Link',
+    category: 'meeting',
+    description: 'Live Google Meet/Zoom link for the booked meeting',
+    example: 'https://meet.google.com/xyz-abc-def',
+  },
+  {
+    tag: '{{meeting_time}}',
+    label: 'Meeting Time',
+    category: 'meeting',
+    description: 'Booked meeting date and time, formatted human-readable',
+    example: 'Mon, 15 Jan 2026 at 3:00 PM',
+  },
+  {
+    tag: '{{interview_date}}',
+    label: 'Interview Date',
+    category: 'meeting',
+    description: 'Deal\'s interview date (set by Calendly booking or manually)',
+    example: 'Mon, 15 Jan 2026 at 3:00 PM',
+  },
+  {
+    tag: '{{meeting_event_name}}',
+    label: 'Meeting Event Name',
+    category: 'meeting',
+    description: 'Name of the Calendly event type (e.g. "30 Minute Meeting")',
+    example: '30 Minute Meeting',
+  },
 ]
 
 /**
@@ -143,6 +183,7 @@ export function getCategoryLabel(category: string): string {
     contact: 'Contact',
     deal: 'Deal',
     owner: 'Deal Owner',
+    meeting: 'Meeting',
     custom: 'Custom',
   }
   return labels[category] || category
@@ -170,6 +211,11 @@ export function previewMergeTags(template: string): string {
     deal_owner_phone: '+44 7700 900456',
     deal_owner_calendly: 'https://calendly.com/nathan-ifg',
     deal_owner_signature: 'Best regards,<br>Nathan Recruiter<br>International Football Group',
+    schedule_link: 'https://calendly.com/nathan-ifg/30min',
+    meeting_link: 'https://meet.google.com/xyz-abc-def',
+    meeting_time: 'Mon, 15 Jan 2026 at 3:00 PM',
+    interview_date: 'Mon, 15 Jan 2026 at 3:00 PM',
+    meeting_event_name: '30 Minute Meeting',
   }
   
   return replaceMergeTags(template, sampleData)

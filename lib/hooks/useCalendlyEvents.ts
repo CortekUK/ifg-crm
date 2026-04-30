@@ -156,44 +156,112 @@ export function useCalendlyConnectionStatus() {
  */
 export function useConnectCalendly() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (params: {
       accessToken: string
       webhookSecret?: string
     }) => {
       const supabase = createClient()
-      
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
-      
-      // Fetch Calendly user info to get the user URI
-      const response = await fetch('https://api.calendly.com/users/me', {
+
+      // 1. Fetch Calendly user info to get the user URI + scheduling URL.
+      const meResponse = await fetch('https://api.calendly.com/users/me', {
         headers: {
           'Authorization': `Bearer ${params.accessToken}`,
           'Content-Type': 'application/json',
         },
       })
-      
-      if (!response.ok) {
-        const error = await response.json()
+
+      if (!meResponse.ok) {
+        const error = await meResponse.json().catch(() => ({}))
         throw new Error(error.message || 'Failed to connect to Calendly')
       }
-      
-      const calendlyUser = await response.json()
-      
-      // Update profile with Calendly scheduling link
-      const schedulingUrl = calendlyUser.resource.scheduling_url
+
+      const calendlyUser = await meResponse.json()
+      const userUri = calendlyUser.resource.uri as string
+      const schedulingUrl = calendlyUser.resource.scheduling_url as string | null
+
+      // Calendly scopes webhook subscriptions to a (user, organization)
+      // pair. Both URIs come from /users/me.
+      const orgUri = calendlyUser.resource.current_organization as string
+
+      // 2. Register a webhook subscription so events actually flow to us.
+      // It's OK if one already exists — Calendly returns 409 in that case
+      // and we just keep going with whatever URI they send back.
+      const webhookUrl =
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/calendly-webhook`
+
+      const subBody: Record<string, unknown> = {
+        url: webhookUrl,
+        events: ['invitee.created', 'invitee.canceled'],
+        organization: orgUri,
+        user: userUri,
+        scope: 'user',
+      }
+      if (params.webhookSecret) {
+        subBody.signing_key = params.webhookSecret
+      }
+
+      let webhookUri: string | null = null
+      const subResponse = await fetch('https://api.calendly.com/webhook_subscriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${params.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(subBody),
+      })
+
+      if (subResponse.ok) {
+        const sub = await subResponse.json()
+        webhookUri = sub.resource?.uri ?? null
+      } else if (subResponse.status === 409) {
+        // Already subscribed for this user → fetch the existing one so we
+        // store its URI for clean disconnect later.
+        const listUrl = new URL('https://api.calendly.com/webhook_subscriptions')
+        listUrl.searchParams.set('organization', orgUri)
+        listUrl.searchParams.set('user', userUri)
+        listUrl.searchParams.set('scope', 'user')
+        const listResp = await fetch(listUrl.toString(), {
+          headers: { 'Authorization': `Bearer ${params.accessToken}` },
+        })
+        if (listResp.ok) {
+          const list = await listResp.json()
+          const ours = (list.collection || []).find(
+            (s: { callback_url?: string }) => s.callback_url === webhookUrl,
+          )
+          webhookUri = ours?.uri ?? null
+        }
+      } else {
+        const error = await subResponse.json().catch(() => ({}))
+        throw new Error(
+          error.message || `Failed to register webhook (HTTP ${subResponse.status})`,
+        )
+      }
+
+      // 3. Persist everything we'll need later: the scheduling URL for
+      // merge tags + the user URI (so the webhook can look up which
+      // recruiter owns an incoming event) + the access token (so we can
+      // tear down the webhook on disconnect) + the subscription URI itself.
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ calendly_url: schedulingUrl || null })
+        .update({
+          calendly_url: schedulingUrl,
+          calendly_user_uri: userUri,
+          calendly_access_token: params.accessToken,
+          calendly_webhook_uri: webhookUri,
+        })
         .eq('id', user.id)
 
       if (updateError) throw updateError
 
       return {
         connected: true,
-        user_name: calendlyUser.resource.name,
+        user_name: calendlyUser.resource.name as string,
+        webhook_registered: !!webhookUri,
       }
     },
     onSuccess: () => {
@@ -203,23 +271,48 @@ export function useConnectCalendly() {
 }
 
 /**
- * Disconnect Calendly account
+ * Disconnect Calendly account. Best-effort: try to delete the webhook
+ * subscription on Calendly's side, then clear all four columns regardless.
+ * If the API call fails we don't block disconnect — the user can clean up
+ * the orphan subscription manually if it matters.
  */
 export function useDisconnectCalendly() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async () => {
       const supabase = createClient()
-      
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
-      
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('calendly_access_token, calendly_webhook_uri')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.calendly_access_token && profile.calendly_webhook_uri) {
+        try {
+          await fetch(profile.calendly_webhook_uri, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${profile.calendly_access_token}` },
+          })
+        } catch (err) {
+          console.warn('Failed to delete Calendly webhook subscription:', err)
+        }
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({ calendly_url: null })
+        .update({
+          calendly_url: null,
+          calendly_user_uri: null,
+          calendly_access_token: null,
+          calendly_webhook_uri: null,
+        })
         .eq('id', user.id)
-      
+
       if (error) throw error
     },
     onSuccess: () => {

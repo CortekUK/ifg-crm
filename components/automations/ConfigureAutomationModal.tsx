@@ -182,6 +182,10 @@ export function ConfigureAutomationModal({
           .filter((s) => s.step_type === 'wait')
           .map((s) => s.delay_days || 3),
         round_robin_users: template.configurable.round_robin ? [] : undefined,
+        // meeting_scheduler manages its own completion (enrollment ends
+        // when the booked meeting is over). Replies to reminders are
+        // expected, so don't bail on the first one.
+        exit_on_reply: template.type === 'meeting_scheduler' ? false : prev.config.exit_on_reply,
       },
     }))
     setStep('configure')
@@ -203,6 +207,8 @@ export function ConfigureAutomationModal({
       case 'application_received':
         return <FileCheck className="h-5 w-5" />
       case 'interview_reminder':
+        return <Video className="h-5 w-5" />
+      case 'meeting_scheduler':
         return <Video className="h-5 w-5" />
       case 'post_interview':
         return <MessageSquare className="h-5 w-5" />
@@ -232,6 +238,8 @@ export function ConfigureAutomationModal({
       case 'application_received':
         return 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-400'
       case 'interview_reminder':
+        return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
+      case 'meeting_scheduler':
         return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
       case 'post_interview':
         return 'bg-teal-100 dark:bg-teal-900/50 text-teal-600 dark:text-teal-400'
@@ -496,6 +504,21 @@ export function ConfigureAutomationModal({
                         </Select>
                         <p className="text-xs text-muted-foreground">
                           New deals will start in this stage (defaults to first stage)
+                        </p>
+                      </div>
+                    ) : selectedTemplate?.trigger_type === 'invoice_created' ||
+                       selectedTemplate?.trigger_type === 'invoice_overdue' ||
+                       selectedTemplate?.trigger_type === 'payment_received' ? (
+                      <div className="space-y-2">
+                        <Label>Trigger</Label>
+                        <p className="text-sm text-muted-foreground bg-muted/50 rounded-md p-3">
+                          Fires automatically when{' '}
+                          {selectedTemplate.trigger_type === 'invoice_created'
+                            ? 'an invoice is sent'
+                            : selectedTemplate.trigger_type === 'invoice_overdue'
+                            ? 'an invoice goes overdue'
+                            : 'a payment is received'}{' '}
+                          for a deal in this pipeline. No stage selection needed.
                         </p>
                       </div>
                     ) : (
@@ -943,8 +966,184 @@ export function ConfigureAutomationModal({
                   </>
                 )}
 
+                {/* Meeting Scheduler — replaces the generic Workflow Steps
+                    section because the shape (1 schedule email + N reminders
+                    relative to a future deal date) doesn't fit the
+                    emails+wait_days[] config used elsewhere. */}
+                {selectedTemplate?.type === 'meeting_scheduler' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                        Meeting Flow
+                      </h3>
+
+                      <div className="space-y-2">
+                        <Label>Schedule meeting email *</Label>
+                        <TemplateSearchSelect
+                          templates={templates}
+                          value={formData.config.schedule_email_template_id || ''}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, schedule_email_template_id: value },
+                            }))
+                          }
+                          placeholder="Select template that contains the booking link"
+                          className="h-9"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Sent immediately when the trigger fires. The reminders
+                          below fire relative to the meeting date the player
+                          picks (saved on the deal as <code>interview_date</code>).
+                        </p>
+                      </div>
+
+                      <Separator className="my-2" />
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Reminders (optional, max 2)</Label>
+                          {(formData.config.reminders?.length || 0) < 2 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    reminders: [
+                                      ...(prev.config.reminders || []),
+                                      { template_id: '', before_value: 1, before_unit: 'days' },
+                                    ],
+                                  },
+                                }))
+                              }
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1" /> Add reminder
+                            </Button>
+                          )}
+                        </div>
+
+                        {(formData.config.reminders || []).length === 0 && (
+                          <p className="text-xs text-muted-foreground italic">
+                            No reminders configured — the schedule email alone will be sent.
+                          </p>
+                        )}
+
+                        {(formData.config.reminders || []).map((reminder, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-lg border p-3 space-y-2 bg-gray-50 dark:bg-slate-800/50"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                Reminder {idx + 1}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-red-600 hover:text-red-700"
+                                onClick={() =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    config: {
+                                      ...prev.config,
+                                      reminders: (prev.config.reminders || []).filter((_, i) => i !== idx),
+                                    },
+                                  }))
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-xs">Template</Label>
+                              <TemplateSearchSelect
+                                templates={templates}
+                                value={reminder.template_id}
+                                onValueChange={(value) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    config: {
+                                      ...prev.config,
+                                      reminders: (prev.config.reminders || []).map((r, i) =>
+                                        i === idx ? { ...r, template_id: value } : r,
+                                      ),
+                                    },
+                                  }))
+                                }
+                                placeholder="Select reminder template"
+                                className="h-9"
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Send</span>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={365}
+                                className="w-20 h-9"
+                                value={reminder.before_value}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    config: {
+                                      ...prev.config,
+                                      reminders: (prev.config.reminders || []).map((r, i) =>
+                                        i === idx
+                                          ? { ...r, before_value: Math.max(1, parseInt(e.target.value) || 1) }
+                                          : r,
+                                      ),
+                                    },
+                                  }))
+                                }
+                              />
+                              <Select
+                                value={reminder.before_unit}
+                                onValueChange={(value: 'hours' | 'days') =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    config: {
+                                      ...prev.config,
+                                      reminders: (prev.config.reminders || []).map((r, i) =>
+                                        i === idx ? { ...r, before_unit: value } : r,
+                                      ),
+                                    },
+                                  }))
+                                }
+                              >
+                                <SelectTrigger className="w-28 h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="hours">hours</SelectItem>
+                                  <SelectItem value="days">days</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <span className="text-sm text-muted-foreground">before meeting</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {!formData.config.schedule_email_template_id && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-2">
+                          <AlertTriangle className="h-3 w-3" />
+                          Pick a schedule meeting email to enable saving
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+
                 {/* Email & Wait Configuration */}
-                {selectedTemplate?.configurable.emails && (
+                {selectedTemplate?.configurable.emails && selectedTemplate?.type !== 'meeting_scheduler' && (
                   <>
                     <Separator />
                     <div className="space-y-4">
@@ -1065,8 +1264,97 @@ export function ConfigureAutomationModal({
                   </>
                 )}
 
+                {/* deposit_invoice: two outcomes, two destinations.
+                    - Paid stage: deal moves here when an invoice flips to 'paid'.
+                    - Unpaid stage: deal moves here if all reminders fire
+                      and still no invoice was paid. */}
+                {selectedTemplate?.type === 'deposit_invoice' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                        Outcome Stages
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Where the deal should land in each outcome.
+                      </p>
+
+                      <div className="space-y-2">
+                        <Label>Move deal here when invoice is paid</Label>
+                        <Select
+                          value={formData.config.paid_stage_id || ''}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, paid_stage_id: value || null },
+                            }))
+                          }
+                          disabled={!formData.pipeline_id}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select paid stage (e.g. Deposit Paid)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stages.map((stage) => (
+                              <SelectItem key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Move deal here if all reminders sent without payment</Label>
+                        <Select
+                          value={formData.config.unpaid_stage_id || ''}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, unpaid_stage_id: value || null },
+                            }))
+                          }
+                          disabled={!formData.pipeline_id}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select unpaid stage (e.g. Lost / Overdue)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stages.map((stage) => (
+                              <SelectItem key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* meeting_scheduler has a built-in exit condition (the
+                    enrollment completes naturally after the booked meeting
+                    ends), so the generic exit-on-reply / stage-based exit
+                    UI doesn't apply. Show a short note instead. */}
+                {selectedTemplate?.type === 'meeting_scheduler' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                        Completion
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        This automation finishes automatically once all reminders
+                        have been sent <strong>and</strong> the booked meeting time
+                        has passed. If the player never books a meeting, the
+                        enrollment stays parked indefinitely until they do.
+                      </p>
+                    </div>
+                  </>
+                )}
+
                 {/* Exit Conditions */}
-                {selectedTemplate?.configurable.exit_stages && (
+                {selectedTemplate?.configurable.exit_stages && selectedTemplate?.type !== 'meeting_scheduler' && (
                   <>
                     <Separator />
                     <div className="space-y-4">
@@ -1291,6 +1579,37 @@ export function ConfigureAutomationModal({
                       <p className="text-xs text-muted-foreground">
                         A portal account will be created for the player and login details will be included in the welcome email
                       </p>
+
+                      {/* Activation exit: when the player sets their
+                          password, exit this automation and move the deal
+                          to the chosen stage. Optional. */}
+                      <div className="space-y-2 pt-2">
+                        <Label>When player activates portal, move deal to</Label>
+                        <Select
+                          value={formData.config.activated_stage_id || ''}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, activated_stage_id: value || null },
+                            }))
+                          }
+                          disabled={!formData.pipeline_id}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select activated stage (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stages.map((stage) => (
+                              <SelectItem key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          If set, the automation exits as soon as the player sets their portal password and the deal moves to this stage.
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}
@@ -1382,8 +1701,16 @@ export function ConfigureAutomationModal({
                 disabled={
                   !formData.name ||
                   (selectedTemplate?.type !== 'list_assignment' && !formData.pipeline_id) ||
-                  (selectedTemplate?.type !== 'deal_creation' && selectedTemplate?.type !== 'list_assignment' && !formData.trigger_stage_id) ||
+                  (selectedTemplate?.type !== 'deal_creation' &&
+                    selectedTemplate?.type !== 'list_assignment' &&
+                    selectedTemplate?.trigger_type !== 'invoice_created' &&
+                    selectedTemplate?.trigger_type !== 'invoice_overdue' &&
+                    selectedTemplate?.trigger_type !== 'payment_received' &&
+                    !formData.trigger_stage_id) ||
+                  (selectedTemplate?.type === 'meeting_scheduler' &&
+                    !formData.config.schedule_email_template_id) ||
                   (selectedTemplate?.configurable.emails &&
+                    selectedTemplate?.type !== 'meeting_scheduler' &&
                     !formData.config.emails?.some(e => e.template_id))
                 }
                 className="bg-blue-600 hover:bg-blue-700"

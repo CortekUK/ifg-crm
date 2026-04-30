@@ -40,6 +40,7 @@ interface AutomationStep {
   email_template_id: string | null
   sms_content: string | null
   target_stage_id: string | null
+  conditions: Record<string, unknown> | null
 }
 
 interface AutomationEnrollment {
@@ -86,6 +87,14 @@ const waitStepHandler: StepHandler = async () => {
 const stepHandlers: Record<StepType, StepHandler> = {
   send_email: (s, e, st, sum) => processEmailStep(s, e, st, sum),
   wait: waitStepHandler,
+  // wait_until_before_date is realised entirely via next_step_at, so the
+  // step itself has no side effect when its time arrives — it just advances
+  // to the next step (typically a send_email).
+  wait_until_before_date: waitStepHandler,
+  // wait_until_meeting_ends is the final marker step on meeting_scheduler
+  // automations. It schedules itself for the booked meeting's end_time so
+  // the enrollment completes naturally only after the meeting is over.
+  wait_until_meeting_ends: waitStepHandler,
   send_sms: (s, e, st, sum) => processSMSStep(s, e, st, sum),
   move_to_stage: (s, e, st, sum) => processMoveToStageStep(s, e, st, sum),
   create_deal: noopStepHandler,
@@ -404,6 +413,10 @@ async function processQueue(
   // resolved.
   await sweepStalePending(supabase)
 
+  // Unstick any enrollments parked on a wait_until_before_date step whose
+  // deal date is now populated.
+  await sweepBeforeDateWaits(supabase, summary)
+
   const now = new Date().toISOString()
 
   // Get enrollments ready to process
@@ -447,12 +460,16 @@ async function processQueue(
           .single()
 
         if (firstStep) {
+          // Recovery path: first step almost always has an immediate or
+          // fixed delay; if it happens to be wait_until_before_date and we
+          // can't resolve it here, leave next_step_at null so the sweep
+          // picks it up.
           const nextStepAt = calculateNextStepTime(firstStep as AutomationStep)
           await supabase
             .from('automation_enrollments')
             .update({
               current_step_id: firstStep.id,
-              next_step_at: nextStepAt.toISOString(),
+              next_step_at: nextStepAt ? nextStepAt.toISOString() : null,
             })
             .eq('id', enrollment.id)
           console.log(`Recovered enrollment ${enrollment.id} - reset to first step`)
@@ -528,7 +545,56 @@ async function processQueue(
           .eq('id', enrollment.automation_id)
           .single()
 
-        const stopOnPayment = (automationMeta?.config as { stop_on_payment?: boolean } | null)?.stop_on_payment === true
+        const automationCfg = automationMeta?.config as {
+          stop_on_payment?: boolean
+          paid_stage_id?: string | null
+          unpaid_stage_id?: string | null
+          activated_stage_id?: string | null
+        } | null
+
+        // Welcome Sequence — exit + stage move once the player has
+        // activated their portal account (profiles.password_set_at set).
+        // Looked up via the deal's contact: profiles row joined on
+        // contact_id. This runs before stepping so a player who just
+        // activated doesn't receive the next email in the sequence.
+        if (automationCfg?.activated_stage_id) {
+          const { data: dealRow } = await supabase
+            .from('deals')
+            .select('contact_id')
+            .eq('id', enrollment.deal_id)
+            .single()
+          if (dealRow?.contact_id) {
+            const { data: portalProfile } = await supabase
+              .from('profiles')
+              .select('password_set_at')
+              .eq('contact_id', dealRow.contact_id)
+              .eq('role', 'player')
+              .maybeSingle()
+            if (portalProfile?.password_set_at) {
+              await supabase
+                .from('deals')
+                .update({
+                  current_stage_id: automationCfg.activated_stage_id,
+                  stage_changed_at: new Date().toISOString(),
+                })
+                .eq('id', enrollment.deal_id)
+              await supabase.from('deal_activities').insert({
+                deal_id: enrollment.deal_id,
+                activity_type: 'stage_changed',
+                description: 'Auto-moved to activated stage by welcome_sequence automation (player activated portal)',
+                metadata: {
+                  automation_id: enrollment.automation_id,
+                  reason: 'portal_activated',
+                },
+              })
+              summary.stagesMoved++
+              await stopEnrollment(supabase, enrollment, 'Player portal activated')
+              summary.enrollmentsStopped++
+              continue
+            }
+          }
+        }
+        const stopOnPayment = automationCfg?.stop_on_payment === true
         if (stopOnPayment) {
           const { data: paidInvoices } = await supabase
             .from('invoices')
@@ -538,6 +604,28 @@ async function processQueue(
             .limit(1)
 
           if (paidInvoices && paidInvoices.length > 0) {
+            // If the user configured a "paid" landing stage on this
+            // automation, move the deal there before stopping. Logged via
+            // deal_activities so the stage move is auditable.
+            if (automationCfg?.paid_stage_id) {
+              await supabase
+                .from('deals')
+                .update({
+                  current_stage_id: automationCfg.paid_stage_id,
+                  stage_changed_at: new Date().toISOString(),
+                })
+                .eq('id', enrollment.deal_id)
+              await supabase.from('deal_activities').insert({
+                deal_id: enrollment.deal_id,
+                activity_type: 'stage_changed',
+                description: 'Auto-moved to paid stage by deposit_invoice automation',
+                metadata: {
+                  automation_id: enrollment.automation_id,
+                  reason: 'deposit_paid',
+                },
+              })
+              summary.stagesMoved++
+            }
             await stopEnrollment(supabase, enrollment, 'Deposit paid')
             summary.enrollmentsStopped++
             console.log(`Stopped enrollment ${enrollment.id} - deposit invoice paid`)
@@ -585,15 +673,41 @@ async function processQueue(
         }
 
         if (nextStep) {
-          // Calculate next execution time based on step delays
-          const nextStepAt = calculateNextStepTime(nextStep)
+          // For date-relative wait steps, fetch the source data so
+          // calculateNextStepTime can resolve the offset. For other step
+          // types these lookups are unused but cheap.
+          let dealFields: Record<string, unknown> | null = null
+          let meetingEndTime: string | null = null
+          if (nextStep.step_type === 'wait_until_before_date') {
+            const { data: dealRow } = await supabase
+              .from('deals')
+              .select('interview_date, programme_start_date, arrival_date')
+              .eq('id', enrollment.deal_id)
+              .single()
+            dealFields = dealRow as Record<string, unknown> | null
+          }
+          if (nextStep.step_type === 'wait_until_meeting_ends') {
+            const { data: meetingRow } = await supabase
+              .from('calendly_events')
+              .select('end_time')
+              .eq('deal_id', enrollment.deal_id)
+              .eq('status', 'scheduled')
+              .order('start_time', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            meetingEndTime = meetingRow?.end_time ?? null
+          }
+          const nextStepAt = calculateNextStepTime(nextStep, dealFields, meetingEndTime)
 
-          // Update enrollment with next step
+          // Update enrollment with next step. If nextStepAt is null
+          // (wait_until_before_date with no field set), park the
+          // enrollment — sweepBeforeDateWaits() will unstick it once the
+          // deal field is populated.
           const { error: updateError } = await supabase
             .from('automation_enrollments')
             .update({
               current_step_id: nextStep.id,
-              next_step_at: nextStepAt.toISOString(),
+              next_step_at: nextStepAt ? nextStepAt.toISOString() : null,
             })
             .eq('id', enrollment.id)
 
@@ -615,6 +729,41 @@ async function processQueue(
             summary.errors.push(`Failed to complete enrollment ${enrollment.id}: ${completeError.message}`)
           } else {
             summary.enrollmentsCompleted++
+          }
+
+          // Deposit-invoice flow specifically: if all reminders fired and
+          // no invoice ever flipped to 'paid', move the deal to the
+          // configured "unpaid" landing stage. We re-check paid status
+          // here (rather than trusting the earlier check) because an
+          // invoice could have been paid since the last cron tick.
+          if (automationCfg?.unpaid_stage_id) {
+            const { data: paidNow } = await supabase
+              .from('invoices')
+              .select('id')
+              .eq('deal_id', enrollment.deal_id)
+              .eq('status', 'paid')
+              .limit(1)
+
+            const noPayment = !paidNow || paidNow.length === 0
+            if (noPayment) {
+              await supabase
+                .from('deals')
+                .update({
+                  current_stage_id: automationCfg.unpaid_stage_id,
+                  stage_changed_at: new Date().toISOString(),
+                })
+                .eq('id', enrollment.deal_id)
+              await supabase.from('deal_activities').insert({
+                deal_id: enrollment.deal_id,
+                activity_type: 'stage_changed',
+                description: 'Auto-moved to unpaid stage by deposit_invoice automation (sequence completed without payment)',
+                metadata: {
+                  automation_id: enrollment.automation_id,
+                  reason: 'no_payment_after_sequence',
+                },
+              })
+              summary.stagesMoved++
+            }
           }
         }
       } catch (lockErr) {
@@ -662,7 +811,7 @@ async function processEmailStep(
     // Fetch deal first (without joins - they don't work reliably)
     const { data: deal, error: dealError } = await supabase
       .from('deals')
-      .select('id, title, contact_id, deal_owner_id, owner_id')
+      .select('id, title, contact_id, deal_owner_id, owner_id, interview_date')
       .eq('id', enrollment.deal_id)
       .single()
 
@@ -731,6 +880,28 @@ async function processEmailStep(
       return
     }
 
+    // Look up the deal's most recent scheduled Calendly meeting so reminder
+    // templates can render the live join link, time, and event name. Best-
+    // effort — if the deal has no booked meeting yet, the merge tags fall
+    // back to whatever default the template author specified.
+    let meeting: {
+      start_time: string
+      join_url: string | null
+      event_name: string | null
+      location: string | null
+    } | null = null
+    {
+      const { data: meetingData } = await supabase
+        .from('calendly_events')
+        .select('start_time, join_url, event_name, location')
+        .eq('deal_id', deal.id)
+        .eq('status', 'scheduled')
+        .order('start_time', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (meetingData) meeting = meetingData as typeof meeting
+    }
+
     // Replace merge tags in subject and body
     const mergeData: Record<string, string | number | boolean | null | undefined> = {
       // Contact fields
@@ -749,6 +920,13 @@ async function processEmailStep(
       parent_email: contact.parent_email || null,
       // Deal fields
       deal_title: deal.title || '',
+      interview_date: deal.interview_date ? formatMeetingDate(deal.interview_date) : null,
+      // Meeting (Calendly) fields
+      schedule_link: owner?.calendly_url || null,
+      meeting_link: meeting?.join_url || null,
+      meeting_time: meeting?.start_time ? formatMeetingDate(meeting.start_time) : null,
+      meeting_event_name: meeting?.event_name || null,
+      meeting_location: meeting?.location || null,
       // Owner fields
       deal_owner_name: owner?.full_name || 'The Team',
       deal_owner_email: owner?.email || '',
@@ -1353,20 +1531,158 @@ async function stopEnrollment(
 }
 
 /**
- * Calculate when the next step should execute
+ * Format a meeting date/time for human-readable rendering inside emails.
+ * Returns e.g. "Mon, 15 Jan 2026 at 3:00 PM". Falls back to the raw ISO
+ * if the input can't be parsed (so the merge still produces something).
  */
-function calculateNextStepTime(step: AutomationStep): Date {
+function formatMeetingDate(iso: string): string {
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
+    return d.toLocaleString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+  } catch {
+    return iso
+  }
+}
+
+/**
+ * Calculate when the next step should execute.
+ *
+ * For most step types, this is "now + delay". For wait_until_before_date,
+ * it's "<deal field value> - delay" — used to schedule reminders relative
+ * to a future date stored on the deal (e.g. interview_date).
+ *
+ * Returns null for wait_until_before_date when the deal's field hasn't
+ * been set yet; the caller stores that as a parked enrollment which
+ * sweepBeforeDateWaits() will revisit on later cron runs.
+ */
+function calculateNextStepTime(
+  step: AutomationStep,
+  dealFields?: Record<string, unknown> | null,
+  meetingEndTime?: string | null,
+): Date | null {
+  if (step.step_type === 'wait_until_before_date') {
+    const field = (step.conditions as { field?: string } | null)?.field
+    if (!field || !dealFields) return null
+    const raw = dealFields[field]
+    if (!raw || typeof raw !== 'string') return null
+    const target = new Date(raw)
+    if (isNaN(target.getTime())) return null
+    const offsetMs =
+      (step.delay_days || 0) * 24 * 60 * 60 * 1000 +
+      (step.delay_hours || 0) * 60 * 60 * 1000
+    return new Date(target.getTime() - offsetMs)
+  }
+
+  if (step.step_type === 'wait_until_meeting_ends') {
+    if (!meetingEndTime) return null
+    const target = new Date(meetingEndTime)
+    if (isNaN(target.getTime())) return null
+    // delay_days/hours act as a positive buffer here ("wait N hours after
+    // the meeting ends before completing"). Default 0 = complete as soon
+    // as the meeting end time has passed.
+    const bufferMs =
+      (step.delay_days || 0) * 24 * 60 * 60 * 1000 +
+      (step.delay_hours || 0) * 60 * 60 * 1000
+    return new Date(target.getTime() + bufferMs)
+  }
+
   const now = new Date()
   const delayMs =
     (step.delay_days || 0) * 24 * 60 * 60 * 1000 +
     (step.delay_hours || 0) * 60 * 60 * 1000
+  if (delayMs === 0) return now
+  return new Date(now.getTime() + delayMs)
+}
 
-  // If no delay, execute immediately
-  if (delayMs === 0) {
-    return now
+/**
+ * Re-check enrollments parked on a date-relative wait step whose
+ * `next_step_at` is NULL because the source data wasn't available when we
+ * advanced. Two flavours:
+ *   - wait_until_before_date: parked because deals.<field> was null.
+ *   - wait_until_meeting_ends: parked because no calendly_events row yet
+ *     for this deal (or its end_time hadn't been written).
+ * If the source data is set now, compute next_step_at and unstick.
+ */
+async function sweepBeforeDateWaits(
+  supabase: ReturnType<typeof createClient>,
+  summary: ProcessingSummary,
+) {
+  const { data: parked, error } = await supabase
+    .from('automation_enrollments')
+    .select('id, deal_id, current_step_id')
+    .eq('status', 'active')
+    .is('next_step_at', null)
+    .not('current_step_id', 'is', null)
+
+  if (error) {
+    summary.errors.push(`Sweep: failed to fetch parked enrollments: ${error.message}`)
+    return
+  }
+  if (!parked || parked.length === 0) return
+
+  const stepIds = [...new Set(parked.map((e) => e.current_step_id).filter(Boolean) as string[])]
+  if (stepIds.length === 0) return
+
+  const { data: steps } = await supabase
+    .from('automation_steps')
+    .select('id, step_type, delay_days, delay_hours, conditions')
+    .in('id', stepIds)
+    .in('step_type', ['wait_until_before_date', 'wait_until_meeting_ends'])
+
+  if (!steps || steps.length === 0) return
+
+  const stepMap = new Map(steps.map((s) => [s.id, s]))
+  const dealIds = [...new Set(parked.map((e) => e.deal_id))]
+
+  const { data: deals } = await supabase
+    .from('deals')
+    .select('id, interview_date, programme_start_date, arrival_date')
+    .in('id', dealIds)
+  const dealMap = new Map((deals || []).map((d) => [d.id, d]))
+
+  // Fetch the most recent scheduled meeting per deal in one round-trip.
+  // We pull all candidates and reduce to one-per-deal in JS rather than
+  // running N separate queries.
+  const { data: meetings } = await supabase
+    .from('calendly_events')
+    .select('deal_id, start_time, end_time')
+    .in('deal_id', dealIds)
+    .eq('status', 'scheduled')
+    .order('start_time', { ascending: false })
+  const meetingByDeal = new Map<string, string>()
+  for (const m of meetings || []) {
+    if (m.deal_id && !meetingByDeal.has(m.deal_id) && m.end_time) {
+      meetingByDeal.set(m.deal_id, m.end_time)
+    }
   }
 
-  return new Date(now.getTime() + delayMs)
+  for (const enrollment of parked) {
+    if (!enrollment.current_step_id) continue
+    const step = stepMap.get(enrollment.current_step_id)
+    if (!step) continue
+    const deal = dealMap.get(enrollment.deal_id)
+    const meetingEnd = meetingByDeal.get(enrollment.deal_id) ?? null
+    const nextAt = calculateNextStepTime(
+      step as AutomationStep,
+      deal as Record<string, unknown> | undefined,
+      meetingEnd,
+    )
+    if (!nextAt) continue
+    await supabase
+      .from('automation_enrollments')
+      .update({ next_step_at: nextAt.toISOString() })
+      .eq('id', enrollment.id)
+      .is('next_step_at', null) // only if still parked
+  }
 }
 
 /**

@@ -15,7 +15,14 @@ import type { AutomationType } from '@/lib/constants/automations'
 import type { AutomationConfig } from '@/lib/types/automations'
 
 export interface CompiledStep {
-  step_type: 'send_email' | 'wait' | 'send_sms' | 'move_to_stage' | 'create_deal'
+  step_type:
+    | 'send_email'
+    | 'wait'
+    | 'wait_until_before_date'
+    | 'wait_until_meeting_ends'
+    | 'send_sms'
+    | 'move_to_stage'
+    | 'create_deal'
   delay_days: number
   delay_hours: number
   email_template_id: string | null
@@ -76,6 +83,27 @@ function moveToStageStep(targetStageId: string): CompiledStep {
   }
 }
 
+// "Wait until N hours/days before <field>" step. Resolved to a concrete
+// next_step_at by the processor at scheduling time, by reading the deal's
+// `field` value and subtracting (delay_days*24h + delay_hours*1h) from it.
+// If the field isn't set yet, the enrollment is parked (next_step_at NULL)
+// and re-checked on each cron run by sweepBeforeDateWaits().
+function waitUntilBeforeDateStep(
+  field: string,
+  beforeValue: number,
+  beforeUnit: 'hours' | 'days',
+): CompiledStep {
+  return {
+    step_type: 'wait_until_before_date',
+    delay_days: beforeUnit === 'days' ? beforeValue : 0,
+    delay_hours: beforeUnit === 'hours' ? beforeValue : 0,
+    email_template_id: null,
+    sms_content: null,
+    target_stage_id: null,
+    conditions: { field },
+  }
+}
+
 // Shared shape used by initial_contact and follow_up: 3 emails interleaved
 // with 2 waits, with optional final move_to_stage for follow_up.
 // Uses `||` (not `??`) for wait fallbacks to match the legacy behaviour
@@ -121,6 +149,39 @@ function variableEmailSequence(config: AutomationConfig | null | undefined): Com
   return steps
 }
 
+// meeting_scheduler: send a "schedule your meeting" email immediately when
+// the trigger fires, then for each configured reminder (max 2) emit a
+// wait_until_before_date step + a send_email step. Reminders fire relative
+// to deals.interview_date once it's set by the player's booking flow.
+function meetingSchedulerSequence(
+  config: AutomationConfig | null | undefined,
+): CompiledStep[] {
+  const scheduleTemplateId = config?.schedule_email_template_id || null
+  const reminders = (config?.reminders || []).filter(
+    (r) => r.template_id && r.before_value > 0,
+  )
+  const steps: CompiledStep[] = [emailStep(scheduleTemplateId)]
+  for (const reminder of reminders) {
+    steps.push(
+      waitUntilBeforeDateStep('interview_date', reminder.before_value, reminder.before_unit),
+    )
+    steps.push(emailStep(reminder.template_id))
+  }
+  // Final step: wait for the booked meeting to end. The enrollment naturally
+  // completes once this step's next_step_at elapses (no further steps after
+  // it). Resolves from the deal's most recent scheduled calendly_event.end_time.
+  steps.push({
+    step_type: 'wait_until_meeting_ends',
+    delay_days: 0,
+    delay_hours: 0,
+    email_template_id: null,
+    sms_content: null,
+    target_stage_id: null,
+    conditions: null,
+  })
+  return steps
+}
+
 // deposit_invoice always emits at least 4 emails with waits between,
 // falling back to a 3/5/7-day cadence if wait_days is unset past index 0.
 function depositInvoiceSequence(config: AutomationConfig | null | undefined): CompiledStep[] {
@@ -150,6 +211,7 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
   deposit_invoice: (config) => depositInvoiceSequence(config),
   application_received: variableEmailSequence,
   interview_reminder: variableEmailSequence,
+  meeting_scheduler: meetingSchedulerSequence,
   post_interview: variableEmailSequence,
   welcome_sequence: variableEmailSequence,
   payment_overdue: variableEmailSequence,

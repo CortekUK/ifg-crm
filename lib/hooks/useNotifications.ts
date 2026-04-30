@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from '@/lib/hooks/use-toast'
 
 export interface Notification {
   id: string
@@ -87,9 +88,42 @@ export function useMarkAllNotificationsRead() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'mark_all_read' }),
       })
-      if (!res.ok) throw new Error('Failed to mark all as read')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Failed to mark all as read (HTTP ${res.status})`)
+      }
     },
-    onSuccess: () => {
+    // Optimistic update — flip every cached notification to is_read=true
+    // and zero the unread count immediately. The realtime invalidation +
+    // server refetch will reconcile if anything diverges.
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] })
+      const previous = queryClient.getQueriesData({ queryKey: ['notifications'] })
+      queryClient.setQueriesData<{ notifications: { is_read: boolean }[]; unreadCount: number }>(
+        { queryKey: ['notifications'] },
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            notifications: old.notifications.map((n) => ({ ...n, is_read: true })),
+            unreadCount: 0,
+          }
+        },
+      )
+      return { previous }
+    },
+    onError: (err, _vars, ctx) => {
+      // Roll back the optimistic update and surface the failure.
+      if (ctx?.previous) {
+        ctx.previous.forEach(([key, data]) => queryClient.setQueryData(key, data))
+      }
+      toast({
+        title: 'Could not mark notifications as read',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      })
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
@@ -103,9 +137,33 @@ export function useClearAllNotifications() {
       const res = await fetch('/api/notifications', {
         method: 'DELETE',
       })
-      if (!res.ok) throw new Error('Failed to clear notifications')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Failed to clear notifications (HTTP ${res.status})`)
+      }
     },
-    onSuccess: () => {
+    // Optimistic clear — empty the list immediately. If the API errors,
+    // we restore the previous list from the snapshot.
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] })
+      const previous = queryClient.getQueriesData({ queryKey: ['notifications'] })
+      queryClient.setQueriesData(
+        { queryKey: ['notifications'] },
+        { notifications: [], unreadCount: 0 },
+      )
+      return { previous }
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        ctx.previous.forEach(([key, data]) => queryClient.setQueryData(key, data))
+      }
+      toast({
+        title: 'Could not clear notifications',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      })
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })

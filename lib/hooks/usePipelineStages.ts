@@ -155,21 +155,40 @@ export function useReorderStages() {
 
   return useMutation({
     mutationFn: async ({ pipelineId, stages }: ReorderStagesInput) => {
-      // Update each stage's display_order
-      // Using Promise.all for parallel updates
-      const updates = stages.map((stage) =>
+      // pipeline_stages has UNIQUE (pipeline_id, display_order). Naive
+      // parallel UPDATEs collide — if A is moving to 5 while B still
+      // holds 5, the unique constraint trips. Two-pass fix:
+      //   1. Shift every stage into a disjoint negative range (always
+      //      unique because the input ids are unique). No collision
+      //      possible because no positive order can equal -1 - id_index.
+      //   2. Set each stage to its desired final display_order.
+      // Both passes can run in parallel — the targets within a pass are
+      // unique by construction.
+      const shiftPass = stages.map((stage, i) =>
+        supabase
+          .from('pipeline_stages')
+          .update({ display_order: -1000 - i })
+          .eq('id', stage.id)
+          .eq('pipeline_id', pipelineId),
+      )
+      const shiftResults = await Promise.all(shiftPass)
+      const shiftErrors = shiftResults.filter((r) => r.error)
+      if (shiftErrors.length > 0) {
+        console.error('Stage reorder pass 1 errors:', shiftErrors.map((r) => r.error))
+        throw new Error('Failed to reorder some stages')
+      }
+
+      const finalPass = stages.map((stage) =>
         supabase
           .from('pipeline_stages')
           .update({ display_order: stage.display_order })
           .eq('id', stage.id)
-          .eq('pipeline_id', pipelineId)
+          .eq('pipeline_id', pipelineId),
       )
-
-      const results = await Promise.all(updates)
-
-      // Check for any errors
-      const errors = results.filter((r) => r.error)
-      if (errors.length > 0) {
+      const finalResults = await Promise.all(finalPass)
+      const finalErrors = finalResults.filter((r) => r.error)
+      if (finalErrors.length > 0) {
+        console.error('Stage reorder pass 2 errors:', finalErrors.map((r) => r.error))
         throw new Error('Failed to reorder some stages')
       }
 

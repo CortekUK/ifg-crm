@@ -153,16 +153,43 @@ export function AutomationsTable({
   const getStepsSummary = (automation: Automation) => {
     const steps = automation.steps || []
     const emailSteps = steps.filter((s) => s.step_type === 'send_email').length
-    const waitSteps = steps.filter((s) => s.step_type === 'wait')
-    const totalDays = waitSteps.reduce((sum, s) => sum + (s.delay_days || 0), 0)
-    
+
     if (emailSteps === 0) {
       if (automation.automation_type === 'deal_creation') {
         return 'Auto-creates deals from form submissions'
       }
       return 'No email steps configured'
     }
-    return `${emailSteps}-email sequence over ${totalDays} days`
+
+    // meeting_scheduler doesn't have a meaningful "over X time" — its waits
+    // are offsets before the meeting, not a sequence duration. Describe the
+    // flow instead.
+    if (automation.automation_type === 'meeting_scheduler') {
+      const reminderCount = Math.max(0, emailSteps - 1) // first email is the schedule link
+      return reminderCount === 0
+        ? 'Sends booking link'
+        : `Sends booking link + ${reminderCount} reminder${reminderCount === 1 ? '' : 's'}`
+    }
+
+    // For everything else, total wait time = wait + wait_until_before_date
+    // delays. Format as "Xd Yh", omitting whichever is zero.
+    const waitSteps = steps.filter(
+      (s) => s.step_type === 'wait' || s.step_type === 'wait_until_before_date',
+    )
+    const totalDays = waitSteps.reduce((sum, s) => sum + (s.delay_days || 0), 0)
+    const totalHours = waitSteps.reduce((sum, s) => sum + (s.delay_hours || 0), 0)
+
+    let duration: string
+    if (totalDays === 0 && totalHours === 0) {
+      duration = 'no waits'
+    } else if (totalDays === 0) {
+      duration = `${totalHours} hour${totalHours === 1 ? '' : 's'}`
+    } else if (totalHours === 0) {
+      duration = `${totalDays} day${totalDays === 1 ? '' : 's'}`
+    } else {
+      duration = `${totalDays}d ${totalHours}h`
+    }
+    return `${emailSteps}-email sequence over ${duration}`
   }
 
   const getTriggerLabel = (automation: Automation) => {
@@ -209,7 +236,7 @@ export function AutomationsTable({
   }
 
   const getTotalInQueue = (automation: Automation) => {
-    return automation.steps?.reduce((sum, step) => sum + (step.stats?.in_queue || 0), 0) || 0
+    return automation.total_in_queue || 0
   }
 
   const getTypeIcon = (type: string | undefined) => {
@@ -222,6 +249,7 @@ export function AutomationsTable({
       case 'application_received':
         return <FileCheck className="h-4 w-4" />
       case 'interview_reminder':
+      case 'meeting_scheduler':
       case 'post_interview':
         return <Video className="h-4 w-4" />
       case 'deposit_invoice':
@@ -247,6 +275,7 @@ export function AutomationsTable({
       case 'application_received':
         return 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400'
       case 'interview_reminder':
+      case 'meeting_scheduler':
       case 'post_interview':
         return 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
       case 'deposit_invoice':
