@@ -52,23 +52,43 @@ function getOwnerInitials(owner: Deal['owner']): string {
   return owner.email.slice(0, 2).toUpperCase()
 }
 
-// Determine status indicator color based on deal age/activity
+// Map of reply intent → left-bar colour. When a contact has replied and
+// the AI classified the reply, we use this colour instead of the
+// time-in-stage heuristic, because intent is a much stronger signal.
+const intentColours: Record<string, { color: string; label: string }> = {
+  positive: { color: 'bg-green-500', label: 'Positive reply' },
+  negative: { color: 'bg-red-500', label: 'Negative reply' },
+  question: { color: 'bg-amber-500', label: 'Has a question' },
+  neutral: { color: 'bg-slate-400', label: 'Neutral reply' },
+  unsubscribe: { color: 'bg-red-700', label: 'Unsubscribe' },
+  unknown: { color: 'bg-slate-400', label: 'Reply intent unknown' },
+}
+
+// Determine status indicator color based on deal age/activity (or reply
+// intent if the deal has been tagged by the inbound pipeline).
 function getStatusColor(deal: Deal): { color: string; label: string } {
-  const timeInStage = deal.time_in_stage || 0
-  
-  // Won/Lost deals
+  // Won/Lost always wins — terminal state.
   if (deal.won_at) return { color: 'bg-green-500', label: 'Won' }
   if (deal.lost_at) return { color: 'bg-red-500', label: 'Lost' }
-  
+
+  // Reply intent overrides the time-in-stage heuristic. The intent gets
+  // set by the resend-inbound edge function when a matched reply is
+  // classified.
+  if (deal.intent && intentColours[deal.intent]) {
+    return intentColours[deal.intent]
+  }
+
+  const timeInStage = deal.time_in_stage || 0
+
   // Hot lead (recently added or active)
   if (timeInStage <= 3) return { color: 'bg-green-500', label: 'Hot' }
-  
+
   // Warm lead
   if (timeInStage <= 7) return { color: 'bg-blue-500', label: 'Active' }
-  
+
   // Cooling off
   if (timeInStage <= 14) return { color: 'bg-amber-500', label: 'Follow up needed' }
-  
+
   // Stale
   return { color: 'bg-red-500', label: 'Stale - needs attention' }
 }

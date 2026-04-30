@@ -254,6 +254,61 @@ Deno.serve(async (req) => {
         .update({ ai_intent: aiIntent })
         .eq('id', replyRecord.id)
       console.log(`Classified reply ${replyRecord.id} intent: ${aiIntent}`)
+
+      // Tag the deal with the reply's intent and auto-move it into the
+      // pipeline's "Contact Response" stage so the recruiter can triage
+      // the inbox at a glance. We only act when we have both a matched
+      // contact and a known pipeline (campaign or automation chain).
+      // Deals already past the Contact Response stage are left alone —
+      // the kanban shouldn't roll a deal backwards just because a reply
+      // landed.
+      if (contactId && replySourceMeta.pipelineId) {
+        const { data: deal } = await supabase
+          .from('deals')
+          .select('id, current_stage_id, pipeline_id')
+          .eq('contact_id', contactId)
+          .eq('pipeline_id', replySourceMeta.pipelineId)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (deal) {
+          // Always tag the latest intent — overrides any previous reply.
+          await supabase
+            .from('deals')
+            .update({ intent: aiIntent })
+            .eq('id', deal.id)
+
+          // Find the Contact Response stage in this pipeline and check
+          // whether the deal should be moved.
+          const { data: stages } = await supabase
+            .from('pipeline_stages')
+            .select('id, name, display_order')
+            .eq('pipeline_id', deal.pipeline_id)
+            .order('display_order', { ascending: true })
+
+          if (stages && stages.length > 0) {
+            const responseStage = stages.find((s) => s.name === 'Contact Response')
+            const currentIdx = stages.findIndex((s) => s.id === deal.current_stage_id)
+            const responseIdx = responseStage
+              ? stages.findIndex((s) => s.id === responseStage.id)
+              : -1
+            if (responseStage && responseIdx >= 0 && currentIdx < responseIdx) {
+              await supabase
+                .from('deals')
+                .update({
+                  current_stage_id: responseStage.id,
+                  stage_changed_at: new Date().toISOString(),
+                })
+                .eq('id', deal.id)
+              console.log(
+                `Moved deal ${deal.id} to Contact Response stage (intent: ${aiIntent})`,
+              )
+            }
+          }
+        }
+      }
     }
 
     // Exit-on-reply is now handled by the email_reply_match_stops_enrollments

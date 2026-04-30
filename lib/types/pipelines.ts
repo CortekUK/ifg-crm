@@ -86,6 +86,10 @@ export interface Deal {
   pipeline?: Pipeline
   status?: 'active' | 'won' | 'lost'
   closed_at?: string | null
+  // Latest classified reply intent (positive | negative | question |
+  // neutral | unsubscribe | unknown). Set by the resend-inbound edge
+  // function when a matched reply is classified.
+  intent?: string | null
   // Computed fields
   time_in_stage?: number // days in current stage
   last_contacted_at?: string | null // when last email was sent
