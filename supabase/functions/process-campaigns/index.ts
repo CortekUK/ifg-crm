@@ -6,6 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { sendSMS } from '../_shared/clicksend.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
+import { replaceMergeTags } from '../_shared/merge-tags.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,8 @@ interface Campaign {
   email_template_id: string | null
   sms_content: string | null
   recipient_list_ids: string[] | null
+  from_user_id: string | null
+  created_by_id: string | null
   total_recipients: number
   processed_recipients: number
   scheduled_at: string | null
@@ -219,6 +222,29 @@ async function processCampaign(
 
   console.log(`Sending to ${pendingRecipients.length} recipients (type: ${campaign.type})`)
 
+  // Resolve the campaign's "from" user once. Templates reference owner-style
+  // tags ({{deal_owner_name}}, {{deal_owner_calendly}}, etc.) and conditional
+  // blocks ({{#if deal_owner_title}}...{{/if}}). Campaigns aren't tied to a
+  // specific deal, so the sender profile fills those slots.
+  const senderId = campaign.from_user_id || campaign.created_by_id
+  let sender: {
+    full_name: string | null
+    email: string | null
+    phone: string | null
+    title: string | null
+    calendly_url: string | null
+    email_signature: string | null
+    avatar_url: string | null
+  } | null = null
+  if (senderId) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone, title, calendly_url, email_signature, avatar_url')
+      .eq('id', senderId)
+      .maybeSingle()
+    sender = data ?? null
+  }
+
   // ============================================
   // SMS CAMPAIGN BRANCH
   // ============================================
@@ -274,17 +300,10 @@ async function processCampaign(
       }
 
       try {
-        // Replace merge tags in SMS content
-        let processedContent = campaign.sms_content
-        const mergeData: Record<string, string> = {
-          first_name: contact.first_name || '',
-          last_name: contact.last_name || '',
-          email: contact.email || '',
-        }
-        for (const [key, value] of Object.entries(mergeData)) {
-          const pattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
-          processedContent = processedContent.replace(pattern, value || '')
-        }
+        // Replace merge tags in SMS content using the canonical engine
+        // (handles {{key|fallback}} and {{#if key}}...{{/if}} blocks).
+        const mergeData = buildCampaignMergeData(contact, sender)
+        const processedContent = replaceMergeTags(campaign.sms_content, mergeData)
 
         // Send via ClickSend
         const smsResult = await sendSMS({
@@ -436,7 +455,10 @@ async function processCampaign(
     }
 
     try {
-      // Call send-email edge function
+      // Build full merge data per recipient — contact fields plus sender
+      // mapped onto deal_owner_* slots so templates that reference
+      // {{deal_owner_name}}, {{#if deal_owner_calendly}}…{{/if}}, etc.
+      // resolve correctly for broadcast campaigns (no per-deal owner).
       const sendResult = await sendEmail(supabase, {
         to: contact.email,
         from_name: fromName,
@@ -446,11 +468,7 @@ async function processCampaign(
         html_body: emailBody,
         contact_id: contact.id,
         campaign_id: campaign.id,
-        merge_data: {
-          first_name: contact.first_name || '',
-          last_name: contact.last_name || '',
-          email: contact.email,
-        },
+        merge_data: buildCampaignMergeData(contact, sender),
       })
 
       if (sendResult.success) {
@@ -638,6 +656,50 @@ async function expandRecipients(
   return subscribedIds.length
 }
 
+// Shape returned from the campaign sender profile lookup. Kept loose because
+// any field can be null — templates handle missing values via {{|fallback}}
+// and {{#if}}…{{/if}} blocks once we route through replaceMergeTags.
+type CampaignSender = {
+  full_name: string | null
+  email: string | null
+  phone: string | null
+  title: string | null
+  calendly_url: string | null
+  email_signature: string | null
+  avatar_url: string | null
+} | null
+
+type CampaignContact = {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  phone: string | null
+}
+
+function buildCampaignMergeData(
+  contact: CampaignContact,
+  sender: CampaignSender
+): Record<string, string | number | boolean | null | undefined> {
+  return {
+    // Contact fields
+    first_name: contact.first_name || '',
+    last_name: contact.last_name || '',
+    email: contact.email || '',
+    phone: contact.phone || null,
+    // Owner / sender fields — campaigns are broadcast and not deal-scoped, so
+    // we map the campaign's "from" user into the deal_owner_* slots that the
+    // shared templates expect.
+    deal_owner_name: sender?.full_name || 'The Team',
+    deal_owner_email: sender?.email || '',
+    deal_owner_phone: sender?.phone || null,
+    deal_owner_title: sender?.title || null,
+    deal_owner_calendly: sender?.calendly_url || null,
+    deal_owner_signature: sender?.email_signature || null,
+    deal_owner_photo: sender?.avatar_url || null,
+  }
+}
+
 async function sendEmail(
   supabase: ReturnType<typeof createClient>,
   params: {
@@ -649,7 +711,7 @@ async function sendEmail(
     html_body: string
     contact_id: string
     campaign_id: string
-    merge_data?: Record<string, string>
+    merge_data?: Record<string, string | number | boolean | null | undefined>
   }
 ): Promise<{ success: boolean; message_id?: string; error?: string }> {
   try {
@@ -660,17 +722,11 @@ async function sendEmail(
 
     console.log(`Sending email to ${params.to} for campaign ${params.campaign_id}`)
 
-    // Apply merge tags to subject and body
-    let processedSubject = params.subject
-    let processedBody = params.html_body
-
-    if (params.merge_data) {
-      for (const [key, value] of Object.entries(params.merge_data)) {
-        const pattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
-        processedSubject = processedSubject.replace(pattern, value || '')
-        processedBody = processedBody.replace(pattern, value || '')
-      }
-    }
+    // Apply merge tags to subject and body via the canonical engine —
+    // supports {{field}}, {{field|fallback}}, {{#if field}}…{{/if}}, etc.
+    const mergeData = params.merge_data ?? {}
+    const processedSubject = replaceMergeTags(params.subject, mergeData)
+    const processedBody = replaceMergeTags(params.html_body, mergeData)
 
     // Generate trackingId up-front so we can use it as the local part of
     // both the Reply-To (VERP) and the Message-ID we set on the outbound.

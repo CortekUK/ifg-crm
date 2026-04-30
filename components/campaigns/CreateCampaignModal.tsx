@@ -127,9 +127,6 @@ export function CreateCampaignModal({
   // Email fields
   const [emailSubject, setEmailSubject] = useState('')
   const [previewText, setPreviewText] = useState('')
-  const [fromName, setFromName] = useState('')
-  const [fromEmail, setFromEmail] = useState('')
-  const [replyTo, setReplyTo] = useState('')
   const [templateId, setTemplateId] = useState<string>('')
   const [emailContentMode, setEmailContentMode] = useState<'template' | 'compose'>('template')
   const [emailBodyText, setEmailBodyText] = useState('')
@@ -223,9 +220,6 @@ export function CreateCampaignModal({
       setSelectedLists(editCampaign.recipient_list_ids || [])
       setEmailSubject(editCampaign.subject || '')
       setPreviewText(editCampaign.preview_text || '')
-      setFromName(editCampaign.from_name || '')
-      setFromEmail(editCampaign.from_email || '')
-      setReplyTo(editCampaign.reply_to || '')
       setTemplateId(editCampaign.email_template_id || '')
       setEmailBodyText(editCampaign.body_text || '')
       setEmailBodyHtml(editCampaign.body_html || '')
@@ -262,9 +256,6 @@ export function CreateCampaignModal({
       setIsStageDropdownOpen(false)
       setEmailSubject('')
       setPreviewText('')
-      setFromName('')
-      setFromEmail('')
-      setReplyTo('')
       setTemplateId('')
       setEmailContentMode('template')
       setEmailBodyText('')
@@ -344,9 +335,6 @@ export function CreateCampaignModal({
       if (type === 'email') {
         campaignData.subject = emailSubject || undefined
         campaignData.preview_text = previewText || undefined
-        campaignData.from_name = fromName || undefined
-        campaignData.from_email = fromEmail || undefined
-        campaignData.reply_to = replyTo || undefined
         if (emailContentMode === 'template' && templateId && templateId !== 'scratch') {
           campaignData.email_template_id = templateId
         } else if (emailContentMode === 'compose') {
@@ -582,7 +570,9 @@ export function CreateCampaignModal({
 
                 {/* List Selection Dropdown */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Select Lists</Label>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Select Lists <span className="text-red-500">*</span>
+                  </Label>
                   <Popover open={isListDropdownOpen} onOpenChange={setIsListDropdownOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -946,40 +936,6 @@ export function CreateCampaignModal({
               {/* Email Content */}
               {type === 'email' && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                    Email Settings
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Name</Label>
-                      <Input
-                        value={fromName}
-                        onChange={(e) => setFromName(e.target.value)}
-                        placeholder="e.g. IFG Recruitment"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Email</Label>
-                      <Input
-                        type="email"
-                        value={fromEmail}
-                        onChange={(e) => setFromEmail(e.target.value)}
-                        placeholder="e.g. recruitment@ifg.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Reply-To Email</Label>
-                    <Input
-                      type="email"
-                      value={replyTo}
-                      onChange={(e) => setReplyTo(e.target.value)}
-                      placeholder="e.g. replies@ifg.com"
-                    />
-                  </div>
-
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -1042,7 +998,9 @@ export function CreateCampaignModal({
 
                       <TabsContent value="template" className="space-y-4 mt-4">
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Template</Label>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Template <span className="text-red-500">*</span>
+                          </Label>
                           <TemplateSearchSelect
                             templates={templates}
                             value={templateId}
@@ -1259,9 +1217,6 @@ export function CreateCampaignModal({
           <div className="space-y-4">
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-slate-100 dark:bg-slate-800 p-3 border-b">
-                <p className="text-sm">
-                  <strong>From:</strong> {fromName || 'Your Name'} &lt;{fromEmail || 'email@example.com'}&gt;
-                </p>
                 <p className="text-sm">
                   <strong>Subject:</strong> {emailSubject || '(No subject)'}
                 </p>
