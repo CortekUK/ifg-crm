@@ -24,7 +24,6 @@ import { parseCSV, autoMapColumns, validateRow, hasNameMapping, CONTACT_FIELDS, 
 import { useImportContacts, type DuplicateStrategy, type ImportResult } from '@/lib/hooks/useImportContacts'
 import { Input } from '@/components/ui/input'
 import { useLists, useCreateList } from '@/lib/hooks/useLists'
-import { useTags } from '@/lib/hooks/useTags'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface ImportCSVModalProps {
@@ -43,7 +42,6 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
   const [mapping, setMapping] = useState<Record<number, string>>({})
   const [skippedColumns, setSkippedColumns] = useState<Set<number>>(new Set())
   const [listId, setListId] = useState<string | null>(null)
-  const [tagId, setTagId] = useState<string | null>(null)
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('update')
   const [validationErrors, setValidationErrors] = useState<RowValidationError[]>([])
   const [duplicateEmails, setDuplicateEmails] = useState<Set<string>>(new Set())
@@ -56,7 +54,6 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
   const [newListName, setNewListName] = useState('')
 
   const { data: lists = [] } = useLists()
-  const { data: tags = [] } = useTags()
   const createListMutation = useCreateList()
   const importMutation = useImportContacts()
 
@@ -68,7 +65,6 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
     setMapping({})
     setSkippedColumns(new Set())
     setListId(null)
-    setTagId(null)
     setCreatingList(false)
     setNewListName('')
     setDuplicateStrategy('update')
@@ -250,7 +246,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
         headers,
         skippedColumns: [...skippedColumns],
         listId,
-        tagId,
+        tagId: null,
         duplicateStrategy,
         onProgress: (processed, total) => {
           setImportProgress({ processed, total })
@@ -413,24 +409,6 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                     </Button>
                   </div>
                 )}
-              </div>
-
-              {/* Tag selection */}
-              <div className="space-y-2">
-                <Label>Add to Tag (optional)</Label>
-                <Select value={tagId || '__none__'} onValueChange={(v) => setTagId(v === '__none__' ? null : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a tag..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">No tag</SelectItem>
-                    {tags.map((tag) => (
-                      <SelectItem key={tag.id} value={tag.id}>
-                        {tag.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               {/* Duplicate strategy */}
@@ -637,9 +615,6 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                     <p><span className="text-muted-foreground">Strategy:</span> {duplicateStrategy === 'skip' ? 'Skip duplicates' : 'Update duplicates'}</p>
                     {listId && (
                       <p><span className="text-muted-foreground">List:</span> {lists.find((l) => l.id === listId)?.name}</p>
-                    )}
-                    {tagId && (
-                      <p><span className="text-muted-foreground">Tag:</span> {tags.find((t) => t.id === tagId)?.name}</p>
                     )}
                     <p><span className="text-muted-foreground">Fields mapped:</span> {Object.keys(mapping).length} of {headers.length}</p>
                     {(() => {

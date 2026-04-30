@@ -125,8 +125,31 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailError = formData.email && !emailRegex.test(formData.email) ? 'Please enter a valid email address' : ''
+  const parentEmailFormatError =
+    formData.parent_email && !emailRegex.test(formData.parent_email)
+      ? 'Please enter a valid email address'
+      : ''
+  const parentEmailSameError =
+    formData.parent_email &&
+    formData.email &&
+    formData.parent_email.trim().toLowerCase() === formData.email.trim().toLowerCase()
+      ? 'Parent email must be different from the player email'
+      : ''
+  const parentEmailError = parentEmailFormatError || parentEmailSameError
+
   const handleSubmit = async () => {
-    if (!contact || !formData.first_name || !formData.last_name || !formData.email) return
+    if (
+      !contact ||
+      !formData.first_name ||
+      !formData.last_name ||
+      !formData.email ||
+      emailError ||
+      parentEmailError
+    ) {
+      return
+    }
 
     try {
       await updateContact.mutateAsync({
@@ -181,7 +204,12 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
     }
   }
 
-  const isValid = formData.first_name && formData.last_name && formData.email
+  const isValid =
+    formData.first_name &&
+    formData.last_name &&
+    formData.email &&
+    !emailError &&
+    !parentEmailError
   const isLoading = updateContact.isPending
 
   if (!contact) return null
@@ -405,7 +433,11 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                     value={formData.parent_email}
                     onChange={(e) => handleChange('parent_email', e.target.value)}
                     placeholder="parent@example.com"
+                    className={parentEmailError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                   />
+                  {parentEmailError && (
+                    <p className="text-xs text-red-600">{parentEmailError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Parent Phone</Label>

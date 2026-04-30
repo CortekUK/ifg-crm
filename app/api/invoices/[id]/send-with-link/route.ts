@@ -107,50 +107,13 @@ export async function POST(
       },
     })
 
-    // Save checkout session ID and mark as sent
-    await supabase
-      .from('invoices')
-      .update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-        stripe_checkout_session_id: session.id,
-      })
-      .eq('id', invoiceId)
-
-    // Auto-move deal to "Invoice Sent" stage if invoice is linked to a deal
-    // Only move forward — don't move backward if deal is already past Invoice Sent
-    if (invoice.deal_id) {
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('id, pipeline_id, current_stage_id')
-        .eq('id', invoice.deal_id)
-        .single()
-
-      if (deal) {
-        // Get all stages ordered by display_order
-        const { data: allStages } = await supabase
-          .from('pipeline_stages')
-          .select('id, name, display_order')
-          .eq('pipeline_id', deal.pipeline_id)
-          .order('display_order')
-
-        if (allStages) {
-          const invoiceSentStage = allStages.find(s => s.name.toLowerCase().includes('invoice') && s.name.toLowerCase().includes('sent'))
-          const currentStageIndex = allStages.findIndex(s => s.id === deal.current_stage_id)
-          const invoiceSentIndex = invoiceSentStage ? allStages.findIndex(s => s.id === invoiceSentStage.id) : -1
-
-          // Only move if Invoice Sent stage exists and deal is before it
-          if (invoiceSentStage && invoiceSentIndex >= 0 && currentStageIndex < invoiceSentIndex) {
-            await supabase
-              .from('deals')
-              .update({ current_stage_id: invoiceSentStage.id })
-              .eq('id', deal.id)
-          }
-        }
-      }
-    }
-
-    // Send email with payment link
+    // Send email FIRST. Resend's SDK returns { data, error } instead of
+    // throwing on API errors (rate limit, unverified domain, invalid
+    // recipient, etc.), so without inspecting the result we'd silently
+    // mark the invoice as 'sent' and tell the user it succeeded — which
+    // is exactly the bug we're fixing here. Only after a confirmed
+    // delivery do we flip the status, stamp the Stripe session, and
+    // auto-move the deal stage.
     const resendApiKey = process.env.RESEND_API_KEY
     if (!resendApiKey) {
       return NextResponse.json({ error: 'Email service not configured' }, { status: 500 })
@@ -160,7 +123,7 @@ export async function POST(
     const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
     const playerName = `${contact.first_name} ${contact.last_name}`
 
-    await resend.emails.send({
+    const sendResult = await resend.emails.send({
       from: `IFG <${fromEmail}>`,
       to: [recipientEmail],
       subject: `Invoice ${invoice.invoice_number} - ${formattedAmount} Due`,
@@ -221,6 +184,68 @@ export async function POST(
       `,
     })
 
+    // Resend returns errors as a property, not a throw. Surface them and
+    // KEEP the invoice as draft so the user can retry. The Stripe session
+    // is harmless — it just sits unused; we don't bill until somebody
+    // pays.
+    if (sendResult.error) {
+      console.error('Resend send error:', sendResult.error)
+      const message =
+        typeof sendResult.error === 'object' && sendResult.error !== null && 'message' in sendResult.error
+          ? String((sendResult.error as { message: unknown }).message)
+          : 'Email failed to send'
+      return NextResponse.json(
+        {
+          error: `${message}. Invoice kept as draft — please retry. Common causes: Resend rate limit, unverified sender domain, or invalid recipient address.`,
+        },
+        { status: 502 },
+      )
+    }
+
+    // Email confirmed delivered to Resend. Flip status, stamp the
+    // checkout session, and move the deal forward.
+    await supabase
+      .from('invoices')
+      .update({
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+        stripe_checkout_session_id: session.id,
+      })
+      .eq('id', invoiceId)
+
+    if (invoice.deal_id) {
+      const { data: deal } = await supabase
+        .from('deals')
+        .select('id, pipeline_id, current_stage_id')
+        .eq('id', invoice.deal_id)
+        .single()
+
+      if (deal) {
+        const { data: allStages } = await supabase
+          .from('pipeline_stages')
+          .select('id, name, display_order')
+          .eq('pipeline_id', deal.pipeline_id)
+          .order('display_order')
+
+        if (allStages) {
+          const invoiceSentStage = allStages.find(
+            (s) => s.name.toLowerCase().includes('invoice') && s.name.toLowerCase().includes('sent'),
+          )
+          const currentStageIndex = allStages.findIndex((s) => s.id === deal.current_stage_id)
+          const invoiceSentIndex = invoiceSentStage
+            ? allStages.findIndex((s) => s.id === invoiceSentStage.id)
+            : -1
+
+          if (invoiceSentStage && invoiceSentIndex >= 0 && currentStageIndex < invoiceSentIndex) {
+            await supabase
+              .from('deals')
+              .update({ current_stage_id: invoiceSentStage.id })
+              .eq('id', deal.id)
+          }
+        }
+      }
+    }
+
     // Create in-app notification for player
     const { data: playerProfile } = await supabase
       .from('profiles')
@@ -242,6 +267,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: `Invoice sent to ${recipientEmail} with payment link`,
+      resend_id: sendResult.data?.id ?? null,
     })
   } catch (error) {
     console.error('Send invoice with link error:', error)

@@ -41,6 +41,7 @@ import { format } from 'date-fns'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
 import { useContactDeals, useCreateInvoice } from '@/lib/hooks/useInvoices'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/lib/hooks/use-toast'
 import type { InvoiceType, InvoiceRecipientType } from '@/lib/types/invoices'
 
@@ -86,6 +87,7 @@ export function CreateInvoiceModal({
   const { data: contacts = [], isLoading: contactsLoading } = useSearchContacts(debouncedSearch)
   const { data: deals = [] } = useContactDeals(selectedContactId)
   const createInvoice = useCreateInvoice()
+  const queryClient = useQueryClient()
 
   // Check which deals already have an active invoice linked
   const [dealsWithInvoice, setDealsWithInvoice] = useState<Set<string>>(new Set())
@@ -252,6 +254,19 @@ export function CreateInvoiceModal({
           title: 'Invoice sent',
           description: `Invoice ${invoiceNumber} sent to ${recipientName} with payment link.`,
         })
+      }
+
+      // send-with-link mutates the invoice (status, sent_at, stripe
+      // session id) and auto-moves the deal stage outside react-query,
+      // so we invalidate the relevant caches manually once the
+      // background send resolves. Without this the invoices list keeps
+      // showing 'draft' until a refresh.
+      if (sendNow) {
+        queryClient.invalidateQueries({ queryKey: ['invoices'] })
+        queryClient.invalidateQueries({ queryKey: ['invoice'] })
+        queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
+        queryClient.invalidateQueries({ queryKey: ['deals'] })
+        queryClient.invalidateQueries({ queryKey: ['deal'] })
       }
     } catch (error) {
       toast({

@@ -60,11 +60,38 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
     return () => clearTimeout(timer)
   }, [previewHtml])
 
-  const handleSendTestEmail = () => {
-    toast({
-      title: 'Test email sent',
-      description: 'A test email has been sent to your email address.',
-    })
+  const [isSending, setIsSending] = useState(false)
+  const handleSendTestEmail = async () => {
+    if (isSending) return
+    setIsSending(true)
+    try {
+      const res = await fetch('/api/templates/send-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocks, subject: settings.subject }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({
+          title: 'Failed to send test',
+          description: data.error || `HTTP ${res.status}`,
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Test email sent',
+          description: `Sent to ${data.sent_to || 'your email'}.`,
+        })
+      }
+    } catch (err) {
+      toast({
+        title: 'Failed to send test',
+        description: err instanceof Error ? err.message : 'Network error',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSending(false)
+    }
   }
 
   return (
@@ -159,12 +186,13 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
 
       {/* Send Test Email */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
-        <Button 
+        <Button
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           onClick={handleSendTestEmail}
+          disabled={isSending || blocks.length === 0}
         >
           <Send className="h-4 w-4 mr-2" />
-          Send Test Email
+          {isSending ? 'Sending…' : 'Send Test Email'}
         </Button>
         <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-2">
           Send to your logged-in email address

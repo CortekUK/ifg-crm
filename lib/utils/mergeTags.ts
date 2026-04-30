@@ -15,7 +15,7 @@ export type MergeTagData = CoreMergeTagData
 export interface MergeTagDefinition {
   tag: string
   label: string
-  category: 'contact' | 'deal' | 'owner' | 'meeting' | 'custom'
+  category: 'contact' | 'deal' | 'owner' | 'meeting' | 'invoice' | 'custom'
   description: string
   example: string
 }
@@ -160,6 +160,38 @@ export const MERGE_TAGS: MergeTagDefinition[] = [
     description: 'Name of the Calendly event type (e.g. "30 Minute Meeting")',
     example: '30 Minute Meeting',
   },
+
+  // Invoice tags. Resolved from the deal's most recent unpaid invoice
+  // (status sent or overdue). invoice_payment_link routes through
+  // /pay/<id> which generates a Stripe Checkout Session on demand.
+  {
+    tag: '{{invoice_payment_link}}',
+    label: 'Invoice Payment Link',
+    category: 'invoice',
+    description: 'Public payment link for the deal\'s most recent unpaid invoice — opens Stripe Checkout',
+    example: 'https://ifg-crm.vercel.app/pay/abc-123',
+  },
+  {
+    tag: '{{invoice_number}}',
+    label: 'Invoice Number',
+    category: 'invoice',
+    description: 'Number of the deal\'s most recent unpaid invoice',
+    example: 'IFG-2026-00043',
+  },
+  {
+    tag: '{{invoice_amount}}',
+    label: 'Invoice Amount',
+    category: 'invoice',
+    description: 'Amount due, formatted as currency',
+    example: '£1,500.00',
+  },
+  {
+    tag: '{{invoice_due_date}}',
+    label: 'Invoice Due Date',
+    category: 'invoice',
+    description: 'Due date of the deal\'s most recent unpaid invoice',
+    example: '15 January 2026',
+  },
 ]
 
 /**
@@ -184,6 +216,7 @@ export function getCategoryLabel(category: string): string {
     deal: 'Deal',
     owner: 'Deal Owner',
     meeting: 'Meeting',
+    invoice: 'Invoice',
     custom: 'Custom',
   }
   return labels[category] || category
@@ -216,6 +249,10 @@ export function previewMergeTags(template: string): string {
     meeting_time: 'Mon, 15 Jan 2026 at 3:00 PM',
     interview_date: 'Mon, 15 Jan 2026 at 3:00 PM',
     meeting_event_name: '30 Minute Meeting',
+    invoice_payment_link: 'https://ifg-crm.vercel.app/pay/abc-123',
+    invoice_number: 'IFG-2026-00043',
+    invoice_amount: '£1,500.00',
+    invoice_due_date: '15 January 2026',
   }
   
   return replaceMergeTags(template, sampleData)

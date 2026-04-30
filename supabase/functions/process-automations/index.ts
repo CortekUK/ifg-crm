@@ -902,6 +902,63 @@ async function processEmailStep(
       if (meetingData) meeting = meetingData as typeof meeting
     }
 
+    // Look up the deal's most recent unpaid invoice so payment-reminder
+    // templates can render a working "Pay invoice" button. We hit /pay/<id>
+    // (a public route handler) which forwards to a fresh Stripe Checkout
+    // Session. APP_URL is the deployed Next.js host; falls back to local
+    // for dev.
+    let unpaidInvoice: {
+      id: string
+      invoice_number: string
+      amount: number
+      currency: string | null
+      due_date: string | null
+    } | null = null
+    {
+      // Prefer overdue invoices over merely-sent ones, then break ties
+      // by most-recent created. So a Payment Overdue email always
+      // points at an actually-overdue invoice when the deal has one.
+      const { data: overdueRow } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, amount, currency, due_date')
+        .eq('deal_id', deal.id)
+        .eq('status', 'overdue')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (overdueRow) {
+        unpaidInvoice = overdueRow as typeof unpaidInvoice
+      } else {
+        const { data: sentRow } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, amount, currency, due_date')
+          .eq('deal_id', deal.id)
+          .eq('status', 'sent')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (sentRow) unpaidInvoice = sentRow as typeof unpaidInvoice
+      }
+    }
+    const appUrl =
+      Deno.env.get('NEXT_PUBLIC_APP_URL') || Deno.env.get('APP_URL') || ''
+    const invoicePaymentLink = unpaidInvoice
+      ? `${appUrl}/pay/${unpaidInvoice.id}`
+      : null
+    const invoiceAmountFormatted = unpaidInvoice
+      ? new Intl.NumberFormat('en-GB', {
+          style: 'currency',
+          currency: unpaidInvoice.currency || 'GBP',
+        }).format(Number(unpaidInvoice.amount))
+      : null
+    const invoiceDueDateFormatted = unpaidInvoice?.due_date
+      ? new Date(unpaidInvoice.due_date).toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : null
+
     // Replace merge tags in subject and body
     const mergeData: Record<string, string | number | boolean | null | undefined> = {
       // Contact fields
@@ -927,6 +984,13 @@ async function processEmailStep(
       meeting_time: meeting?.start_time ? formatMeetingDate(meeting.start_time) : null,
       meeting_event_name: meeting?.event_name || null,
       meeting_location: meeting?.location || null,
+      // Invoice fields — resolved from the deal's most recent unpaid
+      // invoice. invoice_payment_link routes through /pay/<id> which
+      // mints a Stripe Checkout Session and redirects.
+      invoice_payment_link: invoicePaymentLink,
+      invoice_number: unpaidInvoice?.invoice_number || null,
+      invoice_amount: invoiceAmountFormatted,
+      invoice_due_date: invoiceDueDateFormatted,
       // Owner fields
       deal_owner_name: owner?.full_name || 'The Team',
       deal_owner_email: owner?.email || '',

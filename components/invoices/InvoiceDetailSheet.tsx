@@ -30,7 +30,7 @@ import { toast } from '@/lib/hooks/use-toast'
 import { formatCurrency, formatDateLong } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { RecordPaymentModal } from '@/components/payments/RecordPaymentModal'
 import { useState } from 'react'
@@ -64,6 +64,7 @@ const typeLabels: Record<InvoiceType, string> = {
 export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetailSheetProps) {
   const { data: invoice, isLoading } = useInvoice(invoiceId)
   const updateStatus = useUpdateInvoiceStatus()
+  const queryClient = useQueryClient()
   const [recordPaymentOpen, setRecordPaymentOpen] = useState(false)
   const supabase = createClient()
 
@@ -108,6 +109,17 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
         title: 'Invoice sent',
         description: data.message || 'Invoice sent with payment link.',
       })
+
+      // The send-with-link route mutates the invoice (status, sent_at,
+      // stripe_checkout_session_id) and may auto-move the deal stage.
+      // None of those go through react-query mutations, so we have to
+      // invalidate the relevant caches manually — otherwise the user
+      // sees the old "draft" status until they refresh.
+      queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] })
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['deal'] })
     } catch {
       toast({
         title: 'Failed to send invoice',
@@ -442,13 +454,17 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                   )}
                 </div>
 
-                {/* Secondary Actions */}
+                {/* Secondary Actions — drafts have no payment link yet
+                    (Stripe session is minted at send time), so Copy
+                    Payment Link only appears once the invoice is sent. */}
                 {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="ghost" size="sm" onClick={handleCopyPaymentLink}>
-                      <Link className="h-4 w-4 mr-2" />
-                      Copy Payment Link
-                    </Button>
+                    {invoice.status !== 'draft' && (
+                      <Button variant="ghost" size="sm" onClick={handleCopyPaymentLink}>
+                        <Link className="h-4 w-4 mr-2" />
+                        Copy Payment Link
+                      </Button>
+                    )}
                     {invoice.status !== 'draft' && (
                       <Button variant="ghost" size="sm" onClick={handleVoid} disabled={updateStatus.isPending} className="text-red-600 hover:text-red-700 hover:bg-red-50">
                         <Ban className="h-4 w-4 mr-2" />

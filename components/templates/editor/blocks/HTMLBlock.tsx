@@ -30,13 +30,16 @@ export function HTMLBlock({ content, isSelected, onUpdate }: HTMLBlockProps) {
             value={htmlContent.code}
             onChange={(e) => onUpdate({ code: e.target.value })}
             placeholder="<!-- Enter custom HTML -->"
-            className="font-mono text-sm min-h-[200px]"
+            className="font-mono text-sm min-h-[200px] max-h-[400px] overflow-auto"
           />
         </div>
       )}
 
-      {/* HTML Preview */}
-      <div className="border rounded p-3 bg-gray-50 dark:bg-slate-800">
+      {/* HTML Preview — capped height with internal scroll so a long block
+          (e.g. an imported full-email HTML doc) doesn't push the canvas
+          past the viewport, which made the surrounding canvas appear
+          unscrollable. */}
+      <div className="border rounded p-3 bg-gray-50 dark:bg-slate-800 max-h-[500px] overflow-auto">
         {htmlContent.code ? (
           <div
             className="prose prose-sm max-w-none"

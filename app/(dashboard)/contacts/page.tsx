@@ -1,15 +1,13 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo, Suspense } from 'react'
-import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContactsPageHeader } from '@/components/contacts/ContactsPageHeader'
 import { ContactStats } from '@/components/contacts/ContactStats'
 import { ContactFilters } from '@/components/contacts/ContactFilters'
 import { ContactsTable } from '@/components/contacts/ContactsTable'
 import { ContactsGrid } from '@/components/contacts/ContactsGrid'
-import { ColumnToggle, getStoredColumns, storeColumns } from '@/components/contacts/ColumnToggle'
+import { getStoredColumns, storeColumns } from '@/components/contacts/ColumnToggle'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { CreateContactModal } from '@/components/contacts/CreateContactModal'
 import { EditContactModal } from '@/components/contacts/EditContactModal'
@@ -433,19 +431,6 @@ function ContactsPageContent() {
         isLoading={statsLoading}
       />
 
-      {/* Tabs — Lists is admin-only (recruiters can read lists for filtering
-          but can't manage them, so the management page is hidden). */}
-      {isAdmin && (
-        <Tabs defaultValue="contacts">
-          <TabsList>
-            <TabsTrigger value="contacts">Contacts</TabsTrigger>
-            <TabsTrigger value="lists" asChild>
-              <Link href="/lists">Lists</Link>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
-
       {/* Filters */}
       <ContactFilters
         search={search}
@@ -499,13 +484,6 @@ function ContactsPageContent() {
           setPage(1)
         }}
         onClearFilters={handleClearFilters}
-        trailing={viewMode === 'list' ? (
-          <ColumnToggle
-            visibleColumns={visibleColumns}
-            onToggle={handleColumnToggle}
-            customColumns={customFieldColumns}
-          />
-        ) : undefined}
       />
 
       {/* Bulk Actions Bar */}

@@ -245,6 +245,19 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
 
       if (contactError) throw new Error(contactError.message || 'Failed to insert contact')
 
+      // Mirror the initial note into contact_notes so it shows up in the
+      // detail sheet's Notes tab. The contacts.notes column is a single
+      // legacy string field; the Notes tab reads from contact_notes
+      // (timestamped rows with author). Without this insert, the user
+      // types a note on creation and never sees it again.
+      if (formData.notes && formData.notes.trim()) {
+        await supabase.from('contact_notes').insert({
+          contact_id: contact.id,
+          content: formData.notes.trim(),
+          created_by_id: user.id,
+        })
+      }
+
       // Add tags if selected
       if (selectedTags.length > 0) {
         const tagInserts = selectedTags.map((tagId) => ({
@@ -356,13 +369,40 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   const emailError = formData.email && !emailRegex.test(formData.email) ? 'Please enter a valid email address' : ''
+  const parentEmailFormatError =
+    formData.parent_email && !emailRegex.test(formData.parent_email)
+      ? 'Please enter a valid email address'
+      : ''
+  // The player and their guardian are different people — same address means
+  // someone fat-fingered the form. We accept the same address for player and
+  // guardian phone (rare but possible — same household line) but never email.
+  const parentEmailSameError =
+    formData.parent_email &&
+    formData.email &&
+    formData.parent_email.trim().toLowerCase() === formData.email.trim().toLowerCase()
+      ? 'Parent email must be different from the player email'
+      : ''
+  const parentEmailError = parentEmailFormatError || parentEmailSameError
 
   const handleSubmit = () => {
-    if (!formData.first_name || !formData.last_name || !formData.email || emailError) return
+    if (
+      !formData.first_name ||
+      !formData.last_name ||
+      !formData.email ||
+      emailError ||
+      parentEmailError
+    ) {
+      return
+    }
     createContactMutation.mutate()
   }
 
-  const isValid = formData.first_name && formData.last_name && formData.email && !emailError
+  const isValid =
+    formData.first_name &&
+    formData.last_name &&
+    formData.email &&
+    !emailError &&
+    !parentEmailError
   const isLoading = createContactMutation.isPending
 
   return (
@@ -605,7 +645,11 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
                     value={formData.parent_email}
                     onChange={(e) => handleChange('parent_email', e.target.value)}
                     placeholder="parent@example.com"
+                    className={parentEmailError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                   />
+                  {parentEmailError && (
+                    <p className="text-xs text-red-600">{parentEmailError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="parent_phone" className="text-sm font-medium text-slate-700 dark:text-slate-300">

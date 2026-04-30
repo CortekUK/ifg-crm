@@ -176,8 +176,18 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
           />
         </div>
 
-        {/* Canvas - hidden on mobile when sidebar is shown */}
-        <div className={cn('md:block flex-1', mobilePanel === 'canvas' ? 'block' : 'hidden')}>
+        {/* Canvas - hidden on mobile when sidebar is shown.
+            Wrapper must be a flex column so the EditorCanvas root's
+            `flex-1 overflow-auto` resolves to a bounded height. With the
+            wrapper as plain `block`, flex-1 is a no-op, the canvas
+            naturally grows to fit its content, and overflow-auto never
+            kicks in — the symptom that long templates can't be scrolled. */}
+        <div
+          className={cn(
+            'md:flex md:flex-col flex-1 min-h-0',
+            mobilePanel === 'canvas' ? 'flex flex-col' : 'hidden md:flex',
+          )}
+        >
           <EditorCanvas
             blocks={blocks}
             selectedBlockId={selectedBlockId}

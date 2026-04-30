@@ -1046,12 +1046,6 @@ export function ContactDetailSheet({
 
             {/* Activity Tab */}
             <TabsContent value="activity" className="px-6 py-6 mt-0">
-              <div className="flex justify-end mb-4">
-                <Button variant="outline" size="sm" onClick={() => setIsLogReplyOpen(true)} disabled={!contact.email}>
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Log Reply
-                </Button>
-              </div>
               {activitiesLoading ? (
                 <div className="space-y-4">
                   <Skeleton className="h-12 w-full" />
