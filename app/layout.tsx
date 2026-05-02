@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { Inter, Oswald } from "next/font/google"
 import { QueryProvider } from "@/components/providers/QueryProvider"
 import { ThemeProvider } from "@/components/providers/ThemeProvider"
+import { TopProgressBar } from "@/components/ui/top-progress-bar"
 import "./globals.css"
 
 const inter = Inter({
@@ -35,6 +37,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <QueryProvider>
+            {/* Top progress bar — uses useSearchParams so it must live in
+                a Suspense boundary to satisfy Next 15's static-bailout rule. */}
+            <Suspense fallback={null}>
+              <TopProgressBar />
+            </Suspense>
             {children}
           </QueryProvider>
         </ThemeProvider>

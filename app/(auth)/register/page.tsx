@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
@@ -23,12 +23,16 @@ export default function RegisterPage() {
   const { theme, setTheme } = useTheme()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  // useTransition gives a synchronous pending flag — the manual isLoading
+  // sometimes lost its update battle with the redirect throw and the
+  // spinner never appeared. isPending always reflects the in-flight action.
+  const [isPending, startTransition] = useTransition()
+  const isLoading = isPending
   const [error, setError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  async function handleSubmit(formData: FormData) {
+  function handleSubmit(formData: FormData) {
     setError(null)
 
     const passwordValue = formData.get('password') as string
@@ -44,14 +48,12 @@ export default function RegisterPage() {
       return
     }
 
-    setIsLoading(true)
-
-    const result = await signup(formData)
-
-    if (result?.error) {
-      setError(result.error)
-      setIsLoading(false)
-    }
+    startTransition(async () => {
+      const result = await signup(formData)
+      if (result?.error) {
+        setError(result.error)
+      }
+    })
   }
 
   return (

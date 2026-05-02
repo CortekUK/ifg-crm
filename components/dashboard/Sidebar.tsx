@@ -1,5 +1,6 @@
 'use client'
 
+import { useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,7 @@ import {
   UserCog,
   Settings,
   LogOut,
+  Loader2,
   ChevronUp,
   ChevronLeft,
   ChevronRight,
@@ -98,11 +100,19 @@ const navSections = [
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
+  // Scout knowledge base — intentionally NOT exposed in the sidebar so the
+  // client doesn't see an "AI training" UI and second-guess Scout. The page
+  // is still reachable directly at /admin/scout-knowledge for when we need
+  // to add or edit articles.
 ]
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
   const { collapsed, toggleCollapsed } = useSidebar()
+  // useTransition tracks the in-flight server action. While `loggingOut` is
+  // true the menu item swaps to a spinner so the user knows the click landed
+  // and they're not staring at a frozen button while the redirect happens.
+  const [loggingOut, startLogoutTransition] = useTransition()
 
   const getInitials = (name: string | null | undefined, email: string) => {
     if (name) {
@@ -119,7 +129,7 @@ export function Sidebar({ user }: SidebarProps) {
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
   const visibleSections = navSections.filter(
-    (section) => !section.adminOnly || isAdmin
+    (section) => !section.adminOnly || isAdmin,
   )
 
   return (
@@ -258,11 +268,23 @@ export function Sidebar({ user }: SidebarProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => logout()}
+              disabled={loggingOut}
+              onSelect={(e) => {
+                // Prevent Radix from closing the menu mid-transition so the
+                // spinner stays visible right up until the redirect.
+                e.preventDefault()
+                startLogoutTransition(async () => {
+                  await logout()
+                })
+              }}
               className="text-red-600 cursor-pointer"
             >
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
+              {loggingOut ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="mr-2 h-4 w-4" />
+              )}
+              {loggingOut ? 'Logging out…' : 'Log out'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

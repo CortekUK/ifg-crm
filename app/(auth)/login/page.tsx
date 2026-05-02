@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useTransition, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
@@ -38,7 +38,12 @@ function LoginContent() {
   const urlError = searchParams.get('error')
   const { theme, setTheme } = useTheme()
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  // useTransition gives a reliable pending flag that flips synchronously
+  // when we kick off the action — the manual setIsLoading(true) above the
+  // await sometimes batched with the redirect throw and never reached the
+  // DOM, so the spinner appeared to never show. isPending always does.
+  const [isPending, startTransition] = useTransition()
+  const isLoading = isPending
   const [error, setError] = useState<string | null>(
     urlError ? ERROR_MESSAGES[urlError] || urlError : null
   )
@@ -70,16 +75,18 @@ function LoginContent() {
     setRecoveryEmail('')
   }
 
-  async function handleSubmit(formData: FormData) {
-    setIsLoading(true)
+  function handleSubmit(formData: FormData) {
     setError(null)
-
-    const result = await login(formData)
-
-    if (result?.error) {
-      setError(result.error)
-      setIsLoading(false)
-    }
+    // startTransition flips isPending true synchronously, so the button
+    // re-renders with the spinner before the server action even runs.
+    // On a successful login the action throws the redirect signal and we
+    // navigate; on an error it returns { error } and we surface it.
+    startTransition(async () => {
+      const result = await login(formData)
+      if (result?.error) {
+        setError(result.error)
+      }
+    })
   }
 
   return (
