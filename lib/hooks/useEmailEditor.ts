@@ -169,6 +169,29 @@ export function useEmailEditor(templateId?: string) {
     [settings, saveToHistory, markChanged]
   )
 
+  // Replace the entire block list — used by the AI generator. Optionally
+  // updates a few settings (subject / preheader) as one history entry so
+  // the user can undo the AI generation in a single step.
+  const replaceBlocks = useCallback(
+    (
+      newBlocks: EditorBlock[],
+      partialSettings?: Partial<TemplateSettings>,
+    ) => {
+      setBlocks(() => {
+        const merged = newBlocks.map((b) => ({ ...b, id: generateId() }))
+        const newSettings = partialSettings
+          ? { ...settings, ...partialSettings }
+          : settings
+        if (partialSettings) setSettings(newSettings)
+        saveToHistory(merged, newSettings)
+        return merged
+      })
+      setSelectedBlockId(null)
+      markChanged()
+    },
+    [settings, saveToHistory, markChanged],
+  )
+
   // Add block from module (with predefined content)
   const addBlockFromModule = useCallback(
     (block: EditorBlock, index?: number) => {
@@ -284,8 +307,22 @@ export function useEmailEditor(templateId?: string) {
         const bodyHtml = renderBlocksToHTML(blocks)
         const bodyJson = JSON.stringify(blocks)
 
+        // Auto-derive a name when the user hasn't entered one. Priority:
+        //   1. user-typed name (anything other than the factory default)
+        //   2. the email subject — almost always the most useful summary
+        //   3. plain "Untitled Template" if there's nothing else
+        // The user can always rename later from the editor header.
+        const trimmedName = (settings.name ?? '').trim()
+        const isDefaultName = !trimmedName || trimmedName === 'Untitled Template'
+        const derivedName = (() => {
+          if (!isDefaultName) return trimmedName
+          const subject = (settings.subject ?? '').trim()
+          if (subject) return subject.slice(0, 80)
+          return 'Untitled Template'
+        })()
+
         const templateData = {
-          name: settings.name,
+          name: derivedName,
           subject: settings.subject,
           preheader: settings.preheader,
           from_name_type: settings.fromNameType,
@@ -308,7 +345,7 @@ export function useEmailEditor(templateId?: string) {
 
           toast({
             title: 'Template saved',
-            description: `"${settings.name}" has been updated.`,
+            description: `"${derivedName}" has been updated.`,
           })
         } else {
           // Create new template
@@ -323,8 +360,15 @@ export function useEmailEditor(templateId?: string) {
 
           toast({
             title: 'Template created',
-            description: `"${settings.name}" has been saved.`,
+            description: `"${derivedName}" has been saved.`,
           })
+        }
+
+        // Reflect the derived name in editor state so the header updates
+        // and a subsequent save doesn't re-derive (the user has now seen
+        // it as the official name).
+        if (derivedName !== settings.name) {
+          setSettings((prev) => ({ ...prev, name: derivedName }))
         }
 
         setHasUnsavedChanges(false)
@@ -371,6 +415,7 @@ export function useEmailEditor(templateId?: string) {
     // Block operations
     addBlock,
     addBlockFromModule,
+    replaceBlocks,
     updateBlock,
     deleteBlock,
     duplicateBlock,

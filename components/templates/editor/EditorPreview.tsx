@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/select'
 import { Monitor, Smartphone, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { renderBlocksToHTML, replaceVariables } from '@/lib/templates/render-html'
+import { renderBlocksToHTML } from '@/lib/templates/render-html'
 import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
+import { previewMergeTags } from '@/lib/utils/mergeTags'
+import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface EditorPreviewProps {
@@ -28,18 +30,23 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
 
   const selectedContact = sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
 
-  // Generate HTML with sample data
+  // Generate HTML with sample data using the canonical merge-tag engine —
+  // same one the prod email pipeline uses, so what you see here is what
+  // the recipient actually gets. We start with the global "previewMergeTags"
+  // sample dataset (covers contact + deal + owner + invoice + meeting tags),
+  // then override the contact-side fields with the selector at the top of
+  // the panel. This fixes the long-standing bug where the preview rendered
+  // raw tags like {{deal_owner_name}} because the legacy replaceVariables
+  // util used different (now-stale) variable names.
   const rawHtml = renderBlocksToHTML(blocks)
-  const previewHtml = replaceVariables(rawHtml, {
+  // First pass: full sample dataset.
+  const seeded = previewMergeTags(rawHtml)
+  // Second pass: re-apply the active "test contact" picks so name/email
+  // updates as the user toggles the selector.
+  const previewHtml = replaceMergeTags(seeded, {
     first_name: selectedContact.first_name,
     last_name: selectedContact.last_name,
     email: selectedContact.email,
-    programme: 'UCLan 2026',
-    calendly_link: 'https://calendly.com/ifg-recruiter',
-    recruiter_name: 'Sarah Johnson',
-    recruiter_email: 'sarah@ifg.com',
-    unsubscribe_url: '#',
-    subject: settings.subject,
   })
 
   // Update iframe content when HTML changes
@@ -95,7 +102,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
   }
 
   return (
-    <div className="w-[400px] border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col h-full">
+    <div className="w-full border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col h-full">
       {/* Preview Header */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 shrink-0">
         <div className="flex items-center justify-between">
@@ -163,10 +170,13 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
               <span className="text-slate-400">To:</span> {selectedContact.email}
             </div>
             <div className="text-sm font-semibold text-slate-800">
-              {replaceVariables(settings.subject || 'Enter your subject line...', {
-                first_name: selectedContact.first_name,
-                last_name: selectedContact.last_name,
-              })}
+              {replaceMergeTags(
+                previewMergeTags(settings.subject || 'Enter your subject line...'),
+                {
+                  first_name: selectedContact.first_name,
+                  last_name: selectedContact.last_name,
+                },
+              )}
             </div>
           </div>
 

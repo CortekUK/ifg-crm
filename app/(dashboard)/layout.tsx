@@ -5,7 +5,10 @@ import { MainContent } from '@/components/dashboard/MainContent'
 import { SidebarProvider } from '@/components/providers/SidebarProvider'
 import { Toaster } from '@/components/ui/toaster'
 import { KeyboardShortcutsProvider } from '@/components/providers/KeyboardShortcutsProvider'
-import { ScoutWidget } from '@/components/scout/ScoutWidget'
+// Scout's floating widget retired in favour of a dedicated /scout page
+// (Claude-style standalone window). Sidebar nav links to it with target
+// _blank. Component file kept in case we want to revert.
+// import { ScoutWidget } from '@/components/scout/ScoutWidget'
 
 export default async function DashboardLayout({
   children,
@@ -58,9 +61,6 @@ export default async function DashboardLayout({
 
         {/* Toast Notifications */}
         <Toaster />
-
-        {/* Scout AI assistant — only renders for super_admins (gate inside) */}
-        <ScoutWidget userRole={userData?.role ?? null} />
       </div>
     </SidebarProvider>
   )

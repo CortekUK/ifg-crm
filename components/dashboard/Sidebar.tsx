@@ -36,6 +36,8 @@ import {
   MapPin,
   ListIcon,
   Tag,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { useSidebar } from '@/components/providers/SidebarProvider'
@@ -104,6 +106,15 @@ const navSections = [
   // client doesn't see an "AI training" UI and second-guess Scout. The page
   // is still reachable directly at /admin/scout-knowledge for when we need
   // to add or edit articles.
+  // Scout AI — super_admin only, opens in a new window so the user can
+  // chat with Scout alongside their main work without losing context.
+  {
+    label: 'AI',
+    superAdminOnly: true,
+    items: [
+      { href: '/scout', label: 'Scout', icon: Sparkles, external: true },
+    ],
+  },
 ]
 
 export function Sidebar({ user }: SidebarProps) {
@@ -127,10 +138,13 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isSuperAdmin = user?.role === 'super_admin'
 
-  const visibleSections = navSections.filter(
-    (section) => !section.adminOnly || isAdmin,
-  )
+  const visibleSections = navSections.filter((section) => {
+    if (section.superAdminOnly && !isSuperAdmin) return false
+    if (section.adminOnly && !isAdmin) return false
+    return true
+  })
 
   return (
     <aside
@@ -177,11 +191,17 @@ export function Sidebar({ user }: SidebarProps) {
               {section.items.map((item) => {
                 const isActive = pathname === item.href
                 const Icon = item.icon
+                // External items (e.g. Scout) open in a new tab so the user
+                // can chat alongside their dashboard work. We still use
+                // <Link> — Next handles target=_blank correctly with it.
+                const isExternal = 'external' in item && item.external === true
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
                       title={collapsed ? item.label : undefined}
+                      target={isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                         isActive
@@ -191,7 +211,14 @@ export function Sidebar({ user }: SidebarProps) {
                       )}
                     >
                       <Icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && item.label}
+                      {!collapsed && (
+                        <span className="flex-1 flex items-center gap-1.5">
+                          {item.label}
+                          {isExternal && (
+                            <ExternalLink className="h-3 w-3 opacity-50" />
+                          )}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 )

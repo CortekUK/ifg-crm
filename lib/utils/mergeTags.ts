@@ -231,30 +231,39 @@ export const replaceMergeTags = coreReplaceMergeTags
  */
 export function previewMergeTags(template: string): string {
   const sampleData: MergeTagData = {
+    // Contact
     first_name: 'John',
     last_name: 'Smith',
     email: 'john.smith@example.com',
     phone: '+44 7700 900123',
+    // Deal
     deal_title: 'John Smith',
     deal_value: 5000,
     deal_stage: 'Initial Contact',
     deal_pipeline: 'UK GAP 2026',
+    programme_name: 'UK GAP 2026',
+    // Deal owner
     deal_owner_name: 'Nathan Recruiter',
+    deal_owner_title: 'Senior Recruiter',
     deal_owner_email: 'nathan@ifg.com',
     deal_owner_phone: '+44 7700 900456',
     deal_owner_calendly: 'https://calendly.com/nathan-ifg',
+    deal_owner_photo: 'https://ifg.example.com/avatar.png',
     deal_owner_signature: 'Best regards,<br>Nathan Recruiter<br>International Football Group',
+    // Meeting
     schedule_link: 'https://calendly.com/nathan-ifg/30min',
     meeting_link: 'https://meet.google.com/xyz-abc-def',
     meeting_time: 'Mon, 15 Jan 2026 at 3:00 PM',
     interview_date: 'Mon, 15 Jan 2026 at 3:00 PM',
     meeting_event_name: '30 Minute Meeting',
+    meeting_location: 'Google Meet',
+    // Invoice
     invoice_payment_link: 'https://ifg-crm.vercel.app/pay/abc-123',
     invoice_number: 'IFG-2026-00043',
     invoice_amount: '£1,500.00',
     invoice_due_date: '15 January 2026',
   }
-  
+
   return replaceMergeTags(template, sampleData)
 }
 
