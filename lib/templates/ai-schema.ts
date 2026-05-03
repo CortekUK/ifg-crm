@@ -166,7 +166,7 @@ const imageBlockSchema = z.object({
 
 const signatureBlockSchema = z.object({
   type: z.literal('recruiter_signature'),
-  showPhoto: z.boolean().nullish().describe('Whether to render the recruiter\'s avatar photo.'),
+  showPhoto: z.boolean().nullish().describe('Deprecated — block no longer renders a photo. Set to false / leave null.'),
   showName: z.boolean().nullish(),
   showTitle: z.boolean().nullish().describe('Whether to render the recruiter\'s job title.'),
   showEmail: z.boolean().nullish(),
@@ -178,12 +178,30 @@ const signatureBlockSchema = z.object({
   layout: z
     .enum(['stacked', 'inline'])
     .nullish()
-    .describe('inline = photo left + details right; stacked = photo on top, details below.'),
+    .describe('Deprecated — block always renders stacked-style now. Leave null.'),
   alignment: alignmentSchema.nullish(),
   photoSize: z
     .enum(['small', 'medium', 'large'])
     .nullish()
-    .describe('40 / 60 / 80 px avatar.'),
+    .describe('Deprecated — no photo to size.'),
+  textColor: z
+    .string()
+    .nullish()
+    .describe(
+      'Hex colour applied ONLY to the variable details (name, title, email, phone, Calendly). Does NOT touch the company-info line or the confidentiality disclaimer — set those via companyTextColor / confidentialityColor instead.',
+    ),
+  companyTextColor: z
+    .string()
+    .nullish()
+    .describe(
+      'Hex colour applied ONLY to the "Macc Football Club Limited, a company registered…" registered-office line.',
+    ),
+  confidentialityColor: z
+    .string()
+    .nullish()
+    .describe(
+      'Hex colour applied ONLY to the "Confidentiality: …" disclaimer paragraph.',
+    ),
   paddingTop,
   paddingBottom,
 })
@@ -271,20 +289,47 @@ export const aiBlockSchema = z.discriminatedUnion('type', [
 export type AiBlock = z.infer<typeof aiBlockSchema>
 
 export const aiTemplateResponseSchema = z.object({
+  // What the model is trying to do for this turn. The model decides this
+  // itself; the client's mode hint is only a tip.
+  //   answer  — the user is asking a question, asking for advice, asking
+  //             for reference content / examples / suggestions, or
+  //             otherwise NOT requesting a canvas change. Reply only.
+  //             name/subject/blocks should be empty.
+  //   create  — generate a brand-new template. Replaces the canvas.
+  //   enhance — modify the existing canvas. Reuses untouched blocks.
+  intent: z
+    .enum(['answer', 'create', 'enhance'])
+    .describe(
+      'What the assistant is doing this turn. "answer" = chat-only, no canvas change. "create" = build a fresh template. "enhance" = edit the existing canvas.',
+    ),
+  // Always required. The conversational message shown in the chat thread.
+  // For create/enhance turns it should briefly describe what the model
+  // built (tone, structure, why those choices). For answer turns it carries
+  // the full answer (references, suggestions, advice, etc.).
+  reply: z
+    .string()
+    .min(1)
+    .max(4000)
+    .describe(
+      'The natural-language message to show the user in chat. ALWAYS required, even on create/enhance turns. Friendly, brief, no headers — write like Claude.',
+    ),
   // Internal name shown in the templates list — short and scannable, NOT
   // the subject line. Two to five words, title-cased. Examples: "Summer
   // Residency Welcome", "Interview Confirmation", "Deposit Reminder",
-  // "Onboarding Day 1". The user can rename later.
+  // "Onboarding Day 1". The user can rename later. Empty string on
+  // 'answer' intent.
   name: z
     .string()
-    .min(1)
     .max(80)
-    .describe('Short internal name for the template (2-5 words, title case).'),
+    .describe(
+      'Short internal name (2-5 words, title case) for create/enhance. Empty string when intent is "answer".',
+    ),
   subject: z
     .string()
-    .min(1)
     .max(200)
-    .describe('Concise email subject line. ≤ 80 characters when possible.'),
+    .describe(
+      'Email subject line for create/enhance. Empty string when intent is "answer".',
+    ),
   preheader: z
     .string()
     .max(200)
@@ -292,9 +337,29 @@ export const aiTemplateResponseSchema = z.object({
     .describe('Optional preview text shown after the subject in the inbox list.'),
   blocks: z
     .array(aiBlockSchema)
-    .min(1)
     .max(40)
-    .describe('Ordered list of blocks that make up the email body.'),
+    .describe(
+      'Ordered list of blocks for create/enhance. Empty array when intent is "answer".',
+    ),
+  // Per-template theme override. The model uses this to honour
+  // requests like "change the header colour to red" or "make the
+  // page background cream" — without this it would otherwise drop a
+  // custom html block on top, which is wrong. When no theme change is
+  // intended, return null.
+  theme: z
+    .object({
+      headerBgColor: z.string().nullish(),
+      headerTextColor: z.string().nullish(),
+      footerBgColor: z.string().nullish(),
+      footerTextColor: z.string().nullish(),
+      footerLinkColor: z.string().nullish(),
+      pageBgColor: z.string().nullish(),
+      bodyBgColor: z.string().nullish(),
+    })
+    .nullish()
+    .describe(
+      'Optional theme overrides for the email chrome (header/footer/page bg). Set ONLY the keys the user asked you to change; leave the rest null. Set the whole object to null when the user did not ask for a chrome / theme change.',
+    ),
 })
 
 export type AiTemplateResponse = z.infer<typeof aiTemplateResponseSchema>
@@ -449,6 +514,7 @@ const signatureBranch = {
   required: [
     'type', 'showPhoto', 'showName', 'showTitle', 'showEmail',
     'showPhone', 'showCalendly', 'layout', 'alignment', 'photoSize',
+    'textColor', 'companyTextColor', 'confidentialityColor',
     'paddingTop', 'paddingBottom',
   ],
   properties: {
@@ -462,6 +528,9 @@ const signatureBranch = {
     layout: nullableEnum(['stacked', 'inline']),
     alignment: nullableEnum(['left', 'center', 'right']),
     photoSize: nullableEnum(['small', 'medium', 'large']),
+    textColor: nullableString(),
+    companyTextColor: nullableString(),
+    confidentialityColor: nullableString(),
     paddingTop: nullableInteger(),
     paddingBottom: nullableInteger(),
   },
@@ -566,14 +635,28 @@ export const openAiJsonSchema = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['name', 'subject', 'preheader', 'blocks'],
+    required: ['intent', 'reply', 'name', 'subject', 'preheader', 'blocks', 'theme'],
     properties: {
+      intent: {
+        type: 'string',
+        enum: ['answer', 'create', 'enhance'],
+        description:
+          '"answer" = chat-only (no canvas change). "create" = build a new template. "enhance" = edit the existing canvas.',
+      },
+      reply: {
+        type: 'string',
+        description:
+          'Conversational message shown in the chat thread. ALWAYS required. For create/enhance, briefly describe what you built. For answer, this is the full reply.',
+      },
       name: {
         type: 'string',
         description:
-          'Short internal name for the template (2-5 words, title case).',
+          'Short internal name for the template (2-5 words, title case). Empty string on "answer".',
       },
-      subject: { type: 'string', description: 'Concise subject line.' },
+      subject: {
+        type: 'string',
+        description: 'Concise subject line. Empty string on "answer".',
+      },
       preheader: nullableString(),
       blocks: {
         type: 'array',
@@ -592,6 +675,33 @@ export const openAiJsonSchema = {
             columnsBranch,
           ],
         },
+      },
+      theme: {
+        anyOf: [
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'headerBgColor',
+              'headerTextColor',
+              'footerBgColor',
+              'footerTextColor',
+              'footerLinkColor',
+              'pageBgColor',
+              'bodyBgColor',
+            ],
+            properties: {
+              headerBgColor: nullableString(),
+              headerTextColor: nullableString(),
+              footerBgColor: nullableString(),
+              footerTextColor: nullableString(),
+              footerLinkColor: nullableString(),
+              pageBgColor: nullableString(),
+              bodyBgColor: nullableString(),
+            },
+          },
+          { type: 'null' },
+        ],
       },
     },
   },
@@ -768,7 +878,7 @@ export function expandAiBlock(ai: AiBlock): EditorBlock {
     case 'recruiter_signature': {
       const base = defaultBlockContent.recruiter_signature as RecruiterSignatureBlockContent
       // For booleans we use ?? so an explicit false survives — the user
-      // saying "hide the photo" must result in showPhoto: false, not the
+      // saying "hide the phone" must result in showPhone: false, not the
       // default true.
       const content: RecruiterSignatureBlockContent = {
         ...base,
@@ -781,6 +891,13 @@ export function expandAiBlock(ai: AiBlock): EditorBlock {
         layout: ai.layout ?? base.layout,
         alignment: ai.alignment ?? base.alignment,
         photoSize: ai.photoSize ?? base.photoSize,
+        textColor: ai.textColor ? sanitiseColour(ai.textColor) || null : null,
+        companyTextColor: ai.companyTextColor
+          ? sanitiseColour(ai.companyTextColor) || null
+          : null,
+        confidentialityColor: ai.confidentialityColor
+          ? sanitiseColour(ai.confidentialityColor) || null
+          : null,
         paddingTop: ai.paddingTop ?? base.paddingTop,
         paddingBottom: ai.paddingBottom ?? base.paddingBottom,
       }
@@ -969,6 +1086,9 @@ function compactEqual(a: AiBlock | null, b: AiBlock | null): boolean {
         (a.layout ?? null) === (bSig.layout ?? null) &&
         (a.alignment ?? null) === (bSig.alignment ?? null) &&
         (a.photoSize ?? null) === (bSig.photoSize ?? null) &&
+        (a.textColor ?? null) === (bSig.textColor ?? null) &&
+        (a.companyTextColor ?? null) === (bSig.companyTextColor ?? null) &&
+        (a.confidentialityColor ?? null) === (bSig.confidentialityColor ?? null) &&
         (a.paddingTop ?? null) === (bSig.paddingTop ?? null) &&
         (a.paddingBottom ?? null) === (bSig.paddingBottom ?? null)
       )
@@ -1126,6 +1246,11 @@ export function compactBlockForPrompt(block: EditorBlock): AiBlock | null {
         layout: c.layout as 'stacked' | 'inline' | undefined,
         alignment: c.alignment as 'left' | 'center' | 'right' | undefined,
         photoSize: c.photoSize as 'small' | 'medium' | 'large' | undefined,
+        textColor: typeof c.textColor === 'string' ? c.textColor : undefined,
+        companyTextColor:
+          typeof c.companyTextColor === 'string' ? c.companyTextColor : undefined,
+        confidentialityColor:
+          typeof c.confidentialityColor === 'string' ? c.confidentialityColor : undefined,
         paddingTop: typeof c.paddingTop === 'number' ? c.paddingTop : undefined,
         paddingBottom: typeof c.paddingBottom === 'number' ? c.paddingBottom : undefined,
       }

@@ -1,12 +1,9 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { LayoutGrid, List, UserPlus, Upload, Download, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { UserPlus, Upload, Download, Loader2 } from 'lucide-react'
 
 interface ContactsPageHeaderProps {
-  viewMode: 'grid' | 'list'
-  onViewModeChange: (mode: 'grid' | 'list') => void
   onAddContact: () => void
   onImportClick: () => void
   onExportClick: () => void
@@ -14,9 +11,10 @@ interface ContactsPageHeaderProps {
   isAdmin?: boolean
 }
 
+// Grid/list toggle removed — contacts is a long, dense list of player
+// records and the card grid was rarely useful. The page is list-only
+// now (mobile gets the same list, just narrower columns).
 export function ContactsPageHeader({
-  viewMode,
-  onViewModeChange,
   onAddContact,
   onImportClick,
   onExportClick,
@@ -33,28 +31,6 @@ export function ContactsPageHeader({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* View Toggle */}
-          <div className="flex bg-white/20 rounded-lg p-1">
-            <button
-              onClick={() => onViewModeChange('grid')}
-              className={cn(
-                'p-2 rounded-md transition-colors',
-                viewMode === 'grid' ? 'bg-white text-blue-600' : 'text-white hover:bg-white/10'
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => onViewModeChange('list')}
-              className={cn(
-                'p-2 rounded-md transition-colors',
-                viewMode === 'list' ? 'bg-white text-blue-600' : 'text-white hover:bg-white/10'
-              )}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-
           {isAdmin && (
             <Button
               variant="outline"

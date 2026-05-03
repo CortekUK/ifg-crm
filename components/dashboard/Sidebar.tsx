@@ -36,6 +36,7 @@ import {
   MapPin,
   ListIcon,
   Tag,
+  Sparkles,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { useSidebar } from '@/components/providers/SidebarProvider'
@@ -66,7 +67,7 @@ const navSections = [
       { href: '/campaigns', label: 'Campaigns', icon: Send },
       { href: '/lists', label: 'Lists', icon: ListIcon },
       { href: '/tags', label: 'Tags', icon: Tag },
-      { href: '/templates', label: 'Templates', icon: FileText },
+      { href: '/templates', label: 'Templates', icon: FileText, ai: true },
     ],
   },
   {
@@ -180,11 +181,15 @@ export function Sidebar({ user }: SidebarProps) {
               {section.items.map((item) => {
                 const isActive = pathname === item.href
                 const Icon = item.icon
+                // AI-powered features carry an `ai: true` flag — we
+                // render a small Sparkles glyph after the label so the
+                // user knows the page has AI affordances inside.
+                const hasAi = 'ai' in item && (item as { ai?: boolean }).ai
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      title={collapsed ? item.label : undefined}
+                      title={collapsed ? `${item.label}${hasAi ? ' · AI' : ''}` : undefined}
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                         isActive
@@ -194,7 +199,20 @@ export function Sidebar({ user }: SidebarProps) {
                       )}
                     >
                       <Icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && <span className="flex-1">{item.label}</span>}
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1">{item.label}</span>
+                          {hasAi && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-md bg-gradient-to-br from-indigo-400 to-violet-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white shadow-sm shadow-violet-500/30"
+                              title="AI-powered"
+                            >
+                              <Sparkles className="h-2.5 w-2.5" />
+                              AI
+                            </span>
+                          )}
+                        </>
+                      )}
                     </Link>
                   </li>
                 )

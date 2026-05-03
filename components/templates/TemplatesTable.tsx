@@ -29,6 +29,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -57,6 +59,8 @@ function SortIcon({ field, activeField, dir }: { field: SortField; activeField: 
   return dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
 }
 
+const PAGE_SIZE = 10
+
 export function TemplatesTable({
   templates,
   isLoading,
@@ -67,6 +71,7 @@ export function TemplatesTable({
 }: TemplatesTableProps) {
   const [sortField, setSortField] = useState<SortField>('updated_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [page, setPage] = useState(1)
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -100,16 +105,23 @@ export function TemplatesTable({
     return sorted
   }, [templates, sortField, sortDir])
 
+  // Reset to first page whenever the filtered/sorted set changes so a
+  // search that narrows results doesn't strand the user on page 5 of a
+  // 1-page list.
+  const totalPages = Math.max(1, Math.ceil(sortedTemplates.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pageStart = (safePage - 1) * PAGE_SIZE
+  const pageItems = sortedTemplates.slice(pageStart, pageStart + PAGE_SIZE)
+
   if (isLoading) {
     return (
       <div className="border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="min-w-[200px]">Name</TableHead>
-              <TableHead className="min-w-[200px]">Subject</TableHead>
+              <TableHead className="w-[260px]">Name</TableHead>
+              <TableHead>Subject</TableHead>
               <TableHead className="w-[120px]">Category</TableHead>
-              <TableHead className="w-[100px]">Sender</TableHead>
               <TableHead className="w-[120px]">Last Updated</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -125,7 +137,6 @@ export function TemplatesTable({
                 </TableCell>
                 <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-8 w-8" /></TableCell>
               </TableRow>
@@ -153,12 +164,12 @@ export function TemplatesTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="min-w-[200px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('name')}>
+            <TableHead className="w-[260px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('name')}>
               <div className="flex items-center gap-1">
                 Name <SortIcon field="name" activeField={sortField} dir={sortDir} />
               </div>
             </TableHead>
-            <TableHead className="min-w-[200px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('subject')}>
+            <TableHead className="cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('subject')}>
               <div className="flex items-center gap-1">
                 Subject <SortIcon field="subject" activeField={sortField} dir={sortDir} />
               </div>
@@ -168,7 +179,6 @@ export function TemplatesTable({
                 Category <SortIcon field="category" activeField={sortField} dir={sortDir} />
               </div>
             </TableHead>
-            <TableHead className="w-[100px]">Sender</TableHead>
             <TableHead className="w-[120px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('updated_at')}>
               <div className="flex items-center gap-1">
                 Last Updated <SortIcon field="updated_at" activeField={sortField} dir={sortDir} />
@@ -178,7 +188,7 @@ export function TemplatesTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedTemplates.map((template) => {
+          {pageItems.map((template) => {
             const category = categoryConfig[template.category]
 
             return (
@@ -187,21 +197,40 @@ export function TemplatesTable({
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => onPreview(template)}
               >
-                {/* Name */}
-                <TableCell>
+                {/* Name — fixed-width column with truncation. The
+                    inner div has an explicit max-width so `truncate`
+                    actually clips the text (CSS truncate needs a
+                    bounded parent; HTML tables auto-size cells to
+                    their content otherwise). Hover shows full text. */}
+                <TableCell className="max-w-[260px]">
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded bg-gray-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
                       <Mail className="h-4 w-4 text-gray-400 dark:text-slate-500" />
                     </div>
-                    <span className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]">
-                      {template.name}
-                    </span>
+                    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                      <span
+                        className="min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-white"
+                        title={template.name}
+                      >
+                        {template.name}
+                      </span>
+                      {template.is_draft && (
+                        <Badge className="shrink-0 border-amber-200 bg-amber-50 text-[10px] font-normal text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                          Draft
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
 
-                {/* Subject */}
-                <TableCell className="text-sm text-muted-foreground">
-                  <span className="truncate block max-w-[240px]">
+                {/* Subject — same truncation treatment. Bounded
+                    max-width on the cell so very long subjects don't
+                    push category / date columns off-screen. */}
+                <TableCell className="max-w-[400px] text-sm text-muted-foreground">
+                  <span
+                    className="block truncate"
+                    title={template.subject || ''}
+                  >
                     {template.subject || 'No subject'}
                   </span>
                 </TableCell>
@@ -211,11 +240,6 @@ export function TemplatesTable({
                   <Badge className={cn('text-xs font-normal', category.className)}>
                     {category.label}
                   </Badge>
-                </TableCell>
-
-                {/* Sender */}
-                <TableCell className="text-sm text-muted-foreground">
-                  {template.from_name_type === 'deal_owner' ? 'Deal Owner' : (template.fixed_from_name || '—')}
                 </TableCell>
 
                 {/* Last Updated */}
@@ -260,6 +284,41 @@ export function TemplatesTable({
           })}
         </TableBody>
       </Table>
+
+      {/* Pagination footer — only renders when there's more than one
+          page. Shows "Showing X-Y of N" plus prev/next + jump buttons.
+          PAGE_SIZE is currently 10; bump if the list gets dense. */}
+      {sortedTemplates.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs text-muted-foreground dark:border-slate-700 dark:bg-slate-800/30">
+          <span>
+            Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, sortedTemplates.length)} of{' '}
+            {sortedTemplates.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="px-2 tabular-nums">
+              Page {safePage} / {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { Inbox, MessagesSquare, Sparkles, Briefcase } from 'lucide-react'
+import { Inbox, MessagesSquare, Sparkles, Briefcase, Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -35,8 +35,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-import { useMarkEmailAsSpam, useUnmarkEmailSpam } from '@/lib/hooks/useEmailReplies'
-import { useMarkSMSAsSpam } from '@/lib/hooks/useSMSMessages'
+import { useMarkEmailAsSpam, useUnmarkEmailSpam, useMarkEmailRepliesRead } from '@/lib/hooks/useEmailReplies'
+import { useMarkSMSAsSpam, useMarkSMSMessagesRead } from '@/lib/hooks/useSMSMessages'
 
 import { PageHeader } from '@/components/shared/PageHeader'
 import type { EmailReply } from '@/lib/types/email'
@@ -94,6 +94,8 @@ export default function RepliesPage() {
 
   // Mutations
   const markEmailSpam = useMarkEmailAsSpam()
+  const markEmailRead = useMarkEmailRepliesRead()
+  const markSMSRead = useMarkSMSMessagesRead()
   const unmarkEmailSpam = useUnmarkEmailSpam()
   const markSMSSpam = useMarkSMSAsSpam()
 
@@ -301,82 +303,84 @@ export default function RepliesPage() {
       {/* Main Tabs - Email vs SMS */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'email' | 'sms')}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Email Tab Trigger */}
+          {/* Email + SMS stat cards — tightened from p-5 / gap-6 with
+              a vertical divider to p-3.5 / gap-5, dropped the divider
+              and shrank the metric font sizes. The "extra space"
+              feedback was the cards visually feeling like billboard
+              hero panels; now they're the size of a normal stat row. */}
           <button
             onClick={() => setActiveTab('email')}
             className={cn(
-              'rounded-xl border p-5 text-left transition-all',
+              'rounded-xl border px-4 py-3 text-left transition-all',
               activeTab === 'email'
                 ? 'border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 shadow-sm ring-1 ring-blue-100 dark:ring-blue-900/50'
                 : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
             )}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className={cn('p-2 rounded-lg', activeTab === 'email' ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-slate-100 dark:bg-slate-800')}>
-                  <Inbox className={cn('h-4 w-4', activeTab === 'email' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500')} />
+              <div className="flex items-center gap-2">
+                <div className={cn('p-1.5 rounded-md', activeTab === 'email' ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-slate-100 dark:bg-slate-800')}>
+                  <Inbox className={cn('h-3.5 w-3.5', activeTab === 'email' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500')} />
                 </div>
-                <h3 className="font-semibold text-gray-900 dark:text-white">Email Replies</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Email Replies</h3>
               </div>
               {emailCounts && emailCounts.unmatched > 0 && (
-                <span className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-full">
+                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
                   {emailCounts.unmatched} Unmatched
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-6 mt-4">
+            <div className="mt-2.5 flex items-center gap-5">
               <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{emailCounts?.today || 0}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Received Today</p>
-              </div>
-              <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
-              <div>
-                <p className="text-lg font-semibold text-green-600 dark:text-green-400">{emailCounts?.positive || 0}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Positive Intent</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{emailCounts?.today || 0}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Received Today</p>
               </div>
               <div>
-                <p className="text-lg font-semibold text-red-500 dark:text-red-400">{emailCounts?.negative || 0}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Negative Intent</p>
+                <p className="text-base font-semibold text-green-600 dark:text-green-400 leading-tight">{emailCounts?.positive || 0}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Positive Intent</p>
+              </div>
+              <div>
+                <p className="text-base font-semibold text-red-500 dark:text-red-400 leading-tight">{emailCounts?.negative || 0}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Negative Intent</p>
               </div>
             </div>
           </button>
 
-          {/* SMS Tab Trigger */}
+          {/* SMS Tab Trigger — same compact layout */}
           <button
             onClick={() => setActiveTab('sms')}
             className={cn(
-              'rounded-xl border p-5 text-left transition-all',
+              'rounded-xl border px-4 py-3 text-left transition-all',
               activeTab === 'sms'
                 ? 'border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900 shadow-sm ring-1 ring-purple-100 dark:ring-purple-900/50'
                 : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
             )}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className={cn('p-2 rounded-lg', activeTab === 'sms' ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-slate-100 dark:bg-slate-800')}>
-                  <MessagesSquare className={cn('h-4 w-4', activeTab === 'sms' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500')} />
+              <div className="flex items-center gap-2">
+                <div className={cn('p-1.5 rounded-md', activeTab === 'sms' ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-slate-100 dark:bg-slate-800')}>
+                  <MessagesSquare className={cn('h-3.5 w-3.5', activeTab === 'sms' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500')} />
                 </div>
-                <h3 className="font-semibold text-gray-900 dark:text-white">SMS Replies</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">SMS Replies</h3>
               </div>
               {smsCounts && smsCounts.unmatched > 0 && (
-                <span className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-full">
+                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
                   {smsCounts.unmatched} Unmatched
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-6 mt-4">
+            <div className="mt-2.5 flex items-center gap-5">
               <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{smsCounts?.today || 0}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Received Today</p>
-              </div>
-              <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
-              <div>
-                <p className="text-lg font-semibold text-green-600 dark:text-green-400">{smsCounts?.positive || 0}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Positive Intent</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{smsCounts?.today || 0}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Received Today</p>
               </div>
               <div>
-                <p className="text-lg font-semibold text-red-500 dark:text-red-400">{smsCounts?.negative || 0}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Negative Intent</p>
+                <p className="text-base font-semibold text-green-600 dark:text-green-400 leading-tight">{smsCounts?.positive || 0}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Positive Intent</p>
+              </div>
+              <div>
+                <p className="text-base font-semibold text-red-500 dark:text-red-400 leading-tight">{smsCounts?.negative || 0}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Negative Intent</p>
               </div>
             </div>
           </button>
@@ -430,6 +434,28 @@ export default function RepliesPage() {
                 >
                   Select All ({emailReplies.filter((r) => !!r.contact_id).length})
                 </Button>
+                {emailTab === 'matched' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const ids = Array.from(selectedEmailIds)
+                      if (ids.length === 0) return
+                      markEmailRead.mutate(ids, {
+                        onSuccess: () => setSelectedEmailIds(new Set()),
+                      })
+                    }}
+                    disabled={selectedEmailIds.size === 0 || markEmailRead.isPending}
+                    className="shrink-0"
+                  >
+                    {markEmailRead.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-2 h-4 w-4" />
+                    )}
+                    Mark as read{selectedEmailIds.size > 0 ? ` (${selectedEmailIds.size})` : ''}
+                  </Button>
+                )}
                 <Button
                   onClick={() => setSmartDealOpen(true)}
                   disabled={selectedEmailIds.size === 0}
@@ -572,6 +598,26 @@ export default function RepliesPage() {
                   className="shrink-0"
                 >
                   Select All ({smsMessages.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const ids = Array.from(selectedSMSIds)
+                    if (ids.length === 0) return
+                    markSMSRead.mutate(ids, {
+                      onSuccess: () => setSelectedSMSIds(new Set()),
+                    })
+                  }}
+                  disabled={selectedSMSIds.size === 0 || markSMSRead.isPending}
+                  className="shrink-0"
+                >
+                  {markSMSRead.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="mr-2 h-4 w-4" />
+                  )}
+                  Mark as read{selectedSMSIds.size > 0 ? ` (${selectedSMSIds.size})` : ''}
                 </Button>
                 <Button
                   onClick={() => setSmartDealOpen(true)}

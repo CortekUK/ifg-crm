@@ -28,7 +28,12 @@ export function useSMSMessages(matchStatus: 'unmatched' | 'matched' | 'spam') {
       } else if (matchStatus === 'spam') {
         query = query.eq('match_status', 'spam')
       } else {
-        query = query.in('match_status', ['auto_matched', 'manually_matched'])
+        // Matched only shows UNREAD inbound SMS — once acked, the
+        // message is hidden from this tab; the All view (if any) keeps
+        // it. Mirrors the email Matched-inbox UX.
+        query = query
+          .in('match_status', ['auto_matched', 'manually_matched'])
+          .eq('read', false)
       }
 
       const { data, error } = await query
@@ -65,11 +70,14 @@ export function useSMSMessageCounts() {
           .select('*', { count: 'exact', head: true })
           .eq('direction', 'inbound')
           .eq('match_status', 'unmatched'),
+        // Matched count reflects the unread Matched inbox the user
+        // sees in the tab; read messages live in 'all' only.
         supabase
           .from('sms_messages')
           .select('*', { count: 'exact', head: true })
           .eq('direction', 'inbound')
-          .in('match_status', ['auto_matched', 'manually_matched']),
+          .in('match_status', ['auto_matched', 'manually_matched'])
+          .eq('read', false),
         supabase
           .from('sms_messages')
           .select('*', { count: 'exact', head: true })
@@ -168,6 +176,31 @@ export function useMarkSMSAsSpam() {
         .eq('id', messageId)
 
       if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sms-messages'] })
+      queryClient.invalidateQueries({ queryKey: ['sms-message-counts'] })
+    },
+  })
+}
+
+// Mark one or more matched SMS messages as read. Hides them from the
+// Matched tab; counts decrement so the inbox feels like a real
+// inbox/archive flow.
+export function useMarkSMSMessagesRead() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (messageIds: string[]) => {
+      if (messageIds.length === 0) return []
+      const { data, error } = await supabase
+        .from('sms_messages')
+        .update({ read: true })
+        .in('id', messageIds)
+        .select('id')
+      if (error) throw error
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sms-messages'] })

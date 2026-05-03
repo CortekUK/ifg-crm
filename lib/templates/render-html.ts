@@ -12,18 +12,43 @@ import type {
   ConditionalBlockContent,
   RecruiterSignatureBlockContent,
   FileBlockContent,
+  TemplateTheme,
 } from './editor-types'
 
-export function renderBlocksToHTML(blocks: EditorBlock[]): string {
+// Default chrome colours when no theme is set on the template. Single
+// source of truth — `EditorCanvas` mirrors these values so the canvas
+// preview stays byte-identical to what the recipient gets.
+export const DEFAULT_THEME: Required<TemplateTheme> = {
+  headerBgColor: '#0f172a',
+  headerTextColor: '#ffffff',
+  footerBgColor: '#f3f4f6',
+  footerTextColor: '#6b7280',
+  footerLinkColor: '#3b82f6',
+  pageBgColor: '#f9fafb',
+  bodyBgColor: '#ffffff',
+}
+
+// Resolve a theme + falls back to defaults for any unset key. Used by
+// both the email renderer and the canvas component.
+export function resolveTheme(theme?: TemplateTheme | null): Required<TemplateTheme> {
+  return { ...DEFAULT_THEME, ...(theme ?? {}) }
+}
+
+export function renderBlocksToHTML(
+  blocks: EditorBlock[],
+  theme?: TemplateTheme | null,
+): string {
+  const t = resolveTheme(theme)
+
   const header = `
-    <div style="background-color: #0f172a; padding: 20px; text-align: center;">
+    <div style="background-color: ${t.headerBgColor}; padding: 20px; text-align: center;">
       <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
         <tr>
           <td style="vertical-align: middle;">
-            <span style="color: white; font-size: 24px; font-weight: bold;">IFG</span>
+            <span style="color: ${t.headerTextColor}; font-size: 24px; font-weight: bold;">IFG</span>
           </td>
           <td style="vertical-align: middle; padding-left: 10px;">
-            <span style="color: white; font-size: 16px;">International Football Group</span>
+            <span style="color: ${t.headerTextColor}; font-size: 16px;">International Football Group</span>
           </td>
         </tr>
       </table>
@@ -33,10 +58,10 @@ export function renderBlocksToHTML(blocks: EditorBlock[]): string {
   const body = blocks.map((block) => renderBlock(block)).join('')
 
   const footer = `
-    <div style="background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #6b7280;">
+    <div style="background-color: ${t.footerBgColor}; padding: 20px; text-align: center; font-size: 12px; color: ${t.footerTextColor};">
       <p style="margin: 0 0 10px 0;">International Football Group</p>
       <p style="margin: 0 0 10px 0;">Macclesfield FC, United Kingdom</p>
-      <p style="margin: 0;"><a href="{{unsubscribe_url}}" style="color: #3b82f6;">Unsubscribe</a></p>
+      <p style="margin: 0;"><a href="{{unsubscribe_url}}" style="color: ${t.footerLinkColor};">Unsubscribe</a></p>
     </div>
   `
 
@@ -54,11 +79,11 @@ export function renderBlocksToHTML(blocks: EditorBlock[]): string {
   </style>
   <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f9fafb;">
-  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f9fafb;">
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: ${t.pageBgColor};">
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: ${t.pageBgColor};">
     <tr>
       <td align="center">
-        <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff;">
+        <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px; background-color: ${t.bodyBgColor};">
           <tr>
             <td>
               ${header}
@@ -317,60 +342,114 @@ function renderConditionalBlock(content: ConditionalBlockContent): string {
   `
 }
 
+// Static IFG signature footer baked into every recruiter_signature
+// block — the logo and company / confidentiality copy are required on
+// all outgoing IFG email so we render them by default rather than
+// asking the user (or the AI) to opt in. The variable bits above
+// (name/title/email/phone/Calendly toggles) still flex per-template.
+
+// Resolve the right `src` for the Macclesfield crest:
+//   * Browser (canvas / modal iframe preview) → use the page's own
+//     origin so localhost dev finds /public/signature-logo.png
+//     without depending on the deployed site.
+//   * Server (the email-send code path) → embed the file as a base64
+//     data URL. Sent emails are then self-contained: they render the
+//     logo whether or not the asset has been deployed to
+//     NEXT_PUBLIC_APP_URL. Falls back to the public URL if the file
+//     can't be read for some reason (e.g. edge runtime, missing file).
+//
+// Cached so we don't hit the disk on every render call. The logo is
+// ~few KB so the cost of reading it once is negligible.
+let cachedLogoDataUrl: string | null = null
+function signatureLogoUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/signature-logo.png`
+  }
+  if (cachedLogoDataUrl) return cachedLogoDataUrl
+  try {
+    // require (not import) — keeps `fs` out of client bundles. Next.js
+    // doesn't include this branch in the browser build because the
+    // window check above short-circuits before we reach it.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path')
+    const filePath = path.join(process.cwd(), 'public', 'signature-logo.png')
+    if (fs.existsSync(filePath)) {
+      const buf = fs.readFileSync(filePath)
+      cachedLogoDataUrl = `data:image/png;base64,${buf.toString('base64')}`
+      return cachedLogoDataUrl
+    }
+  } catch {
+    /* fall through to URL fallback */
+  }
+  return `${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}/signature-logo.png`
+}
+
+// inline-block (not block) on the logo so the parent's text-align
+// actually positions it. With display:block the image would always sit
+// flush-left regardless of the signature's `alignment` setting.
+//
+// `textColor` is an optional override for the text inside this block.
+// When undefined (the common case) we keep the original tasteful
+// greys; when set, both the company line and disclaimer take that
+// colour so the user can brand the whole signature.
+function buildSignatureCompanyBlock(
+  companyTextColor?: string | null,
+  confidentialityColor?: string | null,
+): string {
+  const companyColor = companyTextColor || '#4b5563'
+  const disclaimerColor = confidentialityColor || '#6b7280'
+  return `
+    <img src="${signatureLogoUrl()}" alt="Macclesfield FC" style="display: inline-block; width: 110px; height: auto; margin-top: 16px; border: 0;" />
+    <p style="margin: 14px 0 0 0; font-size: 12px; line-height: 1.5; color: ${companyColor};">
+      Macc Football Club Limited, a company registered in England. Company number 12931817. Registered office address: The Leasing.com Stadium, London Rd, Macclesfield, SK11 7SP.
+    </p>
+    <p style="margin: 8px 0 0 0; font-size: 11px; line-height: 1.5; color: ${disclaimerColor};">
+      <strong>Confidentiality:</strong> Privileged / Confidential information may be contained in this message and may be subject to legal privilege. Access to this email by anyone other than the intended is unauthorised. If you are not the intended recipient (or responsible for delivery of the message to such person), you may not use, copy, distribute or deliver to anyone this message (or any part of its contents) or take any action in reliance on it. In such case, you should destroy this message, and notify us immediately. If you have received this email in error, please notify us immediately by email or telephone and delete the email from any company. All reasonable precautions have been taken to ensure no viruses are present in this email. As our company cannot accept responsibility for any loss or damage arising from the use of this email or attachments we recommend that you subject these to your virus checking procedures prior to use.
+    </p>
+  `
+}
+
+// Photo support intentionally removed — IFG signatures use the
+// Macclesfield crest baked into SIGNATURE_COMPANY_BLOCK below the
+// variable details, not a per-deal-owner headshot. The `showPhoto`
+// and `photoSize` content fields are kept on the type for backward
+// compatibility with templates already in the DB but they no longer
+// render anything.
 function renderRecruiterSignatureBlock(content: RecruiterSignatureBlockContent): string {
-  const photoSizeMap = { small: 40, medium: 60, large: 80 }
-  const photoSize = photoSizeMap[content.photoSize] || 60
+  // Variable-details colour applies ONLY to the name/title/email/phone
+  // /Calendly rows. Company-info and confidentiality each have their
+  // own override so the AI can target one region without dragging the
+  // others along with it.
+  const c = content.textColor
 
   const nameHtml = content.showName
-    ? `{{#if deal_owner_name}}<p style="margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: #111827;">{{deal_owner_name}}</p>{{/if}}`
+    ? `{{#if deal_owner_name}}<p style="margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: ${c || '#111827'};">{{deal_owner_name}}</p>{{/if}}`
     : ''
 
   const titleHtml = content.showTitle
-    ? `{{#if deal_owner_title}}<p style="margin: 0 0 2px 0; font-size: 14px; color: #6b7280;">{{deal_owner_title}}</p>{{/if}}`
+    ? `{{#if deal_owner_title}}<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#6b7280'};">{{deal_owner_title}}</p>{{/if}}`
     : ''
 
   const emailHtml = content.showEmail
-    ? `{{#if deal_owner_email}}<p style="margin: 0 0 2px 0; font-size: 14px;"><a href="mailto:{{deal_owner_email}}" style="color: #3b82f6; text-decoration: none;">{{deal_owner_email}}</a></p>{{/if}}`
+    ? `{{#if deal_owner_email}}<p style="margin: 0 0 2px 0; font-size: 14px;"><a href="mailto:{{deal_owner_email}}" style="color: ${c || '#3b82f6'}; text-decoration: none;">{{deal_owner_email}}</a></p>{{/if}}`
     : ''
 
   const phoneHtml = content.showPhone
-    ? `{{#if deal_owner_phone}}<p style="margin: 0 0 2px 0; font-size: 14px; color: #374151;">{{deal_owner_phone}}</p>{{/if}}`
+    ? `{{#if deal_owner_phone}}<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#374151'};">{{deal_owner_phone}}</p>{{/if}}`
     : ''
 
   const calendlyHtml = content.showCalendly
-    ? `{{#if deal_owner_calendly}}<p style="margin: 4px 0 0 0;"><a href="{{deal_owner_calendly}}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 14px;">Book a meeting</a></p>{{/if}}`
+    ? `{{#if deal_owner_calendly}}<p style="margin: 4px 0 0 0;"><a href="{{deal_owner_calendly}}" target="_blank" style="color: ${c || '#3b82f6'}; text-decoration: none; font-size: 14px;">Book a meeting</a></p>{{/if}}`
     : ''
 
   const detailsHtml = `${nameHtml}${titleHtml}${emailHtml}${phoneHtml}${calendlyHtml}`
 
-  if (content.layout === 'inline' && content.showPhoto) {
-    const photoHtml = `{{#if deal_owner_photo}}<img src="{{deal_owner_photo}}" alt="{{deal_owner_name}}" style="width: ${photoSize}px; height: ${photoSize}px; border-radius: 50%; display: block;" />{{/if}}`
-
-    return `
-      <div style="text-align: ${content.alignment}; padding-top: ${content.paddingTop}px; padding-bottom: ${content.paddingBottom}px;">
-        <table cellpadding="0" cellspacing="0" border="0">
-          <tr>
-            <td style="vertical-align: top; padding-right: 12px;">
-              ${photoHtml}
-            </td>
-            <td style="vertical-align: top;">
-              ${detailsHtml}
-            </td>
-          </tr>
-        </table>
-      </div>
-    `
-  }
-
-  // Stacked layout (or inline without photo)
-  const photoHtml = content.showPhoto
-    ? `{{#if deal_owner_photo}}<img src="{{deal_owner_photo}}" alt="{{deal_owner_name}}" style="width: ${photoSize}px; height: ${photoSize}px; border-radius: 50%; display: block; margin-bottom: 8px;${content.alignment === 'center' ? ' margin-left: auto; margin-right: auto;' : ''}" />{{/if}}`
-    : ''
-
   return `
     <div style="text-align: ${content.alignment}; padding-top: ${content.paddingTop}px; padding-bottom: ${content.paddingBottom}px;">
-      ${photoHtml}
       ${detailsHtml}
+      ${buildSignatureCompanyBlock(content.companyTextColor, content.confidentialityColor)}
     </div>
   `
 }

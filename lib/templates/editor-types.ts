@@ -120,6 +120,17 @@ export interface RecruiterSignatureBlockContent {
   layout: 'stacked' | 'inline' // stacked = vertical, inline = photo left + details right
   alignment: 'left' | 'center' | 'right'
   photoSize: 'small' | 'medium' | 'large' // 40px, 60px, 80px
+  // The signature has THREE text regions that can each be coloured
+  // independently — split out so the AI / user can recolour one
+  // region (e.g. just the confidentiality disclaimer) without
+  // dragging the others along:
+  //   textColor         — variable details (name, title, email, phone, Calendly)
+  //   companyTextColor  — "Macc Football Club Limited…" registered-office line
+  //   confidentialityColor — the Confidentiality disclaimer paragraph
+  // All optional; when null/undefined the tasteful defaults render.
+  textColor?: string | null
+  companyTextColor?: string | null
+  confidentialityColor?: string | null
   paddingTop: number
   paddingBottom: number
 }
@@ -134,6 +145,27 @@ export interface FileBlockContent {
   paddingBottom: number
 }
 
+// Per-template theme controlling the parts of the email that live
+// OUTSIDE the block tree (the IFG header strip, the footer strip,
+// page bg, body bg). All fields are optional — when undefined we
+// render the IFG defaults (`#0f172a` header, `#f3f4f6` footer, etc.),
+// so existing templates keep their current look without a migration.
+//
+// Exposed to the AI through the JSON-schema response so prompts like
+// "change the header colour to red" or "make the page bg cream" can
+// be honoured without dropping a custom html block on top.
+export interface TemplateTheme {
+  headerBgColor?: string
+  headerTextColor?: string
+  footerBgColor?: string
+  footerTextColor?: string
+  footerLinkColor?: string
+  // Page background = the area around the email card. `bodyBgColor`
+  // is the card itself (white by default).
+  pageBgColor?: string
+  bodyBgColor?: string
+}
+
 export interface TemplateSettings {
   name: string
   subject: string
@@ -142,6 +174,7 @@ export interface TemplateSettings {
   fixedFromName: string
   fixedFromEmail: string
   category: 'automation' | 'campaign' | 'transactional'
+  theme?: TemplateTheme
 }
 
 export interface EmailTemplateData {

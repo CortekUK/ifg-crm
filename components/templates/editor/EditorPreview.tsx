@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Monitor, Smartphone, Send } from 'lucide-react'
+import { Monitor, Smartphone, Send, Maximize2, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
 import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
@@ -21,9 +21,16 @@ import { toast } from '@/lib/hooks/use-toast'
 interface EditorPreviewProps {
   blocks: EditorBlock[]
   settings: TemplateSettings
+  // Optional: when wired, renders a small fullscreen icon at the top of
+  // the preview pane so the user can inspect at full window size.
+  onExpand?: () => void
+  // Optional: when wired, renders an X button in the header to close
+  // the drawer (the right-edge tab also toggles, but having an explicit
+  // close inside the drawer is easier to spot when it's open).
+  onClose?: () => void
 }
 
-export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
+export function EditorPreview({ blocks, settings, onExpand, onClose }: EditorPreviewProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -38,7 +45,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
   // the panel. This fixes the long-standing bug where the preview rendered
   // raw tags like {{deal_owner_name}} because the legacy replaceVariables
   // util used different (now-stale) variable names.
-  const rawHtml = renderBlocksToHTML(blocks)
+  const rawHtml = renderBlocksToHTML(blocks, settings.theme)
   // First pass: full sample dataset.
   const seeded = previewMergeTags(rawHtml)
   // Second pass: re-apply the active "test contact" picks so name/email
@@ -75,7 +82,7 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
       const res = await fetch('/api/templates/send-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocks, subject: settings.subject }),
+        body: JSON.stringify({ blocks, subject: settings.subject, theme: settings.theme ?? null }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -102,41 +109,96 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
   }
 
   return (
-    <div className="w-full border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col h-full">
+    <div className="w-full bg-white dark:bg-slate-900 flex flex-col h-full">
       {/* Preview Header */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 shrink-0">
+      <div className="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 space-y-2.5 shrink-0">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">Preview</h3>
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+              Preview
+            </h3>
+            {onExpand && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onExpand}
+                className="h-6 w-6 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                title="Open fullscreen preview"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-1 rounded-md bg-slate-100 p-0.5 dark:bg-slate-800">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-6 w-6 p-0',
+                  viewMode === 'desktop'
+                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                    : 'text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-700/60',
+                )}
+                onClick={() => setViewMode('desktop')}
+                title="Desktop"
+              >
+                <Monitor className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-6 w-6 p-0',
+                  viewMode === 'mobile'
+                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                    : 'text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-700/60',
+                )}
+                onClick={() => setViewMode('mobile')}
+                title="Mobile"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {/* Send-test pill — small but labelled so the user can
+                actually find it. Lives in the header next to the
+                viewport toggle to keep the preview drawer compact (was
+                a chunky full-width button at the bottom). */}
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className={cn(
-                'h-7 w-7 p-0',
-                viewMode === 'desktop' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              )}
-              onClick={() => setViewMode('desktop')}
+              onClick={handleSendTestEmail}
+              disabled={isSending || blocks.length === 0}
+              className="h-7 gap-1.5 border-blue-200 bg-blue-50 px-2.5 text-[11px] font-medium text-blue-700 hover:border-blue-300 hover:bg-blue-100 hover:text-blue-800 disabled:opacity-50 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/60"
+              title={blocks.length === 0 ? 'Add a block first' : 'Send test email to yourself'}
             >
-              <Monitor className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                'h-7 w-7 p-0',
-                viewMode === 'mobile' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              {isSending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Send className="h-3 w-3" />
               )}
-              onClick={() => setViewMode('mobile')}
-            >
-              <Smartphone className="h-4 w-4" />
+              {isSending ? 'Sending…' : 'Send test'}
             </Button>
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-6 w-6 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                title="Close preview"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-slate-500 dark:text-slate-400">Test Data</Label>
+        <div className="flex items-center gap-2">
+          <Label className="text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Test as
+          </Label>
           <Select value={selectedContactId} onValueChange={setSelectedContactId}>
-            <SelectTrigger className="h-9 text-sm">
+            <SelectTrigger className="h-7 w-44 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -194,20 +256,6 @@ export function EditorPreview({ blocks, settings }: EditorPreviewProps) {
         </div>
       </div>
 
-      {/* Send Test Email */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
-        <Button
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={handleSendTestEmail}
-          disabled={isSending || blocks.length === 0}
-        >
-          <Send className="h-4 w-4 mr-2" />
-          {isSending ? 'Sending…' : 'Send Test Email'}
-        </Button>
-        <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-2">
-          Send to your logged-in email address
-        </p>
-      </div>
     </div>
   )
 }

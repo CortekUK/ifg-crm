@@ -487,6 +487,98 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                 </div>
               ) : (
                 <>
+                  {/* Add Stage — pinned to the TOP of the stages tab so
+                      the user finds it without scrolling past every
+                      existing stage. Clicking the button reveals the
+                      inline form right here; the form is rendered in
+                      this same slot below via the isAddingStage gate. */}
+                  {isAddingStage ? (
+                    <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3 bg-slate-50/60 dark:bg-slate-800/40">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Add New Stage</h4>
+                      <Input
+                        value={newStageName}
+                        onChange={(e) => setNewStageName(e.target.value)}
+                        placeholder="Stage name"
+                      />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Colour</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              type="button"
+                              className="w-full justify-start gap-2 font-normal"
+                            >
+                              <span
+                                className="h-4 w-4 rounded-full shrink-0"
+                                style={{ backgroundColor: newStageColor }}
+                              />
+                              <span className="text-sm text-muted-foreground">Pick a colour</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-3" align="start">
+                            <div className="grid grid-cols-6 gap-2">
+                              {STAGE_COLORS.map((color) => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  onClick={() => setNewStageColor(color)}
+                                  className="h-7 w-7 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
+                                  style={{
+                                    backgroundColor: color,
+                                    boxShadow:
+                                      newStageColor === color
+                                        ? `0 0 0 2px ${color}, 0 0 0 4px white`
+                                        : undefined,
+                                  }}
+                                  aria-label={`Pick colour ${color}`}
+                                >
+                                  {newStageColor === color && (
+                                    <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleAddStage}
+                          disabled={!newStageName.trim() || createStage.isPending}
+                          className="flex-1"
+                        >
+                          {createStage.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Add Stage'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsAddingStage(false)
+                            setNewStageName('')
+                            setNewStageType('contact')
+                            setNewStageColor('#3b82f6')
+                          }}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddingStage(true)}
+                      className="w-full"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Stage
+                    </Button>
+                  )}
+
                   {/* Existing Stages — drag the GripVertical handle to
                       reorder. handleStagesDragEnd rewrites the
                       display_order of every stage from its new index in
@@ -625,97 +717,6 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
                     </Droppable>
                   </DragDropContext>
 
-                  {/* Add Stage Form. stage_type is hidden — defaults to
-                      'contact' which is a safe semantic match for most
-                      mid-pipeline stages. The colour picker is a clickable
-                      swatch grid (the previous shadcn Select-with-coloured-
-                      dots was confusing and click targets were tiny). */}
-                  {isAddingStage ? (
-                    <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Add New Stage</h4>
-                      <Input
-                        value={newStageName}
-                        onChange={(e) => setNewStageName(e.target.value)}
-                        placeholder="Stage name"
-                      />
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Colour</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              type="button"
-                              className="w-full justify-start gap-2 font-normal"
-                            >
-                              <span
-                                className="h-4 w-4 rounded-full shrink-0"
-                                style={{ backgroundColor: newStageColor }}
-                              />
-                              <span className="text-sm text-muted-foreground">Pick a colour</span>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-3" align="start">
-                            <div className="grid grid-cols-6 gap-2">
-                              {STAGE_COLORS.map((color) => (
-                                <button
-                                  key={color}
-                                  type="button"
-                                  onClick={() => setNewStageColor(color)}
-                                  className="h-7 w-7 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
-                                  style={{
-                                    backgroundColor: color,
-                                    boxShadow:
-                                      newStageColor === color
-                                        ? `0 0 0 2px ${color}, 0 0 0 4px white`
-                                        : undefined,
-                                  }}
-                                  aria-label={`Pick colour ${color}`}
-                                >
-                                  {newStageColor === color && (
-                                    <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleAddStage}
-                          disabled={!newStageName.trim() || createStage.isPending}
-                          className="flex-1"
-                        >
-                          {createStage.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            'Add Stage'
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setIsAddingStage(false)
-                            setNewStageName('')
-                            setNewStageType('contact')
-                            setNewStageColor('#3b82f6')
-                          }}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsAddingStage(true)}
-                      className="w-full"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Stage
-                    </Button>
-                  )}
                 </>
               )}
             </TabsContent>

@@ -57,11 +57,16 @@ export function useEmailReplies(tab: 'all' | 'unmatched' | 'matched' | 'spam' = 
       if (tab === 'unmatched') {
         query = query.eq('match_status', 'unmatched')
       } else if (tab === 'matched') {
-        query = query.in('match_status', ['auto_matched', 'manually_matched'])
+        // Matched only shows UNREAD replies — once the user marks one
+        // read it disappears from this tab and is only visible in the
+        // 'all' tab. Mirrors a typical inbox / archive UX.
+        query = query
+          .in('match_status', ['auto_matched', 'manually_matched'])
+          .eq('read', false)
       } else if (tab === 'spam') {
         query = query.eq('match_status', 'spam')
       }
-      // tab === 'all' — no filter, return everything
+      // tab === 'all' — no filter, return everything (read OR unread)
 
       const { data, error } = await query
 
@@ -129,7 +134,10 @@ export function useEmailReplyCounts(contactId?: string | null) {
         // tabs intentionally exclude.
         scoped(),
         scoped().eq('match_status', 'unmatched'),
-        scoped().in('match_status', ['auto_matched', 'manually_matched']),
+        // Matched count reflects the unread Matched inbox the user
+        // sees in the tab — keep them aligned. Read replies still
+        // surface under 'all'.
+        scoped().in('match_status', ['auto_matched', 'manually_matched']).eq('read', false),
         scoped().eq('match_status', 'spam'),
         scoped().gte('created_at', today.toISOString()),
         scoped().eq('ai_intent', 'positive'),
@@ -147,6 +155,32 @@ export function useEmailReplyCounts(contactId?: string | null) {
         negative: negative || 0,
         question: question || 0,
       }
+    },
+  })
+}
+
+// Mark one or more matched email replies as read. Hides them from
+// the Matched tab; they stay visible in All. Used by the bulk
+// "Mark as read" button and the per-row dropdown action.
+export function useMarkEmailRepliesRead() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (replyIds: string[]) => {
+      if (replyIds.length === 0) return []
+      const { data, error } = await supabase
+        .from('email_replies')
+        .update({ read: true })
+        .in('id', replyIds)
+        .select('id')
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
     },
   })
 }

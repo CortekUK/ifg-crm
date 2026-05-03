@@ -1,9 +1,8 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Download, Users, PoundSterling, Trophy, TrendingUp } from 'lucide-react'
+import { Users, PoundSterling, Trophy, TrendingUp } from 'lucide-react'
 import { formatCurrency, formatNumber, formatDate } from '@/lib/utils/format'
 import type { Deal } from '@/lib/types/pipelines'
 
@@ -41,7 +40,7 @@ const colourConfig = {
   },
 }
 
-function exportDealsToCSV(deals: Deal[]) {
+export function exportDealsToCSV(deals: Deal[]) {
   // Define CSV headers
   const headers = [
     'Contact Name',
@@ -108,8 +107,12 @@ function exportDealsToCSV(deals: Deal[]) {
 }
 
 export function PipelineStats({ deals, lastUpdated, userId, isAdmin }: PipelineStatsProps) {
-  // Non-admin users can only export their own deals
-  const exportableDeals = isAdmin ? deals : deals.filter((d) => d.deal_owner_id === userId)
+  // The Export CSV button moved up into PipelineFilters so it sits
+  // alongside the search/zoom/view-toggle row instead of taking its
+  // own dedicated stripe under the stats grid (gave that vertical
+  // space back to the kanban board).
+  void userId
+  void isAdmin
   // Calculate stats
   const totalPlayers = deals.length
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
@@ -176,17 +179,6 @@ export function PipelineStats({ deals, lastUpdated, userId, isAdmin }: PipelineS
         })}
       </div>
 
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => exportDealsToCSV(exportableDeals)}
-          disabled={exportableDeals.length === 0}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
-      </div>
     </div>
   )
 }

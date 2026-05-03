@@ -1,17 +1,16 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Upload, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 interface TemplatesPageHeaderProps {
-  onImportClick: () => void
   onCreateClick: () => void
 }
 
-export function TemplatesPageHeader({
-  onImportClick,
-  onCreateClick,
-}: TemplatesPageHeaderProps) {
+export function TemplatesPageHeader({ onCreateClick }: TemplatesPageHeaderProps) {
+  // The "Import HTML" button was removed — the workflow is the editor
+  // (Build / AI), and the import path was unused. The page header now
+  // carries just the page lede + the primary Create CTA.
   return (
     <div className="banner-gradient rounded-xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -19,22 +18,13 @@ export function TemplatesPageHeader({
           Create and manage reusable email and SMS templates.
         </p>
 
-        <div className="flex gap-2 shrink-0">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onImportClick}
-            className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
-          >
-            <Upload className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">Import HTML</span>
-          </Button>
+        <div className="flex shrink-0 gap-2">
           <Button
             size="sm"
             onClick={onCreateClick}
             className="bg-white text-blue-600 hover:bg-blue-50"
           >
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="mr-1 h-4 w-4" />
             Create
           </Button>
         </div>

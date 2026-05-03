@@ -1,9 +1,34 @@
 'use client'
 
+// Editor shell. Layout (desktop):
+//
+//   ┌──────────────────────────────────────────────────────────┐
+//   │ Header (single row — title, mode toggle, save buttons)    │
+//   ├──────────────┬──────────────────────────────────────┬────┤
+//   │              │                                      │ ▶  │
+//   │  LEFT PANEL  │           CANVAS                     │    │
+//   │  (320px)     │                                      │ ←  │  right-edge
+//   │              │                                      │    │  toggle tab
+//   │  D&D side or │                                      │ pv │
+//   │  AI chat     │                                      │    │
+//   │              │                                      │    │
+//   └──────────────┴──────────────────────────────────────┴────┘
+//
+// The preview is a slide-in drawer from the right edge of the canvas
+// area, default-closed. When opened it covers the canvas (canvas hides,
+// preview takes its space) so the user gets a roomy view without
+// surrendering the AI/sidebar column. The right-edge tab toggles it; a
+// fullscreen modal is still reachable from the preview's expand icon.
+//
+// Why a drawer instead of a third permanent pane:
+//   * three-pane layouts cramp the canvas at typical laptop widths
+//   * users only need preview during review, not while authoring
+//   * a slide animation makes the show/hide intent obvious
+
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { PanelLeft, Eye, Sparkles, MousePointer2, Columns2, LayoutGrid, Monitor } from 'lucide-react'
+import { PanelLeft, Eye, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { EditorHeader } from './EditorHeader'
 import { EditorSidebar } from './EditorSidebar'
@@ -28,15 +53,9 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
   // Editor mode — manual (drag-and-drop) is the existing UX; ai swaps the
   // left sidebar for the AI prompt panel. Only super_admins see the toggle.
   const [editorMode, setEditorMode] = useState<'manual' | 'ai'>('manual')
-  const [isAiGenerating, setIsAiGenerating] = useState(false)
-  // Three explicit view modes — replaces the previous twin-toggle approach.
-  //   both    — canvas + preview side-by-side (preview at a sensible 420px)
-  //   canvas  — canvas spans the remaining width, preview hidden
-  //   preview — preview spans the remaining width, canvas hidden
-  // Eliminates the "everything hidden" edge case for free.
-  const [viewMode, setViewMode] = useState<'both' | 'canvas' | 'preview'>('both')
-  const showCanvas = viewMode !== 'preview'
-  const showPreview = viewMode !== 'canvas'
+  // Side preview is a slide-out drawer, default closed. The right-edge
+  // tab toggles it. When open, it overlays the canvas with a slide-in.
+  const [previewVisible, setPreviewVisible] = useState(false)
   const deleteTemplateMutation = useDeleteTemplate()
   const { data: currentUser } = useCurrentUser()
   const canUseAi = currentUser?.role === 'super_admin'
@@ -47,6 +66,8 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
     selectedBlockId,
     isLoading,
     isSaving,
+    isAutoSaving,
+    lastSavedAt,
     hasUnsavedChanges,
     setSelectedBlockId,
     addBlock,
@@ -64,9 +85,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
     saveTemplate,
   } = useEmailEditor(templateId)
 
-  const handleClose = () => {
-    router.push('/templates')
-  }
+  const handleClose = () => router.push('/templates')
 
   const handleDeleteTemplate = async () => {
     if (!templateId) return
@@ -88,12 +107,13 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
   }
 
   // Get the currently selected block
-  const selectedBlock = selectedBlockId ? blocks.find(b => b.id === selectedBlockId) || null : null
+  const selectedBlock = selectedBlockId
+    ? blocks.find((b) => b.id === selectedBlockId) || null
+    : null
 
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col bg-white dark:bg-slate-900">
-        {/* Header Skeleton */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-4">
             <Skeleton className="h-8 w-8" />
@@ -105,10 +125,8 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
             <Skeleton className="h-9 w-24" />
           </div>
         </div>
-
-        {/* Content Skeleton */}
         <div className="flex-1 flex">
-          <div className="w-[300px] border-r dark:border-slate-700 p-4 space-y-4 bg-slate-50 dark:bg-slate-900">
+          <div className="w-[320px] border-r dark:border-slate-700 p-4 space-y-4 bg-slate-50 dark:bg-slate-900">
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
@@ -120,18 +138,13 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
               <Skeleton className="h-64 w-full" />
             </div>
           </div>
-          <div className="w-[400px] border-l p-4 space-y-4">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-96 w-full" />
-          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-slate-900">
-      {/* Header */}
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
       <EditorHeader
         name={settings.name}
         onNameChange={(name) => updateSettings({ name })}
@@ -140,100 +153,26 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
-        onPreview={() => setShowPreviewModal(true)}
-        onSaveDraft={() => saveTemplate(false)}
-        onSaveAndExit={() => saveTemplate(true)}
+        // Save Draft → mark as draft (is_draft=true) so the templates
+        // list tags it. Save & Exit / Update → publish (is_draft=false).
+        onSaveDraft={() => saveTemplate(false, false, true)}
+        onSaveAndExit={() => saveTemplate(true, false, false)}
         onDelete={handleDeleteTemplate}
         isSaving={isSaving}
+        isAutoSaving={isAutoSaving}
+        lastSavedAt={lastSavedAt}
         hasUnsavedChanges={hasUnsavedChanges}
         isEditingExisting={!!templateId}
+        // Mode toggle now lives in the header — preview lives in the
+        // right-edge slide-out drawer, not in the header chrome.
+        mode={editorMode}
+        onModeChange={setEditorMode}
+        canUseAi={canUseAi}
       />
 
-      {/* View controls bar — sits between the header and the panes.
-          Left side (super_admin only): AI / drag-and-drop mode toggle.
-          Right side (everyone): show/hide canvas + preview. Hiding the
-          counterpart force-shows the other so the user never ends up
-          staring at an empty editor. */}
-      <div className="hidden md:flex items-center gap-3 border-b border-slate-200 bg-gradient-to-r from-indigo-50/30 via-violet-50/20 to-fuchsia-50/30 px-3 py-1.5 dark:border-slate-700 dark:from-indigo-900/10 dark:via-violet-900/10 dark:to-fuchsia-900/10">
-        {canUseAi && (
-          <>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Mode
-            </span>
-            <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <button
-                type="button"
-                onClick={() => setEditorMode('manual')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition',
-                  editorMode === 'manual'
-                    ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-                )}
-              >
-                <MousePointer2 className="h-3.5 w-3.5" />
-                Drag & Drop
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditorMode('ai')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition',
-                  editorMode === 'ai'
-                    ? 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-                )}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Create with AI
-              </button>
-            </div>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">
-              {editorMode === 'ai'
-                ? 'AI generates blocks — preview updates live.'
-                : 'Drag blocks onto the canvas.'}
-            </span>
-          </>
-        )}
-
-        {/* View segmented control — three explicit states. Pushed to the
-            right of the bar. Whichever state is active gets the gradient
-            pill; inactive states are quiet text-only buttons. */}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            View
-          </span>
-          <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            {(
-              [
-                { key: 'both', label: 'Both', icon: Columns2 },
-                { key: 'canvas', label: 'Canvas', icon: LayoutGrid },
-                { key: 'preview', label: 'Preview', icon: Monitor },
-              ] as const
-            ).map(({ key, label, icon: Icon }) => {
-              const active = viewMode === key
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setViewMode(key)}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition',
-                    active
-                      ? 'bg-gradient-to-br from-slate-900 to-slate-700 text-white shadow-sm dark:from-slate-100 dark:to-slate-200 dark:text-slate-900'
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Panel Toggle */}
+      {/* Mobile panel toggle — kept simple, no mode toggle in mobile.
+          The mobile flow is canvas-first; the AI panel and side preview
+          aren't built for narrow widths anyway, so we hide them. */}
       <div className="md:hidden flex items-center gap-1 px-2 py-1.5 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
         <Button
           variant={mobilePanel === 'sidebar' ? 'default' : 'ghost'}
@@ -263,28 +202,35 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
         </Button>
       </div>
 
-      {/* Main Content */}
+      {/* Workspace — left panel + canvas-with-preview-drawer */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - hidden on mobile unless toggled. In AI mode the
-            EditorSidebar is replaced by the AI prompt panel; canvas +
-            preview stay identical so the user keeps their live preview.
-            `md:flex md:h-full` is needed for the AI panel: its inner scroll
-            container relies on the wrapper being a flex column with a
-            bounded height, otherwise the lower content overflows the
-            viewport and is unreachable. */}
+        {/* Left panel — fixed 400px on desktop. Hosts either the
+            drag-and-drop sidebar or the AI chat depending on mode. */}
         <div
           className={cn(
-            'md:flex md:h-full md:flex-col',
+            'md:flex md:h-full md:flex-col md:w-[400px] md:shrink-0',
             mobilePanel === 'sidebar' ? 'flex h-full w-full flex-col' : 'hidden md:flex',
           )}
         >
           {editorMode === 'ai' && canUseAi ? (
             <AiPromptPanel
+              templateId={templateId}
               blocks={blocks}
               settings={settings}
-              onApply={(newBlocks, partial) => replaceBlocks(newBlocks, partial)}
-              onGenerationStart={() => setIsAiGenerating(true)}
-              onGenerationEnd={() => setIsAiGenerating(false)}
+              // The AI streams blocks in progressive ticks; we forward
+              // the {commit} option through so only the final tick
+              // pushes a single undo entry covering the whole
+              // generation (intermediate ticks update the canvas
+              // without polluting the undo stack).
+              onApply={(newBlocks, partial, opts) =>
+                replaceBlocks(newBlocks, partial, opts)
+              }
+              onGenerationStart={() => {
+                /* reserved for future "AI is working" affordances */
+              }}
+              onGenerationEnd={() => {
+                /* reserved for future "AI is working" affordances */
+              }}
             />
           ) : (
             <EditorSidebar
@@ -298,19 +244,22 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
           )}
         </div>
 
-        {/* Canvas - hidden when the user picked "Preview only". Always
-            grabs flex-1 of the remaining width so it spans naturally
-            whether or not the preview is alongside it. */}
-        {showCanvas && (
+        {/* Canvas-area wrapper — relative so the preview drawer can
+            absolute-position itself within it and slide in from the
+            right without leaking outside the canvas region. */}
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          {/* Canvas — always rendered. Hidden behind the drawer when
+              the drawer is open (drawer overlays this region). */}
           <div
             className={cn(
-              'md:flex md:flex-col flex-1 min-h-0',
+              'md:flex md:flex-col absolute inset-0 min-h-0',
               mobilePanel === 'canvas' ? 'flex flex-col' : 'hidden md:flex',
             )}
           >
             <EditorCanvas
               blocks={blocks}
               selectedBlockId={selectedBlockId}
+              theme={settings.theme}
               onSelectBlock={setSelectedBlockId}
               onMoveBlock={moveBlock}
               onUpdateBlock={updateBlock}
@@ -318,26 +267,76 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
               onDuplicateBlock={duplicateBlock}
             />
           </div>
-        )}
 
-        {/* Right Preview - hidden when the user picked "Canvas only".
-            Width depends on view mode:
-              both    → fixed 420px, the standard email preview width
-              preview → flex-1, takes the entire remaining viewport so the
-                        user gets a giant preview to inspect. */}
-        {showPreview && (
+          {/* Preview drawer — slides in from the right. translate-x-full
+              parks it off-screen to the right when closed, translate-x-0
+              brings it flush with the canvas region when open. The
+              border-l + shadow on the open state make it feel like a
+              real drawer overlaying the canvas. Hidden on mobile (the
+              mobile path uses the modal instead). */}
           <div
+            aria-hidden={!previewVisible}
             className={cn(
-              'hidden md:flex md:flex-col min-h-0',
-              viewMode === 'preview' ? 'flex-1' : 'w-[420px]',
+              'absolute inset-0 hidden md:flex md:flex-col bg-white dark:bg-slate-900',
+              'transition-transform duration-300 ease-out',
+              'border-l border-slate-200 dark:border-slate-700',
+              previewVisible
+                ? 'translate-x-0 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.18)] dark:shadow-[-12px_0_24px_-12px_rgba(0,0,0,0.4)]'
+                : 'pointer-events-none translate-x-full',
             )}
           >
-            <EditorPreview blocks={blocks} settings={settings} />
+            <EditorPreview
+              blocks={blocks}
+              settings={settings}
+              onExpand={() => setShowPreviewModal(true)}
+              onClose={() => setPreviewVisible(false)}
+            />
           </div>
-        )}
+
+          {/* Right-edge toggle tab — prominent so the user can find it
+              at a glance. Wider, branded gradient when closed (calls
+              attention), neutral white when open. Vertical "Preview"
+              label uses writing-mode so the text reads bottom-to-top
+              like a real drawer pull-tab.
+
+              Position: anchored to the right edge of the canvas-area
+              wrapper. The drawer ends at the same right edge whether
+              open or closed, so the tab's screen position is constant —
+              we only flip the icon + colour to indicate the next
+              action. z-20 keeps it above the drawer overlay. */}
+          {/* Tab content is one horizontal flex group ("PREVIEW 👁") that
+              we rotate -90° as a whole — that gives a single vertical
+              run reading bottom-to-top with the icon RIGHT NEXT to the
+              text rather than stacked above it. The wrapper stays fixed
+              so the rotation doesn't bleed past the tab bounds. */}
+          <button
+            type="button"
+            onClick={() => setPreviewVisible((v) => !v)}
+            title={previewVisible ? 'Hide preview' : 'Show preview'}
+            aria-label={previewVisible ? 'Hide preview' : 'Show preview'}
+            className={cn(
+              'group hidden md:flex absolute right-0 top-1/2 z-20 -translate-y-1/2',
+              'h-36 w-9 items-center justify-center overflow-hidden',
+              'rounded-l-xl border border-r-0 transition-all',
+              previewVisible
+                ? 'border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white'
+                : 'border-indigo-400/40 bg-gradient-to-b from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30 hover:from-indigo-600 hover:to-violet-700 hover:shadow-indigo-500/40',
+            )}
+          >
+            <span className="flex -rotate-90 items-center gap-1.5 whitespace-nowrap">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
+                Preview
+              </span>
+              {previewVisible ? (
+                <X className="h-3.5 w-3.5" />
+              ) : (
+                <Eye className="h-3.5 w-3.5" />
+              )}
+            </span>
+          </button>
+        </div>
       </div>
 
-      {/* Preview Modal */}
       <PreviewModal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}

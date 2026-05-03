@@ -1,5 +1,10 @@
 'use client'
 
+// Read-only preview of a saved template, opened from the templates
+// list. Mirrors the editor's PreviewModal layout (slim header,
+// landscape modal, inbox-style email card) so users get a consistent
+// "this is what the recipient will see" feel everywhere.
+
 import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
@@ -18,6 +23,7 @@ import {
 import { Monitor, Smartphone, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { previewMergeTags } from '@/lib/utils/mergeTags'
+import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
 import type { Template } from '@/lib/types/templates'
 
 interface TemplatePreviewModalProps {
@@ -41,18 +47,27 @@ export function TemplatePreviewModal({
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  const selectedContact = sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
+  const selectedContact =
+    sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
 
-  // Generate preview HTML with sample data
-  const previewHtml = template?.body_html 
-    ? previewMergeTags(template.body_html)
-    : '<p style="padding: 20px; text-align: center; color: #666;">No content</p>'
+  // Generate preview HTML with sample data + the chosen contact's
+  // first/last/email substituted in, the same two-pass replacement we
+  // use in the editor's side preview.
+  const rawHtml = template?.body_html ?? ''
+  const seeded = previewMergeTags(rawHtml)
+  const previewHtml = replaceMergeTags(seeded, {
+    first_name: selectedContact.first_name,
+    last_name: selectedContact.last_name,
+    email: selectedContact.email,
+  })
 
   const previewSubject = template?.subject
-    ? previewMergeTags(template.subject)
+    ? replaceMergeTags(previewMergeTags(template.subject), {
+        first_name: selectedContact.first_name,
+        last_name: selectedContact.last_name,
+      })
     : 'No subject'
 
-  // Update iframe content when HTML changes
   useEffect(() => {
     const updateIframe = () => {
       if (iframeRef.current && open) {
@@ -64,7 +79,6 @@ export function TemplatePreviewModal({
         }
       }
     }
-    
     const timer = setTimeout(updateIframe, 50)
     return () => clearTimeout(timer)
   }, [previewHtml, open])
@@ -73,46 +87,57 @@ export function TemplatePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">
-              Preview: {template.name}
+      <DialogContent
+        // Same landscape footprint as the editor's preview modal so
+        // the email card breathes — was max-w-4xl which left it
+        // squashed alongside the title + viewport + select chrome.
+        className="flex h-[88vh] w-[95vw] max-w-[1500px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1500px]"
+        showCloseButton={false}
+      >
+        {/* Slim header — title on the left, viewport / test-as / close
+            on the right. Single row, no wrap. */}
+        <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="truncate text-base font-semibold text-slate-900 dark:text-white">
+              {template.name}
             </DialogTitle>
-            <div className="flex items-center gap-4">
-              {/* View Mode Toggle */}
-              <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+
+            <div className="flex items-center gap-2">
+              {/* Viewport */}
+              <div className="flex gap-1 rounded-md bg-slate-100 p-0.5 dark:bg-slate-800">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    'h-8 w-8 p-0',
+                    'h-7 gap-1.5 px-2.5',
                     viewMode === 'desktop'
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                      : 'text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-700/60',
                   )}
                   onClick={() => setViewMode('desktop')}
                 >
-                  <Monitor className="h-4 w-4" />
+                  <Monitor className="h-3.5 w-3.5" />
+                  <span className="text-xs">Desktop</span>
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    'h-8 w-8 p-0',
+                    'h-7 gap-1.5 px-2.5',
                     viewMode === 'mobile'
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                      : 'text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-700/60',
                   )}
                   onClick={() => setViewMode('mobile')}
                 >
-                  <Smartphone className="h-4 w-4" />
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span className="text-xs">Mobile</span>
                 </Button>
               </div>
 
-              {/* Sample Contact Selector */}
+              {/* Test contact */}
               <Select value={selectedContactId} onValueChange={setSelectedContactId}>
-                <SelectTrigger className="w-[180px] h-9">
+                <SelectTrigger className="h-7 w-44 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -123,43 +148,63 @@ export function TemplatePreviewModal({
                   ))}
                 </SelectContent>
               </Select>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onOpenChange(false)}
+                className="h-7 w-7 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Preview Content */}
-        <div className="flex-1 overflow-auto p-6 bg-slate-100 dark:bg-slate-900">
+        {/* Content — clean grey background, centred email card. The
+            iframe stretches to fill the remaining vertical space (was
+            pinned to a fixed calc height which left awkward bottom
+            gaps in the old layout). */}
+        <div className="flex flex-1 min-h-0 justify-center overflow-auto bg-slate-100 px-6 py-6 dark:bg-slate-900">
           <div
             className={cn(
-              'mx-auto bg-white rounded-lg shadow-lg overflow-hidden transition-all',
-              viewMode === 'desktop' ? 'max-w-[600px]' : 'max-w-[375px]'
+              'flex h-full flex-col overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200 transition-all dark:ring-slate-700',
+              viewMode === 'desktop' ? 'w-full max-w-[1100px]' : 'w-[375px]',
             )}
           >
-            {/* Email Header */}
-            <div className="bg-slate-50 px-4 py-3 border-b">
-              <div className="text-xs text-slate-500 mb-1">
-                <span className="text-slate-400">From:</span>{' '}
-                {template.from_name_type === 'deal_owner'
-                  ? 'Deal Owner (dynamic)'
-                  : template.fixed_from_name || 'IFG Team'}
-              </div>
-              <div className="text-xs text-slate-500 mb-2">
-                <span className="text-slate-400">To:</span> {selectedContact.email}
-              </div>
-              <div className="text-sm font-semibold text-slate-800">
-                {previewSubject}
+            {/* Inbox-style header */}
+            <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
+              <div className="space-y-1 text-[12px]">
+                <div className="flex gap-2">
+                  <span className="w-12 shrink-0 text-slate-400">From</span>
+                  <span className="text-slate-700 dark:text-slate-200">
+                    {template.from_name_type === 'deal_owner'
+                      ? 'Deal Owner (dynamic)'
+                      : template.fixed_from_name || 'IFG Team'}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="w-12 shrink-0 text-slate-400">To</span>
+                  <span className="text-slate-700 dark:text-slate-200">
+                    {selectedContact.email}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="w-12 shrink-0 text-slate-400">Subject</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {previewSubject}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Email Body */}
+            {/* Rendered email — fills the remaining vertical space. */}
             <iframe
               ref={iframeRef}
               title="Email Preview"
-              className="w-full border-0 block"
-              style={{ 
-                height: 'calc(90vh - 200px)',
-                minHeight: '400px',
-              }}
+              className="block w-full flex-1 border-0"
+              sandbox="allow-same-origin"
             />
           </div>
         </div>

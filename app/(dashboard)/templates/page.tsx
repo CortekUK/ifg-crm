@@ -11,8 +11,7 @@ import { TemplatesGrid } from '@/components/templates/TemplatesGrid'
 import { TemplatesTable } from '@/components/templates/TemplatesTable'
 import { DeleteTemplateDialog } from '@/components/templates/DeleteTemplateDialog'
 import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal'
-import { ImportHTMLModal } from '@/components/templates/ImportHTMLModal'
-import { useTemplates, useDeleteTemplate, useDuplicateTemplate, useUsedTemplateIds } from '@/lib/hooks/useTemplates'
+import { useTemplates, useDeleteTemplate, useDuplicateTemplate } from '@/lib/hooks/useTemplates'
 import { useTemplateStats } from '@/lib/hooks/useTemplateStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
@@ -27,11 +26,11 @@ export default function TemplatesPage() {
     currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
 
   const [filters, setFilters] = useState<TemplateFiltersType>({})
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [showUnused, setShowUnused] = useState(false)
+  // Default to list view — cards were too sparse and the user
+  // explicitly asked the list to be the landing view.
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
-  const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
 
   // Debounce search
@@ -42,13 +41,7 @@ export default function TemplatesPage() {
 
   // Fetch templates
   const { data: templates = [], isLoading, error, refetch, isFetching } = useTemplates(debouncedFilters)
-  const { data: usedTemplateIds } = useUsedTemplateIds()
-  const visibleTemplates = showUnused
-    ? templates.filter((t) => !usedTemplateIds?.has(t.id))
-    : templates
-  const unusedCount = usedTemplateIds
-    ? templates.filter((t) => !usedTemplateIds.has(t.id)).length
-    : undefined
+  const visibleTemplates = templates
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useTemplateStats()
@@ -121,10 +114,6 @@ export default function TemplatesPage() {
     setPreviewModalOpen(true)
   }
 
-  const handleImport = () => {
-    setImportModalOpen(true)
-  }
-
   // While role is being checked or non-admin is being redirected, show spinner.
   if (userLoading || (currentUser && !isAdmin)) {
     return (
@@ -137,10 +126,7 @@ export default function TemplatesPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <TemplatesPageHeader
-        onImportClick={handleImport}
-        onCreateClick={handleCreate}
-      />
+      <TemplatesPageHeader onCreateClick={handleCreate} />
 
       {/* Stats - hidden on mobile */}
       <div className="hidden sm:block">
@@ -159,9 +145,6 @@ export default function TemplatesPage() {
         onFiltersChange={setFilters}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        showUnused={showUnused}
-        onShowUnusedChange={setShowUnused}
-        unusedCount={unusedCount}
       />
 
       {/* Error State */}
@@ -214,15 +197,6 @@ export default function TemplatesPage() {
         template={selectedTemplate}
         open={previewModalOpen}
         onOpenChange={setPreviewModalOpen}
-      />
-
-      {/* Import HTML Modal */}
-      <ImportHTMLModal
-        isOpen={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        onSuccess={(templateId) => {
-          router.push(`/templates/editor?id=${templateId}`)
-        }}
       />
     </div>
   )

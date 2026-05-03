@@ -10,10 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, X, LayoutGrid, List, ZoomIn, ZoomOut, Maximize2, Minimize2, Settings } from 'lucide-react'
+import { Search, X, LayoutGrid, List, ZoomIn, ZoomOut, Maximize2, Minimize2, Settings, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Deal } from '@/lib/types/pipelines'
 import type { ViewMode } from '@/lib/hooks/usePipelineViewPreference'
+import { exportDealsToCSV } from './PipelineStats'
 
 interface PipelineFiltersProps {
   search: string
@@ -54,6 +55,13 @@ export function PipelineFilters({
   settingsDisabled = false,
   isAdmin = false,
 }: PipelineFiltersProps) {
+  // Non-admin users can only export their own deals — same gate the
+  // PipelineStats footer used before this button moved up here.
+  const exportableDeals = useMemo(
+    () => (isAdmin ? deals : deals.filter((d) => d.deal_owner_id === userId)),
+    [deals, userId, isAdmin],
+  )
+
   // Extract unique owners from deals
   const owners = useMemo(() => {
     const ownerMap = new Map<string, { id: string; name: string }>()
@@ -136,28 +144,28 @@ export function PipelineFilters({
         </div>
       </div>
 
-      {/* Row 2: Legend + Zoom + View Toggle + Fullscreen */}
-      <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-3 text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span>Hot</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
-          <span>Active</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-amber-500" />
-          <span>Follow up</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-red-500" />
-          <span>Stale</span>
-        </div>
-      </div>
+      {/* Row 2: Export CSV + Zoom + View Toggle + Fullscreen.
+          The legend (Hot / Active / Follow up / Stale) was removed —
+          it took up a row of vertical space and the colour pulse on
+          deal cards is the same vocabulary, so the legend was just
+          extra chrome. The Export CSV button moved here from a
+          dedicated footer under PipelineStats so the whole row stays
+          tight and the kanban gets the freed vertical space. */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden h-8 md:inline-flex"
+          onClick={() => exportDealsToCSV(exportableDeals)}
+          disabled={exportableDeals.length === 0}
+          title="Export current deals to CSV"
+        >
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          Export CSV
+        </Button>
 
-      {/* Zoom Controls - hidden on mobile */}
+        <div className="ml-auto flex items-center gap-3">
+        {/* Zoom Controls - hidden on mobile */}
       {viewMode === 'kanban' && onZoomChange && (
         <div className="hidden md:flex items-center gap-1 border rounded-lg p-1 bg-muted/50">
           <Button
@@ -225,6 +233,7 @@ export function PipelineFilters({
           )}
         </Button>
       )}
+        </div>
       </div>
     </div>
   )

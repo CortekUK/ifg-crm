@@ -9,6 +9,9 @@ export interface Template {
   fixed_from_name: string | null
   fixed_from_email: string | null
   attachments: unknown[]
+  // True until the user clicks Save & Exit / Update on the editor.
+  // Drives the "Draft" badge in the templates list.
+  is_draft: boolean
   created_by_id: string | null
   created_at: string
   updated_at: string

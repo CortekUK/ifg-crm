@@ -1,5 +1,17 @@
 'use client'
 
+// Fullscreen preview dialog. Opened from the maximise icon inside the
+// side-preview drawer, gives the user a roomier view of the rendered
+// email with the same merge-tag substitution.
+//
+// Earlier this dialog was crowded — title + viewport toggle + contact
+// select + email input + Send Test + close all fighting on one row, and
+// a fake "macOS window" chrome (red/yellow/green dots) inside the email
+// frame. We've slimmed it: header is just title + viewport + test
+// contact + close. The "send test" composer is gone — the side-preview
+// pane already has a single-button "Send to me" affordance, no need to
+// duplicate the address-and-validate flow here.
+
 import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
@@ -8,7 +20,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -16,11 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Monitor, Smartphone, Send, X, Loader2 } from 'lucide-react'
+import { Monitor, Smartphone, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderBlocksToHTML, replaceVariables } from '@/lib/templates/render-html'
 import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
-import { toast } from '@/lib/hooks/use-toast'
 
 interface PreviewModalProps {
   isOpen: boolean
@@ -32,14 +42,13 @@ interface PreviewModalProps {
 export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModalProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
-  const [testEmail, setTestEmail] = useState('')
-  const [isSendingTest, setIsSendingTest] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  const selectedContact = sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
+  const selectedContact =
+    sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
 
   // Generate HTML with sample data
-  const rawHtml = renderBlocksToHTML(blocks)
+  const rawHtml = renderBlocksToHTML(blocks, settings.theme)
   const previewHtml = replaceVariables(rawHtml, {
     first_name: selectedContact.first_name,
     last_name: selectedContact.last_name,
@@ -64,69 +73,60 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
     }
   }, [previewHtml, isOpen, selectedContactId])
 
-  const handleSendTest = async () => {
-    if (!testEmail) {
-      toast({
-        title: 'Enter email address',
-        description: 'Please enter an email address to send the test to.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setIsSendingTest(true)
-
-    // Simulate sending - in real app, this would call an API
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    toast({
-      title: 'Test email sent',
-      description: `A preview has been sent to ${testEmail}.`,
-    })
-
-    setIsSendingTest(false)
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
-              Email Preview
+      <DialogContent
+        // Wider, landscape-oriented. max-w-5xl was 1024px which felt
+        // cramped — bumping to 95vw with a 1500px ceiling makes the
+        // surrounding chrome breathe and matches the "preview at scale"
+        // intent of the fullscreen modal.
+        className="flex h-[88vh] w-[95vw] max-w-[1500px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1500px]"
+        showCloseButton={false}
+      >
+        {/* Slim header — title on the left, viewport + test-as + close
+            on the right. Single row, no wrap. */}
+        <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="text-base font-semibold text-slate-900 dark:text-white">
+              Email preview
             </DialogTitle>
-            <div className="flex items-center gap-4">
-              {/* View Mode Toggle */}
-              <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+
+            <div className="flex items-center gap-2">
+              {/* Viewport */}
+              <div className="flex gap-1 rounded-md bg-slate-100 p-0.5 dark:bg-slate-800">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    'h-8 px-3',
-                    viewMode === 'desktop' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    'h-7 gap-1.5 px-2.5',
+                    viewMode === 'desktop'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                      : 'text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-700/60',
                   )}
                   onClick={() => setViewMode('desktop')}
                 >
-                  <Monitor className="h-4 w-4 mr-2" />
-                  Desktop
+                  <Monitor className="h-3.5 w-3.5" />
+                  <span className="text-xs">Desktop</span>
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    'h-8 px-3',
-                    viewMode === 'mobile' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    'h-7 gap-1.5 px-2.5',
+                    viewMode === 'mobile'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                      : 'text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-700/60',
                   )}
                   onClick={() => setViewMode('mobile')}
                 >
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  Mobile
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span className="text-xs">Mobile</span>
                 </Button>
               </div>
 
-              {/* Test Data Selector */}
+              {/* Test contact */}
               <Select value={selectedContactId} onValueChange={setSelectedContactId}>
-                <SelectTrigger className="w-40 h-9">
+                <SelectTrigger className="h-7 w-44 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -138,36 +138,12 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
                 </SelectContent>
               </Select>
 
-              {/* Send Test Email */}
-              <div className="flex items-center gap-2">
-                <Input
-                  type="email"
-                  value={testEmail}
-                  onChange={(e) => setTestEmail(e.target.value)}
-                  placeholder="test@example.com"
-                  className="w-48 h-9"
-                />
-                <Button 
-                  onClick={handleSendTest} 
-                  disabled={isSendingTest}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {isSendingTest ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Send Test
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={onClose}
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                className="h-7 w-7 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                title="Close"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -175,59 +151,57 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
           </div>
         </DialogHeader>
 
-        {/* Preview Content */}
-        <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-900 p-8">
-          <div className="flex justify-center">
-            <div
-              className={cn(
-                'bg-white rounded-lg shadow-lg overflow-hidden transition-all',
-                viewMode === 'desktop' ? 'w-[600px]' : 'w-[375px]'
-              )}
-            >
-              {/* Email Client Header */}
-              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
+        {/* Content — clean grey background, centred email card. The
+            inner flex column makes the iframe stretch to fill the
+            remaining height instead of being pinned to a hardcoded
+            600px (the modal is much taller now). */}
+        <div className="flex flex-1 min-h-0 justify-center overflow-auto bg-slate-100 px-6 py-6 dark:bg-slate-900">
+          <div
+            className={cn(
+              'flex h-full flex-col overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200 transition-all dark:ring-slate-700',
+              // Desktop view spans much wider now (up to 1100px) so the
+              // landscape modal doesn't leave huge grey gutters around a
+              // skinny 640px card. Mobile view stays at 375px to mirror
+              // the actual phone viewport.
+              viewMode === 'desktop' ? 'w-full max-w-[1100px]' : 'w-[375px]',
+            )}
+          >
+            {/* Inbox-style header */}
+            <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
+              <div className="space-y-1 text-[12px]">
+                <div className="flex gap-2">
+                  <span className="w-12 shrink-0 text-slate-400">From</span>
+                  <span className="text-slate-700 dark:text-slate-200">
+                    {settings.fromNameType === 'deal_owner'
+                      ? 'Sarah Johnson'
+                      : settings.fixedFromName || 'IFG Team'}
+                  </span>
                 </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-slate-400 w-14">From:</span>
-                    <span className="text-slate-700">
-                      {settings.fromNameType === 'deal_owner'
-                        ? 'Sarah Johnson'
-                        : settings.fixedFromName || 'IFG Team'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-slate-400 w-14">To:</span>
-                    <span className="text-slate-700">{selectedContact.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-slate-400 w-14">Subject:</span>
-                    <span className="font-semibold text-slate-900">
-                      {replaceVariables(settings.subject || 'Enter your subject line...', {
-                        first_name: selectedContact.first_name,
-                        last_name: selectedContact.last_name,
-                      })}
-                    </span>
-                  </div>
+                <div className="flex gap-2">
+                  <span className="w-12 shrink-0 text-slate-400">To</span>
+                  <span className="text-slate-700 dark:text-slate-200">
+                    {selectedContact.email}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="w-12 shrink-0 text-slate-400">Subject</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {replaceVariables(settings.subject || 'Enter your subject line…', {
+                      first_name: selectedContact.first_name,
+                      last_name: selectedContact.last_name,
+                    })}
+                  </span>
                 </div>
               </div>
-
-              {/* Email Content - Using iframe to properly render full HTML document */}
-              <iframe
-                ref={iframeRef}
-                title="Email Preview"
-                className="w-full border-0"
-                style={{ 
-                  height: '600px',
-                  minHeight: '600px',
-                }}
-                sandbox="allow-same-origin"
-              />
             </div>
+
+            {/* Rendered email — fills the remaining vertical space. */}
+            <iframe
+              ref={iframeRef}
+              title="Email Preview"
+              className="block w-full flex-1 border-0"
+              sandbox="allow-same-origin"
+            />
           </div>
         </div>
       </DialogContent>

@@ -6,7 +6,6 @@ import { ContactsPageHeader } from '@/components/contacts/ContactsPageHeader'
 import { ContactStats } from '@/components/contacts/ContactStats'
 import { ContactFilters } from '@/components/contacts/ContactFilters'
 import { ContactsTable } from '@/components/contacts/ContactsTable'
-import { ContactsGrid } from '@/components/contacts/ContactsGrid'
 import { getStoredColumns, storeColumns } from '@/components/contacts/ColumnToggle'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { CreateContactModal } from '@/components/contacts/CreateContactModal'
@@ -47,9 +46,6 @@ import { Download, Trash2, MailCheck, MailX, ListPlus, ChevronDown, Loader2, X, 
 function ContactsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-
-  // View mode
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState<string[]>(getStoredColumns)
@@ -413,8 +409,6 @@ function ContactsPageContent() {
     <div className="space-y-6">
       {/* Page Header */}
       <ContactsPageHeader
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
         onAddContact={() => setCreateModalOpen(true)}
         onImportClick={() => setImportModalOpen(true)}
         onExportClick={handleExport}
@@ -599,30 +593,21 @@ function ContactsPageContent() {
         />
       )}
 
-      {/* Grid or Table View */}
-      {viewMode === 'grid' ? (
-        <ContactsGrid
-          contacts={contacts}
-          isLoading={isLoading}
-          onViewProfile={handleRowClick}
-          onEmailClick={handleEmailClick}
-          onSMSClick={handleSMSClick}
-        />
-      ) : (
-        <ContactsTable
-          contacts={contacts}
-          isLoading={isLoading}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSort={handleSort}
-          selectedIds={selectedIds}
-          onSelectChange={handleSelectChange}
-          onSelectAll={handleSelectAll}
-          onRowClick={handleRowClick}
-          visibleColumns={visibleColumns}
-          customColumns={customFieldColumns}
-        />
-      )}
+      {/* Table View — grid view was dropped (was rarely useful for a
+          dense contact list, and the toggle ate header real estate). */}
+      <ContactsTable
+        contacts={contacts}
+        isLoading={isLoading}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        selectedIds={selectedIds}
+        onSelectChange={handleSelectChange}
+        onSelectAll={handleSelectAll}
+        onRowClick={handleRowClick}
+        visibleColumns={visibleColumns}
+        customColumns={customFieldColumns}
+      />
 
       {/* Pagination */}
       {total > 0 && (

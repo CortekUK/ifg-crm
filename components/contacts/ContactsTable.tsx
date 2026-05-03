@@ -135,9 +135,21 @@ export function ContactsTable({
       case 'graduation_year':
         return contact.graduation_year || '-'
       case 'position':
+        // Position values can be a comma-separated list ("Forward,
+        // Defensive Midfielder, Outside Midfielder") which previously
+        // rendered as a single Badge that stretched the column. Cap
+        // it to a sensible width with truncation; full text on hover.
         return contact.position ? (
-          <Badge variant="secondary" className="text-xs">{contact.position}</Badge>
-        ) : '-'
+          <Badge
+            variant="secondary"
+            className="block max-w-[160px] truncate text-xs"
+            title={contact.position}
+          >
+            {contact.position}
+          </Badge>
+        ) : (
+          '-'
+        )
       case 'club_name':
         return contact.club_name || '-'
       case 'country':
@@ -145,24 +157,29 @@ export function ContactsTable({
       case 'gpa':
         return contact.gpa != null ? contact.gpa.toFixed(2) : '-'
       case 'tags':
+        // Tags are tightly bounded to a single row (no flex-wrap) so
+        // a contact with many tags can't blow the column height. The
+        // existing slice(0, 2) keeps it compact; the +N badge spills
+        // count after that.
         return contact.tags && contact.tags.length > 0 ? (
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex max-w-[200px] items-center gap-1 overflow-hidden">
             {contact.tags.slice(0, 2).map((tag) => (
               <Badge
                 key={tag.id}
                 variant="secondary"
-                className="text-xs"
+                className="max-w-[90px] shrink-0 truncate text-xs"
                 style={{
                   backgroundColor: `${tag.color}20`,
                   color: tag.color,
                   borderColor: tag.color,
                 }}
+                title={tag.name}
               >
                 {tag.name}
               </Badge>
             ))}
             {contact.tags.length > 2 && (
-              <span className="text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 +{contact.tags.length - 2}
               </span>
             )}

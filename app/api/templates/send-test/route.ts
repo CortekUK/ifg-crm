@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
 import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
-import type { EditorBlock } from '@/lib/templates/editor-types'
+import type { EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
 
 const SAMPLE_MERGE_DATA = {
   first_name: 'Sarah',
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const blocks = (body.blocks || []) as EditorBlock[]
     const subject = String(body.subject || 'Test email')
+    const theme = (body.theme ?? null) as TemplateTheme | null
 
     if (!Array.isArray(blocks) || blocks.length === 0) {
       return NextResponse.json(
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       schedule_link: ownerCalendly,
     }
 
-    const rawHtml = renderBlocksToHTML(blocks)
+    const rawHtml = renderBlocksToHTML(blocks, theme)
     const html = replaceMergeTags(rawHtml, data)
     const renderedSubject = replaceMergeTags(subject, data)
 

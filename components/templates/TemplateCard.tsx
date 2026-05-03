@@ -68,6 +68,11 @@ export function TemplateCard({
 
         {/* Badges */}
         <div className="flex flex-wrap gap-2 mb-3">
+          {template.is_draft && (
+            <Badge className="border-amber-200 bg-amber-50 text-xs font-normal text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+              Draft
+            </Badge>
+          )}
           <Badge variant="outline" className="text-xs font-normal">
             Email
           </Badge>

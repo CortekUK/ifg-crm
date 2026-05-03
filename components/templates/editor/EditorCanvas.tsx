@@ -3,11 +3,16 @@
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { CanvasBlock } from './CanvasBlock'
 import { LayoutGrid } from 'lucide-react'
-import type { EditorBlock } from '@/lib/templates/editor-types'
+import type { EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
+import { resolveTheme } from '@/lib/templates/render-html'
 
 interface EditorCanvasProps {
   blocks: EditorBlock[]
   selectedBlockId: string | null
+  // The active template theme — undefined means use defaults. Drives
+  // the chrome colours so what the user sees here matches what gets
+  // sent.
+  theme?: TemplateTheme | null
   onSelectBlock: (id: string | null) => void
   onMoveBlock: (fromIndex: number, toIndex: number) => void
   onUpdateBlock: (id: string, updates: Partial<EditorBlock['content']>) => void
@@ -18,12 +23,14 @@ interface EditorCanvasProps {
 export function EditorCanvas({
   blocks,
   selectedBlockId,
+  theme,
   onSelectBlock,
   onMoveBlock,
   onUpdateBlock,
   onDeleteBlock,
   onDuplicateBlock,
 }: EditorCanvasProps) {
+  const t = resolveTheme(theme)
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
     if (result.destination.index === result.source.index) return
@@ -39,22 +46,43 @@ export function EditorCanvas({
   }
 
   return (
+    // The canvas chrome (outer bg, email card width, header, body
+    // padding, footer) MUST mirror what `lib/templates/render-html.ts`
+    // emits so what the user sees here is what the recipient gets.
+    // Specific values to keep aligned:
+    //   * outer bg            #f9fafb   (renderer's <body> bg)
+    //   * card max-width      600px     (renderer's <table width="600">)
+    //   * header bg / sizes   #0f172a / IFG 24px / subtitle 16px
+    //   * body padding        20px      (renderer's <td style="padding:20px">)
+    //   * footer bg / fg      #f3f4f6 / #6b7280 / link #3b82f6
     <div
-      className="flex-1 bg-slate-100 dark:bg-slate-900 overflow-auto p-6"
+      className="flex-1 overflow-auto px-3 py-4 dark:bg-slate-900 md:px-4 md:py-5"
+      style={{ backgroundColor: t.pageBgColor }}
       onClick={handleCanvasClick}
     >
-      <div className="max-w-[600px] mx-auto">
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {/* Email Header Preview */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-900 p-4">
-            <div className="flex items-center justify-center gap-3">
-              <span className="text-white font-bold text-xl">IFG</span>
-              <span className="text-white/90 text-sm">International Football Group</span>
-            </div>
+      <div className="mx-auto max-w-[600px]">
+        <div
+          className="overflow-hidden rounded-lg shadow-sm"
+          style={{ backgroundColor: t.bodyBgColor }}
+        >
+          {/* Email Header — colour comes from the theme. */}
+          <div style={{ backgroundColor: t.headerBgColor }} className="px-5 py-5 text-center">
+            <table cellPadding={0} cellSpacing={0} border={0} className="mx-auto">
+              <tbody>
+                <tr>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    <span style={{ color: t.headerTextColor, fontSize: 24, fontWeight: 700 }}>IFG</span>
+                  </td>
+                  <td style={{ verticalAlign: 'middle', paddingLeft: 10 }}>
+                    <span style={{ color: t.headerTextColor, fontSize: 16 }}>International Football Group</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          {/* Canvas Content */}
-          <div className="p-4">
+          {/* Canvas Content — 20px padding to match renderer */}
+          <div className="p-5">
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="canvas">
                 {(provided, snapshot) => (
@@ -109,11 +137,16 @@ export function EditorCanvas({
             </DragDropContext>
           </div>
 
-          {/* Email Footer Preview */}
-          <div className="bg-slate-100 p-4 text-center text-xs text-slate-500">
-            <p className="mb-1">International Football Group</p>
-            <p className="mb-1">Macclesfield FC, United Kingdom</p>
-            <a href="#" className="text-blue-600 hover:underline">Unsubscribe</a>
+          {/* Email Footer — colours come from the theme. */}
+          <div
+            style={{ backgroundColor: t.footerBgColor, color: t.footerTextColor, fontSize: 12 }}
+            className="px-5 py-5 text-center"
+          >
+            <p style={{ margin: '0 0 10px 0' }}>International Football Group</p>
+            <p style={{ margin: '0 0 10px 0' }}>Macclesfield FC, United Kingdom</p>
+            <a href="#" style={{ color: t.footerLinkColor, textDecoration: 'underline' }}>
+              Unsubscribe
+            </a>
           </div>
         </div>
       </div>

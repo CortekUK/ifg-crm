@@ -1,0 +1,21 @@
+-- Drop the unique-name index on email_templates.
+--
+-- It was originally added in migration 012 to support `ON CONFLICT (name)
+-- DO NOTHING` in the seed script (so re-running the seed is idempotent).
+-- That intent is fine for a one-time migration but it leaks into runtime
+-- behaviour: the editor lets users (and the AI template generator)
+-- create new templates whose auto-derived name matches an existing
+-- template, and the INSERT now fails with a confusing
+-- `duplicate key value violates unique constraint
+-- "idx_email_templates_name_unique"` error.
+--
+-- Two templates with the same display name is a perfectly normal thing
+-- (drafts, A/B variants, "Welcome v2", etc.). Names are not the
+-- identifier — `id` (UUID) is — so there's no semantic reason to enforce
+-- uniqueness on `name`.
+--
+-- Note: migration 012 has already been applied; ON CONFLICT (name) was
+-- only used in its one-shot seed block, not in any runtime code path,
+-- so dropping the index is safe.
+
+DROP INDEX IF EXISTS idx_email_templates_name_unique;
