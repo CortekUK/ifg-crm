@@ -48,14 +48,20 @@ interface EntityDetail {
   href: string
 }
 
-const TYPE_META: Record<EntityType, { icon: typeof User; label: string; tint: string }> = {
-  contact: { icon: User, label: 'Contact', tint: 'text-violet-600 dark:text-violet-300' },
-  deal: { icon: GitBranch, label: 'Deal', tint: 'text-fuchsia-600 dark:text-fuchsia-300' },
-  invoice: { icon: ReceiptPoundSterling, label: 'Invoice', tint: 'text-emerald-600 dark:text-emerald-300' },
-  automation: { icon: Zap, label: 'Automation', tint: 'text-amber-600 dark:text-amber-300' },
-  list: { icon: ListIcon, label: 'List', tint: 'text-sky-600 dark:text-sky-300' },
-  pipeline: { icon: Layers, label: 'Pipeline', tint: 'text-indigo-600 dark:text-indigo-300' },
-  user: { icon: UserCog, label: 'User', tint: 'text-slate-600 dark:text-slate-300' },
+// `route` is the CRM page we navigate to when the chip is clicked. It mirrors
+// the `href` returned by /api/scout/entity, but is hard-coded here so the chip
+// is clickable instantly without waiting for the hover-card fetch.
+const TYPE_META: Record<
+  EntityType,
+  { icon: typeof User; label: string; tint: string; route: string }
+> = {
+  contact: { icon: User, label: 'Contact', tint: 'text-violet-600 dark:text-violet-300', route: '/contacts' },
+  deal: { icon: GitBranch, label: 'Deal', tint: 'text-fuchsia-600 dark:text-fuchsia-300', route: '/pipelines' },
+  invoice: { icon: ReceiptPoundSterling, label: 'Invoice', tint: 'text-emerald-600 dark:text-emerald-300', route: '/invoices' },
+  automation: { icon: Zap, label: 'Automation', tint: 'text-amber-600 dark:text-amber-300', route: '/automations' },
+  list: { icon: ListIcon, label: 'List', tint: 'text-sky-600 dark:text-sky-300', route: '/lists' },
+  pipeline: { icon: Layers, label: 'Pipeline', tint: 'text-indigo-600 dark:text-indigo-300', route: '/pipelines' },
+  user: { icon: UserCog, label: 'User', tint: 'text-slate-600 dark:text-slate-300', route: '/users' },
 }
 
 export function ScoutEntityRef({
@@ -98,7 +104,10 @@ export function ScoutEntityRef({
   return (
     <HoverCard openDelay={200} closeDelay={120}>
       <HoverCardTrigger asChild>
-        <span
+        <a
+          href={detail?.href ?? meta.route}
+          target="_blank"
+          rel="noopener noreferrer"
           onMouseEnter={ensureLoaded}
           onFocus={ensureLoaded}
           className={cn(
@@ -109,7 +118,7 @@ export function ScoutEntityRef({
         >
           <Icon className="h-3 w-3" />
           {label}
-        </span>
+        </a>
       </HoverCardTrigger>
       <HoverCardContent
         side="top"

@@ -216,20 +216,28 @@ export function useScoutChat(): UseScoutChatResult {
 
   const toggleStar = useCallback(
     async (id: string, starred: boolean) => {
+      // Optimistic — UI flips instantly. We deliberately do NOT refresh the
+      // whole conversation list afterwards: re-fetching introduces a brief
+      // visual round-trip where the row briefly re-shows the old star state
+      // before settling, which read as a multi-second flicker in testing.
+      // The PATCH response is authoritative; if it fails we revert in place.
       setConversations((prev) =>
         prev.map((c) => (c.id === id ? { ...c, starred } : c)),
       )
       try {
-        await fetch(`/api/scout/conversations/${id}`, {
+        const res = await fetch(`/api/scout/conversations/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ starred }),
         })
-      } finally {
-        refreshConversations()
+        if (!res.ok) throw new Error('star toggle failed')
+      } catch {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, starred: !starred } : c)),
+        )
       }
     },
-    [refreshConversations],
+    [],
   )
 
   const send = useCallback(

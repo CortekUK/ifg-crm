@@ -50,6 +50,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -986,8 +996,10 @@ function Composer({
           )
         },
         (err) => {
+          // The inline chip already surfaces this message in red — don't
+          // also fire a destructive toast or the user gets the same text
+          // twice (chip + bottom-right popup).
           const message = typeof err === 'string' ? err : 'Could not read file'
-          showError(message)
           setAttachments((prev) =>
             prev.map((a) =>
               a.id === placeholder.id
@@ -1509,6 +1521,7 @@ function AllChatsView({
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const q = query.trim().toLowerCase()
   const filtered = q
@@ -1535,15 +1548,14 @@ function AllChatsView({
     setSelected(new Set())
   }
 
-  const handleBulkDelete = async () => {
+  const requestBulkDelete = () => {
     if (selected.size === 0) return
-    if (
-      !confirm(
-        `Delete ${selected.size} chat${selected.size > 1 ? 's' : ''}? This can't be undone.`,
-      )
-    ) {
-      return
-    }
+    setConfirmOpen(true)
+  }
+
+  const handleBulkDelete = async () => {
+    setConfirmOpen(false)
+    if (selected.size === 0) return
     setBulkDeleting(true)
     try {
       // Existing DELETE endpoint takes one id; fan out in parallel for speed.
@@ -1609,7 +1621,7 @@ function AllChatsView({
               </span>
               <button
                 type="button"
-                onClick={handleBulkDelete}
+                onClick={requestBulkDelete}
                 disabled={selected.size === 0 || bulkDeleting}
                 className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
               >
@@ -1777,6 +1789,32 @@ function AllChatsView({
           </ul>
         )}
       </div>
+
+      {/* Custom confirm for bulk delete — replaces window.confirm so the
+          modal matches the rest of the app's dark UI instead of a native
+          browser dialog that ignores theme. */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selected.size} chat{selected.size > 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This can&apos;t be undone. Selected conversations and their
+              messages will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

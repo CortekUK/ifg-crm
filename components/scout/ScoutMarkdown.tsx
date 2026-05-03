@@ -77,6 +77,20 @@ const COMPONENTS: Components = {
             : String(children ?? '')
       return <ScoutEntityRef type={entity.type} id={entity.id} label={label || 'entity'} />
     }
+    // Only emit an anchor for navigable URLs. If the model hallucinated a
+    // malformed `scout-entity:` link (bad UUID etc.) or any other non-http
+    // scheme, fall back to plain bold text — clicking would otherwise keep
+    // the user on /scout and feel broken.
+    const isNavigable =
+      typeof href === 'string' &&
+      /^(https?:|mailto:|tel:|\/)/i.test(href)
+    if (!isNavigable) {
+      return (
+        <span className="font-medium text-indigo-600 dark:text-indigo-400">
+          {children}
+        </span>
+      )
+    }
     return (
       <a
         href={href}
