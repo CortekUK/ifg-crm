@@ -143,20 +143,33 @@ function capExtracted(text: string, name: string): string {
   )
 }
 
-// Lazy-load extractors so non-doc users don't pay the bundle cost. PDF.js +
-// mammoth + xlsx together are ~1.5 MB; keeping them out of the main chunk
-// matters for the empty state's first paint.
-async function extractPdfText(file: File): Promise<string> {
+// Cap PDF rasterization to keep latency + token cost sane. 6 pages × vision
+// at ~1024px is a reasonable budget for the kinds of CRM exports / contracts
+// the user actually pastes here.
+const MAX_RASTERIZE_PAGES = 6
+
+// Initialise pdf.js once. Both extractors below share this singleton so we
+// only set the worker URL on first use.
+async function loadPdfJs() {
   const pdfjs = await import('pdfjs-dist')
-  // pdfjs needs a worker URL. The standard pdfjs-recommended pattern is
-  // `new URL(...path..., import.meta.url)` — this is what their docs use and
-  // both Webpack and Turbopack pick it up as an asset reference.
   if (!pdfjs.GlobalWorkerOptions.workerSrc) {
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
       'pdfjs-dist/build/pdf.worker.min.mjs',
       import.meta.url,
     ).toString()
   }
+  return pdfjs
+}
+
+// Lazy-load extractors so non-doc users don't pay the bundle cost. PDF.js +
+// mammoth + xlsx together are ~1.5 MB; keeping them out of the main chunk
+// matters for the empty state's first paint.
+//
+// Returns null when the PDF has no extractable text (typically a scanned /
+// image-only PDF). The caller falls back to rasterising pages so the user
+// still gets an answer via vision instead of a hard error.
+async function extractPdfText(file: File): Promise<string | null> {
+  const pdfjs = await loadPdfJs()
   const buf = await file.arrayBuffer()
   const doc = await pdfjs.getDocument({ data: buf }).promise
   const parts: string[] = []
@@ -174,8 +187,42 @@ async function extractPdfText(file: File): Promise<string> {
     if (parts.join('\n\n').length > MAX_EXTRACTED_CHARS) break
   }
   const out = parts.join('\n\n').trim()
-  if (!out) {
-    throw `Couldn't extract any text from "${file.name}". If it's a scanned PDF, OCR isn't supported yet.`
+  return out || null
+}
+
+// Render the first N pages of a PDF to JPEG data URLs. Used as a fallback for
+// scanned / image-only PDFs where text extraction comes back empty — GPT-4o
+// can still read text from these via vision.
+async function rasterizePdfPages(
+  file: File,
+  maxPages: number,
+): Promise<ScoutAttachment[]> {
+  const pdfjs = await loadPdfJs()
+  const buf = await file.arrayBuffer()
+  const doc = await pdfjs.getDocument({ data: buf }).promise
+  const total = doc.numPages
+  const limit = Math.min(total, maxPages)
+  const out: ScoutAttachment[] = []
+  for (let i = 1; i <= limit; i++) {
+    const page = await doc.getPage(i)
+    const viewport = page.getViewport({ scale: 1.5 })
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.ceil(viewport.width)
+    canvas.height = Math.ceil(viewport.height)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) continue
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+    out.push({
+      kind: 'image',
+      name: `${file.name} — page ${i}${total > limit ? ` of ${total}` : ''}`,
+      dataUrl,
+      // Approximate decoded byte count (base64 is ~4/3 of binary).
+      size: Math.round(dataUrl.length * 0.75),
+    })
+  }
+  if (out.length === 0) {
+    throw `Couldn't read any pages from "${file.name}".`
   }
   return out
 }
@@ -213,9 +260,11 @@ async function extractSpreadsheetText(file: File): Promise<string> {
   return out
 }
 
-// Read a single browser File and return the corresponding ScoutAttachment.
+// Read a single browser File and return one or more ScoutAttachments. Most
+// files map 1:1, but a scanned PDF expands to N image attachments (one per
+// page) so the model can read the content via vision.
 // Throws a string error message on rejection so the caller can surface it.
-async function readAttachment(file: File): Promise<ScoutAttachment> {
+async function readAttachment(file: File): Promise<ScoutAttachment[]> {
   if (file.type.startsWith('image/')) {
     if (file.size > MAX_IMAGE_BYTES) {
       throw `Image "${file.name}" is over 8 MB`
@@ -226,7 +275,7 @@ async function readAttachment(file: File): Promise<ScoutAttachment> {
       reader.onload = () => resolve(String(reader.result ?? ''))
       reader.readAsDataURL(file)
     })
-    return { kind: 'image', name: file.name || 'pasted-image.png', dataUrl, size: file.size }
+    return [{ kind: 'image', name: file.name || 'pasted-image.png', dataUrl, size: file.size }]
   }
 
   const ext = fileExt(file.name)
@@ -237,13 +286,18 @@ async function readAttachment(file: File): Promise<ScoutAttachment> {
   // chars post-extraction so giant docs can't blow the prompt.
   if (ext === 'pdf' || file.type === 'application/pdf') {
     if (file.size > MAX_DOC_BYTES) throw `PDF "${file.name}" is over 25 MB`
-    const text = capExtracted(await extractPdfText(file), file.name)
-    return { kind: 'text', name: file.name, content: text, size: file.size }
+    const raw = await extractPdfText(file)
+    if (raw) {
+      return [{ kind: 'text', name: file.name, content: capExtracted(raw, file.name), size: file.size }]
+    }
+    // No extractable text — most likely a scanned / image-only PDF. Fall
+    // back to rasterising the first few pages so vision can read them.
+    return rasterizePdfPages(file, MAX_RASTERIZE_PAGES)
   }
   if (ext === 'docx' || file.type.includes('officedocument.wordprocessingml')) {
     if (file.size > MAX_DOC_BYTES) throw `Doc "${file.name}" is over 25 MB`
     const text = capExtracted(await extractDocxText(file), file.name)
-    return { kind: 'text', name: file.name, content: text, size: file.size }
+    return [{ kind: 'text', name: file.name, content: text, size: file.size }]
   }
   if (ext === 'doc') {
     throw `"${file.name}" is the legacy .doc format — please save as .docx and try again.`
@@ -257,7 +311,7 @@ async function readAttachment(file: File): Promise<ScoutAttachment> {
   ) {
     if (file.size > MAX_DOC_BYTES) throw `Spreadsheet "${file.name}" is over 25 MB`
     const text = capExtracted(await extractSpreadsheetText(file), file.name)
-    return { kind: 'text', name: file.name, content: text, size: file.size }
+    return [{ kind: 'text', name: file.name, content: text, size: file.size }]
   }
 
   const looksTexty =
@@ -272,7 +326,7 @@ async function readAttachment(file: File): Promise<ScoutAttachment> {
     throw `Text file "${file.name}" is over 256 KB`
   }
   const content = await file.text()
-  return { kind: 'text', name: file.name, content, size: file.size }
+  return [{ kind: 'text', name: file.name, content, size: file.size }]
 }
 
 // Claude-style starter chips — short, categorical, with a small icon. Each
@@ -950,25 +1004,27 @@ function Composer({
     slice.forEach((file, i) => {
       const placeholder = placeholders[i]
       readAttachment(file).then(
-        (payload) => {
+        (payloads) => {
+          if (payloads.length === 0) return
+          const first = payloads[0]
           // Enforce the per-message combined extracted-text cap. If adding
           // this payload would put the total over the limit, surface a toast
           // and mark the chip as error (don't silently drop — the user
           // needs to know why their attachment didn't land).
-          if (payload.kind === 'text') {
+          if (first.kind === 'text') {
             const currentTotal = attachmentsRef.current.reduce((sum, a) => {
               if (a.status === 'ready' && a.payload.kind === 'text') {
                 return sum + a.payload.content.length
               }
               return sum
             }, 0)
-            if (currentTotal + payload.content.length > MAX_COMBINED_EXTRACTED_CHARS) {
+            if (currentTotal + first.content.length > MAX_COMBINED_EXTRACTED_CHARS) {
               const remainingKB = Math.max(
                 0,
                 Math.round((MAX_COMBINED_EXTRACTED_CHARS - currentTotal) / 1024),
               )
               showError(
-                `"${payload.name}" pushes the message past the combined ${Math.round(
+                `"${first.name}" pushes the message past the combined ${Math.round(
                   MAX_COMBINED_EXTRACTED_CHARS / 1024,
                 )} KB document-text limit. ${remainingKB} KB room left.`,
               )
@@ -987,13 +1043,29 @@ function Composer({
               return
             }
           }
-          setAttachments((prev) =>
-            prev.map((a) =>
-              a.id === placeholder.id
-                ? { id: placeholder.id, status: 'ready', payload }
-                : a,
-            ),
-          )
+          // Replace the placeholder with the first ready chip, then splice
+          // the extras (e.g. additional rasterised PDF pages) in right
+          // after it so they stay grouped together visually.
+          const extras: ComposerAttachment[] = payloads.slice(1).map((p) => ({
+            id:
+              typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                ? crypto.randomUUID()
+                : Math.random().toString(36).slice(2),
+            status: 'ready',
+            payload: p,
+          }))
+          setAttachments((prev) => {
+            const next: ComposerAttachment[] = []
+            for (const a of prev) {
+              if (a.id === placeholder.id) {
+                next.push({ id: placeholder.id, status: 'ready', payload: first })
+                for (const e of extras) next.push(e)
+              } else {
+                next.push(a)
+              }
+            }
+            return next
+          })
         },
         (err) => {
           // The inline chip already surfaces this message in red — don't
