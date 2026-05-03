@@ -34,6 +34,7 @@ import { createClient as createServerSupabaseClient } from '@/lib/supabase/serve
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js'
 import { SCOUT_TOOLS } from '@/lib/scout/tools'
 import { executeScoutTool } from '@/lib/scout/executors'
+import { logOpenAIUsage } from '@/lib/ai/usage-logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -391,12 +392,16 @@ export async function POST(req: NextRequest) {
         for (let loop = 0; loop < MAX_TOOL_LOOPS; loop++) {
           // Streamed completion. We accumulate tool_call fragments alongside
           // text so we can decide what to do when the stream ends.
+          // include_usage so OpenAI emits a final chunk with token
+          // counts, which we forward to the OpenAI Usage dashboard.
+          const aiStartedAt = performance.now()
           const completion = await openai.chat.completions.create({
             model,
             messages,
             tools: SCOUT_TOOLS,
             tool_choice: 'auto',
             stream: true,
+            stream_options: { include_usage: true },
             temperature: 0.2,
           })
 
@@ -407,8 +412,18 @@ export async function POST(req: NextRequest) {
             { id: string; name: string; args: string }
           > = {}
           let finishReason: string | null = null
+          let streamUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null
 
           for await (const chunk of completion) {
+            // The final chunk in stream_options:include_usage mode
+            // carries `usage` (and an empty choices array). Capture it.
+            if (chunk.usage) {
+              streamUsage = {
+                prompt_tokens: chunk.usage.prompt_tokens ?? 0,
+                completion_tokens: chunk.usage.completion_tokens ?? 0,
+                total_tokens: chunk.usage.total_tokens ?? 0,
+              }
+            }
             const choice = chunk.choices[0]
             if (!choice) continue
 
@@ -432,6 +447,17 @@ export async function POST(req: NextRequest) {
               finishReason = choice.finish_reason
             }
           }
+
+          // Log usage for THIS loop's completion call. Each tool-loop
+          // is a separate OpenAI billing event so we record it
+          // separately under the same feature key.
+          await logOpenAIUsage({
+            feature: 'scout-chat',
+            model,
+            usage: streamUsage,
+            startedAt: aiStartedAt,
+            userId: profile.id,
+          })
 
           const toolCalls = Object.values(toolCallsAcc).filter((c) => c.id || c.name)
 

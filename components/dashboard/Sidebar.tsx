@@ -91,6 +91,19 @@ const navSections = [
     items: [
       { href: '/analytics', label: 'Analytics', icon: BarChart3 },
       { href: '/reports', label: 'Reports', icon: FileBarChart },
+      // Super_admin-only operational tooling that lives under
+      // INSIGHTS alongside Analytics / Reports. The route + API are
+      // both gated server-side (RLS on openai_usage_logs + a
+      // profile.role check on GET /api/admin/openai-usage) so the
+      // superAdminOnly flag here just hides the menu entry point for
+      // non-super_admins.
+      {
+        href: '/openai-usage',
+        label: 'OpenAI Usage',
+        icon: Sparkles,
+        ai: true,
+        superAdminOnly: true,
+      },
     ],
   },
   {
@@ -130,11 +143,30 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isSuperAdmin = user?.role === 'super_admin'
 
-  const visibleSections = navSections.filter((section) => {
-    if (section.adminOnly && !isAdmin) return false
-    return true
-  })
+  // Two-level filter: section-level (drops the whole group when the
+  // role can't see ANY of its items) and item-level (drops one item
+  // out of an otherwise-visible group, e.g. "OpenAI Usage" inside the
+  // shared INSIGHTS section is super_admin-only).
+  const visibleSections = navSections
+    .filter((section) => {
+      if ('superAdminOnly' in section && section.superAdminOnly && !isSuperAdmin) {
+        return false
+      }
+      if (section.adminOnly && !isAdmin) return false
+      return true
+    })
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if ('superAdminOnly' in item && item.superAdminOnly && !isSuperAdmin) {
+          return false
+        }
+        return true
+      }),
+    }))
+    .filter((section) => section.items.length > 0)
 
   return (
     <aside

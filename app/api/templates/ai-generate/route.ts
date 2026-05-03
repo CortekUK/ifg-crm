@@ -27,6 +27,7 @@ import {
 } from '@/lib/templates/ai-schema'
 import type { EditorBlock } from '@/lib/templates/editor-types'
 import type { AiAttachment } from '@/lib/ai/attachments'
+import { logOpenAIUsage } from '@/lib/ai/usage-logger'
 import type { ChatCompletionMessageParam, ChatCompletionContentPart } from 'openai/resources/chat/completions'
 
 export const runtime = 'nodejs'
@@ -595,6 +596,7 @@ export async function POST(req: NextRequest) {
     ]
 
     let response
+    const aiStartedAt = performance.now()
     try {
       response = await openai.chat.completions.create({
         model,
@@ -608,8 +610,25 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error('[ai-generate] OpenAI request failed:', e)
       const message = e instanceof Error ? e.message : 'OpenAI request failed'
+      // Log the failed call so the OpenAI Usage dashboard surfaces
+      // it in the "errors still cost tokens" warning.
+      await logOpenAIUsage({
+        feature: 'template-ai-generate',
+        model,
+        startedAt: aiStartedAt,
+        error: message,
+        userId: auth.profile.id,
+      })
       return Response.json({ error: `OpenAI: ${message}` }, { status: 502 })
     }
+    // Successful completion — log usage / cost / latency.
+    await logOpenAIUsage({
+      feature: 'template-ai-generate',
+      model,
+      usage: response.usage,
+      startedAt: aiStartedAt,
+      userId: auth.profile.id,
+    })
 
     const choice = response.choices[0]
     // If the model returned a refusal, surface that to the user verbatim
