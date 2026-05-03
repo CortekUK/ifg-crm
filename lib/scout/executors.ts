@@ -534,10 +534,56 @@ export function validateReadonlyScoutSql(sql: string): { ok: boolean; reason: st
 }
 
 // ---------------------------------------------------------------------------
+// save_memory — persists a durable fact for the calling super_admin.
+// Most executors are pure read-only views; this is the one write-capable tool
+// in Scout's surface, deliberately scoped to the caller's own row via ctx.userId.
+// ---------------------------------------------------------------------------
+
+interface SaveMemoryArgs {
+  content?: string
+  reason?: string
+}
+
+async function execSaveMemory(args: SaveMemoryArgs, ctx: ScoutToolContext) {
+  if (!ctx.userId) return { error: 'No user context available — cannot save memory.' }
+  const content = (args.content ?? '').trim()
+  if (!content) return { error: 'content is required' }
+  if (content.length > 2000) return { error: 'content too long (max 2000 chars)' }
+
+  const admin = getAdmin()
+  // Generated Database types haven't been regenerated since migration 118,
+  // so the typed admin client doesn't know about scout_memories yet. Untyped
+  // here mirrors how scout_conversations / scout_messages are written.
+  const { data, error } = await (admin as unknown as {
+    from: (t: string) => {
+      insert: (v: Record<string, unknown>) => {
+        select: (s: string) => { single: () => Promise<{ data: unknown; error: { message: string } | null }> }
+      }
+    }
+  })
+    .from('scout_memories')
+    .insert({ user_id: ctx.userId, content, source: 'auto' })
+    .select('id, content, created_at')
+    .single()
+  if (error) return { error: error.message }
+  return { saved: true, memory: data }
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
 
-export async function executeScoutTool(name: string, args: Args): Promise<unknown> {
+export interface ScoutToolContext {
+  // The super_admin profile.id whose conversation triggered the tool. Used by
+  // save_memory to scope writes; read-only executors ignore it.
+  userId: string
+}
+
+export async function executeScoutTool(
+  name: string,
+  args: Args,
+  ctx: ScoutToolContext = { userId: '' },
+): Promise<unknown> {
   if (!SCOUT_TOOL_NAMES.includes(name)) {
     return { error: `Unknown tool: ${name}` }
   }
@@ -569,6 +615,8 @@ export async function executeScoutTool(name: string, args: Args): Promise<unknow
         return await execQueryMetrics()
       case 'query_knowledge':
         return await execQueryKnowledge(args)
+      case 'save_memory':
+        return await execSaveMemory(args as SaveMemoryArgs, ctx)
       case 'execute_readonly_sql':
         return await execExecuteReadonlySql(args)
       default:

@@ -13,6 +13,9 @@ import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
+import { ScoutChart, parseChartSpec } from './ScoutChart'
+import { ScoutEntityRef, parseEntityHref } from './ScoutEntityRef'
+import { ScoutBriefing, parseBriefingSpec } from './ScoutBriefing'
 
 interface ScoutMarkdownProps {
   text: string
@@ -59,16 +62,32 @@ const COMPONENTS: Components = {
   ),
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
 
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => {
+    // Custom URI scheme `scout-entity:type:uuid` — render the link as an
+    // inline hover-card chip instead of a normal anchor. The model emits
+    // these for CRM entities (contact / deal / invoice / etc.) so the user
+    // can hover for a preview and click through to the CRM page.
+    const entity = parseEntityHref(href)
+    if (entity) {
+      const label =
+        typeof children === 'string'
+          ? children
+          : Array.isArray(children)
+            ? children.filter((c) => typeof c === 'string').join('')
+            : String(children ?? '')
+      return <ScoutEntityRef type={entity.type} id={entity.id} label={label || 'entity'} />
+    }
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
+      >
+        {children}
+      </a>
+    )
+  },
 
   // Inline code vs fenced — the `inline` flag is on `code` props from
   // react-markdown. Block code gets a card with a soft tint; inline code
@@ -129,12 +148,74 @@ const COMPONENTS: Components = {
   hr: () => <hr className="my-3 border-slate-200 dark:border-slate-700" />,
 }
 
+// Find Scout's custom fenced blocks in the model output and split the text
+// around them so each one renders as a dedicated React component while the
+// surrounding markdown still goes through ReactMarkdown normally.
+//
+// Languages handled:
+//   scout-chart    → inline Recharts figure
+//   scout-briefing → styled briefing card with a "Download PDF" button
+const SCOUT_FENCE = /```scout-(chart|briefing)\s*\n([\s\S]+?)\n```/g
+
 export function ScoutMarkdown({ text, className }: ScoutMarkdownProps) {
+  const segments: React.ReactNode[] = []
+  let lastIndex = 0
+  let m: RegExpExecArray | null
+  let i = 0
+  // Reset state on every call (regex is module-level with /g flag).
+  SCOUT_FENCE.lastIndex = 0
+  while ((m = SCOUT_FENCE.exec(text)) !== null) {
+    if (m.index > lastIndex) {
+      segments.push(
+        <ReactMarkdown key={`md-${i}`} remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+          {text.slice(lastIndex, m.index)}
+        </ReactMarkdown>,
+      )
+    }
+    const lang = m[1]
+    const body = m[2]
+    let component: React.ReactNode = null
+    if (lang === 'chart') {
+      const spec = parseChartSpec(body)
+      if (spec) component = <ScoutChart key={`chart-${i}`} spec={spec} />
+    } else if (lang === 'briefing') {
+      const spec = parseBriefingSpec(body)
+      if (spec) component = <ScoutBriefing key={`briefing-${i}`} spec={spec} />
+    }
+    if (component) {
+      segments.push(component)
+    } else {
+      // Malformed JSON inside the fence — fall back to showing the raw block
+      // as code so the user can still see what the model tried to emit.
+      segments.push(
+        <pre
+          key={`bad-${i}`}
+          className="mb-2 overflow-x-auto rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300"
+        >
+          {m[0]}
+        </pre>,
+      )
+    }
+    lastIndex = m.index + m[0].length
+    i++
+  }
+  if (lastIndex < text.length) {
+    segments.push(
+      <ReactMarkdown key={`md-${i}`} remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+        {text.slice(lastIndex)}
+      </ReactMarkdown>,
+    )
+  }
+
   return (
     <div className={cn('text-sm leading-relaxed', className)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
-        {text}
-      </ReactMarkdown>
+      {segments.length > 0 ? (
+        segments
+      ) : (
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+          {text}
+        </ReactMarkdown>
+      )}
     </div>
   )
 }

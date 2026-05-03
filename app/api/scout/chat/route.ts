@@ -150,11 +150,88 @@ Tone: concise, factual, business-friendly. No filler. No emoji unless the user u
 
 If the user asks about something here that goes beyond the glossary, use query_knowledge to look for a longer-form article, then fall back to honesty if nothing is on file.`
 
+// Compose the per-request system prompt. The base SYSTEM_PROMPT is invariant;
+// the leading block here changes per user (their name) and per session (their
+// saved memories). Keep this small — every byte ships on every turn.
+function buildSystemPrompt({
+  firstName,
+  fullName,
+  memories,
+}: {
+  firstName: string
+  fullName: string
+  memories: string[]
+}): string {
+  // First-message rule is intentionally directive — the model was being too
+  // permissive about skipping the name when the parsed first-name didn't look
+  // human (e.g. an acronym). When in doubt, greet anyway.
+  const greeting = firstName
+    ? `You are speaking with ${fullName}. Address them as "${firstName}".\n\nMANDATORY: when the user sends their first message in a new conversation, open your reply with "Hi ${firstName}," (or "Hey ${firstName}," for short greetings) — even if their message is just "hi" or "hello". Do NOT skip the name even if it looks unusual; the user picked it. In replies AFTER the first one, do not repeat the greeting.`
+    : `You are speaking with a super_admin whose display name isn't set. Open replies neutrally with "Hi there,".`
+
+  // Anti-staleness rule. The model otherwise tends to remember its last tool
+  // result within a chat and re-quote it instead of re-querying — so if the
+  // user adds a contact between turns and asks "how many contacts now?" it
+  // returns the old number. Force a fresh tool call every time. The current
+  // timestamp is injected so the model has an unambiguous cue that time has
+  // moved on between turns.
+  const nowIso = new Date().toISOString()
+  const freshnessRule = `\n\n# Live data — never cache across turns\nThe CRM is a live system. Records can be created, edited, or deleted between any two turns of this conversation, including by the user themselves in another tab.\n\nMANDATORY: every time the user asks for a count, a list, a metric, a status, or "how many / who / what / when" anything, you MUST call the relevant tool fresh — even if you answered the same or a similar question earlier in this same conversation. Never reuse a previous tool's result as the answer to a new turn. Treat each user turn as a brand-new request against live data.\n\nCurrent server time: ${nowIso}.`
+
+  // Vision + attachments. Without this, the model reads the rest of the
+  // prompt as "CRM tools only" and refuses to look at attached images
+  // (returns "I'm unable to help with that"). Make it explicit.
+  const attachmentRule = `\n\n# Attachments — images, screenshots, files\nThe user can attach images, screenshots, and text files to their messages. You CAN see images directly (vision is enabled). When the user attaches an image — a screenshot, a photo, a chart, a document, code, anything — look at it and answer like a normal capable assistant. Read the text in screenshots, summarise documents, debug code shown in pictures, describe what's there.\n\nText files arrive inlined in the user's message as fenced code blocks (\`File: name.ext\` followed by the contents). Treat those as normal text the user pasted.\n\nAttachments are NOT CRM data and don't need a tool call. Do NOT refuse with "I'm unable to help with that" — that's a refusal to use a capability you have. If an image is genuinely unreadable (blurry, blank), say so plainly. If it's something you can read, just answer.`
+
+  // Inline chart rendering. The chat client recognises a fenced code block
+  // with language "scout-chart" and renders it as an actual chart (Recharts)
+  // in place of the code. Use this when a question is naturally answered
+  // with a visual: revenue comparisons, trend over time, pipeline funnel,
+  // top-N rankings, share of total, etc.
+  const chartRule = `\n\n# Inline charts\nYou can render real charts inline in your reply. Emit a fenced block with language \`scout-chart\` containing a JSON spec; the client replaces it with a live chart.\n\nUse charts for: revenue comparisons, trends over time, pipeline funnels, top-N rankings, share-of-total. Pull the underlying numbers with your usual tools (query_metrics, query_pipeline_state, execute_readonly_sql), then visualise them. Always include a one-line summary in plain text BEFORE or AFTER the chart so the message still reads cleanly even if the chart fails to render.\n\nSpec shape:\n\`\`\`scout-chart\n{\n  "type": "bar" | "line" | "area" | "pie",\n  "title": "Optional title shown above the chart",\n  "data": [ { ... }, ... ],\n  "xKey": "month",            // bar/line/area only — category column\n  "series": ["2024", "2025"], // bar/line/area only — numeric columns to plot\n  "nameKey": "stage",         // pie only — text column for slice label\n  "yKey": "count"             // pie only — numeric column for slice value\n}\n\`\`\`\n\nExamples:\n- Revenue 2024 vs 2025 by month → \`type: "bar"\`, \`xKey: "month"\`, \`series: ["2024", "2025"]\`, data is one row per month with both year columns.\n- Leads over time → \`type: "line"\` or \`"area"\`, \`xKey: "date"\`, \`series: ["leads"]\`.\n- Pipeline stage breakdown → \`type: "pie"\`, \`nameKey: "stage"\`, \`yKey: "deal_count"\`.\n\nRules:\n- The data array must be small and clean (≤ 30 rows). Aggregate first if your tool returned 200 rows.\n- All values in series columns must be numbers, not strings.\n- Don't render a chart for a one-number answer ("you have 7 contacts" doesn't need a chart).\n- Don't render multiple charts if one would do.\n- If the question is "show me a chart of X" or "compare X vs Y" or "trend of X", strongly prefer a chart over a markdown table.`
+
+  // PDF briefing — special fenced block that renders as a downloadable
+  // one-pager in the chat. Use this when the user asks for a "briefing",
+  // "weekly report", "summary", "executive recap", "one-pager" or anything
+  // that should be exported / shared with someone else.
+  const briefingRule = `\n\n# Briefings — exportable one-pagers\nWhen the user asks for a briefing, weekly recap, executive summary, one-pager, or anything they'd want to share or download, emit a fenced \`scout-briefing\` block. The client renders it as a styled card with a "Download PDF" button.\n\nSpec:\n\`\`\`scout-briefing\n{\n  "title": "Weekly Briefing",\n  "subtitle": "Optional one-line subtitle (e.g. date range)",\n  "sections": [\n    {\n      "heading": "Revenue",\n      "body": "Markdown body — plain prose, bullets, tables.",\n      "chart": { /* optional ScoutChartSpec — same schema as scout-chart */ }\n    },\n    { "heading": "Pipeline", "body": "..." }\n  ],\n  "footer": "Optional footnote line"\n}\n\`\`\`\n\nRules:\n- 3 to 6 sections, each short. This is a one-pager, not a report.\n- Pull all numbers from your tools first (query_metrics, query_pipeline_state, etc). Don't make up data.\n- Use a chart in 1-2 sections at most — they're emphasis, not decoration.\n- Don't put a briefing inside a normal answer; only emit one when the user explicitly asked for a briefing/recap/report.\n- After the briefing block you can add 1-2 lines of natural-language summary outside it.`
+
+  // Entity hover-card syntax. When you mention a CRM record by name and you
+  // have its UUID from a tool result, wrap the name in a markdown link with
+  // the special scheme below. The client renders these as inline hover chips
+  // that show a preview card on hover and link to the CRM page on click.
+  const entityRule = `\n\n# Linking CRM entities (hover cards)\nWhen you mention a specific CRM record by name AND you have its UUID from a tool result, wrap the name in a markdown link with the custom scheme \`scout-entity:TYPE:UUID\`. The client turns these into hover cards.\n\nSyntax: \`[Display Name](scout-entity:TYPE:UUID)\`\n\nValid TYPE values: contact, deal, invoice, automation, list, pipeline, user\n\nExamples:\n- "[Khan Smith](scout-entity:contact:8f2c1d34-...) is in the [Summer Residency](scout-entity:pipeline:0a1b...) pipeline."\n- "Invoice [INV-1023](scout-entity:invoice:9b...) is overdue."\n- "The [Welcome Sequence](scout-entity:automation:...) automation is paused."\n\nRules:\n- ONLY use this when you have the actual UUID from a tool result. Never fabricate UUIDs — a broken hover card is worse than plain text.\n- Don't wrap every mention; once per unique entity per reply is enough. After the first link, plain text is fine.\n- Don't use it inside markdown tables (cells are tight enough already).\n- If you only have a name (no UUID), just write the name as plain text.`
+
+  const memoryHeader =
+    '# What you already know about this user\nThese are durable facts saved across past conversations. Apply them silently when relevant — do not restate them verbatim or remark that you remembered. If a memory clearly contradicts what the user is telling you now, trust the current message.'
+
+  const memoryBody =
+    memories.length === 0
+      ? '_No memories saved yet. Use the save_memory tool when you spot a durably-useful fact (preferences, conventions, recurring people/programmes) or when the user explicitly asks you to remember something._'
+      : memories.map((m) => `- ${m}`).join('\n')
+
+  return `${greeting}${freshnessRule}${attachmentRule}${chartRule}${briefingRule}${entityRule}\n\n${memoryHeader}\n${memoryBody}\n\n${SYSTEM_PROMPT}`
+}
+
 const MAX_TOOL_LOOPS = 8
+
+// Content can either be plain text OR an OpenAI multimodal content-parts
+// array (text + image_url blocks). The client builds the parts array when the
+// user attaches images so we can pass them straight through to gpt-4o vision.
+type OpenAIContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } }
 
 interface ChatRequestBody {
   conversation_id?: string | null
-  messages: { role: 'user' | 'assistant' | 'system' | 'tool'; content: string }[]
+  // Temporary chat mode. When true: skip creating a conversation row, skip
+  // persisting user/assistant messages, and skip executing any save_memory
+  // tool calls. Memories are still INJECTED into the prompt (read-only).
+  incognito?: boolean
+  messages: {
+    role: 'user' | 'assistant' | 'system' | 'tool'
+    content: string | OpenAIContentPart[]
+  }[]
 }
 
 function sseEncode(event: string, data: unknown) {
@@ -210,6 +287,28 @@ export async function POST(req: NextRequest) {
 
   const admin = getAdmin()
 
+  // Pull this user's saved memories (scout_memories) so we can prepend them to
+  // the system prompt as continuity context. Scout writes here via the
+  // save_memory tool. Cap at 100 / ~10k chars to keep the prompt manageable.
+  const { data: memoryRows } = await admin
+    .from('scout_memories')
+    .select('content')
+    .eq('user_id', profile.id)
+    .order('created_at', { ascending: false })
+    .limit(100)
+  const memoryBlock = (memoryRows ?? []).slice(0, 100)
+  const totalMemoryChars = memoryBlock.reduce((n, r) => n + (r.content?.length ?? 0), 0)
+  const memoryTrimmed = totalMemoryChars > 10_000
+    ? memoryBlock.slice(0, Math.floor((memoryBlock.length * 10_000) / totalMemoryChars))
+    : memoryBlock
+
+  const firstName = (profile.full_name ?? '').trim().split(/\s+/)[0] || ''
+  const personalSystemPrompt = buildSystemPrompt({
+    firstName,
+    fullName: profile.full_name ?? '',
+    memories: memoryTrimmed.map((m) => m.content),
+  })
+
   // The first user message in this turn drives the title for new threads.
   const lastUserMessage = [...body.messages].reverse().find((m) => m.role === 'user')
 
@@ -217,9 +316,34 @@ export async function POST(req: NextRequest) {
   // appended in order. New conversations get a title derived from the first
   // user message — short, plain, no LLM call needed. The user can rename
   // later from the history panel if we add that affordance.
+  // Flatten multimodal content into a string for title derivation + DB
+  // persistence. We don't store image bytes — too big and not useful for
+  // history scrubbing. We append a "[N image(s)]" suffix so the saved row
+  // accurately reflects that the turn included attachments.
+  const flattenForStorage = (
+    content: string | OpenAIContentPart[],
+  ): string => {
+    if (typeof content === 'string') return content
+    const text = content
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map((p) => p.text)
+      .join('\n')
+      .trim()
+    const imageCount = content.filter((p) => p.type === 'image_url').length
+    if (imageCount > 0) {
+      const suffix = `[${imageCount} image${imageCount > 1 ? 's' : ''} attached]`
+      return text ? `${text}\n\n${suffix}` : suffix
+    }
+    return text
+  }
+
+  const incognito = body.incognito === true
+
   let conversationId = body.conversation_id ?? null
-  if (!conversationId) {
-    const title = lastUserMessage ? deriveConversationTitle(lastUserMessage.content) : null
+  if (!conversationId && !incognito) {
+    const title = lastUserMessage
+      ? deriveConversationTitle(flattenForStorage(lastUserMessage.content))
+      : null
     const { data: created, error } = await admin
       .from('scout_conversations')
       .insert({ user_id: profile.id, title })
@@ -236,21 +360,23 @@ export async function POST(req: NextRequest) {
 
   // Persist the user message that's driving this turn (the most recent one
   // from the client). Earlier history is already on the server from prior
-  // turns; we don't re-insert it here.
-  if (lastUserMessage) {
+  // turns; we don't re-insert it here. Skipped entirely in incognito mode.
+  if (lastUserMessage && !incognito && conversationId) {
     await admin.from('scout_messages').insert({
       conversation_id: conversationId,
       role: 'user',
-      content: lastUserMessage.content,
+      content: flattenForStorage(lastUserMessage.content),
     })
   }
 
   const openai = new OpenAI({ apiKey })
   const model = process.env.OPENAI_MODEL || 'gpt-4o'
 
-  // Build the OpenAI message array from system + provided history.
+  // Build the OpenAI message array from system + provided history. The system
+  // prompt is rebuilt per request so memories + the user's name flow in
+  // automatically.
   const messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: personalSystemPrompt },
     ...body.messages.map((m) => ({ role: m.role, content: m.content }) as ChatCompletionMessageParam),
   ]
 
@@ -343,7 +469,21 @@ export async function POST(req: NextRequest) {
                 parsed = {}
               }
               send('tool_call', { id: tc.id, name: tc.name, args: parsed })
-              const result = await executeScoutTool(tc.name, parsed)
+              // In incognito mode, intercept save_memory so the model can
+              // still "say" it remembered something but nothing actually
+              // gets persisted to scout_memories. This matches Claude's
+              // ephemeral mode.
+              if (incognito && tc.name === 'save_memory') {
+                const fauxResult = {
+                  saved: false,
+                  reason: 'Skipped — temporary chat. Memory writes are disabled in this session.',
+                }
+                send('tool_result', { id: tc.id, name: tc.name, result: fauxResult })
+                return { tc, result: fauxResult }
+              }
+              const result = await executeScoutTool(tc.name, parsed, {
+                userId: profile.id,
+              })
               send('tool_result', {
                 id: tc.id,
                 name: tc.name,
@@ -366,20 +506,26 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Persist the final assistant message + close the stream.
-        const { data: assistantRow } = await admin
-          .from('scout_messages')
-          .insert({
-            conversation_id: conversationId,
-            role: 'assistant',
-            content: assistantText,
-          })
-          .select('id')
-          .single()
+        // Persist the final assistant message + close the stream. Skipped
+        // entirely in incognito mode — the conversation never touches the DB.
+        let assistantMessageId: string | null = null
+        if (!incognito && conversationId) {
+          const { data: assistantRow } = await admin
+            .from('scout_messages')
+            .insert({
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: assistantText,
+            })
+            .select('id')
+            .single()
+          assistantMessageId = (assistantRow?.id as string | undefined) ?? null
+        }
 
         send('done', {
           conversation_id: conversationId,
-          message_id: assistantRow?.id ?? null,
+          message_id: assistantMessageId,
+          incognito,
         })
       } catch (e) {
         send('error', { error: e instanceof Error ? e.message : 'Unknown error' })

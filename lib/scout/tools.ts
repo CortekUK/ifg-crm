@@ -373,6 +373,24 @@ export const SCOUT_TOOLS: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'save_memory',
+      description:
+        "Save a durably-useful fact about THIS user (the super_admin you're talking to) so you can recall it in future conversations. Call this when: (1) the user explicitly asks ('remember X', 'don't forget Y'); (2) they state a preference or convention worth keeping ('I always want unpaid invoices grouped by programme'); (3) they mention a recurring person/programme/term you'll need next time. DO NOT save: ephemeral task state, single-use questions, raw data dumps, or anything you can re-derive from the database. One short fact per call (one sentence, max two).",
+      parameters: {
+        type: 'object',
+        properties: {
+          content: stringField('The fact to remember. One short sentence the future you can act on.'),
+          reason: stringField('Why this is worth remembering (audit trail; not shown to the user).'),
+        },
+        required: ['content'],
+        additionalProperties: false,
+      },
+    },
+  },
+
+  {
+    type: 'function',
+    function: {
       name: 'execute_readonly_sql',
       description:
         "Escape hatch for questions the structured tools don't cover. Run a read-only SELECT against the v_scout_* views ONLY. Allowed views: v_scout_contacts, v_scout_deals, v_scout_invoices, v_scout_automations, v_scout_pipeline_state, v_scout_lists, v_scout_communications, v_scout_form_submissions, v_scout_calendar, v_scout_users, v_scout_metrics. Use joins, GROUP BY, window functions freely. Do NOT reference base tables, auth schema, or system catalogs. Limit results.",

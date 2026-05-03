@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Settings, LogOut } from 'lucide-react'
+import { Settings, LogOut, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/app/(auth)/login/actions'
@@ -23,6 +23,7 @@ interface HeaderProps {
     email: string
     full_name?: string | null
     avatar_url?: string | null
+    role?: string
   } | null
 }
 
@@ -50,6 +51,7 @@ const pageTitles: Record<string, string> = {
 export function Header({ user }: HeaderProps) {
   const pathname = usePathname()
   const title = pageTitles[pathname] || 'DASHBOARD'
+  const isSuperAdmin = user?.role === 'super_admin'
 
   const getInitials = (name: string | null | undefined, email: string) => {
     if (name) {
@@ -80,6 +82,36 @@ export function Header({ user }: HeaderProps) {
       <div className="flex items-center gap-2">
         {/* Global Search */}
         <GlobalSearch />
+
+        {/* Scout AI — premium button, super_admin only.
+            Opens in a new tab so the user can chat alongside their work.
+            Dark slate fill + amber accent + a hover shimmer sweep. */}
+        {isSuperAdmin && (
+          <a
+            href="/scout"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Scout AI"
+            className="group relative inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5
+                       text-sm font-semibold text-white
+                       bg-slate-900 dark:bg-slate-950
+                       ring-1 ring-fuchsia-400/40
+                       hover:ring-fuchsia-300/70
+                       hover:bg-slate-800 dark:hover:bg-slate-900
+                       transition-all duration-300
+                       overflow-hidden"
+          >
+            {/* Hover shimmer sweep */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 -translate-x-full
+                         bg-gradient-to-r from-transparent via-fuchsia-300/25 to-transparent
+                         group-hover:translate-x-full transition-transform duration-700"
+            />
+            <Sparkles className="relative h-4 w-4 text-fuchsia-300" />
+            <span className="relative hidden sm:inline">Scout</span>
+          </a>
+        )}
 
         {/* Notifications */}
         <NotificationsDropdown />

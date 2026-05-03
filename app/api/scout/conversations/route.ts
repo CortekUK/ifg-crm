@@ -34,7 +34,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('scout_conversations')
-    .select('id, title, created_at, updated_at')
+    .select('id, title, starred, created_at, updated_at')
     .eq('user_id', profile.id)
     .order('updated_at', { ascending: false })
     .limit(50)

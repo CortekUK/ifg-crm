@@ -45,7 +45,9 @@
       "Bash(SUPABASE_ACCESS_TOKEN=sbp_d4b1dbfb38add4578ceea0a55303f951c3bf495f node *)",
       "Bash(node -e \"const fs=require\\('fs'\\); const sql=fs.readFileSync\\('D:/ifg-crm/supabase/migrations/112_contact_response_stage.sql','utf8'\\); fs.writeFileSync\\('D:/ifg-crm/.tmp.json', JSON.stringify\\({query: sql}\\)\\);\")",
       "Bash(env)",
-      "PowerShell(Get-ChildItem *)"
+      "PowerShell(Get-ChildItem *)",
+      "Bash(node *)",
+      "Bash(wait)"
     ]
   }
 }

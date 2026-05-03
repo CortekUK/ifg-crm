@@ -9,6 +9,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { Toaster } from '@/components/ui/toaster'
 
 export const dynamic = 'force-dynamic'
 export const metadata = {
@@ -41,6 +42,9 @@ export default async function ScoutLayout({
   return (
     <div className="h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       {children}
+      {/* Toast outlet for attachment errors and friends — the (dashboard)
+          layout has its own Toaster but /scout sits outside that group. */}
+      <Toaster />
     </div>
   )
 }
