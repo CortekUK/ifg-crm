@@ -288,7 +288,6 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
             <EditorPreview
               blocks={blocks}
               settings={settings}
-              onExpand={() => setShowPreviewModal(true)}
               onClose={() => setPreviewVisible(false)}
             />
           </div>

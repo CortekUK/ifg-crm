@@ -227,9 +227,16 @@ export function getCategoryLabel(category: string): string {
 export const replaceMergeTags = coreReplaceMergeTags
 
 /**
- * Preview merge tags with sample data
+ * Preview merge tags with sample data.
+ *
+ * `overrides` — when supplied, these win over the sample defaults. Used by
+ * the editor's preview pane when the user picks a different "Test as"
+ * contact, so the body / subject / To: fields all stay in sync. Without
+ * overrides we'd need a second pass and that doesn't work because the first
+ * pass already substitutes the sample values, leaving no `{{first_name}}`
+ * for the second pass to find.
  */
-export function previewMergeTags(template: string): string {
+export function previewMergeTags(template: string, overrides: MergeTagData = {}): string {
   const sampleData: MergeTagData = {
     // Contact
     first_name: 'John',
@@ -264,7 +271,7 @@ export function previewMergeTags(template: string): string {
     invoice_due_date: '15 January 2026',
   }
 
-  return replaceMergeTags(template, sampleData)
+  return replaceMergeTags(template, { ...sampleData, ...overrides })
 }
 
 /**

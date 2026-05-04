@@ -10,27 +10,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Monitor, Smartphone, Send, Maximize2, X, Loader2 } from 'lucide-react'
+import { Monitor, Smartphone, Send, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
 import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
 import { previewMergeTags } from '@/lib/utils/mergeTags'
-import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface EditorPreviewProps {
   blocks: EditorBlock[]
   settings: TemplateSettings
-  // Optional: when wired, renders a small fullscreen icon at the top of
-  // the preview pane so the user can inspect at full window size.
-  onExpand?: () => void
   // Optional: when wired, renders an X button in the header to close
   // the drawer (the right-edge tab also toggles, but having an explicit
   // close inside the drawer is easier to spot when it's open).
   onClose?: () => void
 }
 
-export function EditorPreview({ blocks, settings, onExpand, onClose }: EditorPreviewProps) {
+export function EditorPreview({ blocks, settings, onClose }: EditorPreviewProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -39,22 +35,19 @@ export function EditorPreview({ blocks, settings, onExpand, onClose }: EditorPre
 
   // Generate HTML with sample data using the canonical merge-tag engine —
   // same one the prod email pipeline uses, so what you see here is what
-  // the recipient actually gets. We start with the global "previewMergeTags"
-  // sample dataset (covers contact + deal + owner + invoice + meeting tags),
-  // then override the contact-side fields with the selector at the top of
-  // the panel. This fixes the long-standing bug where the preview rendered
-  // raw tags like {{deal_owner_name}} because the legacy replaceVariables
-  // util used different (now-stale) variable names.
-  const rawHtml = renderBlocksToHTML(blocks, settings.theme)
-  // First pass: full sample dataset.
-  const seeded = previewMergeTags(rawHtml)
-  // Second pass: re-apply the active "test contact" picks so name/email
-  // updates as the user toggles the selector.
-  const previewHtml = replaceMergeTags(seeded, {
+  // the recipient actually gets. The "Test as" contact's fields are passed
+  // as overrides so the preview body / subject / To: line all update
+  // together when the user changes the dropdown. (Previously this ran a
+  // second pass after `previewMergeTags` had already substituted the
+  // sample contact, leaving no `{{first_name}}` tags for the override
+  // pass to find — the dropdown looked broken.)
+  const contactOverrides = {
     first_name: selectedContact.first_name,
     last_name: selectedContact.last_name,
     email: selectedContact.email,
-  })
+  }
+  const rawHtml = renderBlocksToHTML(blocks, settings.theme)
+  const previewHtml = previewMergeTags(rawHtml, contactOverrides)
 
   // Update iframe content when HTML changes
   useEffect(() => {
@@ -112,23 +105,7 @@ export function EditorPreview({ blocks, settings, onExpand, onClose }: EditorPre
     <div className="w-full bg-white dark:bg-slate-900 flex flex-col h-full">
       {/* Preview Header */}
       <div className="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 space-y-2.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
-              Preview
-            </h3>
-            {onExpand && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onExpand}
-                className="h-6 w-6 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                title="Open fullscreen preview"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-1.5">
             <div className="flex gap-1 rounded-md bg-slate-100 p-0.5 dark:bg-slate-800">
               <Button
@@ -232,12 +209,9 @@ export function EditorPreview({ blocks, settings, onExpand, onClose }: EditorPre
               <span className="text-slate-400">To:</span> {selectedContact.email}
             </div>
             <div className="text-sm font-semibold text-slate-800">
-              {replaceMergeTags(
-                previewMergeTags(settings.subject || 'Enter your subject line...'),
-                {
-                  first_name: selectedContact.first_name,
-                  last_name: selectedContact.last_name,
-                },
+              {previewMergeTags(
+                settings.subject || 'Enter your subject line...',
+                contactOverrides,
               )}
             </div>
           </div>
