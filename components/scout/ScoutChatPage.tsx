@@ -414,29 +414,45 @@ export function ScoutChatPage({ firstName = '' }: { firstName?: string }) {
   // Watch global text selection. When the user selects text inside a chat
   // bubble (we mark them with data-scout-bubble), we anchor a floating
   // "Reply" tooltip just above the selection. Click the tooltip → quote chip.
+  //
+  // Why the equality guard below: `selectionchange` fires on every keystroke
+  // in the textarea (cursor moves count as selection changes). Without the
+  // guard, every keystroke would commit a fresh `{x, y, text}` object even
+  // when the visible selection hasn't moved — and that re-render cascade
+  // could feed into Recharts' ResizeObserver in the thread above (you can
+  // see the "width(-1) of chart" warning right before #185 in production).
   useEffect(() => {
     const handler = () => {
       const sel = typeof window !== 'undefined' ? window.getSelection() : null
       const text = sel ? sel.toString().trim() : ''
-      if (!sel || !text) {
-        setSelection(null)
-        return
+      let next: { text: string; x: number; y: number } | null = null
+      if (sel && text) {
+        const node = sel.anchorNode
+        const el =
+          node?.nodeType === 3
+            ? (node.parentElement as HTMLElement | null)
+            : (node as HTMLElement | null)
+        if (el?.closest?.('[data-scout-bubble]')) {
+          const range = sel.getRangeAt(0)
+          const rect = range.getBoundingClientRect()
+          if (rect.width !== 0 || rect.height !== 0) {
+            next = { text, x: rect.left + rect.width / 2, y: rect.top }
+          }
+        }
       }
-      // Only honour selections that start inside a bubble.
-      const node = sel.anchorNode
-      const el =
-        node?.nodeType === 3 ? (node.parentElement as HTMLElement | null) : (node as HTMLElement | null)
-      if (!el?.closest?.('[data-scout-bubble]')) {
-        setSelection(null)
-        return
-      }
-      const range = sel.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      if (rect.width === 0 && rect.height === 0) {
-        setSelection(null)
-        return
-      }
-      setSelection({ text, x: rect.left + rect.width / 2, y: rect.top })
+      setSelection((prev) => {
+        if (prev === null && next === null) return prev
+        if (
+          prev &&
+          next &&
+          prev.text === next.text &&
+          prev.x === next.x &&
+          prev.y === next.y
+        ) {
+          return prev
+        }
+        return next
+      })
     }
     document.addEventListener('selectionchange', handler)
     return () => document.removeEventListener('selectionchange', handler)

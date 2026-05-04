@@ -84,7 +84,11 @@ export function ScoutChart({ spec }: { spec: ScoutChartSpec }) {
         </figcaption>
       )}
       <div className="h-60 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+        {/* minWidth/minHeight={0} silence Recharts' "width(-1)" warning and,
+            more importantly, break the ResizeObserver feedback loop that
+            transient 0-width parents (e.g. mid-layout-shift while the user
+            is typing in the composer below) can otherwise produce. */}
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           {renderChart(spec)}
         </ResponsiveContainer>
       </div>
