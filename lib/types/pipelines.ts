@@ -28,7 +28,7 @@ export interface PipelineStage {
   id: string
   pipeline_id: string
   name: string
-  stage_type: 'lead' | 'contact' | 'meeting' | 'follow_up' | 'documents' | 'applied' | 'offer' | 'payment' | 'completed' | 'lost' | 'dormant'
+  stage_type: 'lead' | 'contact' | 'meeting' | 'follow_up' | 'documents' | 'applied' | 'offer' | 'payment' | 'completed' | 'lost' | 'dormant' | 'dead'
   triggers_automation: boolean
   automation_id: string | null
   display_order: number

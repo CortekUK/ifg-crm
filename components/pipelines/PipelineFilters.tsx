@@ -184,8 +184,8 @@ export function PipelineFilters({
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
-            onClick={() => onZoomChange(Math.min(1, zoom + 0.1))}
-            disabled={zoom >= 1}
+            onClick={() => onZoomChange(Math.min(1.3, zoom + 0.1))}
+            disabled={zoom >= 1.3}
           >
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>

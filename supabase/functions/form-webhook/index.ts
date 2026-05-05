@@ -239,8 +239,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Get round-robin user assignment
-      const roundRobinUsers = config.round_robin_users || []
+      // Get round-robin user assignment. When the configurer left every
+      // recruiter unchecked, fall back to "all active recruiters + admins"
+      // so the deal still gets an owner — landing ownerless was the most
+      // common form-webhook failure mode before this fallback existed.
+      let roundRobinUsers = config.round_robin_users || []
+
+      if (roundRobinUsers.length === 0) {
+        const { data: fallbackUsers } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('role', ['recruiter', 'admin'])
+        roundRobinUsers = (fallbackUsers ?? []).map((u: { id: string }) => u.id)
+      }
 
       if (roundRobinUsers.length > 0) {
         const { data: nextUserId, error: rrError } = await supabase

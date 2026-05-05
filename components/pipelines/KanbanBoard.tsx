@@ -189,7 +189,12 @@ export function KanbanBoard({
     return <EmptyState onOpenSettings={onOpenSettings} />
   }
 
-  const columnWidth = Math.round(320 * zoom)
+  // Bumped from 320 → 360 — at 320 the deal cards' name + intent badge +
+  // owner avatar + time-in-stage row all squeezed against each other
+  // (especially at the user's default 90% zoom = 288px). 360 gives the
+  // contact name and the bottom metadata row enough room without making
+  // the board feel sparse.
+  const columnWidth = Math.round(360 * zoom)
   const gap = Math.round(16 * zoom)
   const compact = zoom < 0.8
 

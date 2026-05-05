@@ -299,7 +299,11 @@ Deno.serve(async (req) => {
                 .from('deals')
                 .update({
                   current_stage_id: responseStage.id,
-                  stage_changed_at: new Date().toISOString(),
+                  // Column is `stage_entered_at` on this schema — using
+                  // the wrong name made the whole UPDATE fail silently
+                  // (Postgres rejects unknown columns), which is why
+                  // intent was getting written but the deal never moved.
+                  stage_entered_at: new Date().toISOString(),
                 })
                 .eq('id', deal.id)
               console.log(

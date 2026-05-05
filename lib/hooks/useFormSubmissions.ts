@@ -297,3 +297,54 @@ export function useTestFormWebhook() {
     },
   })
 }
+
+export interface ReceivedFormId {
+  form_id: string
+  submissions: number
+  last_seen: string
+}
+
+/**
+ * Distinct form_ids that AC (or any other source) has actually sent us,
+ * with submission counts and a "last seen" timestamp.
+ *
+ * Used by ConfigureAutomationModal to render a one-click chip picker
+ * under the Form ID input — so a recruiter setting up an automation for
+ * an existing AC form doesn't have to remember the slug. Without this,
+ * a typo in the slug field silently blackholes every future submission.
+ */
+export function useReceivedFormIds() {
+  return useQuery<ReceivedFormId[]>({
+    queryKey: ['received-form-ids'],
+    queryFn: async () => {
+      const supabase = createClient()
+      // PostgREST doesn't expose GROUP BY, so pull recent rows and
+      // aggregate client-side. 500 rows is plenty for a chip picker —
+      // we only surface the top 12 most recent slugs anyway.
+      const { data, error } = await supabase
+        .from('form_submissions')
+        .select('form_id, created_at')
+        .not('form_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      const map = new Map<string, ReceivedFormId>()
+      for (const row of data ?? []) {
+        const id = (row as { form_id: string | null }).form_id
+        const ts = (row as { created_at: string }).created_at
+        if (!id) continue
+        const existing = map.get(id)
+        if (existing) {
+          existing.submissions++
+          if (ts > existing.last_seen) existing.last_seen = ts
+        } else {
+          map.set(id, { form_id: id, submissions: 1, last_seen: ts })
+        }
+      }
+      return [...map.values()].sort((a, b) =>
+        b.last_seen.localeCompare(a.last_seen),
+      )
+    },
+    staleTime: 60_000, // a minute is fine; new slugs are rare
+  })
+}

@@ -44,6 +44,8 @@ import { cn } from '@/lib/utils'
 import { Users, Send, Eye, Pencil, Clock, CheckCircle2, XCircle, UserPlus, MoreVertical, Pause, Play, X, MessageCircle, GitBranch, Ban, ArrowRight, Trash2, Loader2, MousePointer, Mail } from 'lucide-react'
 import { useAutomation, useAutomationEnrollments, useToggleAutomation, useUnenrollFromAutomation, usePauseEnrollment, useResumeEnrollment, useDeleteAutomation } from '@/lib/hooks/useAutomations'
 import { useAutomationEmailStats, useAutomationEmailSends } from '@/lib/hooks/useAutomationEmailStats'
+import { useAutomationReplies, useAutomationExited } from '@/lib/hooks/useAutomationOutcomes'
+import { FormWebhookUrlBlock } from './FormWebhookUrlBlock'
 import { useEmailSendsRealtime } from '@/lib/hooks/useCampaignRealtime'
 import { AutomationWorkflowPreview } from './AutomationWorkflowPreview'
 import { EnrollContactModal } from './EnrollContactModal'
@@ -75,6 +77,12 @@ export function AutomationDetailSheet({
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
   const { data: emailStats } = useAutomationEmailStats(automationId)
   const { data: emailSends = [], isLoading: sendsLoading } = useAutomationEmailSends(automationId, emailStatusFilter)
+  const { data: automationReplies = [], isLoading: repliesLoading } = useAutomationReplies(automationId)
+  const { data: exitedDeals = [], isLoading: exitedLoading } = useAutomationExited(
+    automationId,
+    automation?.trigger_stage_id ?? null,
+    automation?.pipeline_id ?? null,
+  )
   const toggleAutomation = useToggleAutomation()
 
   // Live updates: subscribe to email_sends changes for automation stats
@@ -324,10 +332,24 @@ export function AutomationDetailSheet({
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
               <div className="px-6 pt-4 pb-4 border-b bg-slate-50 dark:bg-slate-800 shrink-0">
                 {automation.trigger_type === 'form_submission' ? (
-                  <TabsList className="grid w-full grid-cols-2 h-10">
-                    <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
-                    <TabsTrigger value="enrolled" className="text-sm">
-                      Deals Created ({completedEnrollments.length})
+                  // Deal Creation + Initial Contact gets a fuller tab strip
+                  // — Emails / Replies / Exited surface the contact-side of
+                  // the funnel that the original "Deals Created" view
+                  // didn't expose. Compact text so 5 tabs fit comfortably.
+                  <TabsList className="grid w-full grid-cols-5 h-10">
+                    <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+                    <TabsTrigger value="enrolled" className="text-xs">
+                      Deals ({completedEnrollments.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="activity" className="text-xs">
+                      <Mail className="h-3 w-3 mr-1" />
+                      Emails
+                    </TabsTrigger>
+                    <TabsTrigger value="replies" className="text-xs">
+                      Replies ({automationReplies.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="exited" className="text-xs">
+                      Exited ({exitedDeals.length})
                     </TabsTrigger>
                   </TabsList>
                 ) : (
@@ -426,6 +448,33 @@ export function AutomationDetailSheet({
                       </>
                     )}
                   </div>
+
+                  {/* Webhook URL — only meaningful for form-triggered
+                      automations (deal_creation / list_assignment). Lives
+                      on the read-only Overview so a recruiter can recover
+                      the URL after deleting and recreating an automation
+                      without having to dig through AC's webhook history. */}
+                  {automation.trigger_type === 'form_submission' && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                        Webhook URL
+                      </h3>
+                      <FormWebhookUrlBlock
+                        formId={(automation.config as { form_id?: string } | null)?.form_id}
+                        formSource={
+                          (automation.config as { form_source?:
+                            | 'activecampaign'
+                            | 'gravity_forms'
+                            | 'wpforms'
+                            | 'contact_form_7'
+                            | 'elementor_forms'
+                            | 'generic'
+                            | null
+                          } | null)?.form_source
+                        }
+                      />
+                    </div>
+                  )}
 
                   {/* Per-Step Stats */}
                   {automation.steps && automation.steps.filter((s) => s.step_type === 'send_email').length > 0 && (
@@ -891,6 +940,195 @@ export function AutomationDetailSheet({
                         )}
                       </div>
                     </div>
+                  )}
+                </TabsContent>
+
+                {/* Replies — incoming responses to any email this
+                    automation sent. Helpful on Deal Creation + Initial
+                    Contact where the recruiter wants to see who actually
+                    wrote back. Intent badge is colour-coded so the row
+                    reads at a glance. */}
+                <TabsContent
+                  value="replies"
+                  className="mt-0 px-6 py-4 space-y-3 data-[state=inactive]:hidden"
+                >
+                  {repliesLoading ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : automationReplies.length === 0 ? (
+                    <div className="text-center py-12">
+                      <MessageCircle className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        No replies received yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Intent</TableHead>
+                          <TableHead>Subject</TableHead>
+                          <TableHead>Received</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {automationReplies.map((r) => {
+                          const name = r.contact
+                            ? `${r.contact.first_name ?? ''} ${r.contact.last_name ?? ''}`.trim()
+                            : r.from_name || r.from_email
+                          const intent = r.ai_intent || 'unclassified'
+                          // Click → /replies?contactId=<id> deep link. The
+                          // replies page already auto-opens the most
+                          // recent matched reply for that contact when the
+                          // query param is present, so a row click lands
+                          // the user directly on the message body.
+                          const onRowClick = () => {
+                            if (r.contact?.id) {
+                              router.push(`/replies?contactId=${r.contact.id}`)
+                            } else {
+                              router.push('/replies')
+                            }
+                          }
+                          return (
+                            <TableRow
+                              key={r.id}
+                              onClick={onRowClick}
+                              className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                            >
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium text-sm">{name || '—'}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {r.contact?.email || r.from_email}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    'text-xs capitalize',
+                                    intent === 'positive' &&
+                                      'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+                                    intent === 'negative' &&
+                                      'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                    intent === 'question' &&
+                                      'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+                                    intent === 'unsubscribe' &&
+                                      'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+                                  )}
+                                >
+                                  {intent}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm truncate max-w-[180px]" title={r.subject ?? ''}>
+                                  {r.subject || '(no subject)'}
+                                </p>
+                                {r.body_preview && (
+                                  <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+                                    {r.body_preview}
+                                  </p>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {formatDateTime(r.received_at)}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </TabsContent>
+
+                {/* Exited — deals that have moved past the automation's
+                    initial stage (or closed won / lost). The recruiter
+                    uses this to confirm the automation is actually
+                    pulling people forward through the pipeline. */}
+                <TabsContent
+                  value="exited"
+                  className="mt-0 px-6 py-4 space-y-3 data-[state=inactive]:hidden"
+                >
+                  {exitedLoading ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : exitedDeals.length === 0 ? (
+                    <div className="text-center py-12">
+                      <ArrowRight className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        No deals have moved past {automation.trigger_stage?.name || 'the initial stage'} yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Now in</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Exited</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {exitedDeals.map((d) => {
+                          const name = d.contact
+                            ? `${d.contact.first_name ?? ''} ${d.contact.last_name ?? ''}`.trim() ||
+                              d.contact.email ||
+                              '—'
+                            : '—'
+                          return (
+                            <TableRow key={d.enrollment_id}>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium text-sm">{name}</p>
+                                  {d.contact?.email && (
+                                    <p className="text-xs text-muted-foreground">{d.contact.email}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {d.current_stage?.name || '—'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    'text-xs capitalize',
+                                    d.status === 'won' &&
+                                      'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+                                    d.status === 'lost' &&
+                                      'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+                                  )}
+                                >
+                                  {d.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {d.exited_at ? (
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                    {formatDateTime(d.exited_at)}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
                   )}
                 </TabsContent>
               </div>

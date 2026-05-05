@@ -96,6 +96,56 @@ export function useCreateDeal() {
         // Don't throw - the main operation succeeded
       }
 
+      // Mirror the form-webhook's enrollment behaviour for deals that land
+      // here via a manual create (UI / Smart Process / API). Without this,
+      // a deal_creation automation only ever counts form submissions in
+      // its Enrolled column and the configured initial-contact email
+      // never fires for hand-entered deals. We match by pipeline +
+      // landing stage; the automation's `trigger_stage_id` is resolved
+      // from `config.initial_stage_id` at save time so a single equality
+      // check is enough. The first step is `create_deal`, which is a
+      // no-op in the cron — the runner advances past it and the next
+      // step (send_email) goes out the next tick.
+      try {
+        const { data: matchingAutomations } = await supabase
+          .from('automations')
+          .select('id, steps:automation_steps(id, step_order)')
+          .eq('automation_type', 'deal_creation')
+          .eq('pipeline_id', pipelineId)
+          .eq('trigger_stage_id', stageId)
+          .eq('is_active', true)
+
+        for (const a of matchingAutomations ?? []) {
+          const steps =
+            (a.steps as { id: string; step_order: number }[] | null) ?? []
+          const firstStep = [...steps].sort(
+            (x, y) => x.step_order - y.step_order,
+          )[0]
+          if (!firstStep) continue
+          const nowIso = new Date().toISOString()
+          const { error: enrollError } = await supabase
+            .from('automation_enrollments')
+            .insert({
+              automation_id: a.id,
+              deal_id: deal.id,
+              status: 'active',
+              current_step_id: firstStep.id,
+              next_step_at: nowIso,
+              enrolled_at: nowIso,
+            })
+          if (enrollError) {
+            console.error(
+              'Manual deal: failed to enroll into deal_creation automation',
+              { automationId: a.id, dealId: deal.id, error: enrollError },
+            )
+          }
+        }
+      } catch (e) {
+        // Enrollment failure shouldn't roll back the deal create — the
+        // recruiter can still work the lead, just without the email.
+        console.error('Manual deal: automation enrollment lookup failed', e)
+      }
+
       return deal
     },
     onSuccess: (data, variables) => {

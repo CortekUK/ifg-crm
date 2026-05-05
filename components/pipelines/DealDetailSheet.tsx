@@ -46,6 +46,7 @@ import {
   MoreVertical,
   CheckCircle2,
   StopCircle,
+  Archive,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
@@ -141,6 +142,11 @@ export function DealDetailSheet({
   const updateDeal = useUpdateDeal()
   const deleteDeal = useDeleteDeal()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  // Separate "Remove from pipeline" flow — only offered when the deal sits
+  // in a terminal stage (lost / dormant / dead). Same underlying mutation
+  // as the admin trash icon, but framed as a clean-up action so recruiters
+  // can clear the column without admin intervention.
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false)
   const unenroll = useUnenrollFromAutomation()
   const pauseEnrollment = usePauseEnrollment()
   const resumeEnrollment = useResumeEnrollment()
@@ -313,6 +319,31 @@ export function DealDetailSheet({
     }
   }
 
+  // Remove the deal from its pipeline — same hard-delete as the admin
+  // trash, but only surfaced for terminal stages so it reads as a clean-up
+  // action rather than a destructive one. Contact record is unaffected.
+  const handleRemoveFromPipeline = async () => {
+    if (!deal) return
+    try {
+      await deleteDeal.mutateAsync(deal.id)
+      setIsRemoveDialogOpen(false)
+      toast({
+        title: 'Removed from pipeline',
+        description: deal.pipeline?.name
+          ? `${deal.contact?.first_name ?? ''} ${deal.contact?.last_name ?? ''}`.trim() ||
+            deal.title + ` — ${deal.pipeline.name}`
+          : undefined,
+      })
+      onClose()
+    } catch (error) {
+      toast({
+        title: 'Failed to remove from pipeline',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const handleSaveOwner = async (newOwnerId: string | null) => {
     if (!deal || !newOwnerId) return
     try {
@@ -461,6 +492,23 @@ export function DealDetailSheet({
               </Button>
             </div>
           </div>
+
+          {/* Terminal-stage cleanup: when a deal lands in lost / dormant /
+              dead, offer a one-click "Remove from pipeline" so recruiters
+              can clear the column without needing admin help. Same
+              hard-delete underneath; the contact record stays. */}
+          {deal.stage &&
+            ['lost', 'dormant', 'dead'].includes(deal.stage.stage_type) && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsRemoveDialogOpen(true)}
+                className="mt-2 w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+              >
+                <Archive className="h-4 w-4 mr-1.5" />
+                Remove from pipeline
+              </Button>
+            )}
         </SheetHeader>
 
         {/* Scrollable Content */}
@@ -1106,6 +1154,50 @@ export function DealDetailSheet({
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {deleteDeal.isPending ? 'Deleting…' : 'Delete deal'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Remove-from-pipeline confirmation. Same destructive action as the
+          admin delete, but worded around the user's mental model: this is
+          terminal-stage clean-up, not deal management. */}
+      <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from pipeline?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                <strong>
+                  {deal.contact
+                    ? `${deal.contact.first_name} ${deal.contact.last_name}`
+                    : deal.title}
+                </strong>
+                {deal.pipeline && (
+                  <span className="text-muted-foreground"> — {deal.pipeline.name}</span>
+                )}
+              </span>
+              <span className="block">
+                The contact record stays in your CRM. Only the deal — its
+                automation enrollments and activity log — is removed from
+                this pipeline.
+              </span>
+              <span className="block font-medium text-red-600">
+                This cannot be undone.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteDeal.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleRemoveFromPipeline()
+              }}
+              disabled={deleteDeal.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteDeal.isPending ? 'Removing…' : 'Remove from pipeline'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

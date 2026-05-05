@@ -152,6 +152,32 @@ export function useDeletePipeline() {
       const pipelineId = typeof input === 'string' ? input : input.pipelineId
       const force = typeof input === 'string' ? false : !!input.force
 
+      // Hard-block on active automations FIRST. Even with force=true the
+      // recruiter has to deactivate or delete those manually — silently
+      // detaching a live deal-creation automation from its pipeline can
+      // leave form submissions landing in a half-broken state, and the
+      // round-robin / initial-email config is non-trivial to rebuild.
+      const { data: activeAutomations, error: autoErr } = await supabase
+        .from('automations')
+        .select('id, name')
+        .eq('pipeline_id', pipelineId)
+        .eq('is_active', true)
+      if (autoErr) throw autoErr
+      if (activeAutomations && activeAutomations.length > 0) {
+        const names = activeAutomations.map((a) => a.name)
+        const err = new Error(
+          `Cannot delete pipeline — ${activeAutomations.length} active automation${
+            activeAutomations.length === 1 ? '' : 's'
+          } still bound to it: ${names.join(', ')}. Deactivate or delete them first.`,
+        ) as Error & {
+          code?: string
+          activeAutomations?: { id: string; name: string }[]
+        }
+        err.code = 'PIPELINE_HAS_ACTIVE_AUTOMATIONS'
+        err.activeAutomations = activeAutomations
+        throw err
+      }
+
       // Only block on deals that are still ACTIVE — won/lost deals are
       // historical records and shouldn't keep the pipeline alive forever.
       // When force=true, we wipe active deals first so the cascade on

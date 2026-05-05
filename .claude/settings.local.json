@@ -47,7 +47,9 @@
       "Bash(env)",
       "PowerShell(Get-ChildItem *)",
       "Bash(node *)",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(SUPABASE_ACCESS_TOKEN=\"sbp_d4b1dbfb38add4578ceea0a55303f951c3bf495f\" npx supabase functions deploy resend-inbound --project-ref jiuxsintslqryrvgevmc)",
+      "Bash(awk *)"
     ]
   }
 }

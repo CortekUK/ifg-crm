@@ -58,6 +58,8 @@ import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useTemplates } from '@/lib/hooks/useTemplates'
 import { useUsers } from '@/lib/hooks/useUsers'
 import { useLists } from '@/lib/hooks/useLists'
+import { useReceivedFormIds } from '@/lib/hooks/useFormSubmissions'
+import { FormWebhookUrlBlock } from './FormWebhookUrlBlock'
 import { toast } from '@/lib/hooks/use-toast'
 import {
   AUTOMATION_TEMPLATES,
@@ -122,6 +124,10 @@ export function ConfigureAutomationModal({
   const { data: templates = [] } = useTemplates()
   const { data: users = [] } = useUsers()
   const { data: lists = [] } = useLists()
+  // Surface form_ids AC has actually fired against us so the recruiter
+  // doesn't have to remember the slug. Top 12 most-recent are rendered as
+  // one-click chips below the Form ID input.
+  const { data: receivedFormIds = [] } = useReceivedFormIds()
 
   const recruiters = users.filter((u) => u.role === 'recruiter' || u.role === 'admin')
 
@@ -508,11 +514,13 @@ export function ConfigureAutomationModal({
                           </p>
                         </div>
 
-                        {/* Welcome email — sent immediately after the deal is
-                            created. Optional; if blank the automation just
-                            creates the deal without sending anything. */}
+                        {/* Initial contact email — sent immediately after the
+                            deal is created. Replaces the old separate
+                            "Initial Contact" automation; this is a single
+                            template (no follow-up sequence). Optional — if
+                            blank the automation just creates the deal. */}
                         <div className="space-y-2">
-                          <Label>Welcome Email (sent on deal creation)</Label>
+                          <Label>Initial contact email</Label>
                           <TemplateSearchSelect
                             templates={templates}
                             value={formData.config.initial_email_template_id || ''}
@@ -528,7 +536,7 @@ export function ConfigureAutomationModal({
                             placeholder="No email — just create the deal"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Sent to the contact the moment their deal lands in the initial stage.
+                            One email sent the moment the deal lands in the initial stage. For ongoing nurture, set up a Follow-Up automation on the next stage.
                           </p>
                         </div>
                       </>
@@ -620,6 +628,49 @@ export function ConfigureAutomationModal({
                           <p className="text-xs text-muted-foreground">
                             Lowercase, no spaces. Must match the <code>?form_id=</code> in the webhook URL below.
                           </p>
+                          {/* Recently received form_ids — click to fill.
+                              Pulled from form_submissions so the recruiter
+                              setting up an automation for an existing AC
+                              form doesn't have to remember (or guess) the
+                              slug. Highlighted when the field already
+                              matches one of the chips, so a typo is
+                              visually obvious. */}
+                          {receivedFormIds.length > 0 && (
+                            <div className="space-y-1.5 pt-1">
+                              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                                Recently received from AC
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {receivedFormIds.slice(0, 12).map((r) => {
+                                  const active = formData.config.form_id === r.form_id
+                                  return (
+                                    <button
+                                      key={r.form_id}
+                                      type="button"
+                                      onClick={() =>
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          config: { ...prev.config, form_id: r.form_id },
+                                        }))
+                                      }
+                                      title={`${r.submissions} submission${r.submissions === 1 ? '' : 's'} · last seen ${new Date(r.last_seen).toLocaleDateString()}`}
+                                      className={cn(
+                                        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition',
+                                        active
+                                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-300'
+                                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700',
+                                      )}
+                                    >
+                                      <code className="font-mono">{r.form_id}</code>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {r.submissions}
+                                      </span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -961,7 +1012,9 @@ export function ConfigureAutomationModal({
                         Deal Owner Assignment
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        Select recruiters to include in round-robin assignment
+                        Select recruiters to include in round-robin assignment.
+                        Leave everyone unchecked to round-robin across all
+                        recruiters and admins.
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         {recruiters.map((user) => (
@@ -1755,98 +1808,6 @@ export function ConfigureAutomationModal({
 // or their WordPress form plugin. Token is the form_id; the endpoint switches
 // based on form_source so AC and WordPress users each see their correct URL.
 //
-// Lives outside the modal component so it can keep its own copy-confirmation
-// state without re-rendering everything else when the user clicks Copy.
-function FormWebhookUrlBlock({
-  formId,
-  formSource,
-}: {
-  formId: string | undefined
-  formSource: AutomationConfig['form_source']
-}) {
-  const [copied, setCopied] = useState(false)
-
-  const token = (formId ?? '').trim()
-  const baseUrl =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'
-
-  // The two webhook endpoints expect different payload shapes:
-  //   /api/webhooks/wordpress     — Gravity Forms, WPForms, Contact Form 7,
-  //                                 Elementor (each has its own field-naming
-  //                                 convention; the handler dispatches on
-  //                                 form_source).
-  //   /api/webhooks/activecampaign — AC's contact[…] form-encoded payload.
-  //
-  // Bias the default toward ActiveCampaign: it's the dominant integration
-  // for IFG, and existing automations created before the dropdown had an
-  // AC option have form_source = null/'generic' — sending them to the
-  // WordPress endpoint would silently break their wiring.
-  const wordpressPlugins = ['gravity_forms', 'wpforms', 'contact_form_7', 'elementor_forms']
-  const isWordpress = !!formSource && wordpressPlugins.includes(formSource)
-  const endpoint = isWordpress ? '/api/webhooks/wordpress' : '/api/webhooks/activecampaign'
-
-  const webhookUrl = token ? `${baseUrl}${endpoint}?form_id=${encodeURIComponent(token)}` : ''
-  const integrationLabel = isWordpress ? 'WordPress' : 'ActiveCampaign'
-
-  const handleCopy = async () => {
-    if (!webhookUrl) return
-    try {
-      await navigator.clipboard.writeText(webhookUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast({
-        title: 'Copy failed',
-        description: 'Select the URL and copy manually.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30 p-3 space-y-2">
-      <Label className="text-xs font-semibold text-blue-900 dark:text-blue-200 uppercase tracking-wide">
-        Webhook URL to give to {integrationLabel}
-      </Label>
-      {token ? (
-        <>
-          <div className="flex items-stretch gap-2">
-            <Input
-              readOnly
-              value={webhookUrl}
-              onFocus={(e) => e.currentTarget.select()}
-              className="font-mono text-xs"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCopy}
-              className="shrink-0"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4 mr-1" /> Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4 mr-1" /> Copy
-                </>
-              )}
-            </Button>
-          </div>
-          <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80">
-            {formSource === 'activecampaign'
-              ? 'Paste into ActiveCampaign → Automation → Webhook action. The form_id token must stay exactly as shown.'
-              : 'Paste into your WordPress form plugin’s webhook setting. The form_id token must stay exactly as shown.'}
-          </p>
-        </>
-      ) : (
-        <p className="text-xs text-blue-800/80 dark:text-blue-300/80 italic">
-          Enter a Form ID above and the full webhook URL will appear here.
-        </p>
-      )}
-    </div>
-  )
-}
+// FormWebhookUrlBlock now lives in its own file — see
+// ./FormWebhookUrlBlock.tsx — so the AutomationDetailSheet can render it
+// from the read-only Overview tab too.

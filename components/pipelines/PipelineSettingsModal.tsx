@@ -182,10 +182,34 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
       setShowDeletePipelineDialog(false)
       onClose()
     } catch (error) {
+      const err = error as Error & {
+        code?: string
+        activeDealCount?: number
+        activeAutomations?: { id: string; name: string }[]
+      }
+
+      // Active automations block hard — recruiter has to deactivate or
+      // delete those by hand. Toast names them so the user knows exactly
+      // what to clear before retrying.
+      if (
+        err.code === 'PIPELINE_HAS_ACTIVE_AUTOMATIONS' &&
+        Array.isArray(err.activeAutomations)
+      ) {
+        const list = err.activeAutomations.map((a) => `“${a.name}”`).join(', ')
+        toast({
+          title: 'Deactivate automations first',
+          description: `This pipeline still has ${err.activeAutomations.length} active automation${
+            err.activeAutomations.length === 1 ? '' : 's'
+          }: ${list}. Deactivate or delete them on the Automations page, then try again.`,
+          variant: 'destructive',
+        })
+        setShowDeletePipelineDialog(false)
+        return
+      }
+
       // Active-deals block? Hand off to the force-delete dialog instead of
       // showing a dead-end toast. The user told the system "yes delete this
       // pipeline" — the next question is "do you also want the deals gone?"
-      const err = error as Error & { code?: string; activeDealCount?: number }
       if (err.code === 'PIPELINE_HAS_ACTIVE_DEALS' && typeof err.activeDealCount === 'number') {
         setShowDeletePipelineDialog(false)
         setForceDeletePrompt({ count: err.activeDealCount })
@@ -211,6 +235,27 @@ export function PipelineSettingsModal({ pipeline, isOpen, onClose }: PipelineSet
       setForceDeletePrompt(null)
       onClose()
     } catch (error) {
+      // Force-delete still respects the active-automations guard — surface
+      // the same explicit error rather than the generic "couldn't delete".
+      const err = error as Error & {
+        code?: string
+        activeAutomations?: { id: string; name: string }[]
+      }
+      if (
+        err.code === 'PIPELINE_HAS_ACTIVE_AUTOMATIONS' &&
+        Array.isArray(err.activeAutomations)
+      ) {
+        const list = err.activeAutomations.map((a) => `“${a.name}”`).join(', ')
+        toast({
+          title: 'Deactivate automations first',
+          description: `This pipeline still has ${err.activeAutomations.length} active automation${
+            err.activeAutomations.length === 1 ? '' : 's'
+          }: ${list}. Deactivate or delete them on the Automations page, then try again.`,
+          variant: 'destructive',
+        })
+        setForceDeletePrompt(null)
+        return
+      }
       toast({
         title: 'Couldn\'t delete pipeline',
         description: error instanceof Error ? friendlyDeleteError(error.message) : 'Something went wrong.',

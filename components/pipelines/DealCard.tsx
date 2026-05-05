@@ -170,7 +170,11 @@ export function DealCard({ deal, index, onClick, isDragDisabled, compact = false
               'transition-[shadow,border-color] duration-200',
               snapshot.isDragging && 'shadow-xl border-primary/50 z-50',
               snapshot.isDropAnimating && 'shadow-md',
-              compact ? 'p-2 mb-1' : 'p-3 mb-2 hover:-translate-y-0.5'
+              // No hover-translate / scale — the slight upward shift
+              // combined with the previous padding transition read as
+              // the card zooming on itself. Stick to shadow + border
+              // tint as the only hover affordance.
+              compact ? 'p-2 mb-1' : 'p-3 mb-2'
             )}
           >
             {/* Status Indicator Bar */}
@@ -209,7 +213,13 @@ export function DealCard({ deal, index, onClick, isDragDisabled, compact = false
 
               <div className={cn(
                 "flex-1 min-w-0",
-                !compact && "pr-16 group-hover:pr-28"
+                // Constant pr-2 (no hover transition). The previous
+                // hover-only pr-28 caused a visible padding shift when
+                // the user hovered, which read as the card zooming in
+                // on its own content. The QuickActions buttons that
+                // appear on hover are absolutely positioned, so they
+                // don't need this column to make room.
+                !compact && "pr-2"
               )}>
                 <p className={cn(
                   "font-medium truncate leading-tight",

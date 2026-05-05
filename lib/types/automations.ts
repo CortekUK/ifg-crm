@@ -232,14 +232,20 @@ export interface AutomationTemplate {
 export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
   {
     id: 'deal_creation',
-    name: 'Deal Creation',
-    description: 'Automatically create deals when contacts submit a form, with round-robin assignment to recruiters',
+    name: 'Deal Creation + Initial Contact',
+    description:
+      'Create the deal from a form submission AND send the first-touch contact email. Replaces the old standalone "Initial Contact" automation — pick the email template here and it goes out the moment the deal lands.',
     type: 'deal_creation',
     trigger_type: 'form_submission',
     default_steps: [
       { step_type: 'create_deal', description: 'Create deal for contact' }
     ],
     configurable: {
+      // The initial-contact email lives in its own dedicated field at the
+      // top of the modal (config.initial_email_template_id), NOT in the
+      // generic Workflow Steps editor — which is meant for multi-step
+      // sequences. Keep this false so the modal doesn't render an empty
+      // "Workflow Steps" section + the orange "select an email" warning.
       emails: false,
       wait_durations: false,
       exit_stages: false,
@@ -264,28 +270,11 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     icon: 'form',
     badge: 'List Only'
   },
-  {
-    id: 'initial_contact_3',
-    name: 'Initial Contact (3-Email Sequence)',
-    description: 'Send 3 follow-up emails when a deal enters the Initial Contact stage',
-    type: 'initial_contact',
-    trigger_type: 'enters_stage',
-    default_steps: [
-      { step_type: 'send_email', description: 'Send Initial Email 1' },
-      { step_type: 'wait', delay_days: 3, description: 'Wait 3 days' },
-      { step_type: 'send_email', description: 'Send Initial Email 2' },
-      { step_type: 'wait', delay_days: 5, description: 'Wait 5 days' },
-      { step_type: 'send_email', description: 'Send Initial Email 3' },
-      { step_type: 'wait', delay_days: 7, description: 'Wait 7 days' }
-    ],
-    configurable: {
-      emails: true,
-      wait_durations: true,
-      exit_stages: true,
-      round_robin: false,
-      final_stage: false
-    }
-  },
+  // The old `initial_contact_3` template was removed — its single-email,
+  // first-touch behaviour is now part of "Deal Creation + Initial Contact"
+  // above. The `initial_contact` automation_type is kept in
+  // automations.ts / AUTOMATION_TYPES for back-compat with existing rows
+  // in the DB; it just isn't offered as a starting template anymore.
   {
     id: 'follow_up_3',
     name: 'Follow Up (3-Email Sequence)',
