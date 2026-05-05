@@ -232,20 +232,20 @@ export interface AutomationTemplate {
 export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
   {
     id: 'deal_creation',
-    name: 'Deal Creation + Initial Contact',
+    name: 'Deal Creation',
     description:
-      'Create the deal from a form submission AND send the first-touch contact email. Replaces the old standalone "Initial Contact" automation — pick the email template here and it goes out the moment the deal lands.',
+      'Create a deal from a form submission and round-robin assign it to a recruiter. Pair with an Initial Contact automation on the landing stage if you want a first-touch email sequence — this template just gets the deal into the pipeline.',
     type: 'deal_creation',
     trigger_type: 'form_submission',
     default_steps: [
       { step_type: 'create_deal', description: 'Create deal for contact' }
     ],
     configurable: {
-      // The initial-contact email lives in its own dedicated field at the
-      // top of the modal (config.initial_email_template_id), NOT in the
-      // generic Workflow Steps editor — which is meant for multi-step
-      // sequences. Keep this false so the modal doesn't render an empty
-      // "Workflow Steps" section + the orange "select an email" warning.
+      // No email steps and no welcome email — the first-touch send lives
+      // in the separate Initial Contact automation that runs when the
+      // deal lands in the Initial Lead stage. Keeping these flags off
+      // means the modal renders ONLY the round-robin + form-mapping
+      // sections, which is what the recruiter actually configures here.
       emails: false,
       wait_durations: false,
       exit_stages: false,
@@ -270,11 +270,35 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     icon: 'form',
     badge: 'List Only'
   },
-  // The old `initial_contact_3` template was removed — its single-email,
-  // first-touch behaviour is now part of "Deal Creation + Initial Contact"
-  // above. The `initial_contact` automation_type is kept in
-  // automations.ts / AUTOMATION_TYPES for back-compat with existing rows
-  // in the DB; it just isn't offered as a starting template anymore.
+  {
+    id: 'initial_contact_3',
+    name: 'Initial Contact (3-Email Sequence)',
+    description:
+      'Send 3 follow-up emails when a deal lands in the Initial Lead stage. The sequence exits early if the contact replies (the reply-handler moves the deal to Contact Response and stops the enrollment). If no reply by the end of the third email, optionally move the deal to a configurable "no-reply" stage.',
+    type: 'initial_contact',
+    trigger_type: 'enters_stage',
+    default_steps: [
+      { step_type: 'send_email', description: 'Send Initial Email 1' },
+      { step_type: 'wait', delay_days: 3, description: 'Wait 3 days' },
+      { step_type: 'send_email', description: 'Send Initial Email 2' },
+      { step_type: 'wait', delay_days: 5, description: 'Wait 5 days' },
+      { step_type: 'send_email', description: 'Send Initial Email 3' },
+      { step_type: 'wait', delay_days: 7, description: 'Wait 7 days' }
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: true,
+      exit_stages: true,
+      round_robin: false,
+      // The no-reply destination is set in the Exit Goals section
+      // (Goal 3 → no_reply_stage_id) and applied automatically by the
+      // move_deal_on_enrollment_exit trigger when the enrollment flips
+      // to 'completed'. We DON'T want a separate move_to_stage step
+      // inside the workflow editor — that produced two different
+      // dropdowns asking the same question.
+      final_stage: false
+    }
+  },
   {
     id: 'follow_up_3',
     name: 'Follow Up (3-Email Sequence)',
@@ -286,15 +310,17 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       { step_type: 'wait', delay_days: 2, description: 'Wait 2 days' },
       { step_type: 'send_email', description: 'Send Follow Up Email 2' },
       { step_type: 'wait', delay_days: 2, description: 'Wait 2 days' },
-      { step_type: 'send_email', description: 'Send Follow Up Email 3 (Predictive)' },
-      { step_type: 'move_to_stage', description: 'Move to next stage' }
+      { step_type: 'send_email', description: 'Send Follow Up Email 3 (Predictive)' }
     ],
     configurable: {
       emails: true,
       wait_durations: true,
       exit_stages: true,
       round_robin: false,
-      final_stage: true
+      // No-reply destination lives in Exit Goals → Goal 3, not as an
+      // inline workflow step. Keeps a single source of truth for where
+      // the deal lands when nothing else triggered an exit.
+      final_stage: false
     }
   },
   {

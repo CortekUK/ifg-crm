@@ -53,6 +53,7 @@ import {
   Columns,
   GitBranch,
   UserCircle,
+  Building2,
   Paperclip,
   Save,
   Trash2,
@@ -86,7 +87,8 @@ const blockItems: { type: BlockType; icon: React.ElementType; label: string; sec
   { type: 'columns', icon: Columns, label: 'Columns', section: 'layout' },
   // Advanced blocks
   { type: 'conditional', icon: GitBranch, label: 'Conditional', section: 'advanced' },
-  { type: 'recruiter_signature', icon: UserCircle, label: 'Signature', section: 'advanced' },
+  { type: 'recruiter_signature', icon: UserCircle, label: 'Sender Details', section: 'advanced' },
+  { type: 'company_signature', icon: Building2, label: 'Company Footer', section: 'advanced' },
 ]
 
 const basicBlocks = blockItems.filter(b => b.section === 'basic')

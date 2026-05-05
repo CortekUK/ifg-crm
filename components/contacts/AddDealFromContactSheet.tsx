@@ -166,6 +166,7 @@ export function AddDealFromContactSheet({
               onChange={(val) => setOwnerId(val || '')}
               placeholder="Select deal owner"
               className="w-full"
+              recruitersOnly
             />
           </div>
 

@@ -49,6 +49,27 @@ export function RecruiterSignatureBlock({ content, isSelected, onUpdate }: Recru
             This block automatically shows the deal owner's information at send time.
           </p>
 
+          {/* Sign-off ("Kind Regards,") — toggle + free-text input. Lives
+              above the toggle grid because the recruiter changes the
+              wording more often than the visibility of name/email/etc. */}
+          <div className="space-y-1.5 pb-2 border-b border-amber-200 dark:border-amber-800">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-slate-600 dark:text-slate-400">Sign-off line</Label>
+              <Switch
+                checked={signatureContent.showSignOff !== false}
+                onCheckedChange={(checked) => onUpdate({ showSignOff: checked })}
+              />
+            </div>
+            <input
+              type="text"
+              value={signatureContent.signOff ?? 'Kind Regards,'}
+              onChange={(e) => onUpdate({ signOff: e.target.value })}
+              disabled={signatureContent.showSignOff === false}
+              placeholder="Kind Regards,"
+              className="w-full h-7 rounded border border-amber-200 bg-white px-2 text-xs disabled:opacity-50 dark:border-amber-800 dark:bg-slate-800"
+            />
+          </div>
+
           {/* Toggle options — Photo toggle intentionally removed; the
               IFG signature uses the club crest in the default footer
               rather than a deal-owner headshot. */}
@@ -192,6 +213,11 @@ export function RecruiterSignatureBlock({ content, isSelected, onUpdate }: Recru
               const colorStyle: React.CSSProperties | undefined = c ? { color: c } : undefined
               return (
                 <>
+                  {signatureContent.showSignOff !== false && (
+                    <p className="text-sm text-slate-700 dark:text-slate-300 mb-1" style={colorStyle}>
+                      {signatureContent.signOff || 'Kind Regards,'}
+                    </p>
+                  )}
                   {signatureContent.showName !== false && (
                     <p className="font-semibold text-slate-900 dark:text-white" style={colorStyle}>
                       {'{{deal_owner_name}}'}
@@ -228,60 +254,13 @@ export function RecruiterSignatureBlock({ content, isSelected, onUpdate }: Recru
           </div>
         </div>
 
-        {/* Default IFG signature footer — logo + company / confidentiality
-            text. Always present (no toggle); the variable parts above are
-            what flex per template. Mirror of SIGNATURE_COMPANY_BLOCK in
-            lib/templates/render-html.ts so what the user sees here is
-            what gets sent.
-
-            The logo uses display:inline-block so the parent's
-            text-align (driven by signatureContent.alignment) actually
-            positions it left/centre/right, the same way the variable
-            details flow. */}
-        <div className="mt-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/signature-logo.png"
-            alt="Macclesfield FC"
-            style={{ width: 110, height: 'auto', display: 'inline-block' }}
-          />
-          <p
-            className="mt-3 text-[12px] leading-relaxed text-slate-600 dark:text-slate-400"
-            style={
-              signatureContent.companyTextColor
-                ? { color: signatureContent.companyTextColor }
-                : undefined
-            }
-          >
-            Macc Football Club Limited, a company registered in England. Company
-            number 12931817. Registered office address: The Leasing.com Stadium,
-            London Rd, Macclesfield, SK11 7SP.
-          </p>
-          <p
-            className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-500"
-            style={
-              signatureContent.confidentialityColor
-                ? { color: signatureContent.confidentialityColor }
-                : undefined
-            }
-          >
-            <strong>Confidentiality:</strong> Privileged / Confidential
-            information may be contained in this message and may be subject to
-            legal privilege. Access to this email by anyone other than the
-            intended is unauthorised. If you are not the intended recipient
-            (or responsible for delivery of the message to such person), you
-            may not use, copy, distribute or deliver to anyone this message
-            (or any part of its contents) or take any action in reliance on
-            it. In such case, you should destroy this message, and notify us
-            immediately. If you have received this email in error, please
-            notify us immediately by email or telephone and delete the email
-            from any company. All reasonable precautions have been taken to
-            ensure no viruses are present in this email. As our company
-            cannot accept responsibility for any loss or damage arising from
-            the use of this email or attachments we recommend that you
-            subject these to your virus checking procedures prior to use.
-          </p>
-        </div>
+        {/* Logo + company / confidentiality used to live here too, but
+            those bits never change between deal owners and so were
+            split out into the dedicated `company_signature` block.
+            Templates that want both the per-recruiter info AND the
+            partner logos / legal disclaimer should drop both blocks
+            (Sender Details + Company Footer) onto the canvas — usually
+            with a Spacer or Divider between. */}
       </div>
     </div>
   )

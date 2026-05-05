@@ -1,4 +1,4 @@
-export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature' | 'file'
+export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature' | 'company_signature' | 'file'
 
 export interface EditorBlock {
   id: string
@@ -19,6 +19,7 @@ export type BlockContent =
   | ColumnsBlockContent
   | ConditionalBlockContent
   | RecruiterSignatureBlockContent
+  | CompanySignatureBlockContent
   | FileBlockContent
 
 export interface TextBlockContent {
@@ -81,6 +82,8 @@ export interface SocialBlockContent {
     instagram: { enabled: boolean; url: string }
     linkedin: { enabled: boolean; url: string }
     youtube: { enabled: boolean; url: string }
+    tiktok: { enabled: boolean; url: string }
+    threads: { enabled: boolean; url: string }
   }
   style: 'coloured' | 'monochrome'
   alignment: 'left' | 'center' | 'right'
@@ -112,6 +115,14 @@ export interface ConditionalBlockContent {
 
 export interface RecruiterSignatureBlockContent {
   showPhoto: boolean
+  // Optional sign-off line above the name — defaults to "Kind Regards,"
+  // Toggle off via showSignOff:false; override the wording via signOff.
+  // Stored separately from the name so it inherits the same colour /
+  // alignment overrides as the rest of the variable details, AND so a
+  // recruiter can switch to "Best wishes," / "Cheers," for one template
+  // without dropping the block and rebuilding it.
+  showSignOff?: boolean
+  signOff?: string
   showName: boolean
   showTitle: boolean
   showEmail: boolean
@@ -131,6 +142,34 @@ export interface RecruiterSignatureBlockContent {
   textColor?: string | null
   companyTextColor?: string | null
   confidentialityColor?: string | null
+  paddingTop: number
+  paddingBottom: number
+}
+
+// Static company / brand block: a row of partner logos (UCLan, IFG,
+// Macclesfield FC by default) plus the legal-confidentiality paragraph
+// that lives at the bottom of every IFG email.
+//
+// Split out from recruiter_signature on purpose — the per-deal-owner
+// info (name / title / phone / email) lives in the Sender Details
+// (recruiter_signature) block, while this block holds the bits that
+// don't change between recruiters. Keeps both blocks composable so a
+// template can have one, the other, both, or neither.
+export interface CompanySignatureBlockContent {
+  // Each logo is independently editable so the user can swap a partner
+  // (e.g. switch UCLan for another university per programme) without
+  // editing the whole block. Empty `src` hides that slot.
+  logos: { src: string; alt: string; href?: string }[]
+  // Width of every logo in pixels. Logos are centred horizontally as a
+  // row; gap is fixed via the renderer for a consistent look.
+  logoWidth: number
+  // The legal/confidentiality paragraph. Stored as raw markdown-ish
+  // string with simple "**bold**" handling — no rich editor here, the
+  // copy is pretty stable and per-template overrides are rare.
+  disclaimer: string
+  // Optional colour overrides — null/undefined → tasteful defaults.
+  textColor?: string | null
+  alignment: 'left' | 'center' | 'right'
   paddingTop: number
   paddingBottom: number
 }
@@ -256,6 +295,8 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
       instagram: { enabled: true, url: '' },
       linkedin: { enabled: false, url: '' },
       youtube: { enabled: false, url: '' },
+      tiktok: { enabled: false, url: '' },
+      threads: { enabled: false, url: '' },
     },
     style: 'coloured',
     alignment: 'center',
@@ -282,6 +323,8 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
   } as ConditionalBlockContent,
   recruiter_signature: {
     showPhoto: true,
+    showSignOff: true,
+    signOff: 'Kind Regards,',
     showName: true,
     showTitle: true,
     showEmail: true,
@@ -293,6 +336,24 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
     paddingTop: 20,
     paddingBottom: 10,
   } as RecruiterSignatureBlockContent,
+  // Defaults shipped to match the IFG email footer the team has been
+  // using in AC. Logo URLs are placeholders pointing at the
+  // /public/signatures directory so the editor preview shows real
+  // partner logos out of the box; recruiters can swap them per
+  // template (e.g. drop in a different university crest).
+  company_signature: {
+    logos: [
+      { src: '/signatures/uclan.png', alt: 'UCLan' },
+      { src: '/signatures/ifg.png', alt: 'The International Football Group' },
+      { src: '/signatures/macclesfield-fc.png', alt: 'Macclesfield FC' },
+    ],
+    logoWidth: 120,
+    disclaimer:
+      'Macc Football Club Limited, a company registered in England. Company number 12931817. Registered office address: The Leasing.com Stadium, London Rd, Macclesfield, SK11 7SP. **Confidentiality:** Privileged / Confidential information may be contained in this message and may be subject to legal privilege. Access to this email by anyone other than the intended is unauthorised. If you are not the intended recipient (or responsible for delivery of the message to such person), you may not use, copy, distribute or deliver to anyone this message (or any part of its contents) or take any action in reliance on it. In such case, you should destroy this message, and notify us immediately. If you have received this email in error, please notify us immediately by email or telephone and delete the email from any company. All reasonable precautions have been taken to ensure no viruses are present in this email. As our company cannot accept responsibility for any loss or damage arising from the use of this email or attachments we recommend that you subject these to your virus checking procedures prior to use.',
+    alignment: 'center',
+    paddingTop: 24,
+    paddingBottom: 16,
+  } as CompanySignatureBlockContent,
   file: {
     fileName: '',
     fileUrl: '',

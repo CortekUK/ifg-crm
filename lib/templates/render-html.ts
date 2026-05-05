@@ -11,9 +11,11 @@ import type {
   ColumnsBlockContent,
   ConditionalBlockContent,
   RecruiterSignatureBlockContent,
+  CompanySignatureBlockContent,
   FileBlockContent,
   TemplateTheme,
 } from './editor-types'
+import { SOCIAL_PLATFORMS, socialIconSvg } from './social-icons'
 
 // Default chrome colours when no theme is set on the template. Single
 // source of truth — `EditorCanvas` mirrors these values so the canvas
@@ -132,6 +134,8 @@ function renderBlock(block: EditorBlock): string {
       return renderConditionalBlock(block.content as ConditionalBlockContent)
     case 'recruiter_signature':
       return renderRecruiterSignatureBlock(block.content as RecruiterSignatureBlockContent)
+    case 'company_signature':
+      return renderCompanySignatureBlock(block.content as CompanySignatureBlockContent)
     case 'file':
       return renderFileBlock(block.content as FileBlockContent)
     default:
@@ -165,7 +169,10 @@ function renderImageBlock(content: ImageBlockContent): string {
   }
 
   const widthStyle = content.width === 'auto' ? '' : `width: ${content.width}%; max-width: 100%;`
-  const img = `<img src="${content.src}" alt="${content.alt}" style="${widthStyle} height: auto; display: block;" />`
+  // Resolve relative paths to absolute / data URLs so emails render
+  // even when the recipient's mail client can't fetch from / on the IFG
+  // domain (which is most of them).
+  const img = `<img src="${resolveAssetUrl(content.src)}" alt="${content.alt}" style="${widthStyle} height: auto; display: block;" />`
 
   const imageContent = content.linkUrl ? `<a href="${content.linkUrl}" target="_blank">${img}</a>` : img
 
@@ -258,25 +265,27 @@ function getVideoThumbnail(url: string): string {
 }
 
 function renderSocialBlock(content: SocialBlockContent): string {
-  const icons: { platform: keyof typeof content.platforms; label: string; color: string }[] = [
-    { platform: 'facebook', label: 'Facebook', color: '#1877f2' },
-    { platform: 'twitter', label: 'Twitter', color: '#1da1f2' },
-    { platform: 'instagram', label: 'Instagram', color: '#e4405f' },
-    { platform: 'linkedin', label: 'LinkedIn', color: '#0a66c2' },
-    { platform: 'youtube', label: 'YouTube', color: '#ff0000' },
-  ]
+  // Platform list and SVG paths come from the shared registry
+  // (lib/templates/social-icons.ts) so the editor preview and the
+  // outgoing email never drift apart.
+  const enabled = SOCIAL_PLATFORMS.filter(
+    (p) => content.platforms[p.key]?.enabled,
+  )
+  if (enabled.length === 0) return ''
 
-  const enabledIcons = icons.filter((icon) => content.platforms[icon.platform].enabled)
-
-  if (enabledIcons.length === 0) return ''
-
-  const iconElements = enabledIcons
-    .map((icon) => {
-      const url = content.platforms[icon.platform].url || '#'
-      const bgColor = content.style === 'coloured' ? icon.color : '#6b7280'
+  const iconElements = enabled
+    .map((p) => {
+      const url = content.platforms[p.key]?.url || '#'
+      const bgColor = content.style === 'coloured' ? p.brandColor : '#6b7280'
+      // Centred SVG inside a 36px circular pill. inline-block + line-height
+      // ensures the icon vertically centres in Outlook 2019+ — the
+      // older Outlook desktop renderer that doesn't support inline SVG
+      // will just see the coloured circle, which still reads as a button.
       return `
-        <a href="${url}" target="_blank" style="display: inline-block; width: 36px; height: 36px; background-color: ${bgColor}; border-radius: 50%; margin: 0 5px; text-align: center; line-height: 36px; color: white; text-decoration: none; font-size: 14px;">
-          ${icon.label.charAt(0)}
+        <a href="${url}" target="_blank" style="display: inline-block; width: 36px; height: 36px; background-color: ${bgColor}; border-radius: 50%; margin: 0 5px; text-align: center; line-height: 36px; text-decoration: none;">
+          <span style="display: inline-block; vertical-align: middle; line-height: 0;">
+            ${socialIconSvg(p.key, '#ffffff', 18)}
+          </span>
         </a>
       `
     })
@@ -386,6 +395,56 @@ function signatureLogoUrl(): string {
   return `${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}/signature-logo.png`
 }
 
+// Generalised version of signatureLogoUrl for the company_signature
+// block. Handles arbitrary paths under /public so the user can drop a
+// new partner logo into public/signatures/ (or anywhere) and have it
+// inlined automatically without code changes.
+//
+// Returns:
+//   * unchanged if `src` is already absolute (https://… or data:…)
+//   * data URL if running server-side and the file exists at public/<path>
+//   * absolute URL on NEXT_PUBLIC_APP_URL otherwise (last-resort fallback —
+//     emails won't render the image until the asset is actually deployed)
+//   * window.location.origin-prefixed URL when running in the browser
+//     (canvas + preview iframe paths)
+const cachedLogoBytes = new Map<string, string>()
+function resolveAssetUrl(src: string): string {
+  if (!src) return ''
+  // Absolute already → no work to do.
+  if (/^(https?:|data:|cid:)/i.test(src)) return src
+
+  // Browser path: just prefix with the page origin so canvas/preview
+  // works in dev and production without bundling the asset.
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${src.startsWith('/') ? src : '/' + src}`
+  }
+
+  // Server / edge path: try to read from disk + base64-inline.
+  if (cachedLogoBytes.has(src)) return cachedLogoBytes.get(src)!
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path')
+    const rel = src.startsWith('/') ? src.slice(1) : src
+    const filePath = path.join(process.cwd(), 'public', rel)
+    if (fs.existsSync(filePath)) {
+      const buf = fs.readFileSync(filePath)
+      const ext = path.extname(filePath).toLowerCase().replace('.', '') || 'png'
+      const mime = ext === 'jpg' ? 'jpeg' : ext
+      const dataUrl = `data:image/${mime};base64,${buf.toString('base64')}`
+      cachedLogoBytes.set(src, dataUrl)
+      return dataUrl
+    }
+  } catch {
+    /* fall through to URL fallback */
+  }
+
+  // Last resort: absolute URL the recipient's mail client can fetch
+  // (assuming the asset is actually deployed at this path).
+  return `${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}${src.startsWith('/') ? src : '/' + src}`
+}
+
 // inline-block (not block) on the logo so the parent's text-align
 // actually positions it. With display:block the image would always sit
 // flush-left regardless of the signature's `alignment` setting.
@@ -424,6 +483,17 @@ function renderRecruiterSignatureBlock(content: RecruiterSignatureBlockContent):
   // others along with it.
   const c = content.textColor
 
+  // Sign-off line ("Kind Regards,") sits above the name. Default-on so
+  // existing templates that pre-date this field render with the sign-off
+  // automatically. To suppress, the recruiter sets `showSignOff: false`
+  // in the editor settings panel.
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const signOffHtml =
+    content.showSignOff !== false
+      ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: ${c || '#374151'};">${escapeHtml(content.signOff || 'Kind Regards,')}</p>`
+      : ''
+
   const nameHtml = content.showName
     ? `{{#if deal_owner_name}}<p style="margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: ${c || '#111827'};">{{deal_owner_name}}</p>{{/if}}`
     : ''
@@ -444,12 +514,54 @@ function renderRecruiterSignatureBlock(content: RecruiterSignatureBlockContent):
     ? `{{#if deal_owner_calendly}}<p style="margin: 4px 0 0 0;"><a href="{{deal_owner_calendly}}" target="_blank" style="color: ${c || '#3b82f6'}; text-decoration: none; font-size: 14px;">Book a meeting</a></p>{{/if}}`
     : ''
 
-  const detailsHtml = `${nameHtml}${titleHtml}${emailHtml}${phoneHtml}${calendlyHtml}`
+  const detailsHtml = `${signOffHtml}${nameHtml}${titleHtml}${emailHtml}${phoneHtml}${calendlyHtml}`
 
+  // Sender details only — partner logos + legal disclaimer moved out
+  // into the dedicated company_signature block below. Templates that
+  // need both should drop the company_signature block in after this
+  // one (usually with a Spacer or Divider in between).
   return `
     <div style="text-align: ${content.alignment}; padding-top: ${content.paddingTop}px; padding-bottom: ${content.paddingBottom}px;">
       ${detailsHtml}
-      ${buildSignatureCompanyBlock(content.companyTextColor, content.confidentialityColor)}
+    </div>
+  `
+}
+
+// Static company / brand block — partner logos in a row + the legal
+// confidentiality paragraph. Same content the AC footer carries; mirror
+// of CompanySignatureBlock.tsx so the editor preview matches what
+// recipients get.
+function renderCompanySignatureBlock(content: CompanySignatureBlockContent): string {
+  const escape = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const disclaimerHtml = (content.disclaimer || '')
+    .split('\n')
+    .map((line) => escape(line).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'))
+    .join('<br/>')
+
+  const logos = (content.logos || []).filter((l) => l.src)
+  const logoWidth = content.logoWidth ?? 120
+  // Resolve each logo src — relative paths (/signatures/...) get
+  // base64-inlined on the server side so the recipient's email client
+  // can render them without fetching from the IFG domain.
+  const logosHtml =
+    logos.length > 0
+      ? `<div style="text-align: ${content.alignment || 'center'}; margin-bottom: 16px;">${logos
+          .map(
+            (l) =>
+              `<img src="${escape(resolveAssetUrl(l.src))}" alt="${escape(l.alt || '')}" style="display: inline-block; width: ${logoWidth}px; height: auto; margin: 0 16px; vertical-align: middle;" />`,
+          )
+          .join('')}</div>`
+      : ''
+
+  const colour = content.textColor || '#475569'
+
+  return `
+    <div style="text-align: ${content.alignment || 'center'}; padding-top: ${content.paddingTop ?? 24}px; padding-bottom: ${content.paddingBottom ?? 16}px;">
+      ${logosHtml}
+      <p style="margin: 0; font-size: 12px; line-height: 1.6; color: ${colour}; font-style: italic;">
+        ${disclaimerHtml}
+      </p>
     </div>
   `
 }

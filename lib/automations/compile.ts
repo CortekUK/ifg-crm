@@ -215,8 +215,15 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
       : [createDealStep()]
   },
   list_assignment: () => [],
+  // No move_to_stage step appended for either initial_contact or
+  // follow_up. When the enrollment flips to 'completed' (sequence ran
+  // out) the move_deal_on_enrollment_exit trigger reads
+  // automations.no_reply_stage_id and moves the deal there. Putting a
+  // hard-coded move step into the compiled output would duplicate that
+  // job and produce two different "no-reply destination" UIs in the
+  // modal (workflow steps + exit goals). One source of truth wins.
   initial_contact: (config) => threeEmailSequence(config),
-  follow_up: (config) => threeEmailSequence(config, { finalStageId: config?.final_stage_id }),
+  follow_up: (config) => threeEmailSequence(config),
   deposit_invoice: (config) => depositInvoiceSequence(config),
   application_received: variableEmailSequence,
   interview_reminder: variableEmailSequence,

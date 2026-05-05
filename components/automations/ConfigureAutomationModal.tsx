@@ -51,6 +51,9 @@ import {
   Trash2,
   Copy,
   Check,
+  CornerUpLeft,
+  TrendingUp,
+  CircleSlash,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePipelines } from '@/lib/hooks/usePipelines'
@@ -129,7 +132,10 @@ export function ConfigureAutomationModal({
   // one-click chips below the Form ID input.
   const { data: receivedFormIds = [] } = useReceivedFormIds()
 
-  const recruiters = users.filter((u) => u.role === 'recruiter' || u.role === 'admin')
+  // Round-robin candidates for deal_creation. Only role='recruiter' —
+  // admins and super_admins exist to manage the platform, not to own
+  // leads, so the client doesn't want them surfacing as candidates here.
+  const recruiters = users.filter((u) => u.role === 'recruiter')
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -514,30 +520,23 @@ export function ConfigureAutomationModal({
                           </p>
                         </div>
 
-                        {/* Initial contact email — sent immediately after the
-                            deal is created. Replaces the old separate
-                            "Initial Contact" automation; this is a single
-                            template (no follow-up sequence). Optional — if
-                            blank the automation just creates the deal. */}
-                        <div className="space-y-2">
-                          <Label>Initial contact email</Label>
-                          <TemplateSearchSelect
-                            templates={templates}
-                            value={formData.config.initial_email_template_id || ''}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                config: {
-                                  ...prev.config,
-                                  initial_email_template_id: value || null,
-                                },
-                              }))
-                            }
-                            placeholder="No email — just create the deal"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            One email sent the moment the deal lands in the initial stage. For ongoing nurture, set up a Follow-Up automation on the next stage.
-                          </p>
+                        {/* No email selector here. First-touch sends are
+                            owned by the separate Initial Contact
+                            automation (enters_stage → Initial Lead) so we
+                            don't duplicate the responsibility — the
+                            sequence + reply-driven exit + no-reply
+                            fallback all live there. The hint below points
+                            the recruiter to that flow. */}
+                        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3 text-xs text-muted-foreground">
+                          This automation only creates the deal. To send a
+                          first-touch email, add an{' '}
+                          <span className="font-medium text-slate-700 dark:text-slate-200">
+                            Initial Contact
+                          </span>{' '}
+                          automation on the same pipeline triggered by
+                          deals entering the initial stage — it handles the
+                          email sequence, reply-driven exit to Contact
+                          Response, and the no-reply fallback stage.
                         </div>
                       </>
                     ) : selectedTemplate?.trigger_type === 'invoice_created' ||
@@ -1014,7 +1013,8 @@ export function ConfigureAutomationModal({
                       <p className="text-sm text-muted-foreground">
                         Select recruiters to include in round-robin assignment.
                         Leave everyone unchecked to round-robin across all
-                        recruiters and admins.
+                        recruiters. Admins and super_admins aren&apos;t eligible
+                        to own deals.
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         {recruiters.map((user) => (
@@ -1432,139 +1432,261 @@ export function ConfigureAutomationModal({
                   </>
                 )}
 
-                {/* Exit Conditions */}
+                {/* Exit Goals — three independent outcome paths for ending
+                    the sequence early. All three rely on existing DB
+                    triggers (stop_enrollments_on_reply_match +
+                    move_deal_on_enrollment_exit) so the modal just sets
+                    the config; nothing else needs wiring. */}
                 {selectedTemplate?.configurable.exit_stages && selectedTemplate?.type !== 'meeting_scheduler' && (
                   <>
                     <Separator />
                     <div className="space-y-4">
                       <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
-                        Exit Conditions
+                        Exit Goals
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        Stop the automation when the deal moves to any of these stages
+                        Three independent ways to end this automation early. Each outcome routes the deal to its own stage.
                       </p>
 
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Checkbox
-                          id="exit-on-reply"
-                          checked={formData.config.exit_on_reply}
-                          onCheckedChange={(checked) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              config: { ...prev.config, exit_on_reply: !!checked },
-                            }))
-                          }
-                        />
-                        <label htmlFor="exit-on-reply" className="text-sm cursor-pointer">
-                          Stop when contact replies to an email
-                        </label>
+                      {/* Goal 1 — Reply received */}
+                      <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+                            <CornerUpLeft className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                              Goal 1 — Contact replies
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Positive outcome. Triggered the moment a reply auto-matches one of this sequence&apos;s emails.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pl-9">
+                          <Checkbox
+                            id="exit-on-reply"
+                            checked={formData.config.exit_on_reply}
+                            onCheckedChange={(checked) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: { ...prev.config, exit_on_reply: !!checked },
+                              }))
+                            }
+                          />
+                          <label htmlFor="exit-on-reply" className="text-xs cursor-pointer">
+                            Stop the sequence when a reply lands
+                          </label>
+                        </div>
+
+                        <div className="pl-9 space-y-1.5">
+                          <Label className="text-xs">Move deal to:</Label>
+                          <Select
+                            value={formData.config.exit_to_stage_id ?? '__none__'}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  exit_to_stage_id: value === '__none__' ? null : value,
+                                },
+                              }))
+                            }
+                            disabled={!formData.pipeline_id}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Don't move the deal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
+                              {stages.map((stage) => (
+                                <SelectItem key={`replied-${stage.id}`} value={stage.id}>
+                                  {stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[11px] text-muted-foreground">
+                            Typically <span className="font-medium">Contact Response</span>.
+                          </p>
+                        </div>
                       </div>
 
-                      {/* Two outcomes, two destinations. */}
-                      {!formData.pipeline_id ? (
-                        <p className="text-xs text-muted-foreground italic mb-4">
-                          Select a pipeline first to choose exit stages.
-                        </p>
-                      ) : (
-                        <div className="space-y-4 mb-4">
-                          {/* Replied — engaged outcome */}
-                          <div className="space-y-1.5">
-                            <Label className="text-sm">When contact replies, move deal to:</Label>
-                            <Select
-                              value={formData.config.exit_to_stage_id ?? '__none__'}
-                              onValueChange={(value) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  config: {
-                                    ...prev.config,
-                                    exit_to_stage_id: value === '__none__' ? null : value,
-                                  },
-                                }))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Don't move the deal" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
-                                {stages.map((stage) => (
-                                  <SelectItem key={`replied-${stage.id}`} value={stage.id}>
-                                    {stage.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                              Positive outcome — typically an &quot;Engaged&quot; or &quot;Interested&quot; stage.
-                            </p>
+                      {/* Goal 2 — Deal advances. Add-condition pattern:
+                          one row per picked stage, each row has a
+                          dropdown limited to stages not already picked,
+                          plus a remove button and an "Add another
+                          condition" link below. */}
+                      <div className="rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+                            <TrendingUp className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
                           </div>
-
-                          {/* No reply — sequence finished without engagement */}
-                          <div className="space-y-1.5">
-                            <Label className="text-sm">When sequence finishes without reply, move deal to:</Label>
-                            <Select
-                              value={formData.config.no_reply_stage_id ?? '__none__'}
-                              onValueChange={(value) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  config: {
-                                    ...prev.config,
-                                    no_reply_stage_id: value === '__none__' ? null : value,
-                                  },
-                                }))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Don't move the deal" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
-                                {stages.map((stage) => (
-                                  <SelectItem key={`noreply-${stage.id}`} value={stage.id}>
-                                    {stage.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                              Negative outcome — typically a &quot;No Reply&quot;, &quot;Lost&quot; or &quot;Dead&quot; stage.
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                              Goal 2 — Deal advances to a downstream stage
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Add the stages that mean the deal has progressed and this sequence should stop immediately. Any one matching = exit.
                             </p>
                           </div>
                         </div>
-                      )}
 
-                      {!formData.pipeline_id ? (
-                        <p className="text-sm text-muted-foreground italic">
-                          Select a pipeline first to see available exit stages
-                        </p>
-                      ) : stages.filter((s) => s.id !== formData.trigger_stage_id).length === 0 ? (
-                        <p className="text-sm text-muted-foreground italic">
-                          No other stages available in this pipeline
-                        </p>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                          {stages
-                            .filter((s) => s.id !== formData.trigger_stage_id)
-                            .map((stage) => (
-                              <div
-                                key={stage.id}
-                                className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50 dark:hover:bg-slate-800"
-                              >
-                                <Checkbox
-                                  id={`stage-${stage.id}`}
-                                  checked={formData.stop_on_stage_ids.includes(stage.id)}
-                                  onCheckedChange={() => toggleExitStage(stage.id)}
-                                />
-                                <label
-                                  htmlFor={`stage-${stage.id}`}
-                                  className="text-sm cursor-pointer flex-1"
+                        {!formData.pipeline_id ? (
+                          <p className="pl-9 text-xs text-muted-foreground italic">
+                            Select a pipeline first to choose stages.
+                          </p>
+                        ) : (
+                          <div className="pl-9 space-y-2">
+                            {formData.stop_on_stage_ids.length === 0 ? (
+                              <p className="text-xs text-muted-foreground italic">
+                                No exit stages set. Click below to add one.
+                              </p>
+                            ) : (
+                              formData.stop_on_stage_ids.map((stageId, idx) => {
+                                // Each row's dropdown shows the row's
+                                // current stage plus any stage NOT picked
+                                // by another row, so the same stage can't
+                                // be added twice.
+                                const otherPicks = formData.stop_on_stage_ids.filter((_, i) => i !== idx)
+                                const availableForThisRow = stages.filter(
+                                  (s) =>
+                                    s.id !== formData.trigger_stage_id &&
+                                    (s.id === stageId || !otherPicks.includes(s.id)),
+                                )
+                                return (
+                                  <div key={`stop-${idx}`} className="flex items-center gap-2">
+                                    <span className="text-[11px] uppercase tracking-wider text-amber-800/70 dark:text-amber-300/70 w-12 shrink-0">
+                                      {idx === 0 ? 'If stage' : 'OR stage'}
+                                    </span>
+                                    <Select
+                                      value={stageId || '__pick__'}
+                                      onValueChange={(value) => {
+                                        if (value === '__pick__') return
+                                        setFormData((prev) => {
+                                          const next = [...prev.stop_on_stage_ids]
+                                          next[idx] = value
+                                          return { ...prev, stop_on_stage_ids: next }
+                                        })
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-9 flex-1">
+                                        <SelectValue placeholder="Pick a stage" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {availableForThisRow.map((stage) => (
+                                          <SelectItem key={stage.id} value={stage.id}>
+                                            {stage.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-9 w-9 text-muted-foreground hover:text-red-600"
+                                      onClick={() => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          stop_on_stage_ids: prev.stop_on_stage_ids.filter(
+                                            (_, i) => i !== idx,
+                                          ),
+                                        }))
+                                      }}
+                                      title="Remove this condition"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                )
+                              })
+                            )}
+
+                            {(() => {
+                              const remainingStages = stages.filter(
+                                (s) =>
+                                  s.id !== formData.trigger_stage_id &&
+                                  !formData.stop_on_stage_ids.includes(s.id),
+                              )
+                              if (remainingStages.length === 0) return null
+                              return (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/40"
+                                  onClick={() => {
+                                    // Append the first remaining stage so
+                                    // the row lands with a real value
+                                    // immediately — no empty-row state.
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      stop_on_stage_ids: [
+                                        ...prev.stop_on_stage_ids,
+                                        remainingStages[0].id,
+                                      ],
+                                    }))
+                                  }}
                                 >
-                                  {stage.name}
-                                </label>
-                              </div>
-                            ))}
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add another condition
+                                </Button>
+                              )
+                            })()}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Goal 3 — No-reply / sequence finished. */}
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
+                            <CircleSlash className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                              Goal 3 — Sequence finishes with no reply
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Negative outcome. Fires when every email + wait has run and neither Goal 1 nor Goal 2 ever matched.
+                            </p>
+                          </div>
                         </div>
-                      )}
+
+                        <div className="pl-9 space-y-1.5">
+                          <Label className="text-xs">Move deal to:</Label>
+                          <Select
+                            value={formData.config.no_reply_stage_id ?? '__none__'}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  no_reply_stage_id: value === '__none__' ? null : value,
+                                },
+                              }))
+                            }
+                            disabled={!formData.pipeline_id}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Don't move the deal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
+                              {stages.map((stage) => (
+                                <SelectItem key={`noreply-${stage.id}`} value={stage.id}>
+                                  {stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[11px] text-muted-foreground">
+                            Typically <span className="font-medium">Dormant</span>, <span className="font-medium">Dead</span>, or a &quot;No Reply&quot; column.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}

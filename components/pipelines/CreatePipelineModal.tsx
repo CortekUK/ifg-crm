@@ -59,7 +59,7 @@ const DEFAULT_STAGES: Array<{
   { name: 'Zoom Scheduled', stage_type: 'meeting', color: '#8b5cf6', display_order: 4 },
   { name: 'Follow Up', stage_type: 'follow_up', color: '#f59e0b', display_order: 5 },
   { name: 'Application', stage_type: 'applied', color: '#ec4899', display_order: 6 },
-  { name: 'Documents Received', stage_type: 'documents', color: '#f97316', display_order: 7 },
+  { name: 'Reg Form received', stage_type: 'documents', color: '#f97316', display_order: 7 },
   { name: 'Interview', stage_type: 'meeting', color: '#6366f1', display_order: 8 },
   { name: 'Conditional Offer', stage_type: 'offer', color: '#22c55e', display_order: 9 },
   { name: 'Invoice Sent', stage_type: 'payment', color: '#84cc16', display_order: 10 },

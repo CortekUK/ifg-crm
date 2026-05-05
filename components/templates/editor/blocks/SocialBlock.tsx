@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SocialBlockContent } from '@/lib/templates/editor-types'
+import { SOCIAL_PLATFORMS, socialIconSvg } from '@/lib/templates/social-icons'
 
 interface SocialBlockProps {
   content: Record<string, unknown>
@@ -14,18 +15,10 @@ interface SocialBlockProps {
   onUpdate: (updates: Record<string, unknown>) => void
 }
 
-const socialPlatforms: {
-  key: keyof SocialBlockContent['platforms']
-  label: string
-  color: string
-  icon: string
-}[] = [
-  { key: 'facebook', label: 'Facebook', color: '#1877f2', icon: 'f' },
-  { key: 'twitter', label: 'Twitter', color: '#1da1f2', icon: '𝕏' },
-  { key: 'instagram', label: 'Instagram', color: '#e4405f', icon: '📷' },
-  { key: 'linkedin', label: 'LinkedIn', color: '#0a66c2', icon: 'in' },
-  { key: 'youtube', label: 'YouTube', color: '#ff0000', icon: '▶' },
-]
+// Pull straight from the shared registry so editor + email render stay
+// in sync — adding a platform in social-icons.ts makes it available
+// here automatically.
+const socialPlatforms = SOCIAL_PLATFORMS
 
 export function SocialBlock({ content, isSelected, onUpdate }: SocialBlockProps) {
   const socialContent = content as unknown as SocialBlockContent
@@ -46,7 +39,7 @@ export function SocialBlock({ content, isSelected, onUpdate }: SocialBlockProps)
   }
 
   const enabledPlatforms = socialPlatforms.filter(
-    (p) => socialContent.platforms[p.key].enabled
+    (p) => socialContent.platforms[p.key]?.enabled,
   )
 
   return (
@@ -102,26 +95,42 @@ export function SocialBlock({ content, isSelected, onUpdate }: SocialBlockProps)
 
           <div className="space-y-2">
             <Label className="text-xs font-medium">Platforms</Label>
-            {socialPlatforms.map((platform) => (
-              <div key={platform.key} className="flex items-center gap-3">
-                <Switch
-                  checked={socialContent.platforms[platform.key].enabled}
-                  onCheckedChange={(checked) =>
-                    updatePlatform(platform.key, { enabled: checked })
-                  }
-                />
-                <span className="text-xs w-20">{platform.label}</span>
-                <Input
-                  value={socialContent.platforms[platform.key].url}
-                  onChange={(e) =>
-                    updatePlatform(platform.key, { url: e.target.value })
-                  }
-                  placeholder={`${platform.label} URL`}
-                  className="h-7 text-xs flex-1"
-                  disabled={!socialContent.platforms[platform.key].enabled}
-                />
-              </div>
-            ))}
+            {socialPlatforms.map((platform) => {
+              // Defensive read — older templates were saved before the
+              // `tiktok` / `threads` keys existed, so the platform may be
+              // missing from `platforms`. Fall back to a disabled stub
+              // instead of throwing.
+              const platformData =
+                socialContent.platforms[platform.key] ??
+                { enabled: false, url: '' }
+              return (
+                <div key={platform.key} className="flex items-center gap-3">
+                  <Switch
+                    checked={platformData.enabled}
+                    onCheckedChange={(checked) =>
+                      updatePlatform(platform.key, { enabled: checked })
+                    }
+                  />
+                  <span
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center"
+                    style={{ color: platform.brandColor }}
+                    dangerouslySetInnerHTML={{
+                      __html: socialIconSvg(platform.key, platform.brandColor, 18),
+                    }}
+                  />
+                  <span className="text-xs w-20">{platform.label}</span>
+                  <Input
+                    value={platformData.url}
+                    onChange={(e) =>
+                      updatePlatform(platform.key, { url: e.target.value })
+                    }
+                    placeholder={`${platform.label} URL`}
+                    className="h-7 text-xs flex-1"
+                    disabled={!platformData.enabled}
+                  />
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -137,18 +146,19 @@ export function SocialBlock({ content, isSelected, onUpdate }: SocialBlockProps)
             {enabledPlatforms.map((platform) => (
               <a
                 key={platform.key}
-                href={socialContent.platforms[platform.key].url || '#'}
+                href={socialContent.platforms[platform.key]?.url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.preventDefault()}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                className="w-9 h-9 rounded-full flex items-center justify-center"
                 style={{
                   backgroundColor:
-                    socialContent.style === 'coloured' ? platform.color : '#6b7280',
+                    socialContent.style === 'coloured' ? platform.brandColor : '#6b7280',
                 }}
-              >
-                {platform.icon}
-              </a>
+                dangerouslySetInnerHTML={{
+                  __html: socialIconSvg(platform.key, '#ffffff', 18),
+                }}
+              />
             ))}
           </div>
         )}

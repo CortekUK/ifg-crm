@@ -18,6 +18,13 @@ interface OwnerSelectProps {
   disabled?: boolean
   allowClear?: boolean
   className?: string
+  // When true, the dropdown lists only role='recruiter' users. Used for
+  // deal owner pickers (manual deal create, deal detail sheet) where the
+  // client wants admins and super_admins excluded — those roles exist for
+  // platform management, not for owning leads. Default keeps the
+  // historical behaviour (any active non-player user) for non-deal
+  // contexts like contact owner pickers.
+  recruitersOnly?: boolean
 }
 
 function getInitials(name: string | null | undefined): string {
@@ -49,11 +56,18 @@ export function OwnerSelect({
   disabled = false,
   allowClear = false,
   className,
+  recruitersOnly = false,
 }: OwnerSelectProps) {
   const { data: users = [], isLoading } = useUsers()
 
-  // Filter to only active staff users (exclude players)
-  const activeUsers = users.filter((u) => u.is_active && u.role !== 'player')
+  // Filter to active staff users. With `recruitersOnly` we further
+  // restrict to role='recruiter' so deal pickers don't surface admins
+  // or super_admins as candidate deal owners.
+  const activeUsers = users.filter((u) => {
+    if (!u.is_active || u.role === 'player') return false
+    if (recruitersOnly) return u.role === 'recruiter'
+    return true
+  })
 
   if (isLoading) {
     return <Skeleton className={`h-10 w-full ${className}`} />
