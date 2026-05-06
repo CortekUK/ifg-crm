@@ -318,7 +318,10 @@ function renderSocialBlock(content: SocialBlockContent): string {
       // For coloured style: brand-coloured icon on a white pill.
       // For monochrome: grey icon on white pill.
       const iconColor = (content.style === 'coloured' ? p.brandColor : '#6b7280').replace('#', '')
-      const iconUrl = `https://cdn.simpleicons.org/${p.key}/${iconColor}`
+      // Use cdnSlug when set (e.g. 'twitter' → 'x' since the rebrand);
+      // otherwise the key is the simpleicons slug directly.
+      const slug = p.cdnSlug ?? p.key
+      const iconUrl = `https://cdn.simpleicons.org/${slug}/${iconColor}`
       return `
         <a href="${url}" target="_blank" style="display: inline-block; margin: 0 6px; text-decoration: none; line-height: 0;">
           <img src="${iconUrl}" width="24" height="24" alt="${p.label}" style="border: 0; display: inline-block; vertical-align: middle;" />

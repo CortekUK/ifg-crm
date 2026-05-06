@@ -37,6 +37,13 @@ export interface SocialPlatformMeta {
   // 24×24 but we keep the field per-platform in case we add icons with
   // different aspect ratios later).
   viewBox: string
+  // Optional override for the cdn.simpleicons.org slug. Defaults to
+  // `key` when absent. Currently used by Twitter, which Simple Icons
+  // renamed to "x" after the rebrand — `cdn.simpleicons.org/twitter`
+  // now returns 404 while `cdn.simpleicons.org/x` is the live mark.
+  // We keep the internal key as `twitter` so existing template JSON
+  // and dynamic-list rules don't break.
+  cdnSlug?: string
 }
 
 export const SOCIAL_PLATFORMS: SocialPlatformMeta[] = [
@@ -52,6 +59,7 @@ export const SOCIAL_PLATFORMS: SocialPlatformMeta[] = [
     label: 'X (Twitter)',
     brandColor: '#000000',
     viewBox: '0 0 24 24',
+    cdnSlug: 'x',
     paths: '<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>',
   },
   {

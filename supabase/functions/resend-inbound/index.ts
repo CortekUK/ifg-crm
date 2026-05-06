@@ -246,7 +246,11 @@ Deno.serve(async (req) => {
     // ============================================
     // 3.5 CLASSIFY REPLY INTENT WITH AI
     // ============================================
-    const aiIntent = await classifyIntent(replyText)
+    // Strip the quoted-thread boilerplate before classifying. Without
+    // this, a contact's one-word reply ("interested") gets buried under
+    // hundreds of chars of our original outreach and the classifier
+    // returns nothing matching the valid set → ai_intent stays null.
+    const aiIntent = await classifyIntent(stripQuotedThread(replyText))
 
     if (aiIntent) {
       await supabase
@@ -423,6 +427,39 @@ Classify as exactly one of:
 Respond with ONLY the classification word, nothing else.`
 
 const MAX_CLASSIFICATION_CHARS = 2000
+
+/**
+ * Strip the quoted-reply thread that mail clients append to a reply,
+ * leaving just the new content the contact actually typed.
+ *
+ * Cuts at:
+ *   - the first "On <date>, <name> wrote:" separator (Gmail / Apple Mail)
+ *   - the first line that starts with ">" (the canonical quote prefix)
+ *   - the first "-----Original Message-----" / "From: ..." block (Outlook)
+ *
+ * Always preserves the leading lines so a one-word reply ("interested")
+ * survives. Falls back to the original text when no quote markers are
+ * present.
+ */
+function stripQuotedThread(text: string): string {
+  if (!text) return ''
+  const patterns: RegExp[] = [
+    /^On .+ wrote:\s*$/im,
+    /^>+\s?/m,
+    /^-----\s*Original Message\s*-----\s*$/im,
+    /^From:\s.+$/im,
+    /^Sent from my (iPhone|iPad|Android|Samsung)/im,
+  ]
+  let cutAt = text.length
+  for (const re of patterns) {
+    const m = re.exec(text)
+    if (m && typeof m.index === 'number' && m.index < cutAt) {
+      cutAt = m.index
+    }
+  }
+  const head = text.slice(0, cutAt).trim()
+  return head.length > 0 ? head : text.trim()
+}
 
 async function classifyIntent(text: string): Promise<string | null> {
   const apiKey = Deno.env.get('OPENAI_API_KEY')

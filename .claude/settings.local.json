@@ -58,7 +58,8 @@
       "Bash(python *)",
       "Bash(npx --yes tsx scripts/rerender-templates.mts)",
       "Bash(git ls-tree *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(npx tsx *)"
     ]
   }
 }
