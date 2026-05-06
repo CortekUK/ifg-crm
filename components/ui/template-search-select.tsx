@@ -79,7 +79,14 @@ export function TemplateSearchSelect({
             className="h-8 border-0 p-0 shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="max-h-[200px] overflow-y-auto overscroll-contain p-1">
+        <div
+          className="max-h-[320px] overflow-y-auto overscroll-contain p-1"
+          // Stop wheel events from bubbling to the parent Radix ScrollArea
+          // viewport in the configure step — without this, wheel scroll
+          // inside the dropdown gets stolen by the modal's outer scroll
+          // and the list feels unresponsive.
+          onWheel={(e) => e.stopPropagation()}
+        >
           {filtered.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               No templates found.

@@ -40,10 +40,12 @@ export function TemplateCard({
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow group">
-      {/* Preview Thumbnail */}
+      {/* Preview Thumbnail — clicking opens the editor (the in-editor
+          preview drawer is the canonical preview path). The dropdown
+          menu still exposes a Preview action for the modal view. */}
       <div
         className="h-40 bg-gray-100 dark:bg-slate-800 flex items-center justify-center border-b dark:border-slate-700 relative cursor-pointer"
-        onClick={() => onPreview(template)}
+        onClick={() => onEdit(template)}
       >
         <Mail className="h-12 w-12 text-gray-300 dark:text-slate-600" />
         {/* Hover overlay with preview button */}

@@ -195,7 +195,7 @@ export function TemplatesTable({
               <TableRow
                 key={template.id}
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => onPreview(template)}
+                onClick={() => onEdit(template)}
               >
                 {/* Name — fixed-width column with truncation. The
                     inner div has an explicit max-width so `truncate`

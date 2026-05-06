@@ -80,19 +80,41 @@ export function renderBlocksToHTML(
     body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
   </style>
   <![endif]-->
+  <style type="text/css">
+    /* Responsive rules — fire when the email lands in a viewport
+       narrower than the 600px shell. Apple Mail / Gmail-mobile / iframe
+       previews honour these; Outlook desktop ignores them and falls
+       back to the mso 600px width below. */
+    img { max-width: 100% !important; height: auto !important; }
+    table { border-collapse: collapse; }
+    @media only screen and (max-width: 600px) {
+      .ifg-shell { width: 100% !important; max-width: 100% !important; }
+      .ifg-content-cell { padding: 14px !important; }
+      .ifg-co-logo {
+        width: 80px !important;
+        max-width: 30% !important;
+        margin: 4px 6px !important;
+      }
+      .ifg-social a { margin: 0 3px !important; }
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: ${t.pageBgColor};">
   <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: ${t.pageBgColor};">
     <tr>
       <td align="center">
-        <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px; background-color: ${t.bodyBgColor};">
+        <!--[if mso]>
+        <table cellpadding="0" cellspacing="0" border="0" width="600" align="center" style="background-color: ${t.bodyBgColor};">
+          <tr><td>
+        <![endif]-->
+        <table class="ifg-shell" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: ${t.bodyBgColor};">
           <tr>
             <td>
               ${header}
             </td>
           </tr>
           <tr>
-            <td style="padding: 20px;">
+            <td class="ifg-content-cell" style="padding: 20px;">
               ${body}
             </td>
           </tr>
@@ -102,6 +124,10 @@ export function renderBlocksToHTML(
             </td>
           </tr>
         </table>
+        <!--[if mso]>
+          </td></tr>
+        </table>
+        <![endif]-->
       </td>
     </tr>
   </table>
@@ -292,7 +318,7 @@ function renderSocialBlock(content: SocialBlockContent): string {
     .join('')
 
   return `
-    <div style="text-align: ${content.alignment}; padding: 15px 0;">
+    <div class="ifg-social" style="text-align: ${content.alignment}; padding: 15px 0;">
       ${iconElements}
     </div>
   `
@@ -494,22 +520,35 @@ function renderRecruiterSignatureBlock(content: RecruiterSignatureBlockContent):
       ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: ${c || '#374151'};">${escapeHtml(content.signOff || 'Kind Regards,')}</p>`
       : ''
 
+  // Default fallback recruiter — Nathan Bibby. Mirrors the AC behaviour
+  // where Nathan is the catch-all when a deal has no owner / unrecognised
+  // owner. Falls back per-field via the `{{tag|fallback}}` syntax (handled
+  // by lib/utils/merge-tags-core), so a deal with a real owner gets that
+  // owner's data and only missing fields draw from these defaults.
+  const FALLBACK_NAME = 'Nathan Bibby'
+  const FALLBACK_TITLE = 'Director of Recruitment & Scouting'
+  const FALLBACK_EMAIL = 'nathan@macclesfieldfc.com'
+  const FALLBACK_PHONE = '+1 (714) 515-2767'
+
   const nameHtml = content.showName
-    ? `{{#if deal_owner_name}}<p style="margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: ${c || '#111827'};">{{deal_owner_name}}</p>{{/if}}`
+    ? `<p style="margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: ${c || '#111827'};">{{deal_owner_name|${FALLBACK_NAME}}}</p>`
     : ''
 
   const titleHtml = content.showTitle
-    ? `{{#if deal_owner_title}}<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#6b7280'};">{{deal_owner_title}}</p>{{/if}}`
+    ? `<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#6b7280'};">{{deal_owner_title|${FALLBACK_TITLE}}}</p>`
     : ''
 
   const emailHtml = content.showEmail
-    ? `{{#if deal_owner_email}}<p style="margin: 0 0 2px 0; font-size: 14px;"><a href="mailto:{{deal_owner_email}}" style="color: ${c || '#3b82f6'}; text-decoration: none;">{{deal_owner_email}}</a></p>{{/if}}`
+    ? `<p style="margin: 0 0 2px 0; font-size: 14px;"><a href="mailto:{{deal_owner_email|${FALLBACK_EMAIL}}}" style="color: ${c || '#3b82f6'}; text-decoration: none;">{{deal_owner_email|${FALLBACK_EMAIL}}}</a></p>`
     : ''
 
   const phoneHtml = content.showPhone
-    ? `{{#if deal_owner_phone}}<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#374151'};">{{deal_owner_phone}}</p>{{/if}}`
+    ? `<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#374151'};">{{deal_owner_phone|${FALLBACK_PHONE}}}</p>`
     : ''
 
+  // Calendly stays gated on {{#if}} — Nathan doesn't have a public
+  // Calendly link configured, so we'd rather hide the row than render a
+  // broken/blank "Book a meeting" link.
   const calendlyHtml = content.showCalendly
     ? `{{#if deal_owner_calendly}}<p style="margin: 4px 0 0 0;"><a href="{{deal_owner_calendly}}" target="_blank" style="color: ${c || '#3b82f6'}; text-decoration: none; font-size: 14px;">Book a meeting</a></p>{{/if}}`
     : ''
@@ -549,7 +588,7 @@ function renderCompanySignatureBlock(content: CompanySignatureBlockContent): str
       ? `<div style="text-align: ${content.alignment || 'center'}; margin-bottom: 16px;">${logos
           .map(
             (l) =>
-              `<img src="${escape(resolveAssetUrl(l.src))}" alt="${escape(l.alt || '')}" style="display: inline-block; width: ${logoWidth}px; height: auto; margin: 0 16px; vertical-align: middle;" />`,
+              `<img class="ifg-co-logo" src="${escape(resolveAssetUrl(l.src))}" alt="${escape(l.alt || '')}" style="display: inline-block; width: ${logoWidth}px; max-width: 100%; height: auto; margin: 0 16px; vertical-align: middle;" />`,
           )
           .join('')}</div>`
       : ''

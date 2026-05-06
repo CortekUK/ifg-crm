@@ -99,6 +99,18 @@ export interface AutomationFormData {
 
 type Step = 'select_template' | 'configure'
 
+// Pinned to the top of the Create Automation dialog as a "Favorites" group.
+// Order here drives display order within the section. These four cover the
+// happy path for a new pipeline (form → deal → first-touch sequence →
+// follow-up → invoice), so admins don't have to scroll through the
+// trigger-specific automations to find them.
+const FAVORITE_TEMPLATE_IDS = [
+  'deal_creation',
+  'initial_contact_3',
+  'follow_up_3',
+  'invoice_generation',
+] as const
+
 export function ConfigureAutomationModal({
   isOpen,
   onClose,
@@ -330,8 +342,15 @@ export function ConfigureAutomationModal({
             </DialogHeader>
 
             <ScrollArea className="max-h-[60vh] pr-4">
-              <div className="grid gap-3 py-4">
-                {AUTOMATION_TEMPLATES.map((template) => (
+              {(() => {
+                const favoriteTemplates = FAVORITE_TEMPLATE_IDS
+                  .map((id) => AUTOMATION_TEMPLATES.find((t) => t.id === id))
+                  .filter((t): t is AutomationTemplate => Boolean(t))
+                const otherTemplates = AUTOMATION_TEMPLATES.filter(
+                  (t) => !(FAVORITE_TEMPLATE_IDS as readonly string[]).includes(t.id),
+                )
+
+                const renderCard = (template: AutomationTemplate) => (
                   <Card
                     key={template.id}
                     className="cursor-pointer transition-all hover:border-blue-300 hover:shadow-md dark:hover:border-blue-600"
@@ -400,8 +419,34 @@ export function ConfigureAutomationModal({
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
+                )
+
+                return (
+                  <div className="py-4 space-y-6">
+                    {favoriteTemplates.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                          Favorites
+                        </h3>
+                        <div className="grid gap-3">
+                          {favoriteTemplates.map(renderCard)}
+                        </div>
+                      </div>
+                    )}
+
+                    {otherTemplates.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                          All Templates
+                        </h3>
+                        <div className="grid gap-3">
+                          {otherTemplates.map(renderCard)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </ScrollArea>
           </>
         ) : (

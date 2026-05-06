@@ -84,6 +84,7 @@ export interface SocialBlockContent {
     youtube: { enabled: boolean; url: string }
     tiktok: { enabled: boolean; url: string }
     threads: { enabled: boolean; url: string }
+    flickr: { enabled: boolean; url: string }
   }
   style: 'coloured' | 'monochrome'
   alignment: 'left' | 'center' | 'right'
@@ -297,6 +298,7 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
       youtube: { enabled: false, url: '' },
       tiktok: { enabled: false, url: '' },
       threads: { enabled: false, url: '' },
+      flickr: { enabled: false, url: '' },
     },
     style: 'coloured',
     alignment: 'center',
