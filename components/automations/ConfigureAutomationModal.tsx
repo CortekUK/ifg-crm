@@ -63,6 +63,8 @@ import { useUsers } from '@/lib/hooks/useUsers'
 import { useLists } from '@/lib/hooks/useLists'
 import { useReceivedFormIds } from '@/lib/hooks/useFormSubmissions'
 import { FormWebhookUrlBlock } from './FormWebhookUrlBlock'
+import { DynamicListRulesEditor } from './DynamicListRulesEditor'
+import { ListMultiSelect } from './ListMultiSelect'
 import { toast } from '@/lib/hooks/use-toast'
 import {
   AUTOMATION_TEMPLATES,
@@ -905,172 +907,43 @@ export function ConfigureAutomationModal({
                         List Assignment
                       </h3>
 
-                      {/* Static Lists */}
+                      {/* Static Lists — searchable, grouped multi-select.
+                          Replaces the old 2-column checkbox grid that
+                          collapsed under its own scroll once the lists
+                          table grew past a handful of rows (especially
+                          with the per-pipeline mirror lists). */}
                       <div className="space-y-2">
                         <Label>Static Lists</Label>
                         <p className="text-xs text-muted-foreground">
                           Contacts will always be added to these lists
                         </p>
-                        {lists.length === 0 ? (
-                          <p className="text-sm text-muted-foreground italic">No lists created yet</p>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                            {lists.map((list) => (
-                              <div
-                                key={list.id}
-                                className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-gray-50 dark:hover:bg-slate-800"
-                              >
-                                <Checkbox
-                                  id={`static-list-${list.id}`}
-                                  checked={formData.config.static_list_ids?.includes(list.id) || false}
-                                  onCheckedChange={(checked) => {
-                                    const current = formData.config.static_list_ids || []
-                                    const newIds = checked
-                                      ? [...current, list.id]
-                                      : current.filter(id => id !== list.id)
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      config: { ...prev.config, static_list_ids: newIds },
-                                    }))
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`static-list-${list.id}`}
-                                  className="text-sm cursor-pointer flex-1"
-                                >
-                                  {list.name}
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Dynamic List Rules */}
-                      <div className="space-y-2">
-                        <Label>Dynamic List Rules</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Add contacts to lists based on their form data
-                        </p>
-
-                        {(formData.config.dynamic_list_rules || []).map((rule, index) => (
-                          <div
-                            key={index}
-                            className="rounded-lg border bg-slate-50/60 dark:bg-slate-900/40 p-3"
-                          >
-                            <div className="flex flex-wrap items-end gap-2">
-                              <div className="flex-1 min-w-[140px] space-y-1">
-                                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  When field
-                                </Label>
-                                <Select
-                                  value={rule.field}
-                                  onValueChange={(value) => {
-                                    const rules = [...(formData.config.dynamic_list_rules || [])]
-                                    rules[index] = { ...rules[index], field: value }
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      config: { ...prev.config, dynamic_list_rules: rules },
-                                    }))
-                                  }}
-                                >
-                                  <SelectTrigger className="h-9 w-full">
-                                    <SelectValue placeholder="Field" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="gender">Gender</SelectItem>
-                                    <SelectItem value="graduation_year">Grad Year</SelectItem>
-                                    <SelectItem value="country">Country</SelectItem>
-                                    <SelectItem value="state">State</SelectItem>
-                                    <SelectItem value="position">Position</SelectItem>
-                                    <SelectItem value="sport">Sport</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div className="flex-1 min-w-[120px] space-y-1">
-                                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Equals
-                                </Label>
-                                <Input
-                                  placeholder="Value"
-                                  className="h-9 w-full"
-                                  value={rule.value}
-                                  onChange={(e) => {
-                                    const rules = [...(formData.config.dynamic_list_rules || [])]
-                                    rules[index] = { ...rules[index], value: e.target.value }
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      config: { ...prev.config, dynamic_list_rules: rules },
-                                    }))
-                                  }}
-                                />
-                              </div>
-
-                              <div className="flex-[2] min-w-[180px] space-y-1">
-                                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Add to list
-                                </Label>
-                                <Select
-                                  value={rule.list_id}
-                                  onValueChange={(value) => {
-                                    const rules = [...(formData.config.dynamic_list_rules || [])]
-                                    rules[index] = { ...rules[index], list_id: value }
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      config: { ...prev.config, dynamic_list_rules: rules },
-                                    }))
-                                  }}
-                                >
-                                  <SelectTrigger className="h-9 w-full">
-                                    <SelectValue placeholder="Select list" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {lists.map((list) => (
-                                      <SelectItem key={list.id} value={list.id}>
-                                        {list.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
-                                onClick={() => {
-                                  const rules = (formData.config.dynamic_list_rules || []).filter((_, i) => i !== index)
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    config: { ...prev.config, dynamic_list_rules: rules },
-                                  }))
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => {
-                            const rules = [...(formData.config.dynamic_list_rules || []), { field: 'gender', value: '', list_id: '' }]
-                            setFormData(prev => ({
+                        <ListMultiSelect
+                          lists={lists}
+                          selectedIds={formData.config.static_list_ids || []}
+                          onChange={(ids) =>
+                            setFormData((prev) => ({
                               ...prev,
-                              config: { ...prev.config, dynamic_list_rules: rules },
+                              config: { ...prev.config, static_list_ids: ids },
                             }))
-                          }}
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1.5" />
-                          Add Rule
-                        </Button>
+                          }
+                        />
                       </div>
+
+                      {/* Dynamic List Rules — grouped by field, value picker
+                          auto-populated from real form-submission data. The
+                          flat array shape is preserved by the editor; we
+                          only render the groups. */}
+                      <DynamicListRulesEditor
+                        formId={formData.config.form_id}
+                        rules={formData.config.dynamic_list_rules || []}
+                        lists={lists.map((l) => ({ id: l.id, name: l.name }))}
+                        onChange={(rules) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            config: { ...prev.config, dynamic_list_rules: rules },
+                          }))
+                        }
+                      />
                     </div>
                   </>
                 )}
@@ -1704,12 +1577,150 @@ export function ConfigureAutomationModal({
                   </>
                 )}
 
-                {/* Exit Goals — three independent outcome paths for ending
-                    the sequence early. All three rely on existing DB
-                    triggers (stop_enrollments_on_reply_match +
+                {/* Exit Goals (specialised) — invoice_generation has
+                    payment-driven outcomes, NOT reply-driven ones. A
+                    contact emailing back "I'll pay tomorrow" doesn't
+                    halt anything; only an actual Stripe payment does
+                    (handled in the Payment Trigger card below). So we
+                    swap the generic three-goal layout for a two-card
+                    one: paid → stage, sequence-ran-out → stage. */}
+                {selectedTemplate?.configurable.exit_stages && selectedTemplate?.type === 'invoice_generation' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                        Exit Goals
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Two ways this automation ends. Each routes the deal to its own stage.
+                      </p>
+
+                      {/* Paid — bound to paid_stage_id. The stop-on-payment
+                          handler in process-automations reads this when an
+                          invoice flips to status='paid' and moves the deal
+                          there before stopping the enrollment. */}
+                      <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+                            <CreditCard className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                              Goal 1 — Invoice paid
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Positive outcome. Fires the moment the contact pays via Stripe — reminders stop immediately.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pl-9 space-y-1.5">
+                          <Label className="text-xs">Move deal to:</Label>
+                          <Select
+                            value={formData.config.paid_stage_id ?? '__none__'}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  paid_stage_id: value === '__none__' ? null : value,
+                                },
+                              }))
+                            }
+                            disabled={!formData.pipeline_id}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Don't move the deal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
+                              {stages.map((stage) => (
+                                <SelectItem key={`paid-${stage.id}`} value={stage.id}>
+                                  {stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[11px] text-muted-foreground">
+                            Typically <span className="font-medium">Deposit Paid</span> or <span className="font-medium">Arrival</span>.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Unpaid — bound to unpaid_stage_id. Fires when the
+                          enrollment naturally completes (all reminders sent)
+                          without a paid invoice. The move_deal_on_enrollment_exit
+                          trigger reads no_reply_stage_id today; the runtime
+                          treats unpaid_stage_id the same way for invoice flows
+                          via the same column on AutomationConfig. To keep
+                          things working without a runtime change, we ALSO
+                          mirror the value into no_reply_stage_id on save —
+                          see the onValueChange below. */}
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
+                            <CircleSlash className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                              Goal 2 — Reminders finished, still unpaid
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Negative outcome. Fires when every reminder has gone out and the contact still hasn&apos;t paid (the due date has passed).
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pl-9 space-y-1.5">
+                          <Label className="text-xs">Move deal to:</Label>
+                          <Select
+                            value={formData.config.unpaid_stage_id ?? formData.config.no_reply_stage_id ?? '__none__'}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  unpaid_stage_id: value === '__none__' ? null : value,
+                                  // Mirror onto no_reply_stage_id so the
+                                  // existing move_deal_on_enrollment_exit
+                                  // trigger picks up the same destination
+                                  // when the enrollment completes with no
+                                  // payment match — no DB change needed.
+                                  no_reply_stage_id: value === '__none__' ? null : value,
+                                },
+                              }))
+                            }
+                            disabled={!formData.pipeline_id}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Don't move the deal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Don&apos;t move the deal</SelectItem>
+                              {stages.map((stage) => (
+                                <SelectItem key={`unpaid-${stage.id}`} value={stage.id}>
+                                  {stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[11px] text-muted-foreground">
+                            Typically <span className="font-medium">Lost</span> or a &quot;Payment Overdue&quot; column.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Exit Goals (generic) — three independent outcome paths
+                    for ending the sequence early. All three rely on existing
+                    DB triggers (stop_enrollments_on_reply_match +
                     move_deal_on_enrollment_exit) so the modal just sets
-                    the config; nothing else needs wiring. */}
-                {selectedTemplate?.configurable.exit_stages && selectedTemplate?.type !== 'meeting_scheduler' && (
+                    the config; nothing else needs wiring. Skipped for
+                    invoice_generation, which has a specialised version
+                    above. */}
+                {selectedTemplate?.configurable.exit_stages && selectedTemplate?.type !== 'meeting_scheduler' && selectedTemplate?.type !== 'invoice_generation' && (
                   <>
                     <Separator />
                     <div className="space-y-4">

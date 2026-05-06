@@ -195,6 +195,20 @@ function meetingSchedulerSequence(
   return steps
 }
 
+// stage_reminder: a single "deal has been parked in this stage for too
+// long" nudge. Wait first, then send. Default 7 days, configurable via
+// wait_days[0]. Template comes from emails[0] (UI uses the same picker
+// as the multi-email sequences) with single_template_id as a fallback
+// for older callers.
+function stageReminderSequence(
+  config: AutomationConfig | null | undefined,
+): CompiledStep[] {
+  const days = config?.wait_days?.[0] || 7
+  const templateId =
+    config?.emails?.[0]?.template_id || config?.single_template_id || null
+  return [waitStep(days), emailStep(templateId)]
+}
+
 // deposit_invoice always emits at least 4 emails with waits between,
 // falling back to a 3/5/7-day cadence if wait_days is unset past index 0.
 function depositInvoiceSequence(config: AutomationConfig | null | undefined): CompiledStep[] {
@@ -228,12 +242,31 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
       : [createDealStep()]
   },
   list_assignment: () => [],
-  // invoice_generation emits a single create_invoice step. The handler
-  // reads automation.config to compute the amount (deal_value /
-  // percentage / custom) and inserts an invoice with status='sent', which
-  // chains into the Deposit Invoice automation via the on_invoice_sent
-  // trigger.
-  invoice_generation: () => [createInvoiceStep()],
+  // invoice_generation is a one-stop sequence: create the invoice +
+  // AUTO-send the system Stripe-payment-link email (handled inside
+  // processCreateInvoiceStep), then user-picked reminder emails.
+  //
+  // Default shape: create_invoice + wait + reminder + wait + reminder.
+  // The first email is intentionally NOT a configurable step — it's
+  // baked into create_invoice so the recruiter doesn't need to find a
+  // template that mimics the system invoice email.
+  //
+  // Reminder count grows if the user adds more email rows in the
+  // editor; default is 2 (covering "1 week post-send" + "2 weeks
+  // post-send").
+  invoice_generation: (config) => {
+    const steps: CompiledStep[] = [createInvoiceStep()]
+    const emails = config?.emails ?? []
+    const waitDays = config?.wait_days ?? []
+    const reminderCount = Math.max(emails.length, 2)
+    for (let i = 0; i < reminderCount; i++) {
+      // Each reminder is preceded by a wait. Default cadence is 7 days
+      // between every reminder, so 2 reminders → +7d, +14d.
+      steps.push(waitStep(waitDays[i] || 7))
+      steps.push(emailStep(emails[i]?.template_id || null))
+    }
+    return steps
+  },
   // No move_to_stage step appended for either initial_contact or
   // follow_up. When the enrollment flips to 'completed' (sequence ran
   // out) the move_deal_on_enrollment_exit trigger reads
@@ -251,6 +284,7 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
   welcome_sequence: variableEmailSequence,
   payment_overdue: variableEmailSequence,
   pre_departure: variableEmailSequence,
+  stage_reminder: stageReminderSequence,
   custom: variableEmailSequence,
 }
 

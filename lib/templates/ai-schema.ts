@@ -932,10 +932,11 @@ export function expandAiBlock(ai: AiBlock): EditorBlock {
     }
     case 'social': {
       const base = defaultBlockContent.social as SocialBlockContent
-      // AI-generated social blocks may not list tiktok/threads (they're
-      // newer additions). Carry over the disabled defaults from `base`
-      // when the AI doesn't supply them — `mergeSocialPlatform(undefined)`
-      // returns an empty object so the spread becomes a no-op.
+      // AI-generated social blocks may not list tiktok/threads/flickr
+      // (they're newer additions). Carry over the disabled defaults
+      // from `base` when the AI doesn't supply them —
+      // `mergeSocialPlatform(undefined)` returns an empty object so the
+      // spread becomes a no-op.
       const merged: SocialBlockContent['platforms'] = {
         facebook: { ...base.platforms.facebook, ...mergeSocialPlatform(ai.platforms.facebook) },
         twitter: { ...base.platforms.twitter, ...mergeSocialPlatform(ai.platforms.twitter) },
@@ -944,6 +945,7 @@ export function expandAiBlock(ai: AiBlock): EditorBlock {
         youtube: { ...base.platforms.youtube, ...mergeSocialPlatform(ai.platforms.youtube) },
         tiktok: { ...base.platforms.tiktok, ...mergeSocialPlatform(undefined) },
         threads: { ...base.platforms.threads, ...mergeSocialPlatform(undefined) },
+        flickr: { ...base.platforms.flickr, ...mergeSocialPlatform(undefined) },
       }
       const content: SocialBlockContent = {
         ...base,

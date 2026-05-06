@@ -298,6 +298,34 @@ export function useTestFormWebhook() {
   })
 }
 
+/**
+ * Distinct values seen for a single JSON field across past submissions
+ * of one form. Powers the value-suggestion dropdown in the Configure
+ * Automation modal so the recruiter picks from actual data instead of
+ * typing free-text (and risking a "MALE" vs "male" mismatch).
+ *
+ * Returns the empty array when formId is missing — the call short-circuits
+ * before hitting the network.
+ */
+export function useFormFieldValues(formId: string | null | undefined, field: string | null | undefined) {
+  return useQuery<{ value: string; count: number }[]>({
+    queryKey: ['form-field-values', formId, field],
+    queryFn: async () => {
+      if (!formId || !field) return []
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('distinct_form_field_values', {
+        p_form_id: formId,
+        p_field: field,
+        p_limit: 30,
+      })
+      if (error) throw error
+      return (data ?? []) as { value: string; count: number }[]
+    },
+    enabled: !!formId && !!field,
+    staleTime: 60_000, // values don't change quickly; a minute is fine
+  })
+}
+
 export interface ReceivedFormId {
   form_id: string
   submissions: number

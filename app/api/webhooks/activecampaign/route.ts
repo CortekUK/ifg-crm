@@ -330,7 +330,13 @@ export async function POST(request: NextRequest) {
               case 'position': contactValue = contact.position; break
               case 'country': contactValue = contact.country; break
             }
-            if (contactValue && contactValue.toLowerCase() === rule.value.toLowerCase()) {
+            // Trim + lowercase on both sides so "Male ", "MALE", "male" all
+            // match the same rule. Mirrors the wordpress webhook's rule
+            // comparison so any AC form gets the same forgiving match.
+            if (
+              contactValue &&
+              contactValue.trim().toLowerCase() === rule.value.trim().toLowerCase()
+            ) {
               matchingListIds.push(rule.list_id)
             }
           }

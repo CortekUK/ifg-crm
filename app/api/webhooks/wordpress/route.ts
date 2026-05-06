@@ -358,7 +358,14 @@ export async function POST(request: NextRequest) {
               case 'country': contactValue = (formData.country as string) || null; break
               case 'state': contactValue = (formData.state as string) || null; break
             }
-            if (contactValue && contactValue.toLowerCase() === rule.value.toLowerCase()) {
+            // Trim + lowercase on both sides so "Male ", "MALE", "male" all
+            // match the same rule. The recruiter types the value into a
+            // free-text input — without this, a stray space or capitalisation
+            // silently breaks the rule.
+            if (
+              contactValue &&
+              contactValue.trim().toLowerCase() === rule.value.trim().toLowerCase()
+            ) {
               matchingListIds.push(rule.list_id)
             }
           }

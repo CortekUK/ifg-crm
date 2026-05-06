@@ -15,7 +15,11 @@ import type {
   FileBlockContent,
   TemplateTheme,
 } from './editor-types'
-import { SOCIAL_PLATFORMS, socialIconSvg } from './social-icons'
+// socialIconSvg used to be imported here for inline-SVG embedding, but
+// renderSocialBlock now uses externally-hosted icons via simpleicons.org
+// (Gmail strips inline SVG). The registry of platforms is still the
+// single source of truth for which keys are renderable.
+import { SOCIAL_PLATFORMS } from './social-icons'
 
 // Default chrome colours when no theme is set on the template. Single
 // source of truth — `EditorCanvas` mirrors these values so the canvas
@@ -291,9 +295,18 @@ function getVideoThumbnail(url: string): string {
 }
 
 function renderSocialBlock(content: SocialBlockContent): string {
-  // Platform list and SVG paths come from the shared registry
-  // (lib/templates/social-icons.ts) so the editor preview and the
-  // outgoing email never drift apart.
+  // Outgoing emails use externally-hosted icon images, NOT inline SVG.
+  //
+  // Why: Gmail web silently strips <svg> tags during sanitization, which
+  // produced empty links + bare URL text in the rendered email. Apple
+  // Mail renders inline SVG fine, but cross-client compatibility means
+  // we have to assume the worst client.
+  //
+  // simpleicons.org/cdn.simpleicons.org hosts every brand mark we use,
+  // CC0-licensed, with a query-string colour parameter. We pass the
+  // pill's brand colour as the icon fill so the icon "floats" on a
+  // white pill — Gmail also strips background-color from <a>, so a
+  // white pill with a coloured icon is the most reliable look.
   const enabled = SOCIAL_PLATFORMS.filter(
     (p) => content.platforms[p.key]?.enabled,
   )
@@ -302,16 +315,13 @@ function renderSocialBlock(content: SocialBlockContent): string {
   const iconElements = enabled
     .map((p) => {
       const url = content.platforms[p.key]?.url || '#'
-      const bgColor = content.style === 'coloured' ? p.brandColor : '#6b7280'
-      // Centred SVG inside a 36px circular pill. inline-block + line-height
-      // ensures the icon vertically centres in Outlook 2019+ — the
-      // older Outlook desktop renderer that doesn't support inline SVG
-      // will just see the coloured circle, which still reads as a button.
+      // For coloured style: brand-coloured icon on a white pill.
+      // For monochrome: grey icon on white pill.
+      const iconColor = (content.style === 'coloured' ? p.brandColor : '#6b7280').replace('#', '')
+      const iconUrl = `https://cdn.simpleicons.org/${p.key}/${iconColor}`
       return `
-        <a href="${url}" target="_blank" style="display: inline-block; width: 36px; height: 36px; background-color: ${bgColor}; border-radius: 50%; margin: 0 5px; text-align: center; line-height: 36px; text-decoration: none;">
-          <span style="display: inline-block; vertical-align: middle; line-height: 0;">
-            ${socialIconSvg(p.key, '#ffffff', 18)}
-          </span>
+        <a href="${url}" target="_blank" style="display: inline-block; margin: 0 6px; text-decoration: none; line-height: 0;">
+          <img src="${iconUrl}" width="24" height="24" alt="${p.label}" style="border: 0; display: inline-block; vertical-align: middle;" />
         </a>
       `
     })
@@ -426,48 +436,27 @@ function signatureLogoUrl(): string {
 // new partner logo into public/signatures/ (or anywhere) and have it
 // inlined automatically without code changes.
 //
+// Always returns an absolute https URL for relative paths. Earlier
+// revisions tried to base64-inline the asset on the server (returning a
+// `data:image/png;base64,...` URL), but Gmail web silently strips
+// `data:` URIs from `<img src>` and the recipient sees broken images.
+// An absolute https URL hosted on the Vercel deployment is the only
+// option that renders consistently across Gmail, Apple Mail, Outlook
+// 2019+, iOS Mail and Yahoo.
+//
 // Returns:
-//   * unchanged if `src` is already absolute (https://… or data:…)
-//   * data URL if running server-side and the file exists at public/<path>
-//   * absolute URL on NEXT_PUBLIC_APP_URL otherwise (last-resort fallback —
-//     emails won't render the image until the asset is actually deployed)
+//   * unchanged if `src` is already absolute (https://… / data: / cid:)
 //   * window.location.origin-prefixed URL when running in the browser
-//     (canvas + preview iframe paths)
-const cachedLogoBytes = new Map<string, string>()
+//     (canvas + preview iframe paths — same domain as the dev/prod app)
+//   * NEXT_PUBLIC_APP_URL-prefixed URL otherwise (server-side renders)
 function resolveAssetUrl(src: string): string {
   if (!src) return ''
-  // Absolute already → no work to do.
   if (/^(https?:|data:|cid:)/i.test(src)) return src
 
-  // Browser path: just prefix with the page origin so canvas/preview
-  // works in dev and production without bundling the asset.
   if (typeof window !== 'undefined' && window.location?.origin) {
     return `${window.location.origin}${src.startsWith('/') ? src : '/' + src}`
   }
 
-  // Server / edge path: try to read from disk + base64-inline.
-  if (cachedLogoBytes.has(src)) return cachedLogoBytes.get(src)!
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs') as typeof import('fs')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('path') as typeof import('path')
-    const rel = src.startsWith('/') ? src.slice(1) : src
-    const filePath = path.join(process.cwd(), 'public', rel)
-    if (fs.existsSync(filePath)) {
-      const buf = fs.readFileSync(filePath)
-      const ext = path.extname(filePath).toLowerCase().replace('.', '') || 'png'
-      const mime = ext === 'jpg' ? 'jpeg' : ext
-      const dataUrl = `data:image/${mime};base64,${buf.toString('base64')}`
-      cachedLogoBytes.set(src, dataUrl)
-      return dataUrl
-    }
-  } catch {
-    /* fall through to URL fallback */
-  }
-
-  // Last resort: absolute URL the recipient's mail client can fetch
-  // (assuming the asset is actually deployed at this path).
   return `${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}${src.startsWith('/') ? src : '/' + src}`
 }
 

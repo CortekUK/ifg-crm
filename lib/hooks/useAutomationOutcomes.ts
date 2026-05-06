@@ -28,26 +28,49 @@ export interface AutomationReply {
   } | null
 }
 
-export function useAutomationReplies(automationId: string | null) {
+export function useAutomationReplies(
+  automationId: string | null,
+  options: { followDealChain?: boolean } = {},
+) {
   const supabase = createClient()
+  const followDealChain = options.followDealChain === true
 
   return useQuery<AutomationReply[]>({
-    queryKey: ['automation-replies', automationId],
+    queryKey: ['automation-replies', automationId, followDealChain],
     queryFn: async () => {
       if (!automationId) return []
 
       // Walk the same chain as the email-stats hook: enrollments → logs →
       // email_sends, then pull replies whose email_send_id matches.
-      const { data: enrollments } = await supabase
+      // For deal_creation, follow each enrollment's deal_id to pull in
+      // ALL enrollments for those deals (so replies driven by the
+      // initial_contact automation that ran on the same deal surface
+      // here too).
+      const { data: own } = await supabase
         .from('automation_enrollments')
-        .select('id')
+        .select('id, deal_id')
         .eq('automation_id', automationId)
-      if (!enrollments || enrollments.length === 0) return []
+      if (!own || own.length === 0) return []
+      let enrollmentIdList: string[] = own.map((e) => e.id)
+      if (followDealChain) {
+        const dealIds = [
+          ...new Set(
+            (own as { deal_id: string | null }[]).map((e) => e.deal_id).filter(Boolean) as string[],
+          ),
+        ]
+        if (dealIds.length > 0) {
+          const { data: chained } = await supabase
+            .from('automation_enrollments')
+            .select('id')
+            .in('deal_id', dealIds)
+          if (chained && chained.length > 0) enrollmentIdList = chained.map((e) => e.id)
+        }
+      }
 
       const { data: logs } = await supabase
         .from('automation_logs')
         .select('id')
-        .in('enrollment_id', enrollments.map((e) => e.id))
+        .in('enrollment_id', enrollmentIdList)
         .eq('log_type', 'email_sent')
       if (!logs || logs.length === 0) return []
 
@@ -113,6 +136,10 @@ export interface AutomationExitedDeal {
 
 export function useAutomationExited(
   automationId: string | null,
+  // For most automations this is the trigger stage. For deal_creation
+  // (whose trigger is form_submission, not a stage) the caller passes
+  // the configured `initial_stage_id` instead — that's where the new
+  // deal lands, so any deal sitting beyond it counts as "exited".
   triggerStageId: string | null,
   pipelineId: string | null,
 ) {

@@ -399,42 +399,22 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
   },
   {
     id: 'invoice_generation',
-    name: 'Invoice Generation',
+    name: 'Invoice Generation & Reminders',
     description:
-      'Automatically create an invoice when a deal enters a stage (e.g. Deposit). Reads the deal value set on the Deal Creation automation and issues an invoice for the full amount, a percentage (deposit), or a fixed custom amount. Pair with the Deposit Invoice & Reminder automation on the same pipeline to send payment-link emails — this template only creates the invoice.',
+      'One-stop invoice automation. When a deal enters the trigger stage, it creates an invoice on the deal (full amount / percentage / custom), AUTO-SENDS the system invoice email (with the same Stripe "Pay Now" button as the manual Send button), then sends two user-picked reminder emails on a 7-day cadence. Default due date is 14 days, so reminder 2 lands on the due date. Stops automatically the moment the invoice is paid.',
     type: 'invoice_generation',
     trigger_type: 'enters_stage',
     default_steps: [
-      { step_type: 'create_invoice', description: 'Create invoice on the deal' }
-    ],
-    configurable: {
-      // No email steps inside this automation — the invoice it creates
-      // lands as status='sent' which fires the existing on_invoice_sent
-      // trigger and chains into the Deposit Invoice & Reminder
-      // automation. Keeps a single source of truth for "what email goes
-      // out when the invoice is issued".
-      emails: false,
-      wait_durations: false,
-      exit_stages: false,
-      round_robin: false,
-      final_stage: false
-    },
-    icon: 'invoice'
-  },
-  {
-    id: 'deposit_invoice',
-    name: 'Deposit Invoice & Reminder',
-    description: 'Send deposit invoice with payment link, then follow-up reminders until paid. Fires automatically when an invoice is sent for a deal in this pipeline.',
-    type: 'deposit_invoice',
-    trigger_type: 'invoice_created',
-    default_steps: [
-      { step_type: 'send_email', description: 'Send deposit invoice with payment link' },
-      { step_type: 'wait', delay_days: 3, description: 'Wait 3 days' },
-      { step_type: 'send_email', description: 'Send reminder 1 (friendly)' },
-      { step_type: 'wait', delay_days: 5, description: 'Wait 5 days' },
-      { step_type: 'send_email', description: 'Send reminder 2 (more urgent)' },
+      // The first email is NOT a separate step — the create_invoice
+      // handler builds a Stripe Checkout Session and sends the
+      // hardcoded payment-link HTML email synchronously, mirroring the
+      // manual "Send Invoice" flow. So the workflow editor only asks
+      // the recruiter to pick the two reminder templates.
+      { step_type: 'create_invoice', description: 'Create invoice (14-day due date) and auto-send payment-link email' },
       { step_type: 'wait', delay_days: 7, description: 'Wait 7 days' },
-      { step_type: 'send_email', description: 'Send final reminder' }
+      { step_type: 'send_email', description: 'Send reminder 1 (1 week post-send)' },
+      { step_type: 'wait', delay_days: 7, description: 'Wait 7 days' },
+      { step_type: 'send_email', description: 'Send reminder 2 (2 weeks post-send / due today)' },
     ],
     configurable: {
       emails: true,
@@ -442,8 +422,9 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       exit_stages: true,
       round_robin: false,
       final_stage: false,
-      stop_on_payment: true
-    }
+      stop_on_payment: true,
+    },
+    icon: 'invoice',
   },
   {
     id: 'payment_overdue',
@@ -483,6 +464,31 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       final_stage: false,
       create_portal_account: true
     }
+  },
+  {
+    id: 'stage_reminder',
+    name: 'Stage Reminder (Stalled Deal Nudge)',
+    description:
+      'Nudge the contact when a deal has been sitting in a stage too long. Fires when the deal lands in the trigger stage, waits a configurable number of days (default 7), then sends a single reminder email. Auto-stops if the deal moves to any other stage in the meantime, and stops on reply if Exit on Reply is enabled. Use it for stages like Document Collecting where you just want a one-week chase.',
+    type: 'stage_reminder',
+    trigger_type: 'enters_stage',
+    default_steps: [
+      { step_type: 'wait', delay_days: 7, description: 'Wait 7 days in stage' },
+      { step_type: 'send_email', description: 'Send stalled-deal reminder' },
+    ],
+    configurable: {
+      emails: true,
+      wait_durations: true,
+      exit_stages: true,
+      round_robin: false,
+      // No "no-reply destination" needed — the deal stays in the
+      // trigger stage by design (we're nudging the contact, not moving
+      // them on). The exit_stages section gives the recruiter the
+      // reply-driven exit if they want it.
+      final_stage: false,
+    },
+    icon: 'email',
+    badge: 'Reminder',
   },
   {
     id: 'pre_departure',

@@ -26,14 +26,54 @@ export interface AutomationEmailStatsResult {
 }
 
 /**
+ * Resolve which automation_enrollments rows count as "this automation's
+ * activity". Default is exact match on automation_id.
+ *
+ * When `followDealChain` is true (used for deal_creation automations,
+ * which never send emails themselves) we widen the lens: get this
+ * automation's enrollments → their deal_ids → ALL enrollments for those
+ * deals across every automation. So a deal_creation row can surface
+ * emails / replies / exits driven by the initial_contact automation
+ * that fired immediately after the deal was created.
+ */
+async function resolveEnrollmentIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  automationId: string,
+  followDealChain: boolean,
+): Promise<string[]> {
+  const { data: own } = await supabase
+    .from('automation_enrollments')
+    .select('id, deal_id')
+    .eq('automation_id', automationId)
+  if (!own || own.length === 0) return []
+  if (!followDealChain) return own.map((e: { id: string }) => e.id)
+  const dealIds = [
+    ...new Set(
+      (own as { deal_id: string | null }[]).map((e) => e.deal_id).filter(Boolean) as string[],
+    ),
+  ]
+  if (dealIds.length === 0) return own.map((e: { id: string }) => e.id)
+  const { data: chained } = await supabase
+    .from('automation_enrollments')
+    .select('id')
+    .in('deal_id', dealIds)
+  return chained?.map((e: { id: string }) => e.id) ?? own.map((e: { id: string }) => e.id)
+}
+
+/**
  * Queries email_sends via automation_logs to get real delivery stats
  * for an automation, broken down by step.
  */
-export function useAutomationEmailStats(automationId: string | null) {
+export function useAutomationEmailStats(
+  automationId: string | null,
+  options: { followDealChain?: boolean } = {},
+) {
   const supabase = createClient()
+  const followDealChain = options.followDealChain === true
 
   return useQuery<AutomationEmailStatsResult>({
-    queryKey: ['automation-email-stats', automationId],
+    queryKey: ['automation-email-stats', automationId, followDealChain],
     queryFn: async () => {
       if (!automationId) {
         return {
@@ -44,14 +84,9 @@ export function useAutomationEmailStats(automationId: string | null) {
         }
       }
 
-      // Get all automation_logs for this automation via enrollments
-      // automation_logs → enrollment_id → automation_enrollments.automation_id
-      const { data: enrollmentIds } = await supabase
-        .from('automation_enrollments')
-        .select('id')
-        .eq('automation_id', automationId)
+      const enrollmentIdList = await resolveEnrollmentIds(supabase, automationId, followDealChain)
 
-      if (!enrollmentIds || enrollmentIds.length === 0) {
+      if (enrollmentIdList.length === 0) {
         return {
           totalSent: 0, totalDelivered: 0, totalOpened: 0,
           totalClicked: 0, totalBounced: 0, totalFailed: 0,
@@ -63,7 +98,7 @@ export function useAutomationEmailStats(automationId: string | null) {
       const { data: logs, error: logsError } = await supabase
         .from('automation_logs')
         .select('id, step_id')
-        .in('enrollment_id', enrollmentIds.map((e) => e.id))
+        .in('enrollment_id', enrollmentIdList)
         .eq('log_type', 'email_sent')
 
       if (logsError) throw logsError
@@ -194,31 +229,32 @@ export interface AutomationEmailSend {
 /**
  * Fetches all email_sends for an automation with contact details,
  * optionally filtered by status for drill-down views.
+ *
+ * Set `followDealChain: true` for deal_creation automations so the
+ * Emails tab surfaces emails sent by the initial_contact automation
+ * that ran on the same deals.
  */
 export function useAutomationEmailSends(
   automationId: string | null,
-  statusFilter?: string | null
+  statusFilter?: string | null,
+  options: { followDealChain?: boolean } = {},
 ) {
   const supabase = createClient()
+  const followDealChain = options.followDealChain === true
 
   return useQuery<AutomationEmailSend[]>({
-    queryKey: ['automation-email-sends', automationId, statusFilter],
+    queryKey: ['automation-email-sends', automationId, statusFilter, followDealChain],
     queryFn: async () => {
       if (!automationId) return []
 
-      // Get enrollment IDs for this automation
-      const { data: enrollments } = await supabase
-        .from('automation_enrollments')
-        .select('id')
-        .eq('automation_id', automationId)
-
-      if (!enrollments || enrollments.length === 0) return []
+      const enrollmentIdList = await resolveEnrollmentIds(supabase, automationId, followDealChain)
+      if (enrollmentIdList.length === 0) return []
 
       // Get automation logs with step_id
       const { data: logs } = await supabase
         .from('automation_logs')
         .select('id, step_id')
-        .in('enrollment_id', enrollments.map((e) => e.id))
+        .in('enrollment_id', enrollmentIdList)
         .eq('log_type', 'email_sent')
 
       if (!logs || logs.length === 0) return []

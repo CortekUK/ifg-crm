@@ -55,7 +55,10 @@
       "Read(//tmp/**)",
       "Bash(python -c 'import json; print\\(len\\(json.load\\(open\\(\\\\\"/tmp/uclan_blocks.json\\\\\"\\)\\)\\)\\)')",
       "Bash(echo \"Block count: $\\(python -c 'import json; print\\(len\\(json.load\\(open\\(\\\\\"/tmp/uclan_blocks.json\\\\\"\\)\\)\\)\\)'\\)\")",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(npx --yes tsx scripts/rerender-templates.mts)",
+      "Bash(git ls-tree *)",
+      "Bash(git fetch *)"
     ]
   }
 }

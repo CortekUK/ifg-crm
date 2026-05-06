@@ -45,6 +45,11 @@ export const AUTOMATION_TYPES = [
   'welcome_sequence',
   'pre_departure',
   'list_assignment',
+  // Generic "deal stalled in this stage for N days" reminder. Single
+  // email with a configurable wait, used for stages like Document
+  // Collecting where the recruiter just wants a nudge if the contact
+  // hasn't moved on in a week.
+  'stage_reminder',
   'custom',
 ] as const
 export type AutomationType = typeof AUTOMATION_TYPES[number]

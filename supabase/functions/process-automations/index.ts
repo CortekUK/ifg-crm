@@ -3,6 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
+import Stripe from 'npm:stripe@14'
 import { corsHeaders } from '../_shared/cors.ts'
 import { sendSMS } from '../_shared/clicksend.ts'
 import type { StepType } from '../_shared/automation-constants.ts'
@@ -597,11 +598,17 @@ async function processQueue(
         }
         const stopOnPayment = automationCfg?.stop_on_payment === true
         if (stopOnPayment) {
+          // Only count payments that landed AFTER the enrollment started.
+          // Without the paid_at filter, a deal carrying any historical
+          // paid invoice (e.g. an application fee paid months ago) would
+          // make every fresh deposit-reminder enrollment stop on its
+          // first cron tick, before any reminder could fire.
           const { data: paidInvoices } = await supabase
             .from('invoices')
-            .select('id')
+            .select('id, paid_at')
             .eq('deal_id', enrollment.deal_id)
             .eq('status', 'paid')
+            .gte('paid_at', enrollment.enrolled_at)
             .limit(1)
 
           if (paidInvoices && paidInvoices.length > 0) {
@@ -1575,9 +1582,12 @@ async function processCreateInvoiceStep(
     return
   }
 
+  // Default due window is 14 days (was 7) — matches the default email
+  // cadence of the merged Invoice Generation & Reminders template, where
+  // reminder #2 lands at T+14 / on the due date itself.
   const dueDays = Number.isFinite(Number(cfg.invoice_due_in_days))
     ? Number(cfg.invoice_due_in_days)
-    : 7
+    : 14
   const dueDate = new Date()
   dueDate.setUTCDate(dueDate.getUTCDate() + dueDays)
   const dueDateStr = dueDate.toISOString().slice(0, 10)
@@ -1614,6 +1624,26 @@ async function processCreateInvoiceStep(
     return
   }
 
+  // Send the system-baked Stripe-payment-link email — same one the manual
+  // "Send Invoice" button uses (app/api/invoices/[id]/send-with-link).
+  // This is the FIRST email in the merged Invoice Generation & Reminders
+  // flow; subsequent reminders use the user-picked templates from the
+  // automation's email steps.
+  //
+  // Failures here only log a warning — the invoice row already landed
+  // and is recoverable manually from the Invoices page if needed.
+  await sendInvoicePaymentLinkEmail(supabase, {
+    invoiceId: invoice.id,
+    invoiceNumber: invoice.invoice_number,
+    amount,
+    description,
+    dealId: deal.id,
+    contactId: deal.contact_id,
+    dueDateStr,
+  }).catch((err) => {
+    summary.errors.push(`create_invoice email: ${err instanceof Error ? err.message : String(err)}`)
+  })
+
   await logStepExecution(supabase, enrollment, step, 'sent')
 
   // Surface in the deal's activity feed so recruiters can see the automation
@@ -1621,8 +1651,188 @@ async function processCreateInvoiceStep(
   await supabase.from('deal_activities').insert({
     deal_id: deal.id,
     activity_type: 'invoice_created',
-    description: `Invoice ${invoice.invoice_number} (£${amount.toFixed(2)}) created by automation`,
+    description: `Invoice ${invoice.invoice_number} (£${amount.toFixed(2)}) created and sent by automation`,
   })
+}
+
+/**
+ * Build a Stripe Checkout Session for an invoice and email the contact the
+ * Stripe-payment-link email. Mirrors the hardcoded HTML used by the manual
+ * "Send invoice" route handler (app/api/invoices/[id]/send-with-link/route.ts)
+ * so a contact who receives an automation-sent invoice gets the exact same
+ * "Pay Now" button experience as one whose recruiter clicked Send manually.
+ *
+ * Stamps stripe_checkout_session_id back on the invoice row on success so
+ * the `/pay/<id>` redirect (used by reminder emails' {{invoice_payment_link}}
+ * merge tag) can re-use the same session if it's still valid, or mint a
+ * fresh one if it isn't.
+ */
+async function sendInvoicePaymentLinkEmail(
+  supabase: ReturnType<typeof createClient>,
+  args: {
+    invoiceId: string
+    invoiceNumber: string
+    amount: number
+    description: string
+    dealId: string
+    contactId: string
+    dueDateStr: string
+  },
+) {
+  // Recipient resolution — guardian fallback mirrors the manual send route.
+  const { data: invoice } = await supabase
+    .from('invoices')
+    .select('recipient_type, currency')
+    .eq('id', args.invoiceId)
+    .single()
+
+  const { data: contact } = await supabase
+    .from('contacts')
+    .select('id, email, first_name, last_name, parent_email, parent_name')
+    .eq('id', args.contactId)
+    .single()
+
+  if (!contact) {
+    throw new Error(`contact ${args.contactId} not found`)
+  }
+
+  const recipientType = (invoice as { recipient_type?: string } | null)?.recipient_type || 'player'
+  const recipientEmail =
+    recipientType === 'guardian'
+      ? contact.parent_email || contact.email
+      : contact.email
+  const recipientName =
+    recipientType === 'guardian'
+      ? contact.parent_name || `${contact.first_name} ${contact.last_name}`
+      : `${contact.first_name} ${contact.last_name}`
+
+  if (!recipientEmail) {
+    throw new Error('no recipient email available')
+  }
+
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
+  const resendKey = Deno.env.get('RESEND_API_KEY')
+  if (!stripeKey) throw new Error('STRIPE_SECRET_KEY not configured')
+  if (!resendKey) throw new Error('RESEND_API_KEY not configured')
+
+  const stripe = new Stripe(stripeKey, { apiVersion: '2024-06-20' })
+  const resend = new Resend(resendKey)
+  const appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') || 'https://ifg-crm.vercel.app'
+  const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
+  const currency = ((invoice as { currency?: string } | null)?.currency || 'GBP').toUpperCase()
+
+  const formattedAmount = new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency,
+  }).format(args.amount)
+  const dueDateDisplay = new Date(args.dueDateStr).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price_data: {
+          currency: currency.toLowerCase(),
+          product_data: {
+            name: `Invoice ${args.invoiceNumber}`,
+            description: args.description || undefined,
+          },
+          unit_amount: Math.round(args.amount * 100),
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: `${appUrl}/portal/payments/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/portal/payments/cancelled?invoice_id=${args.invoiceId}`,
+    customer_email: recipientEmail,
+    metadata: {
+      invoice_id: args.invoiceId,
+      invoice_number: args.invoiceNumber,
+      contact_id: contact.id,
+    },
+  })
+
+  const playerName = `${contact.first_name} ${contact.last_name}`
+
+  const sendResult = await resend.emails.send({
+    from: `IFG <${fromEmail}>`,
+    to: [recipientEmail],
+    subject: `Invoice ${args.invoiceNumber} - ${formattedAmount} Due`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #1e40af; color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">Invoice from IFG</h1>
+          <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">${args.invoiceNumber}</p>
+        </div>
+        <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none;">
+          <p>Hi ${recipientName},</p>
+          ${
+            recipientType === 'guardian'
+              ? `<p style="color: #64748b; font-size: 13px;">This invoice is for ${playerName}.</p>`
+              : ''
+          }
+          <p>You have a new invoice from The International Football Group. Please find the details below:</p>
+          <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Invoice Number</td>
+                <td style="padding: 8px 0; text-align: right; font-weight: bold;">${args.invoiceNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Description</td>
+                <td style="padding: 8px 0; text-align: right;">${args.description || '-'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Due Date</td>
+                <td style="padding: 8px 0; text-align: right;">${dueDateDisplay}</td>
+              </tr>
+              <tr style="border-top: 2px solid #e2e8f0;">
+                <td style="padding: 16px 0 8px; color: #64748b; font-weight: bold;">Amount Due</td>
+                <td style="padding: 16px 0 8px; text-align: right; font-weight: bold; font-size: 28px; color: #1e40af;">${formattedAmount}</td>
+              </tr>
+            </table>
+          </div>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${session.url}" style="display: inline-block; background: #1e40af; color: white; padding: 14px 40px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold;">
+              Pay Now
+            </a>
+          </div>
+          <p style="color: #64748b; font-size: 13px; text-align: center;">
+            Click the button above to make a secure payment via Stripe.<br/>
+            This link will expire in 24 hours.
+          </p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="color: #94a3b8; font-size: 12px; text-align: center;">
+            The International Football Group<br/>
+            If you have any questions, please contact us at info@theinternationalfootballgroup.com
+          </p>
+        </div>
+      </div>
+    `,
+  })
+
+  if (sendResult.error) {
+    throw new Error(
+      typeof sendResult.error === 'object' && sendResult.error !== null && 'message' in sendResult.error
+        ? String((sendResult.error as { message: unknown }).message)
+        : 'Resend send failed',
+    )
+  }
+
+  // Stamp the Stripe session id so reminders' {{invoice_payment_link}} can
+  // re-use it via /pay/<id>.
+  await supabase
+    .from('invoices')
+    .update({
+      sent_at: new Date().toISOString(),
+      stripe_checkout_session_id: session.id,
+    })
+    .eq('id', args.invoiceId)
 }
 
 /**

@@ -75,12 +75,31 @@ export function AutomationDetailSheet({
 
   const { data: automation, isLoading } = useAutomation(automationId)
   const { data: enrollments = [] } = useAutomationEnrollments(automationId)
-  const { data: emailStats } = useAutomationEmailStats(automationId)
-  const { data: emailSends = [], isLoading: sendsLoading } = useAutomationEmailSends(automationId, emailStatusFilter)
-  const { data: automationReplies = [], isLoading: repliesLoading } = useAutomationReplies(automationId)
+  // For deal_creation automations, follow the deal-id chain so the
+  // Emails / Replies / Exited tabs surface activity driven by the
+  // initial_contact automation that runs on the same deals — otherwise
+  // those tabs are empty (deal_creation has no email steps of its own).
+  const followDealChain = automation?.automation_type === 'deal_creation'
+  const { data: emailStats } = useAutomationEmailStats(automationId, { followDealChain })
+  const { data: emailSends = [], isLoading: sendsLoading } = useAutomationEmailSends(
+    automationId,
+    emailStatusFilter,
+    { followDealChain },
+  )
+  const { data: automationReplies = [], isLoading: repliesLoading } = useAutomationReplies(
+    automationId,
+    { followDealChain },
+  )
+  // For deal_creation, trigger_stage_id is null (form-submission triggers
+  // aren't tied to a stage). Fall back to config.initial_stage_id, the
+  // stage where the newly-created deal lands. Anything past that counts
+  // as "exited the funnel".
+  const exitAnchorStageId =
+    automation?.trigger_stage_id ??
+    ((automation?.config as { initial_stage_id?: string | null } | null)?.initial_stage_id ?? null)
   const { data: exitedDeals = [], isLoading: exitedLoading } = useAutomationExited(
     automationId,
-    automation?.trigger_stage_id ?? null,
+    exitAnchorStageId,
     automation?.pipeline_id ?? null,
   )
   const toggleAutomation = useToggleAutomation()

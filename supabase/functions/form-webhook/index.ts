@@ -193,7 +193,12 @@ Deno.serve(async (req) => {
 
       for (const rule of config.dynamic_list_rules) {
         const contactValue = getContactFieldValue(contactData, rule.field)
-        if (contactValue !== null && contactValue.toLowerCase() === rule.value.toLowerCase()) {
+        // Trim + lowercase both sides so "Male ", "MALE", "male" all match
+        // the same rule. Mirrors the wordpress + AC webhooks for parity.
+        if (
+          contactValue !== null &&
+          contactValue.trim().toLowerCase() === rule.value.trim().toLowerCase()
+        ) {
           matchingListIds.push(rule.list_id)
         }
       }
