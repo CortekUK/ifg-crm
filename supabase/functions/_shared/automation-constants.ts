@@ -14,6 +14,7 @@ export const STEP_TYPES = [
   'send_sms',
   'move_to_stage',
   'create_deal',
+  'create_invoice',
   'notify',
   'create_portal_account',
 ] as const
@@ -38,6 +39,7 @@ export const AUTOMATION_TYPES = [
   'interview_reminder',
   'meeting_scheduler',
   'post_interview',
+  'invoice_generation',
   'deposit_invoice',
   'payment_overdue',
   'welcome_sequence',

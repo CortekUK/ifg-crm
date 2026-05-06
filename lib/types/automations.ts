@@ -54,6 +54,11 @@ export interface AutomationConfig {
   form_source?: 'activecampaign' | 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
   field_mappings?: FieldMappings
   initial_stage_id?: string
+  // Default monetary value to write to deal_value when this automation
+  // creates a new deal (form-webhook + WP/AC webhooks). Lets a configurer
+  // set the programme price once per automation instead of every deal
+  // landing at 0. Recruiter can still override on the deal page.
+  default_deal_value?: number
   // For deal_creation: optional email to send immediately after the deal is
   // created. Compiles to a send_email step that runs right after create_deal,
   // so the contact gets a welcome/initial email the moment the form fires.
@@ -117,6 +122,21 @@ export interface AutomationConfig {
     before_value: number
     before_unit: 'hours' | 'days'
   }[]
+  // For invoice_generation:
+  //   amount_source — how the invoice amount is derived:
+  //     'deal_value'  → use deal.deal_value as-is
+  //     'percentage'  → invoice_amount_percent% of deal.deal_value
+  //                     (e.g. 25 → 25% deposit)
+  //     'custom'      → fixed invoice_amount_custom regardless of deal
+  //   invoice_type   — maps to invoices.type column (deposit/full_payment/etc).
+  //   invoice_due_in_days — due_date = today + this many days (default 7).
+  //   invoice_description — free-text shown on the invoice line item.
+  invoice_amount_source?: 'deal_value' | 'percentage' | 'custom'
+  invoice_amount_percent?: number
+  invoice_amount_custom?: number
+  invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
+  invoice_due_in_days?: number
+  invoice_description?: string
 }
 
 export interface Automation {
@@ -376,6 +396,30 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       round_robin: false,
       final_stage: false
     }
+  },
+  {
+    id: 'invoice_generation',
+    name: 'Invoice Generation',
+    description:
+      'Automatically create an invoice when a deal enters a stage (e.g. Deposit). Reads the deal value set on the Deal Creation automation and issues an invoice for the full amount, a percentage (deposit), or a fixed custom amount. Pair with the Deposit Invoice & Reminder automation on the same pipeline to send payment-link emails — this template only creates the invoice.',
+    type: 'invoice_generation',
+    trigger_type: 'enters_stage',
+    default_steps: [
+      { step_type: 'create_invoice', description: 'Create invoice on the deal' }
+    ],
+    configurable: {
+      // No email steps inside this automation — the invoice it creates
+      // lands as status='sent' which fires the existing on_invoice_sent
+      // trigger and chains into the Deposit Invoice & Reminder
+      // automation. Keeps a single source of truth for "what email goes
+      // out when the invoice is issued".
+      emails: false,
+      wait_durations: false,
+      exit_stages: false,
+      round_robin: false,
+      final_stage: false
+    },
+    icon: 'invoice'
   },
   {
     id: 'deposit_invoice',

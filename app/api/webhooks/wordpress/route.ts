@@ -312,6 +312,7 @@ export async function POST(request: NextRequest) {
           form_id?: string
           static_list_ids?: string[]
           dynamic_list_rules?: { field: string; value: string; list_id: string }[]
+          default_deal_value?: number
         } | null
 
         // Match by form_id. The previous nested-if logic short-circuited
@@ -398,7 +399,7 @@ export async function POST(request: NextRequest) {
                 pipeline_id: automation.pipeline_id,
                 current_stage_id: automation.trigger_stage_id,
                 title: `${normalized.first_name || 'New'} ${normalized.last_name || 'Lead'}`,
-                deal_value: 15000, // Default deal value
+                deal_value: config?.default_deal_value ?? 0,
                 source: normalized.source,
               })
               .select('id')

@@ -520,6 +520,35 @@ export function ConfigureAutomationModal({
                           </p>
                         </div>
 
+                        <div className="space-y-2">
+                          <Label>Default Deal Value (£)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0"
+                            value={
+                              formData.config.default_deal_value ?? ''
+                            }
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  default_deal_value:
+                                    raw === '' ? undefined : Number(raw),
+                                },
+                              }))
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Amount each new deal is created with (e.g. the
+                            programme price). Recruiter can override on the
+                            deal. Leave blank for £0.
+                          </p>
+                        </div>
+
                         {/* No email selector here. First-touch sends are
                             owned by the separate Initial Contact
                             automation (enters_stage → Initial Lead) so we
@@ -1347,6 +1376,204 @@ export function ConfigureAutomationModal({
                     - Paid stage: deal moves here when an invoice flips to 'paid'.
                     - Unpaid stage: deal moves here if all reminders fire
                       and still no invoice was paid. */}
+                {selectedTemplate?.type === 'invoice_generation' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                        Invoice Settings
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Configure the invoice this automation will issue when
+                        a deal enters the trigger stage. The deal must already
+                        have a value (from the Deal Creation automation or
+                        manual entry) for percentage / full-value amounts to
+                        work.
+                      </p>
+
+                      <div className="space-y-2">
+                        <Label>Amount Source</Label>
+                        <Select
+                          value={formData.config.invoice_amount_source || 'deal_value'}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: {
+                                ...prev.config,
+                                invoice_amount_source: value as
+                                  | 'deal_value'
+                                  | 'percentage'
+                                  | 'custom',
+                              },
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="deal_value">
+                              Full deal value
+                            </SelectItem>
+                            <SelectItem value="percentage">
+                              Percentage of deal value (deposit)
+                            </SelectItem>
+                            <SelectItem value="custom">
+                              Fixed custom amount
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {formData.config.invoice_amount_source === 'percentage' && (
+                        <div className="space-y-2">
+                          <Label>Percentage of Deal Value (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            placeholder="25"
+                            value={formData.config.invoice_amount_percent ?? ''}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  invoice_amount_percent:
+                                    raw === '' ? undefined : Number(raw),
+                                },
+                              }))
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            e.g. 25 for a 25% deposit on a £15,000 deal = £3,750.
+                          </p>
+                        </div>
+                      )}
+
+                      {formData.config.invoice_amount_source === 'custom' && (
+                        <div className="space-y-2">
+                          <Label>Custom Amount (£)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0"
+                            value={formData.config.invoice_amount_custom ?? ''}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  invoice_amount_custom:
+                                    raw === '' ? undefined : Number(raw),
+                                },
+                              }))
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Used regardless of the deal value.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label>Invoice Type</Label>
+                        <Select
+                          value={formData.config.invoice_type || 'deposit'}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: {
+                                ...prev.config,
+                                invoice_type: value as
+                                  | 'deposit'
+                                  | 'installment'
+                                  | 'full_payment'
+                                  | 'meal_plan'
+                                  | 'trip'
+                                  | 'other',
+                              },
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="deposit">Deposit</SelectItem>
+                            <SelectItem value="installment">Installment</SelectItem>
+                            <SelectItem value="full_payment">Full Payment</SelectItem>
+                            <SelectItem value="meal_plan">Meal Plan</SelectItem>
+                            <SelectItem value="trip">Trip</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Due In (days)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="7"
+                          value={formData.config.invoice_due_in_days ?? ''}
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: {
+                                ...prev.config,
+                                invoice_due_in_days:
+                                  raw === '' ? undefined : Number(raw),
+                              },
+                            }))
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Invoice due_date = today + this many days. Defaults to 7.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Invoice Description (optional)</Label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. UK GAP 2026 Programme Deposit"
+                          value={formData.config.invoice_description ?? ''}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: {
+                                ...prev.config,
+                                invoice_description: e.target.value || undefined,
+                              },
+                            }))
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Shown on the invoice. Leave blank to use the
+                          automation name + deal title.
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3 text-xs text-muted-foreground">
+                        The invoice is created with status <strong>sent</strong>,
+                        which automatically chains into any{' '}
+                        <span className="font-medium text-slate-700 dark:text-slate-200">
+                          Deposit Invoice &amp; Reminder
+                        </span>{' '}
+                        automation on this pipeline — that handles the
+                        payment-link email + reminder cadence.
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {selectedTemplate?.type === 'deposit_invoice' && (
                   <>
                     <Separator />

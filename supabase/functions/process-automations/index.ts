@@ -98,6 +98,7 @@ const stepHandlers: Record<StepType, StepHandler> = {
   send_sms: (s, e, st, sum) => processSMSStep(s, e, st, sum),
   move_to_stage: (s, e, st, sum) => processMoveToStageStep(s, e, st, sum),
   create_deal: noopStepHandler,
+  create_invoice: (s, e, st, sum) => processCreateInvoiceStep(s, e, st, sum),
   notify: noopStepHandler,
   create_portal_account: noopStepHandler,
 }
@@ -991,9 +992,12 @@ async function processEmailStep(
       invoice_number: unpaidInvoice?.invoice_number || null,
       invoice_amount: invoiceAmountFormatted,
       invoice_due_date: invoiceDueDateFormatted,
-      // Owner fields
-      deal_owner_name: owner?.full_name || 'The Team',
-      deal_owner_email: owner?.email || '',
+      // Owner fields. Null (not 'The Team') for unowned deals so the
+      // recruiter_signature block's `{{deal_owner_*|Nathan Bibby}}`
+      // fallbacks fire — orphan deals then render as if Nathan sent
+      // them, matching the AC behaviour where Nathan is the catch-all.
+      deal_owner_name: owner?.full_name || null,
+      deal_owner_email: owner?.email || null,
       deal_owner_phone: owner?.phone || null,
       deal_owner_title: owner?.title || null,
       deal_owner_calendly: owner?.calendly_url || null,
@@ -1018,10 +1022,14 @@ async function processEmailStep(
     // Reply-To uses VERP-style sub-addressing (replies+{tracking_id}@reply.<domain>)
     // — built later, once the trackingId for THIS send is generated. Decide the
     // fallback now so we know whether to override below.
+    // FROM display name. For deal_owner-typed templates, fall back to
+    // Nathan Bibby (the canonical IFG fallback recruiter) when the deal
+    // has no owner — mirrors the body sig fallback in render-html.ts so
+    // the FROM line and the signature stay coherent for orphan deals.
     let fromName = 'International Football Group'
 
-    if (template.from_name_type === 'deal_owner' && owner?.full_name) {
-      fromName = owner.full_name
+    if (template.from_name_type === 'deal_owner') {
+      fromName = owner?.full_name || 'Nathan Bibby'
     } else if (template.from_name_type === 'fixed' && template.fixed_from_name) {
       fromName = template.fixed_from_name
     }
@@ -1360,8 +1368,10 @@ async function processSMSStep(
       graduation_year: contact.graduation_year || null,
       sport: contact.sport || null,
       deal_title: deal.title || '',
-      deal_owner_name: owner?.full_name || 'The Team',
-      deal_owner_email: owner?.email || '',
+      // SMS path mirrors the email path — null for unowned so any
+      // {{deal_owner_*|fallback}} merge tags in SMS templates can fire.
+      deal_owner_name: owner?.full_name || null,
+      deal_owner_email: owner?.email || null,
       deal_owner_phone: owner?.phone || null,
       deal_owner_calendly: owner?.calendly_url || null,
     }
@@ -1480,6 +1490,139 @@ async function processMoveToStageStep(
       new_value: { stage_id: step.target_stage_id },
     })
   }
+}
+
+/**
+ * Handle a `create_invoice` step. Reads the deal + automation config,
+ * computes the invoice amount from the configured source (full deal_value /
+ * percentage / custom), and inserts an invoice with status='sent'. The
+ * existing on_invoice_sent trigger (migration 109) will then enrol the deal
+ * into any deposit_invoice automation on the same pipeline so payment-link
+ * emails go out automatically.
+ *
+ * deal_value is read BEFORE the insert because the on_invoice_change_recalc
+ * trigger (migration 110) overwrites deal_value to SUM(sent+paid invoices)
+ * post-insert — so reading after the insert would give us the freshly-set
+ * invoice amount instead of the programme's list price.
+ */
+async function processCreateInvoiceStep(
+  supabase: ReturnType<typeof createClient>,
+  enrollment: AutomationEnrollment,
+  step: AutomationStep,
+  summary: ProcessingSummary
+) {
+  // Pull deal (need value, contact, owner)
+  const { data: deal, error: dealError } = await supabase
+    .from('deals')
+    .select('id, title, contact_id, deal_owner_id, owner_id, deal_value')
+    .eq('id', enrollment.deal_id)
+    .single()
+
+  if (dealError || !deal) {
+    summary.errors.push(`create_invoice: deal ${enrollment.deal_id} not found: ${dealError?.message || 'no data'}`)
+    await logStepExecution(supabase, enrollment, step, 'failed', `Deal not found: ${dealError?.message || 'no data'}`)
+    return
+  }
+
+  // Pull automation name + config
+  const { data: automationMeta } = await supabase
+    .from('automations')
+    .select('name, config')
+    .eq('id', enrollment.automation_id)
+    .single()
+
+  const cfg = (automationMeta?.config ?? {}) as {
+    invoice_amount_source?: 'deal_value' | 'percentage' | 'custom'
+    invoice_amount_percent?: number
+    invoice_amount_custom?: number
+    invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
+    invoice_due_in_days?: number
+    invoice_description?: string
+  }
+
+  // Compute amount
+  const dealValue = Number(deal.deal_value ?? 0)
+  let amount: number
+  switch (cfg.invoice_amount_source) {
+    case 'percentage': {
+      const pct = Number(cfg.invoice_amount_percent ?? 0)
+      amount = Math.round((dealValue * pct) / 100 * 100) / 100
+      break
+    }
+    case 'custom':
+      amount = Number(cfg.invoice_amount_custom ?? 0)
+      break
+    case 'deal_value':
+    default:
+      amount = dealValue
+      break
+  }
+
+  // Guardrail: refuse to create a £0 invoice. Almost always means the deal
+  // landed without a value (deal_creation automation missing default_deal_value).
+  if (!amount || amount <= 0) {
+    const reason = `Invoice amount resolved to ${amount} for deal ${deal.id} (source=${cfg.invoice_amount_source ?? 'deal_value'}, deal_value=${dealValue}). Set a Default Deal Value on the Deal Creation automation, or configure a custom amount on this Invoice Generation automation.`
+    summary.errors.push(`create_invoice: ${reason}`)
+    await logStepExecution(supabase, enrollment, step, 'failed', reason)
+    return
+  }
+
+  const ownerId = deal.deal_owner_id || deal.owner_id
+  if (!ownerId) {
+    const reason = `create_invoice: deal ${deal.id} has no owner — cannot set invoices.created_by_id`
+    summary.errors.push(reason)
+    await logStepExecution(supabase, enrollment, step, 'failed', reason)
+    return
+  }
+
+  const dueDays = Number.isFinite(Number(cfg.invoice_due_in_days))
+    ? Number(cfg.invoice_due_in_days)
+    : 7
+  const dueDate = new Date()
+  dueDate.setUTCDate(dueDate.getUTCDate() + dueDays)
+  const dueDateStr = dueDate.toISOString().slice(0, 10)
+
+  const description =
+    cfg.invoice_description?.trim() ||
+    `${automationMeta?.name || 'Invoice'} — ${deal.title}`
+
+  const nowIso = new Date().toISOString()
+
+  // Insert with status='sent' so on_invoice_sent (migration 109) chains
+  // into the Deposit Invoice automation. invoice_number is filled by the
+  // generate_invoice_number BEFORE INSERT trigger.
+  const { data: invoice, error: invoiceError } = await supabase
+    .from('invoices')
+    .insert({
+      contact_id: deal.contact_id,
+      deal_id: deal.id,
+      type: cfg.invoice_type || 'deposit',
+      description,
+      amount,
+      status: 'sent',
+      due_date: dueDateStr,
+      sent_at: nowIso,
+      created_by_id: ownerId,
+    })
+    .select('id, invoice_number')
+    .single()
+
+  if (invoiceError || !invoice) {
+    const msg = `Failed to create invoice for deal ${deal.id}: ${invoiceError?.message || 'no data'}`
+    summary.errors.push(msg)
+    await logStepExecution(supabase, enrollment, step, 'failed', msg)
+    return
+  }
+
+  await logStepExecution(supabase, enrollment, step, 'sent')
+
+  // Surface in the deal's activity feed so recruiters can see the automation
+  // issued the invoice (mirrors how processMoveToStageStep logs).
+  await supabase.from('deal_activities').insert({
+    deal_id: deal.id,
+    activity_type: 'invoice_created',
+    description: `Invoice ${invoice.invoice_number} (£${amount.toFixed(2)}) created by automation`,
+  })
 }
 
 /**

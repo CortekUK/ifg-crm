@@ -49,6 +49,7 @@ interface AutomationConfig {
   round_robin_users?: string[]
   pipeline_id?: string
   initial_stage_id?: string
+  default_deal_value?: number
   static_list_ids?: string[]
   dynamic_list_rules?: DynamicListRule[]
   [key: string]: unknown
@@ -286,7 +287,7 @@ Deno.serve(async (req) => {
           stage_id: stageId,
           contact_id: contact.id,
           owner_id: assignedUserId,
-          value: 0,
+          value: config.default_deal_value ?? 0,
           status: 'active',
           stage_changed_at: new Date().toISOString(),
         })

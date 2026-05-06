@@ -289,6 +289,7 @@ export async function POST(request: NextRequest) {
           static_list_ids?: string[]
           dynamic_list_rules?: { field: string; value: string; list_id: string }[]
           round_robin_users?: string[]
+          default_deal_value?: number
         } | null
 
         // Match by form_id. The previous nested-if logic short-circuited
@@ -392,7 +393,7 @@ export async function POST(request: NextRequest) {
                 // the UI. Always write the rotation winner to deal_owner_id.
                 deal_owner_id: assignedOwnerId,
                 title: `${contact.first_name || 'New'} ${contact.last_name || 'Lead'}`,
-                deal_value: 0,
+                deal_value: config?.default_deal_value ?? 0,
                 source: `activecampaign:${formName}`,
               })
               .select('id')

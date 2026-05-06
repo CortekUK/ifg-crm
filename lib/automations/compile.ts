@@ -23,6 +23,7 @@ export interface CompiledStep {
     | 'send_sms'
     | 'move_to_stage'
     | 'create_deal'
+    | 'create_invoice'
   delay_days: number
   delay_hours: number
   email_template_id: string | null
@@ -62,6 +63,18 @@ function waitStep(delayDays: number): CompiledStep {
 function createDealStep(): CompiledStep {
   return {
     step_type: 'create_deal',
+    delay_days: 0,
+    delay_hours: 0,
+    email_template_id: null,
+    sms_content: null,
+    target_stage_id: null,
+    conditions: null,
+  }
+}
+
+function createInvoiceStep(): CompiledStep {
+  return {
+    step_type: 'create_invoice',
     delay_days: 0,
     delay_hours: 0,
     email_template_id: null,
@@ -215,6 +228,12 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
       : [createDealStep()]
   },
   list_assignment: () => [],
+  // invoice_generation emits a single create_invoice step. The handler
+  // reads automation.config to compute the amount (deal_value /
+  // percentage / custom) and inserts an invoice with status='sent', which
+  // chains into the Deposit Invoice automation via the on_invoice_sent
+  // trigger.
+  invoice_generation: () => [createInvoiceStep()],
   // No move_to_stage step appended for either initial_contact or
   // follow_up. When the enrollment flips to 'completed' (sequence ran
   // out) the move_deal_on_enrollment_exit trigger reads
