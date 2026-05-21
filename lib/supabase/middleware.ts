@@ -42,7 +42,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/forgot-password') ||
     request.nextUrl.pathname.startsWith('/set-password') ||
     request.nextUrl.pathname.startsWith('/unauthorized') ||
-    request.nextUrl.pathname === '/portal/login'
+    request.nextUrl.pathname === '/portal/login' ||
+    request.nextUrl.pathname.startsWith('/landing')
 
   if (!user && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()

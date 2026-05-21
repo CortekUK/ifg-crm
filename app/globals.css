@@ -149,6 +149,19 @@
   .uppercase {
     letter-spacing: normal;
   }
+
+  /* Landing page utilities */
+  .landing-section {
+    @apply py-16 md:py-24;
+  }
+
+  .landing-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .hero-gradient {
+    background: linear-gradient(135deg, #0c1220 0%, #0f172a 50%, #0a1628 100%);
+  }
 }
 
 /* Card with gradient overlay */
@@ -188,6 +201,15 @@
 .dark .banner-gradient {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Testimonial carousel text fade */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 400ms ease-out both;
 }
 
 /* Hide scrollbar but keep scroll functional */
