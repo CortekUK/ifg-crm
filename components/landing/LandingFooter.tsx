@@ -122,6 +122,11 @@ export function LandingFooter() {
                   Contact Us
                 </Link>
               </li>
+              <li>
+                <Link href="/portal/login" className="text-sm text-gray-500 hover:text-white transition-colors">
+                  Player Login
+                </Link>
+              </li>
             </ul>
           </div>
 

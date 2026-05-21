@@ -3,76 +3,86 @@
 import Image from 'next/image'
 import { FadeIn } from './FadeIn'
 
-const partners = [
+const partners: {
+  name: string
+  logo: string
+  logoWidth: number
+  logoHeight: number
+  relationship: string
+  logoClass?: string
+}[] = [
   {
     name: 'University of Central Lancashire',
-    shortName: 'UCLan',
     logo: '/landing/logos/uclan-white.png',
-    logoWidth: 180,
-    logoHeight: 67,
-    description:
-      'Our official academic partner. IFG players study for fully accredited undergraduate and postgraduate degrees at one of the UK\'s largest universities.',
+    logoWidth: 160,
+    logoHeight: 60,
     relationship: 'Academic Partner',
   },
   {
-    name: 'Macclesfield Football Club',
-    shortName: 'Macclesfield FC',
+    name: 'Macclesfield FC',
     logo: '/landing/logos/macclesfield-fc-white.png',
-    logoWidth: 100,
-    logoHeight: 100,
-    description:
-      'Our home club partner providing professional-grade facilities, competitive league football, and a direct route into the English football pyramid.',
+    logoWidth: 56,
+    logoHeight: 56,
     relationship: 'Club Partner',
+  },
+  {
+    name: 'Adidas',
+    logo: '/landing/logos/adidas.svg',
+    logoWidth: 80,
+    logoHeight: 56,
+    relationship: 'Kit Partner',
+    logoClass: 'brightness-0 invert',
+  },
+  {
+    name: 'Juventus FC',
+    logo: '/landing/logos/juventus-white.webp',
+    logoWidth: 48,
+    logoHeight: 56,
+    relationship: 'Experience Partner',
   },
 ]
 
 export function PartnerLogos() {
   return (
-    <section className="py-20 md:py-28 bg-[#0A0A0A]">
+    <section className="py-16 md:py-20 bg-[#0A0A0A]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <FadeIn className="text-center mb-14">
-          <div className="flex items-center gap-3 justify-center mb-4">
-            <div className="w-10 h-[2px] bg-red-600" />
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">
-              Our Partners
+        <FadeIn>
+          <div className="text-center mb-10">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">
+              Official Partners & Institutions
             </span>
           </div>
-          <h2 className="font-oswald text-3xl md:text-5xl font-bold uppercase tracking-tight text-white leading-[1.1]">
-            Official Football & Education
-            <br className="hidden sm:block" /> Partners
-          </h2>
-          <p className="mt-4 text-base text-white/50 max-w-2xl mx-auto leading-relaxed">
-            IFG&apos;s programmes are backed by partnerships with established institutions
-            in football and higher education — not just logos on a page.
-          </p>
-        </FadeIn>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {partners.map((partner, i) => (
-            <FadeIn key={partner.shortName} delay={i * 120} threshold={0.1}>
-              <div className="relative rounded-xl border border-white/10 bg-white/[0.05] p-8 md:p-10 hover:border-white/20 transition-colors flex flex-col items-center text-center h-full">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-5">
-                  {partner.relationship}
-                </span>
-                <div className="h-24 flex items-center justify-center mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/[0.06] rounded-xl overflow-hidden">
+            {partners.map((partner) => (
+              <div
+                key={partner.name}
+                className="bg-[#0A0A0A] flex flex-col items-center justify-center py-10 md:py-14 px-6 group hover:bg-white/[0.03] transition-colors"
+              >
+                <div className="h-14 flex items-center justify-center mb-4">
                   <Image
                     src={partner.logo}
                     alt={partner.name}
                     width={partner.logoWidth}
                     height={partner.logoHeight}
-                    className="max-h-20 w-auto object-contain"
+                    className={`max-h-12 w-auto object-contain opacity-70 group-hover:opacity-100 transition-opacity ${partner.logoClass ?? ''}`}
                   />
                 </div>
-                <p className="text-[13px] font-medium text-white/70 mb-2">
+                <span className="text-[11px] font-semibold text-white/50 group-hover:text-white/70 transition-colors text-center leading-snug">
                   {partner.name}
-                </p>
-                <p className="text-sm text-white/40 leading-relaxed">
-                  {partner.description}
-                </p>
+                </span>
+                <span className="text-[10px] font-medium uppercase tracking-widest text-white/30 group-hover:text-white/50 transition-colors mt-1">
+                  {partner.relationship}
+                </span>
               </div>
-            </FadeIn>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          <p className="text-center mt-6 text-[13px] text-white/40 max-w-2xl mx-auto leading-relaxed">
+            IFG&apos;s programmes are delivered in partnership with established institutions
+            in football, education, and sport — providing players with genuine professional pathways.
+          </p>
+        </FadeIn>
       </div>
     </section>
   )

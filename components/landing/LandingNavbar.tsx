@@ -149,6 +149,18 @@ export function LandingNavbar() {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
+            <Link
+              href="/portal/login"
+              className={cn(
+                'hidden md:inline-flex px-3 py-2 text-xs font-medium rounded-md transition-colors',
+                scrolled
+                  ? 'text-gray-400 dark:text-white/40 hover:text-gray-600 dark:hover:text-white/60'
+                  : 'text-white/40 hover:text-white/70'
+              )}
+            >
+              Player Login
+            </Link>
+
             <button
               type="button"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

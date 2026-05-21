@@ -5,20 +5,24 @@ import { FadeIn } from './FadeIn'
 
 export function StatsBar() {
   return (
-    <section className="bg-[#111111] border-t border-white/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-12">
+    <section className="relative bg-[#0C0C0C] border-y border-white/[0.06]">
+      {/* Subtle depth gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent" />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-18">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-0">
           {stats.map((stat, i) => (
             <FadeIn key={stat.label} delay={i * 100} duration={500}>
-              <div className="relative">
-                {i > 0 && (
-                  <div className="hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-px h-10 bg-white/10" />
-                )}
-                <div className={i > 0 ? 'md:pl-12' : ''}>
+              <div
+                className={`relative ${
+                  i > 0 ? 'md:border-l md:border-white/[0.08]' : ''
+                }`}
+              >
+                <div className={i > 0 ? 'md:pl-10' : ''}>
                   <div className="font-oswald text-4xl md:text-5xl font-bold text-white tracking-tight">
                     {stat.value}
                   </div>
-                  <div className="mt-1.5 text-sm text-white/50 font-medium uppercase tracking-wider">
+                  <div className="mt-2 text-[13px] text-white/40 font-medium uppercase tracking-wider">
                     {stat.label}
                   </div>
                 </div>

@@ -1,44 +1,56 @@
 'use client'
 
-import { Dumbbell, GraduationCap, Swords, Globe, Home, ShieldCheck } from 'lucide-react'
+import Image from 'next/image'
 import { FadeIn } from './FadeIn'
 
-const pillars = [
+const blocks = [
   {
-    icon: Dumbbell,
-    title: 'Professional Training Environment',
+    label: 'Football Development',
+    title: 'A Professional Training Environment',
     description:
-      'A minimum of 14 hours coaching per week with UEFA-qualified coaches at Macclesfield FC. Bespoke training tailored to your position, playing style, and goals.',
+      'A minimum of 14 hours coaching per week from UEFA-qualified coaches at Macclesfield FC. Bespoke programmes tailored to your position, playing style, and ambitions. Two competitive matches per week with real analysis and performance feedback.',
+    bullets: [
+      'UEFA A & B licensed coaching staff',
+      '30+ competitive fixtures per season',
+      'PlayerData video analysis technology',
+      'Position-specific training sessions',
+    ],
+    image: '/landing/photos/first-team-training.jpeg',
+    imageAlt: 'IFG training session at Macclesfield FC',
+    objectPosition: 'object-[center_30%]',
+    reverse: false,
   },
   {
-    icon: GraduationCap,
-    title: 'Continued Education',
+    label: 'Education & Progression',
+    title: 'Football and Education Together',
     description:
-      'Earn a fully accredited UK university degree from UCLan while you train. Timetables are designed to provide the perfect balance between learning, training, and match fixtures.',
+      'Earn a fully accredited UK university degree from UCLan while you train. Timetables are designed around football — not the other way around. For younger players, the gap year and residency programmes provide structured development without the academic commitment.',
+    bullets: [
+      'Accredited degrees at UCLan (38,000+ students, 120+ countries)',
+      'Timetables built around training and match schedules',
+      'Gap year and residency options for players not ready for university',
+      'Scholarships and bursaries available for international students',
+    ],
+    image: '/landing/photos/graduation-1.jpg',
+    imageAlt: 'IFG graduates at UCLan',
+    objectPosition: 'object-[center_40%]',
+    reverse: true,
   },
   {
-    icon: Swords,
-    title: 'Competitive Match Experience',
+    label: 'Pathways & Player Support',
+    title: 'Real Pathways. Real Support.',
     description:
-      'Two competitive matches per week in BUCS and national leagues. Build a match CV with real footage via PlayerData technology and personalised video analysis.',
-  },
-  {
-    icon: Globe,
-    title: 'Flexible Pathway Options',
-    description:
-      'From a 3-year university degree to a flexible gap year or an intensive short-term residency — IFG offers pathways designed around your age, ambitions, and timeline.',
-  },
-  {
-    icon: Home,
-    title: 'Player Lifestyle & Welfare',
-    description:
-      'Full accommodation, three meals per day for residency students, access to the Stealth Gymnasium and Sir Tom Finney Sports Centre. All transport to training and matches provided.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Parent Guidance & Reassurance',
-    description:
-      'Dedicated pastoral care, regular progress reports, and a single point of contact for parents. We understand the trust involved in sending your child abroad.',
+      'IFG isn\'t a holiday camp. It\'s a structured, full-time programme designed for players who want to be treated like professionals — and parents who need to know their child is in the right hands. Full accommodation, transport, nutrition, pastoral care, and a clear route forward.',
+    bullets: [
+      'Full accommodation and meals included',
+      'All transport to training, matches, and events',
+      'Dedicated pastoral care and parent communication',
+      'Clear progression routes into longer programmes or professional trials',
+    ],
+    image: '/landing/photos/summer-1.webp',
+    imageAlt: 'IFG player support and pastoral care',
+    objectPosition: 'object-center',
+    reverse: false,
   },
 ]
 
@@ -46,7 +58,7 @@ export function WhyIFGSection() {
   return (
     <section className="py-20 md:py-28 bg-white dark:bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Editorial header */}
+        {/* Section header */}
         <FadeIn className="max-w-3xl mb-16">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-[2px] bg-red-600" />
@@ -58,29 +70,52 @@ export function WhyIFGSection() {
             Built Around What
             <br className="hidden md:block" /> Players Actually Need
           </h2>
-          <p className="mt-5 text-lg text-gray-600 dark:text-muted-foreground leading-relaxed max-w-2xl">
-            IFG isn&apos;t a holiday camp or a short-term clinic. It&apos;s a structured,
-            full-time football and education programme designed for players who want
-            to be treated like professionals — and parents who need to know their child
-            is in the right hands.
-          </p>
         </FadeIn>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-          {pillars.map((pillar, i) => (
-            <FadeIn key={pillar.title} delay={i * 80} threshold={0.1}>
-              <div className="group relative">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="flex items-center justify-center w-11 h-11 rounded-lg bg-[#0A0A0A] text-white shrink-0 group-hover:bg-red-600 transition-colors">
-                    <pillar.icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="font-oswald text-base font-semibold uppercase tracking-tight text-gray-900 dark:text-foreground leading-tight">
-                    {pillar.title}
-                  </h3>
+        {/* Editorial blocks */}
+        <div className="space-y-20 md:space-y-28">
+          {blocks.map((block, i) => (
+            <FadeIn key={block.label} delay={i * 100} threshold={0.05}>
+              <div
+                className={`grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center ${
+                  block.reverse ? 'lg:[&>*:first-child]:order-2' : ''
+                }`}
+              >
+                {/* Image */}
+                <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-[#0A0A0A]">
+                  <Image
+                    src={block.image}
+                    alt={block.imageAlt}
+                    fill
+                    className={`object-cover brightness-105 contrast-105 ${block.objectPosition}`}
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                  />
+                  {/* Subtle accent strip at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-600" />
                 </div>
-                <p className="text-sm text-gray-600 dark:text-muted-foreground leading-relaxed pl-[60px]">
-                  {pillar.description}
-                </p>
+
+                {/* Content */}
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-600 dark:text-red-500">
+                    {block.label}
+                  </span>
+                  <h3 className="font-oswald text-2xl md:text-3xl font-bold uppercase tracking-tight text-gray-900 dark:text-foreground leading-[1.1] mt-2 mb-4">
+                    {block.title}
+                  </h3>
+                  <p className="text-[15px] text-gray-600 dark:text-muted-foreground leading-relaxed mb-6">
+                    {block.description}
+                  </p>
+                  <div className="space-y-2.5">
+                    {block.bullets.map((bullet) => (
+                      <div key={bullet} className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-600 shrink-0 mt-2" />
+                        <p className="text-sm text-gray-700 dark:text-foreground/80 leading-relaxed">
+                          {bullet}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </FadeIn>
           ))}

@@ -75,7 +75,7 @@ export function FacilitiesSection() {
                   className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
                   sizes="(max-width: 1024px) 100vw, 33vw"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
                   <span className="inline-block text-[10px] font-semibold uppercase tracking-widest text-white/50 mb-2">
                     {facility.tag}
@@ -101,7 +101,7 @@ export function FacilitiesSection() {
             </span>
           </div>
         </FadeIn>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {accommodation.map((acc, i) => (
             <FadeIn key={acc.type} delay={i * 80} threshold={0.1}>
               <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.03] p-6 h-full flex flex-col">

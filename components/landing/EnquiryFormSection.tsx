@@ -90,11 +90,11 @@ export function EnquiryFormSection({ preselectedProgramme }: EnquiryFormSectionP
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-[2px] bg-red-600" />
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">
-                Get in Touch
+                Admissions
               </span>
             </div>
             <h2 className="font-oswald text-3xl md:text-5xl font-bold uppercase tracking-tight text-white leading-[1.1] mb-5">
-              Start Your Journey Today
+              Start Your IFG Application
             </h2>
             <p className="text-lg text-white/60 leading-relaxed mb-8">
               Fill in the form and our admissions team will get back to you within 24-48 hours

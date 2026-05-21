@@ -24,13 +24,13 @@ interface FAQSectionProps {
 
 export function FAQSection({
   faqs,
-  title = 'Frequently Asked Questions',
-  subtitle = "Got questions? We've got answers.",
+  title = 'Questions Before You Apply',
+  subtitle = 'Common questions from players and parents about programmes, applications, and life at IFG.',
   accentColor = 'red',
 }: FAQSectionProps) {
   const lineColor = lineColors[accentColor] || lineColors.red
   return (
-    <section id="faq" className="py-20 md:py-28 bg-gray-50 dark:bg-white/[0.02]">
+    <section id="faq" className="py-20 md:py-28 bg-white dark:bg-background border-t border-gray-100 dark:border-white/[0.06]">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <FadeIn className="text-center mb-14">
           <div className="flex items-center gap-3 justify-center mb-4">

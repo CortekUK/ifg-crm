@@ -89,7 +89,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
           </SmoothScrollLink>
         </div>
 
-        <div className="p-4 mt-auto border-t border-border">
+        <div className="p-4 mt-auto border-t border-border space-y-3">
           <SmoothScrollLink href="#enquire" className="block">
             <Button
               className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-600/25"
@@ -98,6 +98,13 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
               Enquire Now
             </Button>
           </SmoothScrollLink>
+          <Link
+            href="/portal/login"
+            onClick={onClose}
+            className="block text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+          >
+            Player Login
+          </Link>
         </div>
       </SheetContent>
     </Sheet>
