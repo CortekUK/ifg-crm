@@ -45,7 +45,7 @@ const coaches = [
 function CoachCard({ coach, delay }: { coach: (typeof coaches)[0]; delay: number }) {
   return (
     <FadeIn delay={delay} threshold={0.1}>
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 h-full flex flex-col">
+      <div className="rounded-xl border border-white/[0.12] bg-white/[0.06] p-6 h-full flex flex-col">
         <Badge
           variant="outline"
           className="w-fit text-[10px] border-red-600/30 text-red-400 mb-4"
@@ -55,8 +55,8 @@ function CoachCard({ coach, delay }: { coach: (typeof coaches)[0]; delay: number
         <h3 className="font-oswald text-base font-bold uppercase tracking-tight text-white leading-tight">
           {coach.name}
         </h3>
-        <p className="text-xs text-white/40 mt-1 mb-4">{coach.role}</p>
-        <p className="text-sm text-white/60 leading-relaxed flex-1">
+        <p className="text-xs text-white/50 mt-1 mb-4">{coach.role}</p>
+        <p className="text-sm text-white/70 leading-relaxed flex-1">
           {coach.description}
         </p>
       </div>
@@ -112,7 +112,7 @@ export function CoachingStaffSection() {
 
             {/* Guest masterclass */}
             <FadeIn delay={100}>
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 md:p-8">
+              <div className="rounded-xl border border-white/[0.12] bg-white/[0.06] p-6 md:p-8">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-2 h-2 rounded-full bg-red-600" />
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
@@ -128,7 +128,7 @@ export function CoachingStaffSection() {
                 >
                   3x Premier League Winner
                 </Badge>
-                <p className="mt-3 text-sm text-white/60 leading-relaxed max-w-2xl">
+                <p className="mt-3 text-sm text-white/70 leading-relaxed max-w-2xl">
                   Former German international. 326 top-flight appearances for Chelsea, Middlesbrough,
                   Stoke City, and Leicester City. Guest masterclass at The Leasing.com Stadium, June 2025.
                 </p>
