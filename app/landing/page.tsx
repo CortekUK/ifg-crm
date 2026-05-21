@@ -3,7 +3,6 @@ import { OnThePitch } from '@/components/landing/OnThePitch'
 import { InTheClassroom } from '@/components/landing/InTheClassroom'
 import { MatchdaySection } from '@/components/landing/MatchdaySection'
 import { ProgrammeFinder } from '@/components/landing/ProgrammeFinder'
-import { PathwayCTA } from '@/components/landing/PathwayCTA'
 import { LivingAndSupport } from '@/components/landing/LivingAndSupport'
 import { CoachingStaffSection } from '@/components/landing/CoachingStaffSection'
 import { ApplicationJourney } from '@/components/landing/ApplicationJourney'
@@ -19,7 +18,6 @@ export default function LandingPage() {
       <InTheClassroom />
       <MatchdaySection />
       <ProgrammeFinder />
-      <PathwayCTA />
       <LivingAndSupport />
       <CoachingStaffSection />
       <ApplicationJourney />
