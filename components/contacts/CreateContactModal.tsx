@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
@@ -752,7 +751,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Add to Lists
                   </Label>
-                  <ScrollArea className="max-h-44 rounded-md border border-slate-200 dark:border-slate-700">
+                  <div className="max-h-44 overflow-y-auto rounded-md border border-slate-200 dark:border-slate-700">
                     <div className="p-2 space-y-1">
                       {lists.map((list) => (
                         <label
@@ -771,7 +770,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
                         </label>
                       ))}
                     </div>
-                  </ScrollArea>
+                  </div>
                   {selectedListIds.length > 0 && (
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {selectedListIds.length} list{selectedListIds.length === 1 ? '' : 's'} selected

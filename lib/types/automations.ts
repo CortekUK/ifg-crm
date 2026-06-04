@@ -142,9 +142,22 @@ export interface AutomationConfig {
   // `recurring_loop_to_order` and reschedules, indefinitely, as long as the
   // deal is still in `recurring_anchor_stage_id`. Used by the Dormant
   // reminder (first reminder on entering Dormant, then every ~3 weeks).
+  //
+  // These three are DERIVED from the dormant_reminder_* fields below at save
+  // time (see deriveRecurringMeta) — don't set them by hand in the UI.
   recurring?: boolean
-  recurring_loop_to_order?: number
+  recurring_loop_to_order?: number | null
   recurring_anchor_stage_id?: string | null
+  // Dormant reminder (user-facing controls). When enabled on an
+  // initial_contact / follow_up automation, the compiler appends a tail:
+  //   move_to_stage → (no_reply_stage_id, i.e. Dormant)
+  //   send_email    → dormant_reminder_template_id   (first reminder, immediate)
+  //   wait          → dormant_reminder_interval_days (default 21 = 3 weeks)
+  // and loops the last two forever until the deal leaves the stage / replies /
+  // is unenrolled. The anchor + move target are the Goal 3 no_reply_stage_id.
+  dormant_reminder_enabled?: boolean
+  dormant_reminder_template_id?: string | null
+  dormant_reminder_interval_days?: number
 }
 
 export interface Automation {

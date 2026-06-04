@@ -138,7 +138,57 @@ function threeEmailSequence(
     steps.push(waitStep(waitDays[2] || DEFAULT_WAIT_DAYS[2]))
     steps.push(moveToStageStep(options.finalStageId))
   }
-  return steps
+  return appendDormantReminderTail(steps, config)
+}
+
+const DEFAULT_DORMANT_INTERVAL_DAYS = 21
+
+// Optional recurring "re-engagement" tail for initial_contact / follow_up.
+// When dormant_reminder_enabled (and a no_reply/Dormant stage is set), append:
+//   move_to_stage → Dormant   (explicit; the looping enrollment never
+//                              completes, so the no_reply-on-completion move
+//                              can't fire)
+//   send_email    → reminder  (first reminder, immediate on entering Dormant)
+//   wait          → interval  (default 21 days)
+// The engine loops the reminder+wait forever (see deriveRecurringMeta) until
+// the deal leaves Dormant, replies, or is unenrolled.
+function appendDormantReminderTail(
+  steps: CompiledStep[],
+  config: AutomationConfig | null | undefined,
+): CompiledStep[] {
+  if (!config?.dormant_reminder_enabled || !config?.no_reply_stage_id) {
+    return steps
+  }
+  return [
+    ...steps,
+    moveToStageStep(config.no_reply_stage_id),
+    emailStep(config.dormant_reminder_template_id || null),
+    waitStep(config.dormant_reminder_interval_days || DEFAULT_DORMANT_INTERVAL_DAYS),
+  ]
+}
+
+// Recurring metadata persisted to automations.config so the engine knows to
+// loop instead of completing. Derived from the compiled shape so the loop
+// target stays correct even if the base sequence length changes. The reminder
+// send is the second-to-last compiled step (… reminder, wait); step_order is
+// 1-based, so its order == steps.length - 1.
+export function deriveRecurringMeta(
+  type: AutomationType | undefined,
+  config: AutomationConfig | null | undefined,
+): {
+  recurring: boolean
+  recurring_loop_to_order: number | null
+  recurring_anchor_stage_id: string | null
+} {
+  if (!config?.dormant_reminder_enabled || !config?.no_reply_stage_id) {
+    return { recurring: false, recurring_loop_to_order: null, recurring_anchor_stage_id: null }
+  }
+  const steps = compileAutomationSteps(type, config)
+  return {
+    recurring: true,
+    recurring_loop_to_order: steps.length - 1,
+    recurring_anchor_stage_id: config.no_reply_stage_id,
+  }
 }
 
 // Shared shape for the open-ended "emails + waits" types

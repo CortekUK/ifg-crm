@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Automation, AutomationLog, AutomationFilters, AutomationEnrollment, AutomationType, AutomationConfig } from '@/lib/types/automations'
-import { compileAutomationSteps, type CompiledStep } from '@/lib/automations/compile'
+import { compileAutomationSteps, deriveRecurringMeta, type CompiledStep } from '@/lib/automations/compile'
 
 export interface CreateAutomationInput {
   name: string
@@ -322,6 +322,13 @@ export function useCreateAutomation() {
 
   return useMutation({
     mutationFn: async (input: CreateAutomationInput) => {
+      // Fold in the derived recurring metadata (recurring / loop order /
+      // anchor stage) so the Dormant reminder loops correctly. Derived from
+      // the dormant_reminder_* fields; safe no-op when not enabled.
+      const mergedConfig = input.config
+        ? { ...input.config, ...deriveRecurringMeta(input.automation_type, input.config) }
+        : null
+
       // Insert the automation (paused by default)
       const { data: automation, error: automationError } = await supabase
         .from('automations')
@@ -333,7 +340,7 @@ export function useCreateAutomation() {
           pipeline_id: input.pipeline_id || null,
           trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],
-          config: input.config || null,
+          config: mergedConfig,
           exit_on_reply: input.config?.exit_on_reply ?? true,
           exit_to_stage_id: input.config?.exit_to_stage_id || null,
           no_reply_stage_id: input.config?.no_reply_stage_id || null,
@@ -348,7 +355,7 @@ export function useCreateAutomation() {
       const steps = buildAutomationSteps(
         automation.id,
         input.automation_type,
-        input.config
+        mergedConfig
       )
 
       if (steps.length > 0) {
@@ -374,6 +381,12 @@ export function useUpdateAutomation() {
 
   return useMutation({
     mutationFn: async (input: UpdateAutomationInput) => {
+      // Fold in the derived recurring metadata so an edit re-persists the
+      // Dormant reminder loop correctly (and clears it when disabled).
+      const mergedConfig = input.config
+        ? { ...input.config, ...deriveRecurringMeta(input.automation_type, input.config) }
+        : null
+
       // Update the automation
       const { data: automation, error: automationError } = await supabase
         .from('automations')
@@ -385,7 +398,7 @@ export function useUpdateAutomation() {
           pipeline_id: input.pipeline_id || null,
           trigger_stage_id: input.trigger_stage_id || null,
           stop_on_stage_ids: input.stop_on_stage_ids || [],
-          config: input.config || null,
+          config: mergedConfig,
           exit_on_reply: input.config?.exit_on_reply ?? true,
           exit_to_stage_id: input.config?.exit_to_stage_id || null,
           no_reply_stage_id: input.config?.no_reply_stage_id || null,
@@ -400,7 +413,7 @@ export function useUpdateAutomation() {
       const newSteps = buildAutomationSteps(
         input.id,
         input.automation_type,
-        input.config
+        mergedConfig
       )
 
       // Get existing steps to update in-place (preserves IDs and FK references)

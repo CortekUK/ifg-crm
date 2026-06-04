@@ -189,8 +189,8 @@ export function ContactDetailSheet({
     try {
       await addToList.mutateAsync({ listId, contactIds: [contactId] })
       toast({ title: 'Added to list', description: `Contact added to "${listName}".` })
-      setIsAddListOpen(false)
-      setListSearchQuery('')
+      // Keep the popover open so several lists can be added in a row — the
+      // just-added list drops out of `availableLists` automatically.
     } catch {
       toast({ title: 'Error', description: 'Failed to add contact to list.', variant: 'destructive' })
     }

@@ -54,6 +54,7 @@ import {
   CornerUpLeft,
   TrendingUp,
   CircleSlash,
+  Repeat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePipelines } from '@/lib/hooks/usePipelines'
@@ -1970,6 +1971,105 @@ export function ConfigureAutomationModal({
                           </p>
                         </div>
                       </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Dormant Reminder — recurring re-engagement nudge.
+                    Only for the contact sequences; anchors on the Goal 3
+                    no-reply (Dormant) stage set above. */}
+                {(selectedTemplate?.type === 'initial_contact' ||
+                  selectedTemplate?.type === 'follow_up') && (
+                  <>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase flex items-center gap-2">
+                        <Repeat className="h-4 w-4" />
+                        Dormant Reminder
+                      </h3>
+
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          id="dormant-reminder-enabled"
+                          checked={!!formData.config.dormant_reminder_enabled}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, dormant_reminder_enabled: !!checked },
+                            }))
+                          }
+                        />
+                        <label htmlFor="dormant-reminder-enabled" className="text-sm cursor-pointer">
+                          Keep sending a reminder while the deal sits in the no-reply stage
+                          <span className="block text-xs text-muted-foreground mt-0.5">
+                            On no reply, the deal moves to the Goal 3 stage, gets a reminder
+                            immediately, then another on the interval below — repeating until the
+                            contact replies, the deal is moved out, or it&apos;s unenrolled.
+                          </span>
+                        </label>
+                      </div>
+
+                      {formData.config.dormant_reminder_enabled && (
+                        <div className="pl-6 space-y-4">
+                          {!formData.config.no_reply_stage_id && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Set the Goal 3 &quot;no reply&quot; stage (e.g. Dormant) above — the
+                              reminder anchors on it.
+                            </p>
+                          )}
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Reminder email</Label>
+                            <TemplateSearchSelect
+                              templates={templates}
+                              value={formData.config.dormant_reminder_template_id || ''}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: { ...prev.config, dormant_reminder_template_id: value },
+                                }))
+                              }
+                              placeholder="Select reminder template"
+                              className="h-9"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Send a reminder every</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={365}
+                                className="w-20 h-9"
+                                value={formData.config.dormant_reminder_interval_days ?? 21}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    config: {
+                                      ...prev.config,
+                                      dormant_reminder_interval_days:
+                                        parseInt(e.target.value) || 1,
+                                    },
+                                  }))
+                                }
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                days{' '}
+                                <span className="text-xs">(default 21 = 3 weeks)</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {!formData.config.dormant_reminder_template_id && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Pick a reminder template to enable the dormant reminder.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
