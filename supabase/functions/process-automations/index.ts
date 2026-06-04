@@ -552,6 +552,13 @@ async function processQueue(
           paid_stage_id?: string | null
           unpaid_stage_id?: string | null
           activated_stage_id?: string | null
+          // Recurring loop (e.g. Dormant reminder every 3 weeks). When the
+          // sequence runs out of steps, instead of completing, jump back to
+          // `recurring_loop_to_order` and reschedule — indefinitely, as long
+          // as the deal is still parked in `recurring_anchor_stage_id`.
+          recurring?: boolean
+          recurring_loop_to_order?: number
+          recurring_anchor_stage_id?: string | null
         } | null
 
         // Welcome Sequence — exit + stage move once the player has
@@ -723,6 +730,79 @@ async function processQueue(
             summary.errors.push(`Failed to update enrollment ${enrollment.id}: ${updateError.message}`)
           }
         } else {
+          // No next step. If this automation is recurring AND the deal is
+          // still parked in the anchor stage, loop back to the configured
+          // step instead of completing. Powers the Dormant reminder cadence:
+          // wait 3 weeks → reminder → loop, forever, until the deal leaves
+          // Dormant (recruiter move or reply→exit) or is manually unenrolled.
+          //
+          // The anchor check happens HERE — right before re-arming the next
+          // send — so a deal that has left Dormant during the wait window
+          // never receives another reminder.
+          let looped = false
+          if (
+            automationCfg?.recurring === true &&
+            typeof automationCfg.recurring_loop_to_order === 'number'
+          ) {
+            const anchorStageId = automationCfg.recurring_anchor_stage_id ?? null
+            let stillAnchored = true
+            if (anchorStageId) {
+              const { data: dealStageRow } = await supabase
+                .from('deals')
+                .select('current_stage_id')
+                .eq('id', enrollment.deal_id)
+                .single()
+              stillAnchored = dealStageRow?.current_stage_id === anchorStageId
+            }
+
+            if (stillAnchored) {
+              const { data: loopStep } = await supabase
+                .from('automation_steps')
+                .select('*')
+                .eq('automation_id', enrollment.automation_id)
+                .eq('step_order', automationCfg.recurring_loop_to_order)
+                .single()
+
+              if (loopStep) {
+                const loopAt = calculateNextStepTime(loopStep as AutomationStep)
+                const { error: loopError } = await supabase
+                  .from('automation_enrollments')
+                  .update({
+                    current_step_id: loopStep.id,
+                    next_step_at: loopAt ? loopAt.toISOString() : new Date().toISOString(),
+                  })
+                  .eq('id', enrollment.id)
+
+                if (loopError) {
+                  summary.errors.push(`Failed to loop recurring enrollment ${enrollment.id}: ${loopError.message}`)
+                } else {
+                  looped = true
+                }
+              }
+            } else {
+              // Deal has left the anchor stage (e.g. recruiter moved it out of
+              // Dormant). Stop the loop, but DON'T let the deal be moved: mark
+              // the enrollment stopped with a 'Manual'-prefixed reason, which
+              // move_deal_on_enrollment_exit (migration 091) deliberately
+              // ignores. Without the prefix, the 'completed'/'stopped' paths
+              // would re-route the deal to no_reply_stage_id / exit_to_stage_id
+              // and yank it back out of wherever the recruiter just put it.
+              await supabase
+                .from('automation_enrollments')
+                .update({
+                  status: 'stopped',
+                  stopped_reason: 'Manual: deal left Dormant — recurring reminder ended',
+                  next_step_at: null,
+                })
+                .eq('id', enrollment.id)
+              summary.enrollmentsStopped++
+              looped = true // handled — skip the completion path below
+            }
+          }
+
+          if (looped) {
+            // Re-armed for the next cycle — skip completion + final-stage logic.
+          } else {
           // No next step - mark as completed
           const { error: completeError } = await supabase
             .from('automation_enrollments')
@@ -772,6 +852,7 @@ async function processQueue(
               })
               summary.stagesMoved++
             }
+          }
           }
         }
       } catch (lockErr) {

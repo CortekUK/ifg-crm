@@ -115,7 +115,16 @@ export function PipelineStats({ deals, lastUpdated, userId, isAdmin }: PipelineS
   void isAdmin
   // Calculate stats
   const totalPlayers = deals.length
-  const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
+  // Total Value excludes deals that have landed in a lost/dead stage — a
+  // priced deal that died shouldn't keep inflating the pipeline's value.
+  const DEAD_STAGE_TYPES = ['lost', 'dead']
+  const totalValue = deals.reduce(
+    (sum, deal) =>
+      deal.stage && DEAD_STAGE_TYPES.includes(deal.stage.stage_type)
+        ? sum
+        : sum + (deal.deal_value || 0),
+    0
+  )
   const dealsWon = deals.filter((deal) => deal.won_at).length
   const conversionRate = totalPlayers > 0
     ? Math.round((dealsWon / totalPlayers) * 100)

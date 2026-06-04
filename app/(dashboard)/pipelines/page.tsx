@@ -560,6 +560,7 @@ export default function PipelinesPage() {
           }}
           pipelineId={selectedPipelineId}
           stage={selectedStage}
+          stages={stages}
           userId={userId}
         />
       )}

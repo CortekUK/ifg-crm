@@ -5,12 +5,15 @@
 // signature) block: that one carries the per-deal-owner info, this one
 // carries the bits that don't change between recruiters.
 
+import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { AlignLeft, AlignCenter, AlignRight, Building2, Plus, Trash2 } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight, Building2, Plus, Trash2, Upload, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { uploadEmailImage } from '@/lib/templates/upload-image'
+import { toast } from '@/lib/hooks/use-toast'
 import type { CompanySignatureBlockContent } from '@/lib/templates/editor-types'
 
 interface CompanySignatureBlockProps {
@@ -33,6 +36,9 @@ function renderDisclaimerHtml(text: string): string {
 export function CompanySignatureBlock({ content, isSelected, onUpdate }: CompanySignatureBlockProps) {
   const c = content as unknown as CompanySignatureBlockContent
   const logos = Array.isArray(c.logos) ? c.logos : []
+  // Index of the logo currently uploading, or null. Used to disable inputs
+  // and show a spinner on the row being replaced.
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
 
   const updateLogo = (idx: number, patch: Partial<{ src: string; alt: string; href: string }>) => {
     const next = [...logos]
@@ -42,6 +48,27 @@ export function CompanySignatureBlock({ content, isSelected, onUpdate }: Company
   const addLogo = () => onUpdate({ logos: [...logos, { src: '', alt: '' }] })
   const removeLogo = (idx: number) =>
     onUpdate({ logos: logos.filter((_, i) => i !== idx) })
+
+  const handleLogoUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // reset so re-selecting the same file fires onChange
+    if (!file) return
+
+    setUploadingIdx(idx)
+    try {
+      const url = await uploadEmailImage(file)
+      updateLogo(idx, { src: url })
+      toast({ title: 'Logo uploaded', description: 'The logo image has been updated.' })
+    } catch (err) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingIdx(null)
+    }
+  }
 
   return (
     <div
@@ -69,28 +96,58 @@ export function CompanySignatureBlock({ content, isSelected, onUpdate }: Company
           <div className="space-y-2">
             <Label className="text-xs font-medium">Logos</Label>
             {logos.map((logo, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-md border border-blue-200 bg-white p-2 dark:border-blue-800 dark:bg-slate-800/40">
-                <Input
-                  value={logo.src}
-                  placeholder="Logo URL (https://…)"
-                  onChange={(e) => updateLogo(i, { src: e.target.value })}
-                  className="h-7 flex-1 text-xs"
-                />
+              <div key={i} className="space-y-1.5 rounded-md border border-blue-200 bg-white p-2 dark:border-blue-800 dark:bg-slate-800/40">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={logo.src}
+                    placeholder="Logo URL (https://…) or upload →"
+                    onChange={(e) => updateLogo(i, { src: e.target.value })}
+                    className="h-7 flex-1 text-xs"
+                    disabled={uploadingIdx === i}
+                  />
+                  <label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      className="hidden"
+                      disabled={uploadingIdx !== null}
+                      onChange={(e) => handleLogoUpload(i, e)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={uploadingIdx !== null}
+                      title={logo.src ? 'Replace logo' : 'Upload logo'}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        const input = e.currentTarget.previousElementSibling as HTMLInputElement
+                        input?.click()
+                      }}
+                    >
+                      {uploadingIdx === i ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </label>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-500 hover:text-red-600"
+                    onClick={() => removeLogo(i)}
+                    title="Remove logo"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 <Input
                   value={logo.alt}
-                  placeholder="Alt text"
+                  placeholder="Alt text (e.g. UCLan logo)"
                   onChange={(e) => updateLogo(i, { alt: e.target.value })}
-                  className="h-7 w-32 text-xs"
+                  className="h-7 w-full text-xs"
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-slate-500 hover:text-red-600"
-                  onClick={() => removeLogo(i)}
-                  title="Remove logo"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
               </div>
             ))}
             <Button

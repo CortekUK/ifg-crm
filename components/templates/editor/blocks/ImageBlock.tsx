@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Image, Upload, AlignLeft, AlignCenter, AlignRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+import { uploadEmailImage } from '@/lib/templates/upload-image'
 import { toast } from '@/lib/hooks/use-toast'
 import type { ImageBlockContent } from '@/lib/templates/editor-types'
 
@@ -22,67 +22,21 @@ export function ImageBlock({ content, isSelected, onUpdate }: ImageBlockProps) {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = '' // reset so re-selecting the same file fires onChange
     if (!file) return
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please upload an image file (PNG, JPG, GIF, or WebP).',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // Block SVG — not supported by most email clients
-    if (file.type === 'image/svg+xml') {
-      toast({
-        title: 'SVG not supported in emails',
-        description: 'Please upload a PNG, JPG, GIF, or WebP image instead. SVG files are blocked by most email clients.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File too large',
-        description: 'Please upload an image smaller than 5MB.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setIsUploading(true)
-    const supabase = createClient()
-
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`
-      const filePath = `email-templates/${fileName}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('uploads')
-        .upload(filePath, file)
-
-      if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('uploads')
-        .getPublicUrl(filePath)
-
+      const publicUrl = await uploadEmailImage(file)
       onUpdate({ src: publicUrl })
-
       toast({
         title: 'Image uploaded',
         description: 'Your image has been uploaded successfully.',
       })
     } catch (error) {
-      console.error('Upload error:', error)
       toast({
         title: 'Upload failed',
-        description: 'Failed to upload image. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to upload image. Please try again.',
         variant: 'destructive',
       })
     } finally {

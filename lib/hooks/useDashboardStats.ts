@@ -91,8 +91,8 @@ export function useDashboardStats() {
           .lte('created_at', lastOfLastMonth.toISOString()),
         // Total contacts
         supabase.from('contacts').select('*', { count: 'exact', head: true }),
-        // Deal values
-        supabase.from('deals').select('deal_value'),
+        // Deal values (current_stage_id needed to exclude lost/dead deals)
+        supabase.from('deals').select('deal_value, current_stage_id'),
         // Paid invoices (total revenue)
         supabase.from('invoices').select('amount').eq('status', 'paid'),
         // Month invoices
@@ -207,8 +207,27 @@ export function useDashboardStats() {
         console.warn('Failed to fetch won deals:', e)
       }
 
+      // Exclude deals sitting in lost/dead stages from total pipeline value —
+      // a priced deal that died shouldn't keep inflating the headline number.
+      let deadStageIds: string[] = []
+      try {
+        const { data: deadStages } = await supabase
+          .from('pipeline_stages')
+          .select('id')
+          .in('stage_type', ['lost', 'dead'])
+        deadStageIds = deadStages?.map((s) => s.id) || []
+      } catch (e) {
+        console.warn('Failed to fetch lost/dead stages:', e)
+      }
+
       // Process remaining stats
-      const totalDealValue = dealValuesResult.data?.reduce((sum, d) => sum + (d.deal_value || 0), 0) || 0
+      const totalDealValue = dealValuesResult.data?.reduce(
+        (sum, d) =>
+          d.current_stage_id && deadStageIds.includes(d.current_stage_id)
+            ? sum
+            : sum + (d.deal_value || 0),
+        0
+      ) || 0
       const totalRevenue = paidInvoicesResult.data?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0
       const monthRevenue = monthInvoicesResult.data?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0
 

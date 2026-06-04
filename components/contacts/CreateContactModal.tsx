@@ -113,7 +113,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
   
   const [formData, setFormData] = useState(initialFormData)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectedListId, setSelectedListId] = useState<string>('')
+  const [selectedListIds, setSelectedListIds] = useState<string[]>([])
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null)
   const [createDeal, setCreateDeal] = useState(false)
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>('')
@@ -163,7 +163,7 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
     if (isOpen) {
       setFormData(initialFormData)
       setSelectedTags([])
-      setSelectedListId('')
+      setSelectedListIds([])
       setSelectedOwnerId(null)
       setCreateDeal(false)
       setSelectedPipelineId('')
@@ -179,6 +179,14 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
       prev.includes(tagId)
         ? prev.filter((id) => id !== tagId)
         : [...prev, tagId]
+    )
+  }
+
+  const toggleList = (listId: string) => {
+    setSelectedListIds((prev) =>
+      prev.includes(listId)
+        ? prev.filter((id) => id !== listId)
+        : [...prev, listId]
     )
   }
 
@@ -267,16 +275,17 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
         await supabase.from('contact_tags').insert(tagInserts)
       }
 
-      // Add to list if selected
-      if (selectedListId) {
-        await supabase.from('contact_lists').insert({
-          list_id: selectedListId,
+      // Add to selected lists
+      if (selectedListIds.length > 0) {
+        const listInserts = selectedListIds.map((listId) => ({
+          list_id: listId,
           contact_id: contact.id,
-        })
+        }))
+        await supabase.from('contact_lists').insert(listInserts)
       }
 
       // Add to "All Contacts Everyone" list (if not already added via list selection)
-      if (!selectedListId) {
+      if (selectedListIds.length === 0) {
         const { data: allContactsList } = await supabase
           .from('lists')
           .select('id')
@@ -740,23 +749,34 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
               
               {lists.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Add to List</Label>
-                  <Select 
-                    value={selectedListId || undefined} 
-                    onValueChange={(value) => setSelectedListId(value === '__none__' ? '' : value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a list (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Add to Lists
+                  </Label>
+                  <ScrollArea className="max-h-44 rounded-md border border-slate-200 dark:border-slate-700">
+                    <div className="p-2 space-y-1">
                       {lists.map((list) => (
-                        <SelectItem key={list.id} value={list.id}>
-                          {list.name}
-                        </SelectItem>
+                        <label
+                          key={list.id}
+                          htmlFor={`list-${list.id}`}
+                          className="flex items-center gap-3 rounded-md px-2 py-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <Checkbox
+                            id={`list-${list.id}`}
+                            checked={selectedListIds.includes(list.id)}
+                            onCheckedChange={() => toggleList(list.id)}
+                          />
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            {list.name}
+                          </span>
+                        </label>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                  </ScrollArea>
+                  {selectedListIds.length > 0 && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {selectedListIds.length} list{selectedListIds.length === 1 ? '' : 's'} selected
+                    </p>
+                  )}
                 </div>
               )}
 

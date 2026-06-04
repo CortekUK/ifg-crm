@@ -137,6 +137,14 @@ export interface AutomationConfig {
   invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
   invoice_due_in_days?: number
   invoice_description?: string
+  // Recurring loop. When true, the engine — instead of completing the
+  // enrollment after its last step — jumps back to the step at
+  // `recurring_loop_to_order` and reschedules, indefinitely, as long as the
+  // deal is still in `recurring_anchor_stage_id`. Used by the Dormant
+  // reminder (first reminder on entering Dormant, then every ~3 weeks).
+  recurring?: boolean
+  recurring_loop_to_order?: number
+  recurring_anchor_stage_id?: string | null
 }
 
 export interface Automation {

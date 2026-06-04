@@ -29,6 +29,13 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Calendar } from '@/components/ui/calendar'
 import { Slider } from '@/components/ui/slider'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Check, ChevronsUpDown, Loader2, PoundSterling, CalendarIcon, TrendingUp, Plane, GraduationCap, Video } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -47,6 +54,9 @@ interface AddDealModalProps {
   stage: PipelineStage
   userId: string
   defaultDealValue?: number
+  // Full stage list for the pipeline so the user can pick the starting
+  // stage. Falls back to just `stage` when not provided.
+  stages?: PipelineStage[]
 }
 
 export function AddDealModal({
@@ -56,7 +66,14 @@ export function AddDealModal({
   stage,
   userId,
   defaultDealValue = 15000,
+  stages,
 }: AddDealModalProps) {
+  // Stages to choose from, ordered by display_order. When no list is passed
+  // we only know about the stage the modal was opened from.
+  const stageOptions = (stages && stages.length > 0 ? stages : [stage])
+    .slice()
+    .sort((a, b) => a.display_order - b.display_order)
+  const [selectedStageId, setSelectedStageId] = useState<string>(stage.id)
   const [contactSearch, setContactSearch] = useState('')
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
@@ -85,6 +102,7 @@ export function AddDealModal({
     if (isOpen) {
       setContactSearch('')
       setSelectedContact(null)
+      setSelectedStageId(stage.id)
       setDealValue(defaultDealValue.toString())
       setSelectedOwnerId(userId)
       setNotes('')
@@ -95,18 +113,20 @@ export function AddDealModal({
       setInterviewDate(undefined)
       setArrivalDate(undefined)
     }
-  }, [isOpen, defaultDealValue, userId])
+  }, [isOpen, defaultDealValue, userId, stage.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedContact || !selectedOwnerId) return
+    if (!selectedContact || !selectedOwnerId || !selectedStageId) return
+
+    const targetStage = stageOptions.find((s) => s.id === selectedStageId) || stage
 
     try {
       await createDeal.mutateAsync({
         contactId: selectedContact.id,
         pipelineId,
-        stageId: stage.id,
+        stageId: selectedStageId,
         ownerId: selectedOwnerId,
         dealValue: parseFloat(dealValue) || 0,
         title: `${selectedContact.first_name} ${selectedContact.last_name}`,
@@ -121,7 +141,7 @@ export function AddDealModal({
 
       toast({
         title: 'Deal created',
-        description: `${selectedContact.first_name} ${selectedContact.last_name} added to ${stage.name}.`,
+        description: `${selectedContact.first_name} ${selectedContact.last_name} added to ${targetStage.name}.`,
       })
 
       onClose()
@@ -143,10 +163,10 @@ export function AddDealModal({
       <SheetContent className="sm:max-w-md flex flex-col p-0 gap-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
-            Add Deal to {stage.name}
+            Add Deal
           </SheetTitle>
           <SheetDescription>
-            Create a new deal in the {stage.name} stage.
+            Create a new deal and choose its starting stage.
           </SheetDescription>
         </SheetHeader>
 
@@ -271,7 +291,25 @@ export function AddDealModal({
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
                 Deal Details
               </h3>
-              
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Starting Stage <span className="text-red-500">*</span>
+                </Label>
+                <Select value={selectedStageId} onValueChange={setSelectedStageId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stageOptions.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Deal Value (£) <span className="text-red-500">*</span>
