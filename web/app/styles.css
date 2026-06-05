@@ -705,18 +705,19 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
 /* ---- cinematic hero ---- */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;overflow:hidden}
 .hero-protect{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(7,10,9,.5) 0%,rgba(7,10,9,.15) 32%,rgba(7,10,9,.72) 78%,rgba(7,10,9,.96) 100%)}
-.hero-in{position:relative;z-index:2;width:100%;padding-bottom:clamp(48px,6vh,88px);padding-top:clamp(76px,9vh,98px)}
+.hero-in{position:relative;z-index:2;width:100%;padding-bottom:clamp(32px,4vh,56px);padding-top:clamp(64px,8vh,88px)}
 /* cap the title by viewport HEIGHT too (min) so 4 lines always fit one screen */
-.hero-title{margin:14px 0 0;max-width:15ch;color:#fff;font-size:min(clamp(1.9rem,4.6vw,4rem),10vh);line-height:1;letter-spacing:-.005em}
-.hero-mask{display:block;overflow:hidden;padding-bottom:.08em}
+.hero-title{margin:12px 0 0;max-width:15ch;color:#fff;font-size:min(clamp(1.6rem,3.8vw,3.2rem),8vh);line-height:1;letter-spacing:-.005em}
+.hero-mask{display:block;overflow:hidden;padding-bottom:.06em}
 .hero-word{display:block}
-.hero-sub{font-size:clamp(16px,1.5vw,19px);color:rgba(255,255,255,.86);max-width:50ch;margin:20px 0 0;line-height:1.5}
-.hero-cta{display:flex;gap:16px;margin-top:26px;flex-wrap:wrap;align-items:center}
+.hero-sub{font-size:clamp(15px,1.4vw,18px);color:rgba(255,255,255,.86);max-width:50ch;margin:16px 0 0;line-height:1.5}
+.hero-cta{display:flex;gap:16px;margin-top:22px;flex-wrap:wrap;align-items:center}
 /* extra compaction on short laptops */
 @media (max-height:780px){
-  .hero-in{padding-top:84px;padding-bottom:clamp(36px,5vh,64px)}
-  .hero-sub{margin-top:16px}
-  .hero-cta{margin-top:20px}
+  .hero-in{padding-top:64px;padding-bottom:clamp(28px,4vh,48px)}
+  .hero-title{font-size:min(clamp(1.5rem,3.4vw,2.8rem),7.4vh)}
+  .hero-sub{margin-top:14px}
+  .hero-cta{margin-top:18px}
   .scroll-cue{display:none}
 }
 .scroll-cue{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:10px;background:none;border:0;color:rgba(255,255,255,.7);cursor:pointer;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700}
