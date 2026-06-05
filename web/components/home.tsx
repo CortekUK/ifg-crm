@@ -20,20 +20,21 @@ function Hero() {
       <div className="wrap hero-in">
         <div data-anim="hero-fade"><Eyebrow style={{ color: "var(--pitch-400)" }}>Market-leading sports education</Eyebrow></div>
         <h1 className="t-hero hero-title">
-          <span className="hero-mask"><span className="hero-word" data-anim="hero-line">World-class football</span></span>
-          <span className="hero-mask"><span className="hero-word" data-anim="hero-line"><span style={{ color: "var(--pitch-500)" }}>education</span> &amp; experiences</span></span>
+          <span className="hero-mask"><span className="hero-word" data-anim="hero-line">World-class</span></span>
+          <span className="hero-mask"><span className="hero-word" data-anim="hero-line">football <span style={{ color: "var(--pitch-500)" }}>education</span></span></span>
+          <span className="hero-mask"><span className="hero-word" data-anim="hero-line">&amp; experiences</span></span>
         </h1>
         <p className="hero-sub" data-anim="hero-fade">
           Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe&apos;s great cities.
         </p>
         <div className="hero-cta" data-anim="hero-fade">
           <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push("/programmes")}>Explore programmes</Button>
+          <button className="scroll-cue" onClick={down} aria-label="Scroll down">
+            <span>Scroll</span>
+            <span className="scroll-cue-line"><span /></span>
+          </button>
         </div>
       </div>
-      <button className="scroll-cue" data-anim="hero-fade" onClick={down} aria-label="Scroll down">
-        <span>Scroll</span>
-        <span className="scroll-cue-line"><span /></span>
-      </button>
     </section>
   );
 }

@@ -703,28 +703,31 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
 [data-theme="light"] .cursor-ring{border-color:rgba(21,32,29,.4)}
 
 /* ---- cinematic hero ---- */
-.hero{position:relative;min-height:80svh;display:flex;align-items:flex-start;overflow:hidden}
+.hero{position:relative;min-height:86svh;display:flex;align-items:flex-start;overflow:hidden}
 .hero-protect{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(7,10,9,.5) 0%,rgba(7,10,9,.15) 32%,rgba(7,10,9,.72) 78%,rgba(7,10,9,.96) 100%)}
-.hero-in{position:relative;z-index:2;width:100%;padding-bottom:clamp(32px,4vh,56px);padding-top:clamp(40px,5vh,60px)}
-/* cap the title by viewport HEIGHT too (min) so 4 lines always fit one screen */
-.hero-title{margin:12px 0 0;max-width:15ch;color:#fff;font-size:min(clamp(1.6rem,3.8vw,3.2rem),8vh);line-height:1;letter-spacing:-.005em}
+/* clear the sticky header on top, leave room for the scroll cue on the bottom */
+.hero-in{position:relative;z-index:2;width:100%;padding-top:clamp(56px,7vh,84px);padding-bottom:clamp(96px,12vh,140px)}
+/* big title — but capped by viewport HEIGHT (min) so it always fits one screen with the scroll cue */
+.hero-title{margin:14px 0 0;max-width:none;color:#fff;font-size:min(clamp(2.6rem,7vw,7.4rem),14vh);line-height:1.02;letter-spacing:-.01em}
 .hero-mask{display:block;overflow:hidden;padding-bottom:.06em}
-.hero-word{display:block}
-.hero-sub{font-size:clamp(15px,1.4vw,18px);color:rgba(255,255,255,.86);max-width:50ch;margin:16px 0 0;line-height:1.5}
-.hero-cta{display:flex;gap:16px;margin-top:22px;flex-wrap:wrap;align-items:center}
-/* extra compaction on short laptops */
+.hero-word{display:block;white-space:nowrap}
+.hero-sub{font-size:clamp(13.5px,1.1vw,15px);color:rgba(255,255,255,.86);max-width:64ch;margin:18px 0 0;line-height:1.5}
+.hero-cta{display:flex;gap:14px;margin-top:24px;flex-wrap:wrap;align-items:center}
+.hero-cta .btn{font-size:14px;padding:12px 24px}
+.hero-cta .btn .ic{width:16px;height:16px}
+/* extra compaction on short laptops — keep the scroll cue visible, just shrink */
 @media (max-height:780px){
-  .hero-in{padding-top:44px;padding-bottom:clamp(28px,4vh,48px)}
-  .hero-title{font-size:min(clamp(1.5rem,3.4vw,2.8rem),7.4vh)}
-  .hero-sub{margin-top:14px}
-  .hero-cta{margin-top:18px}
-  .scroll-cue{display:none}
+  .hero-in{padding-top:clamp(52px,6vh,72px);padding-bottom:clamp(80px,11vh,110px)}
+  .hero-title{font-size:min(clamp(2rem,5vw,4rem),11vh)}
+  .hero-sub{margin-top:16px}
+  .hero-cta{margin-top:20px}
 }
-.scroll-cue{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:10px;background:none;border:0;color:rgba(255,255,255,.7);cursor:pointer;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700}
-.scroll-cue-line{width:1px;height:46px;background:rgba(255,255,255,.22);position:relative;overflow:hidden}
+.scroll-cue{margin-left:auto;z-index:3;display:inline-flex;flex-direction:column;align-items:center;gap:10px;background:none;border:0;color:rgba(255,255,255,.7);cursor:pointer;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;align-self:center}
+.scroll-cue-line{width:1px;height:40px;background:rgba(255,255,255,.22);position:relative;overflow:hidden}
 .scroll-cue-line span{position:absolute;top:-55%;left:0;width:100%;height:55%;background:var(--pitch-500)}
 @media (prefers-reduced-motion: no-preference){.scroll-cue-line span{animation:cue 1.8s var(--ease-in-out) infinite}}
 @keyframes cue{0%{top:-55%}100%{top:100%}}
+@media (max-width:560px){.scroll-cue{display:none}}
 
 /* ---- header condense on scroll ---- */
 .hdr-in{transition:height var(--dur) var(--ease-out)}
