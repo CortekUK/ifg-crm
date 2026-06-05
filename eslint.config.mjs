@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Public marketing site — separate apps + separate deployment.
+    // Not part of the CRM build/lint.
+    "website/**",
+    "web/**",
   ]),
 ]);
 

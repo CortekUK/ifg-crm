@@ -1,0 +1,225 @@
+/* ============================================================
+   IFG — The International Football Group
+   Design System · Foundations (color + type)
+   Bold rebrand: premium · editorial · confident · athletic
+   ------------------------------------------------------------
+   Load fonts (Google Fonts) BEFORE this file:
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,500&family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+   ============================================================ */
+
+:root {
+  /* ---------- BRAND COLOR ---------- */
+
+  /* Ink — primary dark surface (near-black, faint pitch-green undertone) */
+  --ink-950: #070A09;
+  --ink-900: #0E1413;   /* canonical brand black (matches logo lockup) */
+  --ink-850: #141C1A;
+  --ink-800: #1B2523;
+  --ink-700: #28342F;
+  --ink-600: #3A4843;
+
+  /* Pitch — the energetic emerald accent (football / aspiration) */
+  --pitch-300: #7BE9AF;
+  --pitch-400: #41D588;
+  --pitch-500: #18C16B;   /* primary accent */
+  --pitch-600: #0E9E55;
+  --pitch-700: #0B7B43;
+  --pitch-900: #0B4A2C;   /* deep forest — dark-on-light text accent */
+
+  /* Brass — prestige accent (academic / medal / premium). Use sparingly. */
+  --brass-400: #D9B86A;
+  --brass-500: #C19A45;
+  --brass-600: #9C7A31;
+
+  /* Bone — warm editorial light surfaces (paper / academic) */
+  --bone-50:  #FBFAF6;
+  --bone-100: #F5F2EA;   /* canonical light surface */
+  --bone-200: #ECE7DB;
+  --bone-300: #DED7C6;
+
+  /* Slate neutrals — text + lines on light surfaces */
+  --slate-900: #15201D;
+  --slate-700: #3C4A45;
+  --slate-500: #6B7A73;
+  --slate-400: #94A199;
+  --slate-300: #C2CBC5;
+  --slate-200: #DDE3DE;
+
+  --white: #FFFFFF;
+
+  /* ---------- SEMANTIC TOKENS ---------- */
+  /* On dark (default brand surface) */
+  --bg:            var(--ink-900);
+  --bg-elevated:   var(--ink-850);
+  --bg-sunken:     var(--ink-950);
+  --surface-card:  var(--ink-800);
+  --fg:            #F3F6F4;   /* primary text on dark */
+  --fg-muted:      #A9B5AF;   /* secondary text on dark */
+  --fg-subtle:     #6E7C76;   /* tertiary / captions */
+  --accent:        var(--pitch-500);
+  --accent-hover:  var(--pitch-400);
+  --accent-press:  var(--pitch-600);
+  --accent-fg:     var(--ink-950);   /* text on accent fills */
+  --hairline:      rgba(255,255,255,.10);
+  --hairline-strong: rgba(255,255,255,.18);
+  --header-bg:       rgba(14,20,19,.72);  /* sticky header (translucent) */
+  --header-bg-solid: rgba(11,16,15,.92);  /* condensed header on scroll */
+
+  /* On light (editorial surface) — apply via .on-bone scope */
+  --l-bg:          var(--bone-100);
+  --l-surface:     var(--white);
+  --l-fg:          var(--slate-900);
+  --l-fg-muted:    var(--slate-500);
+  --l-accent:      var(--pitch-700);
+  --l-hairline:    rgba(21,32,29,.12);
+
+  /* Functional */
+  --success: var(--pitch-500);
+  --warning: var(--brass-500);
+  --danger:  #E5484D;
+  --info:    #4F9DDB;
+
+  /* ---------- TYPE FAMILIES (wired to next/font CSS vars) ---------- */
+  --font-display: var(--f-anton), "Anton", "Archivo", system-ui, sans-serif; /* condensed athletic */
+  --font-sans:    var(--f-archivo), "Archivo", system-ui, -apple-system, sans-serif; /* UI + body */
+  --font-serif:   var(--f-spectral), "Spectral", Georgia, "Times New Roman", serif;   /* editorial accent */
+  --font-mono:    var(--f-archivo), "Archivo", ui-monospace, monospace;
+
+  /* ---------- TYPE SCALE (display = clamp, fluid) ---------- */
+  --t-hero:    clamp(3.5rem, 9vw, 8.5rem);   /* Anton hero statements */
+  --t-display: clamp(2.75rem, 6vw, 5rem);
+  --t-h1:      clamp(2.25rem, 4.5vw, 3.5rem);
+  --t-h2:      clamp(1.75rem, 3vw, 2.5rem);
+  --t-h3:      1.5rem;
+  --t-h4:      1.25rem;
+  --t-body-lg: 1.1875rem;
+  --t-body:    1.0625rem;
+  --t-small:   0.9375rem;
+  --t-eyebrow: 0.8125rem;  /* tracked uppercase label */
+  --t-caption: 0.75rem;
+
+  /* ---------- RADII ---------- */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* ---------- SPACING (8pt base) ---------- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+  --s-9: 96px; --s-10: 128px;
+
+  /* ---------- ELEVATION ---------- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+  --shadow-md: 0 8px 24px rgba(0,0,0,.40);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,.50);
+  --shadow-accent: 0 12px 36px rgba(24,193,107,.28);
+
+  /* ---------- MOTION ---------- */
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --dur-fast: 140ms;
+  --dur: 240ms;
+  --dur-slow: 480ms;
+}
+
+/* ============================================================
+   LIGHT THEME — set [data-theme="light"] on <html>.
+   Flips the chrome/text tokens; photo/video sections stay universal.
+   ============================================================ */
+[data-theme="light"] {
+  --bg:            var(--bone-100);
+  --bg-elevated:   var(--white);
+  --bg-sunken:     var(--bone-200);
+  --surface-card:  var(--white);
+  --fg:            var(--slate-900);
+  --fg-muted:      var(--slate-500);
+  --fg-subtle:     var(--slate-400);
+  --accent:        var(--pitch-600);
+  --accent-hover:  var(--pitch-500);
+  --accent-press:  var(--pitch-700);
+  --accent-fg:     var(--white);
+  --hairline:      rgba(21,32,29,.12);
+  --hairline-strong: rgba(21,32,29,.22);
+  --header-bg:       rgba(251,250,246,.82);
+  --header-bg-solid: rgba(251,250,246,.96);
+}
+/* keep the dark default snappy */
+html { color-scheme: dark; transition: background var(--dur) var(--ease-out); }
+html[data-theme="light"] { color-scheme: light; }
+
+/* ============================================================
+   BASE ELEMENT STYLES
+   ============================================================ */
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.on-bone { background: var(--l-bg); color: var(--l-fg); }
+.on-bone { --fg: var(--l-fg); --fg-muted: var(--l-fg-muted); --accent: var(--l-accent); --hairline: var(--l-hairline); }
+
+/* Display / headings ---------------------------------------- */
+.t-hero, .t-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.t-hero    { font-size: var(--t-hero); }
+.t-display { font-size: var(--t-display); }
+
+h1, .t-h1 {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: var(--t-h1);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+}
+h2, .t-h2 {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: var(--t-h2);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+}
+h3, .t-h3 { font-family: var(--font-sans); font-weight: 700; font-size: var(--t-h3); line-height: 1.2; letter-spacing: -0.01em; }
+h4, .t-h4 { font-family: var(--font-sans); font-weight: 700; font-size: var(--t-h4); line-height: 1.3; }
+
+p, .t-body { font-size: var(--t-body); line-height: 1.6; }
+.t-body-lg { font-size: var(--t-body-lg); line-height: 1.55; }
+.t-small   { font-size: var(--t-small); }
+
+/* Eyebrow / kicker — tracked uppercase athletic label -------- */
+.t-eyebrow {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--t-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+/* Editorial serif — pull quotes & academic voice ------------- */
+.t-serif { font-family: var(--font-serif); font-weight: 400; }
+.t-quote {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+a { color: var(--accent); text-decoration: none; }
+::selection { background: var(--pitch-500); color: var(--ink-950); }

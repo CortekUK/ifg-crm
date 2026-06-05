@@ -89,7 +89,7 @@ export async function updateSession(request: NextRequest) {
     const adminOnlyPaths = [
       '/campaigns', '/lists', '/templates', '/automations',
       '/invoices', '/payments', '/analytics', '/reports',
-      '/users', '/settings',
+      '/users', '/settings', '/form-submissions',
     ]
 
     const isAdminRoute = adminOnlyPaths.some(

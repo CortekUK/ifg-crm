@@ -27,6 +27,7 @@ import {
   BarChart3,
   FileBarChart,
   UserCog,
+  Inbox,
   Settings,
   LogOut,
   Loader2,
@@ -111,6 +112,7 @@ const navSections = [
     adminOnly: true,
     items: [
       { href: '/users', label: 'Users', icon: UserCog },
+      { href: '/form-submissions', label: 'Form Submissions', icon: Inbox },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },

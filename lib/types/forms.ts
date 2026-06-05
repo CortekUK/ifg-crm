@@ -1,4 +1,4 @@
-export type FormSource = 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
+export type FormSource = 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic' | 'activecampaign' | 'website'
 
 export type FormSubmissionStatus = 'pending' | 'processed' | 'failed' | 'skipped'
 
