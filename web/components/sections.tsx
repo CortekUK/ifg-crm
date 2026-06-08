@@ -29,7 +29,7 @@ export function CTABand() {
       <div className="cta-overlay" />
       <div className="wrap cta-in" data-anim="up">
         <span className="cta-eyebrow"><i />Start your journey</span>
-        <h2 className="t-display cta-title">Begin your pathway</h2>
+        <h2 className="t-display cta-title" data-anim="reveal-title">Begin your pathway</h2>
         <p className="cta-sub">Apply to train inside world-class methodologies and graduate with an accredited degree — living in Europe&apos;s great cities.</p>
         <div className="cta-actions">
           <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push("/contact")}>Get in touch</Button>

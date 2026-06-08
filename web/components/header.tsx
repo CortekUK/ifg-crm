@@ -9,6 +9,8 @@ const LINKS: [string, string][] = [
   ["/", "Home"],
   ["/programmes", "Programmes"],
   ["/success-stories", "Success Stories"],
+  ["/ifg-tv", "IFG TV"],
+  ["/news", "Latest News"],
 ];
 
 export function Header() {

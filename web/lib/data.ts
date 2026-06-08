@@ -691,6 +691,62 @@ export const SUCCESS_STORIES: SuccessStory[] = [
   },
 ];
 
+// ---- Gallery (categories → image galleries) ----
+export type GalleryCategory = {
+  slug: string;
+  title: string;
+  blurb: string;
+  cover: string;
+  images: string[];
+};
+
+const G = (ids: number[]) => ids.map(mkt);
+
+export const GALLERY: GalleryCategory[] = [
+  {
+    slug: "match-days",
+    title: "Match Days",
+    blurb: "Under the lights and on the road — the competitive heart of the programme.",
+    cover: mkt(43479),
+    images: G([43479, 43492, 43482, 41372, 4587, 43487, 43494, 43495, 4567]),
+  },
+  {
+    slug: "training",
+    title: "Training & Development",
+    blurb: "Daily sessions inside a professional environment, built around elite methodology.",
+    cover: mkt(43497),
+    images: G([43497, 43484, 43482, 4567, 43487, 44602, 43492, 43479, 41372]),
+  },
+  {
+    slug: "summer-residency",
+    title: "Summer Residency",
+    blurb: "Living, training and competing in the UK — the full IFG experience in summer.",
+    cover: mkt(43499),
+    images: G([43499, 43494, 43495, 43487, 43492, 4567, 43482, 41372, 4587]),
+  },
+  {
+    slug: "experiences",
+    title: "Travel & Experiences",
+    blurb: "Tours, cultures and stadiums — football as a passport to the world.",
+    cover: mkt(43495),
+    images: G([43495, 43499, 4567, 43484, 43494, 43487, 43492, 43482, 43497]),
+  },
+  {
+    slug: "graduation",
+    title: "Graduation & Awards",
+    blurb: "Degrees earned and milestones marked — the academic side of the journey.",
+    cover: mkt(44602),
+    images: G([44602, 43497, 43487, 41372, 4587, 43492, 43479, 43494, 43499]),
+  },
+  {
+    slug: "behind-the-scenes",
+    title: "Behind the Scenes",
+    blurb: "The moments between the moments — life across the IFG group.",
+    cover: mkt(4587),
+    images: G([4587, 43484, 43497, 4567, 43499, 43482, 43492, 43487, 43495]),
+  },
+];
+
 // [number, title, description, image]
 export type Value = [string, string, string, string];
 export const VALUES: Value[] = [
@@ -722,6 +778,215 @@ export const NEWS: News[] = [
   { tag: "Newsletter", title: "IFG Newsletter: Season Kick-Off 2025/26", date: "3 Nov 2025", img: mkt(43494) },
   { tag: "Phoenix City", title: "IFG Phoenix City launches in the UAE", date: "24 Jul 2025", img: mkt(43495) },
   { tag: "Feature", title: "Why the best young players still come to England", date: "10 May 2026", img: mkt(43492) },
+];
+
+// ---- Latest News articles (listing + individual pages) ----
+export type ArticleBlock =
+  | { type: "p"; text: string }
+  | { type: "h"; text: string }
+  | { type: "quote"; text: string }
+  | { type: "img"; src: string; caption?: string }
+  | { type: "duo"; src: string; src2: string; caption?: string };
+
+export type Article = {
+  slug: string;
+  category: string;   // pill label, e.g. "Latest News"
+  title: string;
+  date: string;       // display date, e.g. "19 May 2026"
+  iso: string;        // sortable yyyy-mm-dd
+  excerpt: string;    // card + meta description
+  img: string;        // portrait card image
+  heroImg: string;    // article hero image
+  lead?: string;      // optional pull-quote near the top
+  body: ArticleBlock[];
+};
+
+export const ARTICLES: Article[] = [
+  {
+    slug: "canada-world-cup-why-go-to-england",
+    category: "Latest News",
+    title: "Canada Is at the World Cup. So Why Do the Best Canadian Footballers Still Need to Go to England?",
+    date: "19 May 2026",
+    iso: "2026-05-19",
+    img: mkt(43492),
+    heroImg: mkt(43487),
+    excerpt:
+      "The talent is real and being recognised globally — yet for most Canadian players the route into European professional football remains unclear. Here's why the English game still matters.",
+    lead: "For the vast majority of Canadian players outside the elite tier, the question of how to build a professional career in European football remains genuinely unclear.",
+    body: [
+      { type: "p", text: "Canada's footballers have earned their moment. The national team qualified for their first World Cup in 40 years in 2022, then hosted group stage matches on home soil in 2026. Alphonso Davies is one of the best left-backs in world football. Jonathan David is a prolific striker at the highest club level in Europe. The Canadian Premier League is growing season by season. The talent is real and it is being recognised globally." },
+      { type: "p", text: "And yet. For the vast majority of Canadian players outside the elite tier, the question of how to build a professional career in European football remains genuinely unclear. There is no direct scouting pipeline from Canadian academies to English professional clubs. Most talented Canadian players reach 18 or 19 with no structured route in front of them." },
+      { type: "img", src: mkt(43499), caption: "IFG student-athletes train daily inside a professional club environment in England." },
+      { type: "h", text: "The CanPL Gap" },
+      { type: "p", text: "The Canadian Premier League is a legitimate professional league and a meaningful stepping stone within the Canadian game. But it is still a young organisation, and European clubs are not systematically scouting it. A Canadian player who signs for a CanPL side at 18 is in a real professional environment. What he is not is in the sightline of the scouts, agents, and coaches who shape professional careers in England and across Europe." },
+      { type: "p", text: "To get onto that radar — genuinely, not just theoretically — you need to be playing competitive football in England. You need to be physically present in a system the professional game already watches closely." },
+      { type: "duo", src: mkt(43487), src2: mkt(43492), caption: "Daily training and weekly competitive fixtures in the National League North." },
+      { type: "h", text: "The English Football Education Route" },
+      { type: "p", text: "A structured football education programme in England solves this problem directly. You train full-time, compete in a professional league, earn an internationally-accredited degree, and build your football profile in the country where it carries the most weight." },
+      { type: "p", text: "The International Football Group offers this through its programme with Macclesfield FC, in partnership with the University of Lancashire. Macclesfield FC competes in the National League North — below the English Football League, above most non-league competition. The training is daily, the fixtures are weekly, and the environment is professional in structure and culture." },
+      { type: "p", text: "The degree is not an afterthought. UCLan is a leading UK university for sport and football education. A Bachelor's or Master's from there is internationally recognised — an asset for Canadian families who understand the value of academic credentials alongside athletic development." },
+      { type: "img", src: mkt(41372), caption: "Graduating with an internationally-accredited degree alongside elite football." },
+      { type: "h", text: "The Timing" },
+      { type: "p", text: "The World Cup in 2026 has put Canadian football in an international spotlight that is genuinely unprecedented. European clubs, agents, and scouts have watched Canadian players this summer more closely than at any point in the country's football history. The window to capitalise on that attention — by stepping into the English game with a structured programme behind you — is open right now." },
+      { type: "p", text: "IFG has supported players from across the world, with 300+ students completing the programme and 600+ competitive matches played. The application process is straightforward. The 2026 and 2027 intakes are forming now." },
+      { type: "p", text: "If you are a Canadian footballer between 17 and 23 and serious about a European professional career, the clearest route available to you starts with one conversation. Book a call with the IFG programme team — we will tell you honestly whether this is the right move for you." },
+    ],
+  },
+  {
+    slug: "world-cup-america-us-players-still-go-to-england",
+    category: "Latest News",
+    title: "The World Cup Is Coming to America. Here's Why The Best US Soccer Players Still Go to England.",
+    date: "10 May 2026",
+    iso: "2026-05-10",
+    img: mkt(43482),
+    heroImg: mkt(43482),
+    excerpt:
+      "MLS is growing and the 2026 World Cup is on home soil — but the English game remains the proving ground that turns American prospects into professionals.",
+    lead: "The American soccer story has never had more momentum. The route to the top, though, still runs through England.",
+    body: [
+      { type: "p", text: "American soccer has never had more momentum. Major League Soccer is attracting world-class names, college soccer continues to produce professionals, and the 2026 World Cup is being staged across the United States. The interest is real and the investment is growing." },
+      { type: "p", text: "But for an ambitious young American player, the path from talented teenager to professional footballer is still far from obvious. The college route is excellent for education, yet it is not aligned with the European professional calendar — and the players who break through internationally almost always do so by competing in the systems that scouts watch most closely." },
+      { type: "img", src: mkt(43487), caption: "IFG players compete weekly inside the English football pyramid." },
+      { type: "h", text: "Why England Still Matters" },
+      { type: "p", text: "England remains the most-watched football market in the world. Playing competitive football inside the English pyramid puts a player in front of the agents, analysts and coaches who shape careers across Europe. Presence matters — being in the room, week after week, against real opposition." },
+      { type: "p", text: "Through its programme with Macclesfield FC and the University of Lancashire, IFG gives American student-athletes exactly that: daily professional training, weekly competitive fixtures in the National League North, and an internationally-accredited degree earned alongside their football." },
+      { type: "h", text: "The Best of Both" },
+      { type: "p", text: "Families do not have to choose between football and education. The IFG model is built around both — a genuine professional environment paired with a recognised academic qualification, so a player's future is protected whichever way their career develops." },
+      { type: "p", text: "The 2026 and 2027 intakes are forming now. If you are a US player serious about a European pathway, the first step is a conversation with the IFG team." },
+    ],
+  },
+  {
+    slug: "ifg-newsletter-season-kick-off-2025-26",
+    category: "Newsletter",
+    title: "IFG Newsletter: Season Kick-Off 2025/26",
+    date: "3 Nov 2025",
+    iso: "2025-11-03",
+    img: mkt(43494),
+    heroImg: mkt(43494),
+    excerpt:
+      "New intakes, new partnerships and a packed fixture calendar — everything you need to know as the 2025/26 season gets under way across the group.",
+    lead: "A new season, a bigger group, and the most ambitious calendar in IFG's history.",
+    body: [
+      { type: "p", text: "Welcome to the first newsletter of the 2025/26 season. It has been a remarkable start across every part of the group, with new students arriving from more countries than ever and our programmes operating at full capacity." },
+      { type: "h", text: "A Growing Group" },
+      { type: "p", text: "This season's intake spans Europe, North America, the Middle East and beyond. Our university programme with the University of Lancashire continues to grow, and the launch of IFG Phoenix City in the UAE has opened an entirely new pathway for players seeking international experience." },
+      { type: "h", text: "On the Pitch" },
+      { type: "p", text: "Macclesfield FC's National League North campaign is under way, and our shadow and development squads have started strongly. Several students have already trained with the first team — exactly the kind of progression the programme is built to create." },
+      { type: "p", text: "We will be sharing match reports, player features and behind-the-scenes films throughout the season. Thank you for being part of the IFG journey." },
+    ],
+  },
+  {
+    slug: "most-successful-season-yet-ifg-macclesfield",
+    category: "Latest News",
+    title: "The Most Successful Season Yet at IFG Macclesfield FC",
+    date: "1 Sep 2025",
+    iso: "2025-09-01",
+    img: mkt(41372),
+    heroImg: mkt(41372),
+    excerpt:
+      "A historic league and cup double, record goal-scoring and a string of first-team call-ups — inside the best season in IFG Macclesfield's history.",
+    lead: "A historic double, record numbers, and a development pathway working exactly as intended.",
+    body: [
+      { type: "p", text: "The 2024/25 season was the most successful in the history of IFG Macclesfield FC. Across the development and shadow squads, our student-athletes delivered on the pitch, in the classroom and in their progression towards professional football." },
+      { type: "h", text: "A Historic Double" },
+      { type: "p", text: "The U23 Shadow Youth Team completed a league and cup double — the most successful campaign ever recorded by IFG Macclesfield. It was a season defined by consistency, leadership and a genuine winning culture built throughout the programme." },
+      { type: "duo", src: mkt(43479), src2: mkt(4587), caption: "A historic league and cup double for the IFG Macclesfield shadow squad." },
+      { type: "h", text: "Progression That Counts" },
+      { type: "p", text: "Multiple students trained regularly with the Macclesfield FC first team, and several gained senior men's football experience on loan and in cup competition. This is the heart of the IFG model: a clear, visible route from the programme into competitive senior football." },
+      { type: "p", text: "With a new intake now arriving for 2025/26, the foundations are in place to build on the most successful season yet." },
+    ],
+  },
+  {
+    slug: "eight-ifg-players-called-up-cheshire-senior-cup",
+    category: "Latest News",
+    title: "8 IFG Macclesfield FC Players Called Up to First Team in Cheshire Senior Cup Debut",
+    date: "15 Nov 2024",
+    iso: "2024-11-15",
+    img: mkt(43479),
+    heroImg: mkt(43479),
+    excerpt:
+      "Eight programme players named in the first-team squad for the club's Cheshire Senior Cup tie — a landmark moment for the IFG development pathway.",
+    lead: "Eight students, one first-team squad — the pathway in a single team sheet.",
+    body: [
+      { type: "p", text: "Eight IFG Macclesfield FC players were named in the first-team squad for the club's Cheshire Senior Cup tie — a standout moment for the programme and a clear marker of the standard our student-athletes are reaching." },
+      { type: "p", text: "For players who arrived through the university and football education pathways, sharing a senior squad and competing in a men's cup competition is exactly the kind of opportunity the IFG model is designed to create." },
+      { type: "h", text: "Earning the Shirt" },
+      { type: "p", text: "These call-ups are earned, not given. Daily training, weekly competitive fixtures and a professional environment mean that when first-team opportunities arrive, our players are ready to take them." },
+      { type: "p", text: "Congratulations to all eight players. It is a proud night for them, their families and everyone involved in the programme." },
+    ],
+  },
+  {
+    slug: "exciting-developments-standout-performances",
+    category: "Latest News",
+    title: "Exciting Developments, Standout Performances and First Team Call Ups",
+    date: "15 Nov 2024",
+    iso: "2024-11-14",
+    img: mkt(4587),
+    heroImg: mkt(4587),
+    excerpt:
+      "A round-up of standout individual performances, team results and the latest first-team call-ups from across the IFG Macclesfield programme.",
+    lead: "Momentum across every squad — and more players knocking on the first-team door.",
+    body: [
+      { type: "p", text: "It has been a busy and rewarding period across the IFG Macclesfield programme, with strong team results, standout individual performances and more students earning recognition at senior level." },
+      { type: "h", text: "Standout Performers" },
+      { type: "p", text: "Several players have impressed in recent weeks, both in development fixtures and in their training with the first team. Goalkeepers, defenders and attacking players alike have stepped up, showing the depth of quality across the group." },
+      { type: "h", text: "Looking Ahead" },
+      { type: "p", text: "With more fixtures to come and first-team opportunities continuing to open up, the months ahead are an exciting time for our student-athletes. We will keep sharing their progress as the season develops." },
+    ],
+  },
+  {
+    slug: "ifg-phoenix-city-launches-uae",
+    category: "Phoenix City",
+    title: "IFG Phoenix City Launches in the UAE",
+    date: "24 Jul 2025",
+    iso: "2025-07-24",
+    img: mkt(43495),
+    heroImg: mkt(43495),
+    excerpt:
+      "IFG expands its global footprint with the launch of Phoenix City in the UAE — a new international pathway combining elite training and life in Dubai.",
+    lead: "A new chapter for the group — elite football, education and international experience in the UAE.",
+    body: [
+      { type: "p", text: "The International Football Group is proud to announce the launch of IFG Phoenix City in the United Arab Emirates — a new programme that brings the IFG model to one of the most exciting football markets in the world." },
+      { type: "h", text: "A New International Pathway" },
+      { type: "p", text: "Based around partner club Phoenix City FC, the programme offers players the chance to train in a professional environment while experiencing life in Dubai. It is a natural extension of IFG's mission to open global pathways for ambitious student-athletes." },
+      { type: "h", text: "What It Offers" },
+      { type: "p", text: "Players will benefit from elite coaching, modern facilities and genuine international exposure — combined with the structure, support and education-first philosophy that defines every IFG programme." },
+      { type: "p", text: "Applications for the first intakes are now open. Get in touch with the IFG team to find out more about the Phoenix City pathway." },
+    ],
+  },
+];
+
+// ---- IFG TV / YouTube ----
+// Channel: https://www.youtube.com/@Footballinternational
+export const YT_CHANNEL = {
+  handle: "@Footballinternational",
+  url: "https://www.youtube.com/@Footballinternational",
+  channelId: "UCtWiv0xv-YbIykIejNScogQ",
+  subscribeUrl: "https://www.youtube.com/@Footballinternational?sub_confirmation=1",
+};
+
+// 16:9 thumbnail (maxres where available; component falls back to hqdefault).
+export const ytThumb = (id: string) => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+
+export type YTVideo = { id: string; title: string; tag: string };
+
+// Featured film for the IFG TV hero.
+export const YT_FEATURED: YTVideo = {
+  id: "7ezDdQM_gbI",
+  title: "Summer Residency in the UK | My IFG Experience",
+  tag: "Featured film",
+};
+
+export const YT_VIDEOS: YTVideo[] = [
+  { id: "ebGCnPSAKUs", title: "Mic'd Up: Goalkeeper Edition", tag: "Inside IFG" },
+  { id: "PlgebMz7DSM", title: "Macclesfield FC International vs Lancaster", tag: "Match" },
+  { id: "sTprLeYyilk", title: "Macclesfield FC U19 NFYL vs Fleetwood", tag: "Match" },
+  { id: "dgQexfvCxKY", title: "IFG Macclesfield FC U20 vs Barnsley", tag: "Match" },
+  { id: "Vza_gwGznh0", title: "Macclesfield FC U21 vs Tottington United", tag: "Match" },
+  { id: "w_deZdFVX5Q", title: "IFG Macclesfield FC U20 vs Bradford Park Avenue", tag: "Match" },
+  { id: "wMpF4OH6KVQ", title: "Macclesfield FC U19 NFYL vs Lancaster", tag: "Match" },
+  { id: "0pkNIzzOQUw", title: "Macclesfield FC Reserves vs Heywood", tag: "Match" },
+  { id: "tbEgRUdkpv0", title: "Macclesfield FC U19 NFYL vs Stockport County", tag: "Match" },
 ];
 
 export const TV: Video[] = [

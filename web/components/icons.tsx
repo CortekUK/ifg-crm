@@ -20,6 +20,8 @@ import {
   Building2,
   Sparkles,
   Menu,
+  ImageIcon,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import type { CSSProperties } from "react";
@@ -46,6 +48,8 @@ const MAP: Record<string, LucideIcon> = {
   building: Building2,
   sparkles: Sparkles,
   menu: Menu,
+  image: ImageIcon,
+  plus: Plus,
 };
 
 // Wrapper keeps the `.ic-wrap` span the design CSS hooks into (arrow slides,

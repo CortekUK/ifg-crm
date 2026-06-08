@@ -27,10 +27,11 @@ export function Footer() {
             <Link href="/programmes/phoenix">Phoenix City UAE</Link>
           </div>
           <div>
-            <h5>Group News</h5>
-            <Link href="/programmes">News</Link>
-            <Link href="/programmes">IFG TV</Link>
-            <Link href="/programmes">Galleries</Link>
+            <h5>Media</h5>
+            <Link href="/news">Latest News</Link>
+            <Link href="/ifg-tv">IFG TV</Link>
+            <Link href="/gallery">Gallery</Link>
+            <Link href="/success-stories">Success Stories</Link>
           </div>
           <div>
             <h5>Group</h5>
