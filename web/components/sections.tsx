@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { Icon } from "./icons";
 import { Button, PhotoPlate } from "./primitives";
-import { mkt, type Programme } from "@/lib/data";
+import { type Programme } from "@/lib/data";
 
 export function ProgrammeCard({ p }: { p: Programme }) {
   const router = useRouter();
@@ -25,7 +25,7 @@ export function CTABand() {
   const router = useRouter();
   return (
     <section className="section cta-band">
-      <img className="cta-bg" src={mkt(43484)} alt="" loading="lazy" />
+      <img className="cta-bg" src="/summer/DJI_20240719121925_0067_D-scaled.jpg" alt="" loading="lazy" />
       <div className="cta-overlay" />
       <div className="wrap cta-in" data-anim="up">
         <span className="cta-eyebrow"><i />Start your journey</span>

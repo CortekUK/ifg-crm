@@ -7,7 +7,7 @@ import { CardCarousel } from "./carousels";
 import { ProgrammeCard, CTABand, StatItem } from "./sections";
 import { YouTubeLite } from "./youtube";
 import { HeroReel } from "./hero-reel";
-import { PROGRAMMES, VALUES, YT_FEATURED, YT_VIDEOS, HERO_VIDEOS, HERO_POSTER, ARTICLES, STATS, PARTNERS, mkt } from "@/lib/data";
+import { PROGRAMMES, VALUES, YT_FEATURED, YT_VIDEOS, HERO_VIDEOS, HERO_POSTER, ARTICLES, STATS, PARTNERS } from "@/lib/data";
 
 function Hero() {
   const router = useRouter();
@@ -183,11 +183,11 @@ export function HomeView() {
                 Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.
               </p>
               <div style={{ marginTop: 28 }}>
-                <Button variant="solid" iconRight="arrow-right" onClick={() => router.push("/about")}>More about IFG</Button>
+                <Button variant="solid" iconRight="arrow-right" onClick={() => router.push("/news")}>Latest news</Button>
               </div>
             </div>
             <div className="editorial-media" data-anim="clip">
-              <img className="emedia-img" data-parallax="0.12" src={mkt(43499)} alt="" loading="lazy" />
+              <img className="emedia-img" data-parallax="0.12" src="/maccles/DSC01273-Enhanced-NR-scaled.jpg" alt="" loading="lazy" />
             </div>
           </div>
           <div className="about-stats" data-anim="up">

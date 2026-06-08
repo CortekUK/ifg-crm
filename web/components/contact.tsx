@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { Select } from "./select";
-import { PROGRAMMES, VIDEO_SRC, VIDEO_POSTER } from "@/lib/data";
+import { PROGRAMMES } from "@/lib/data";
 
 const PROGRAMME_OPTIONS = [...PROGRAMMES.map((p) => p.name), "General enquiry"];
 
@@ -26,8 +26,8 @@ export function ContactView() {
   return (
     <div>
       {/* hero */}
-      <section className="c-hero">
-        <video className="hero-video" data-hero-video src={VIDEO_SRC} poster={VIDEO_POSTER} autoPlay muted loop playsInline />
+      <section className="c-hero contact-hero">
+        <img className="hero-video" data-hero-video src="/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg" alt="" />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>Get in touch</Eyebrow>

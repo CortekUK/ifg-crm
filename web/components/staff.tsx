@@ -1,8 +1,36 @@
 "use client";
+import { useState } from "react";
 import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
 import { CTABand } from "./sections";
-import { STAFF_GROUPS, MACCLESFIELD } from "@/lib/data";
+import { STAFF_GROUPS, MACCLESFIELD, type StaffMember } from "@/lib/data";
+
+function StaffCard({ p }: { p: StaffMember }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <article className={"staff-card" + (p.bio ? "" : " no-bio") + (open ? " open" : "")}>
+      <img className="staff-img" src={p.img} alt={p.name} loading="lazy" />
+      <div className="staff-grad" />
+      <div className="staff-meta">
+        <h3 className="staff-name">{p.name}</h3>
+        <span className="staff-role">{p.role}</span>
+        {p.bio && <p className="staff-preview">{p.bio}</p>}
+        {p.bio && (
+          <button className="staff-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            {open ? "Read less" : "Read more"} <Icon name="chevron-down" size={14} className="staff-toggle-ic" />
+          </button>
+        )}
+      </div>
+      {p.bio && (
+        <div className="staff-reveal" data-lenis-prevent>
+          <h3 className="staff-name">{p.name}</h3>
+          <span className="staff-role">{p.role}</span>
+          <p className="staff-bio">{p.bio}</p>
+        </div>
+      )}
+    </article>
+  );
+}
 
 export function StaffView() {
   return (
@@ -42,21 +70,7 @@ export function StaffView() {
             <h2 className="staff-watermark" data-anim="up">{g.label}</h2>
             <div className="staff-grid" data-anim="stagger">
               {g.people.map((p) => (
-                <article className={"staff-card" + (p.bio ? "" : " no-bio")} key={p.name}>
-                  <img className="staff-img" src={p.img} alt={p.name} loading="lazy" />
-                  <div className="staff-grad" />
-                  <div className="staff-meta">
-                    <h3 className="staff-name">{p.name}</h3>
-                    <span className="staff-role">{p.role}</span>
-                  </div>
-                  {p.bio && (
-                    <div className="staff-reveal" data-lenis-prevent>
-                      <h3 className="staff-name">{p.name}</h3>
-                      <span className="staff-role">{p.role}</span>
-                      <p className="staff-bio">{p.bio}</p>
-                    </div>
-                  )}
-                </article>
+                <StaffCard p={p} key={p.name} />
               ))}
             </div>
           </div>

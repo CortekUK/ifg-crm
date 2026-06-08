@@ -4,14 +4,14 @@ import Link from "next/link";
 import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
 import { CTABand } from "./sections";
-import { GALLERY, VIDEO_SRC, VIDEO_POSTER, type GalleryCategory } from "@/lib/data";
+import { GALLERY, type GalleryCategory } from "@/lib/data";
 
 export function GalleryView() {
   return (
     <div>
       {/* hero */}
-      <section className="c-hero">
-        <video className="hero-video" data-hero-video src={VIDEO_SRC} poster={VIDEO_POSTER} autoPlay muted loop playsInline />
+      <section className="c-hero gal-list-hero">
+        <img className="hero-video" data-hero-video src="/maccles/53036293139_2c50713232_k.jpg" alt="" />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
