@@ -12,6 +12,7 @@ export type Programme = {
   loc: string;
   img: string;
   clip: string;
+  hero?: string; // optional wide hero image (used when there is no hero clip)
   short: string;
   tone: string;
   blurb: string;
@@ -24,8 +25,9 @@ export const PROGRAMMES: Programme[] = [
     name: "Juventus Training Experience",
     tag: "Experience",
     loc: "Turin, Italy",
-    img: mkt(43487),
-    clip: mk(43487),
+    img: "/juve/card-home.png",
+    clip: "",
+    hero: "/juve/i1.png",
     short: "Train within the Juventus methodology at one of football's most decorated clubs.",
     tone: "linear-gradient(160deg,#2A2A2E 0%,#16161A 50%,#0A0A0C 100%)",
     blurb:
@@ -37,8 +39,8 @@ export const PROGRAMMES: Programme[] = [
     name: "Macclesfield Football Education",
     tag: "Degree pathway",
     loc: "Macclesfield, UK",
-    img: mkt(43482),
-    clip: mk(43482),
+    img: "/maccles/DSC04279.jpg",
+    clip: "",
     short: "Bachelor & master degrees in sport, delivered with the University of Lancashire at Macclesfield FC.",
     tone: "linear-gradient(160deg,#26332E 0%,#141C1A 50%,#0A0F0E 100%)",
     blurb:
@@ -50,8 +52,8 @@ export const PROGRAMMES: Programme[] = [
     name: "Phoenix City UAE",
     tag: "International",
     loc: "United Arab Emirates",
-    img: mkt(4567),
-    clip: mk(4567),
+    img: "/phoniex/Phoenix-Club-UAE.webp",
+    clip: "",
     short: "An international hub extending IFG's pathways and experiences to the UAE.",
     tone: "linear-gradient(160deg,#33291E 0%,#1A140C 55%,#0C0905 100%)",
     blurb:
@@ -90,10 +92,10 @@ export const PROGRAMME_DETAIL: Record<string, ProgrammeDetail> = {
       "Every session is overseen by official Juventus coaches, with a physiotherapist and doctor present throughout. You can be assured of an unforgettable IFG experience.",
     ],
     experiences: [
-      { title: "Museum & Stadium Tour", img: mkt(43479), desc: "The J-Museum tells Juventus' story through an eclectic range of interactive mediums — immerse yourself in some of the greatest footballing triumphs ever seen." },
-      { title: "Juventus Training Sessions", img: mkt(43487), desc: "Daily technical and tactical sessions delivered by official Juventus coaches inside the academy environment." },
-      { title: "Full Board Accommodation", img: mkt(4567), desc: "Stay at the Juventus Residency Academy campus with full-board accommodation throughout your visit." },
-      { title: "Showcase Games", img: mkt(43492), desc: "Test yourself in competitive friendly matches and showcase games against local opposition." },
+      { title: "Museum & Stadium Tour", img: "/juve/i4.png", desc: "The J-Museum tells Juventus' story through an eclectic range of interactive mediums — immerse yourself in some of the greatest footballing triumphs ever seen." },
+      { title: "Juventus Training Sessions", img: "/juve/DSC00050.jpg", desc: "Daily technical and tactical sessions delivered by official Juventus coaches inside the academy environment." },
+      { title: "Full Board Accommodation", img: "/juve/DSC00301.jpg", desc: "Stay at the Juventus Residency Academy campus with full-board accommodation throughout your visit." },
+      { title: "Showcase Games", img: "/juve/53008731624_2fba4df85a_o.jpg", desc: "Test yourself in competitive friendly matches and showcase games against local opposition." },
     ],
     highlights: [
       "Official Juventus Team Leader",
@@ -108,10 +110,10 @@ export const PROGRAMME_DETAIL: Record<string, ProgrammeDetail> = {
       "Insurance for all participants",
     ],
     facilities: [
-      { name: "Villaggio Olimpico Bardonecchia", img: mkt(43499) },
-      { name: "Allianz Stadium", img: mkt(43484) },
-      { name: "Training Centre Vinovo", img: mkt(43482) },
-      { name: "Juventus Museum", img: mkt(41372) },
+      { name: "Villaggio Olimpico Bardonecchia", img: "/juve/fac1.jpeg" },
+      { name: "Allianz Stadium", img: "/juve/fac2.webp" },
+      { name: "Training Centre Vinovo", img: "/juve/fac3.jpeg" },
+      { name: "Juventus Museum", img: "/juve/fac4.jpeg" },
     ],
     videos: [
       { title: "Inside the Juventus Training Experience", meta: "Featured film", dur: "3:24", poster: mkt(43484), clip: mk(43484) },
@@ -124,7 +126,7 @@ export const PROGRAMME_DETAIL: Record<string, ProgrammeDetail> = {
       intro:
         "We aim to develop footballers through a vision that combines technical aspects with mental, emotional and interpersonal ones. The Juventus methodology can be summarised in five points:",
       points: ["Style of Play", "Technical Ability", "Tactical Ability", "Mental Factor", "Emotional & Social Factors"],
-      img: mkt(43497),
+      img: "/juve/i6.png",
       note: {
         title: "Juventus Means Youth",
         body: [
@@ -251,7 +253,7 @@ export const MACC_SUBPROGRAMMES: SubProgramme[] = [
     id: "summer-residency",
     name: "Summer Residency",
     tag: "Macclesfield FC",
-    img: mkt(43487),
+    img: "/maccles/2023-Macclesfield-Fun-2-scaled.jpg",
     blurb: "An intensive summer residency training within the Macclesfield FC environment.",
     intro: [
       "The Summer Residency is an immersive short-format programme at Macclesfield FC — daily training under qualified coaches, friendly matches, and a taste of life inside a professional club.",
@@ -263,7 +265,7 @@ export const MACC_SUBPROGRAMMES: SubProgramme[] = [
     id: "university",
     name: "University",
     tag: "Undergrad & Postgrad Degrees",
-    img: mkt(43494),
+    img: "/maccles/54661849377_ae6918fc8d_o-scaled.jpg",
     blurb: "Accredited Bachelor's and Master's degrees awarded by the University of Lancashire.",
     intro: [
       "The University pathway combines accredited degree study awarded by the University of Lancashire (UCLan) with elite football training inside a club environment.",
@@ -275,7 +277,7 @@ export const MACC_SUBPROGRAMMES: SubProgramme[] = [
     id: "gap-year",
     name: "Gap Year",
     tag: "Nine-Month Playing Season",
-    img: mkt(43482),
+    img: "/maccles/54027689695_5d0b16b125_o.jpg",
     blurb: "A nine-month playing season combining football development with life experience.",
     intro: [
       "The Gap Year is a nine-month playing season for players who want a full immersive year of football development before their next step.",
@@ -305,8 +307,8 @@ export const MACCLESFIELD = {
   hero: {
     title: "Elite Football Education",
     subtitle: "The International Football Group in partnership with Macclesfield FC, University of Lancashire.",
-    clip: mk(43482),
-    poster: mkt(43482),
+    clip: "",
+    poster: "/maccles/DSC01273-Enhanced-NR-scaled.jpg",
     logos: [
       { src: "/assets/logo/partners-logos/maccles.png", alt: "Macclesfield FC" },
       { src: "/assets/logo/partners-logos/lancashire.png", alt: "University of Lancashire" },
@@ -318,15 +320,368 @@ export const MACCLESFIELD = {
       "In association with some of the most respected organisations in the game, The International Football Group is an industry leader in education & football, providing a platform that offers the very best in football opportunities — together with academic excellence.",
       "Using the football methodologies employed at some of the most renowned clubs in the world, The International Football Group gives student-athletes a unique opportunity to fulfil all their dreams out on the pitch.",
     ],
-    images: [mkt(41372), mkt(43482), mkt(43487)],
+    images: ["/maccles/53046445765_c62d7e60e9_o.jpg", "/maccles/54370125778_fba1a86169_o-scaled.jpg", "/maccles/7.jpg"],
   },
-  video: { title: "Macclesfield FC Football Education", poster: mkt(4587), clip: mk(4587) },
+  video: { title: "Macclesfield FC Football Education", ytId: "PlgebMz7DSM" },
   benefitsIntro: {
     heading: "Benefits of our programmes",
     text: "Discover the unparalleled advantages of our programmes, enriched by our partnership with University of Lancashire, offering a diverse range of Bachelor and Masters programmes alongside exceptional football excellence experiences.",
-    img: mkt(43494),
+    img: "/maccles/53036293139_2c50713232_k.jpg",
   },
 };
+
+// ---- Macclesfield FC teams ----
+export type Team = { name: string; img: string; href?: string };
+export const MACC_TEAMS: Team[] = [
+  { name: "Coaches & Staff", img: "/teams/IFG-Staff-pic-1-scaled.jpg", href: "/programmes/macclesfield/teams/staff" },
+  { name: "U19 Squad", img: "/teams/IFG-U19-scaled.jpg", href: "/programmes/macclesfield/teams/u19" },
+  { name: "U20 Squad", img: "/teams/IFG-U20-scaled.jpg", href: "/programmes/macclesfield/teams/u20" },
+  { name: "U21 Squad", img: "/teams/u21.jpg", href: "/programmes/macclesfield/teams/u21" },
+  { name: "U23 Squad", img: "/teams/u23.jpg", href: "/programmes/macclesfield/teams/u23" },
+  { name: "U23 Shadow Youth Squad", img: "/teams/u23%20shadow%20youth.jpg", href: "/programmes/macclesfield/teams/u23-shadow-youth" },
+  { name: "U23 Women's Squad", img: "/teams/u23%20women.jpg", href: "/programmes/macclesfield/teams/u23-women" },
+];
+
+// ---- Macclesfield facilities ----
+export type FacilityBlock = { tag: string; title: string; paragraphs: string[]; images: string[] };
+export const MACC_FACILITIES: FacilityBlock[] = [
+  {
+    tag: "Training facilities",
+    title: "Athletic & academic fusion",
+    paragraphs: [
+      "Macclesfield Football Club's facilities have undergone a remarkable transformation, with over £4m invested in the stadium over the last two years — making it the most sought-after venue in the local area. The all-weather 4G surface ensures that training sessions and games are unaffected by the elements all year round. Beyond the field, athletes have access to the Stealth Gym, a fitness facility tailored to meet the demands of modern footballers.",
+      "Meanwhile, at the University of Central Lancashire (UCLan), aspiring footballers are greeted with an array of exceptional facilities designed to foster both athletic and academic excellence. The crown jewel of UCLan's offerings is the Sir Tom Finney Sports Centre, named in honour of the legendary footballer, while the UCLan Sports Arena provides an expansive platform to refine skills and compete at the highest level — seamlessly integrating sports training with academic pursuits.",
+    ],
+    images: [
+      "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+      "/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg",
+      "/summer/Macclesfield-Stealth-Gym-2.webp",
+      "/summer/53035856526_2f23eeb351_o.jpg",
+      "/summer/54661849377_ae6918fc8d_o-scaled.jpg",
+    ],
+  },
+  {
+    tag: "Accommodation & stay",
+    title: "University student halls",
+    paragraphs: [
+      "At UCLan, the accommodation experience is designed to offer students a sense of belonging and support — particularly for those venturing away from home for the first time.",
+      "Residing in university accommodation fosters a unique sense of community, where students become part of a vibrant and inclusive environment. From the moment they step into their new homes, residents are greeted with a plethora of events and activities, creating opportunities to connect with peers and engage in memorable experiences.",
+      "The friendly and dedicated Residences Team is always available to provide assistance and guidance, ensuring students feel welcomed and settled from day one — free to focus on their studies and personal growth while forging lasting friendships within the vibrant UCLan community.",
+    ],
+    images: ["/summer/IMG_1227-scaled.jpg", "/summer/Bar-27-Hospitality.jpeg"],
+  },
+];
+
+// ---- Squad detail pages ----
+export type SquadPlayer = { name: string; pos: string };
+export type Squad = {
+  slug: string;
+  name: string;
+  title: string;
+  heroImg: string;
+  photo: string;
+  intro: string[];
+  leagueUrl?: string;
+  roster: SquadPlayer[];
+};
+
+export const SQUADS: Record<string, Squad> = {
+  u19: {
+    slug: "u19",
+    name: "U19 Squad",
+    title: "Under 19 Playing Squad",
+    heroImg: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+    photo: "/teams/IFG-U19-scaled.jpg",
+    intro: [
+      "Introducing the dedicated and passionate players who make up our formidable Under-19 football squad! These young athletes have demonstrated an unwavering commitment to their sport, putting in countless hours of hard work, dedication, and teamwork to earn their place in this elite team.",
+      "Their talent and determination are second to none, and they are ready to bring their A-game to every match. With a shared love for the beautiful game and a strong sense of camaraderie, these players are not just teammates; they are a family — poised to tackle any challenge that comes their way and showcase their skills on the field with pride and determination.",
+      "Get ready to witness the future of football as these remarkable Under-19 players light up the pitch!",
+    ],
+    leagueUrl: "https://fulltime.thefa.com/displayTeam.html?divisionseason=946824025&teamID=517437792",
+    roster: [
+      { name: "Matt Delk", pos: "GK" },
+      { name: "Nicholas Mercado", pos: "GK" },
+      { name: "Daniel Gutierrez", pos: "GK" },
+      { name: "Thiago Carvalho", pos: "RB" },
+      { name: "Mario Campbell", pos: "RB" },
+      { name: "Efosa 'Elvis' Ogbeide", pos: "CB" },
+      { name: "Ian Coward", pos: "CB" },
+      { name: "Nick Swift", pos: "CB" },
+      { name: "Telmo Carvalho", pos: "LB" },
+      { name: "George Lara", pos: "CDM" },
+      { name: "Joahan Ponce", pos: "CDM" },
+      { name: "Emmet Ritchie", pos: "CDM" },
+      { name: "Nery Rios", pos: "CM" },
+      { name: "Jesse Palacios", pos: "CM" },
+      { name: "Mor Talla Seck", pos: "CM" },
+      { name: "Elliot Prince", pos: "Winger" },
+      { name: "Fernando Ojeda", pos: "Winger" },
+      { name: "Evan Lozano", pos: "Winger" },
+      { name: "Devin Snyder", pos: "Winger" },
+      { name: "Cameron Daly", pos: "ST" },
+    ],
+  },
+  u20: {
+    slug: "u20",
+    name: "U20 Squad",
+    title: "Under 20 Playing Squad",
+    heroImg: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+    photo: "/teams/IFG-U20-scaled.jpg",
+    intro: [
+      "Introducing the dedicated and passionate players who form the core of our formidable Under-20 football squad! These rising stars have shown an unwavering commitment to their sport, dedicating countless hours to hard work, discipline, and teamwork to secure their positions in this esteemed team.",
+      "Their exceptional talent and unwavering determination set them apart, and they're fully prepared to deliver their absolute best in every match. With a shared passion for the beautiful game and a deep sense of camaraderie, these players are not just teammates; they are a tightly-knit family — ready to face any challenge that crosses their path and proudly display their skills on the field.",
+      "Prepare to witness the future of football as these remarkable Under-20 players light up the pitch!",
+    ],
+    roster: [],
+  },
+  u21: {
+    slug: "u21",
+    name: "U21 Squad",
+    title: "Under 21 Playing Squad",
+    heroImg: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+    photo: "/teams/u21.jpg",
+    intro: [
+      "Allow us to introduce the dedicated and passionate athletes who compose our formidable Under-21 team! These talented individuals have exhibited an unwavering devotion to their sport, investing countless hours in rigorous training, unwavering commitment, and a united spirit to earn their spots on this prestigious team.",
+      "Their extraordinary skills and resolute determination set them apart, and they are prepared to bring their absolute best to every match. With a shared passion for the beautiful game and a deep bond of camaraderie, these players are more than just teammates; they are a tight-knit family — well-equipped to conquer any challenge that arises and to proudly exhibit their abilities on the field.",
+      "Get ready to witness the future of football as these remarkable Under-21 players shine on the pitch!",
+    ],
+    roster: [
+      { name: "Jonathon Thornton", pos: "GK" },
+      { name: "Matthew Jones Parkinson", pos: "GK" },
+      { name: "Andres Martinez", pos: "GK" },
+      { name: "Thaddeus Harp", pos: "RB" },
+      { name: "Taylor Plourde", pos: "RB" },
+      { name: "Zach Martinez", pos: "CB" },
+      { name: "Luke Price", pos: "CB" },
+      { name: "Cody Williams", pos: "CB" },
+      { name: "Gabriel Lucero", pos: "CB" },
+      { name: "Grant Jennings", pos: "CB" },
+      { name: "Will Prince", pos: "LB" },
+      { name: "Dameon Phillippi", pos: "CM" },
+      { name: "John Alex Hoopes", pos: "CM" },
+      { name: "Jelle Siebring", pos: "CM" },
+      { name: "Erwan Friche", pos: "CM" },
+      { name: "Luke Draysey", pos: "CM" },
+      { name: "Ryan Russell", pos: "Winger" },
+      { name: "Paul Hyatt", pos: "Winger" },
+      { name: "Mason Brown", pos: "Winger" },
+      { name: "Salvatore Zannone", pos: "ST" },
+    ],
+  },
+  u23: {
+    slug: "u23",
+    name: "U23 Squad",
+    title: "Under 23 Playing Squad",
+    heroImg: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+    photo: "/teams/u23.jpg",
+    intro: [
+      "Allow us to introduce the dedicated and passionate athletes who compose our formidable Under-23 team! These talented individuals have demonstrated an unwavering commitment to their sport, investing countless hours in rigorous training, unwavering dedication, and a united spirit to earn their spots on this prestigious squad.",
+      "Their extraordinary skills and resolute determination set them apart, and they are prepared to bring their absolute best to every match. With a shared passion for the beautiful game and a deep bond of camaraderie, these players are more than just teammates; they are a tight-knit family — well-equipped to conquer any challenge that arises and to proudly exhibit their abilities on the field.",
+      "Get ready to witness the future of football as these remarkable Under-23 players shine on the pitch!",
+    ],
+    roster: [
+      { name: "Miles Martinez", pos: "GK" },
+      { name: "Jacob Bakey", pos: "GK" },
+      { name: "Freddy Lloyd", pos: "RB" },
+      { name: "Alex Lardner", pos: "RB" },
+      { name: "Chance Lindstrom", pos: "RB" },
+      { name: "Daniel Humphrey", pos: "CB" },
+      { name: "Jacob Alt", pos: "CB" },
+      { name: "Dirk Lambertson", pos: "CB" },
+      { name: "Lucas Coffey", pos: "LB" },
+      { name: "Jose Gallegos", pos: "LB" },
+      { name: "Alberto Schiavon", pos: "CDM" },
+      { name: "Mason Carrico", pos: "CDM" },
+      { name: "Baraka Kagira Minabien", pos: "CM" },
+      { name: "Caden Perry", pos: "CM" },
+      { name: "Eliud Villareal", pos: "CM" },
+      { name: "Brandon Xavi Rodriguez", pos: "CM" },
+      { name: "Sisay Doerschler", pos: "CM" },
+      { name: "Kade Huck", pos: "Winger" },
+      { name: "Kingsley Nuro", pos: "Winger" },
+      { name: "Omid Amiri", pos: "Winger" },
+      { name: "Noel Aredu", pos: "Winger" },
+      { name: "John Tondo", pos: "ST" },
+      { name: "Toby Stewart", pos: "ST" },
+    ],
+  },
+  "u23-shadow-youth": {
+    slug: "u23-shadow-youth",
+    name: "U23 Shadow Youth Squad",
+    title: "Under 23 Shadow Youth Squad",
+    heroImg: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+    photo: "/teams/u23%20shadow%20youth.jpg",
+    intro: [
+      "Allow us to introduce the dedicated and passionate athletes who make up our promising Under-23 Shadow Youth Squad! These talented individuals have showcased their unwavering commitment to the sport, dedicating countless hours to rigorous training, unyielding dedication, and seamless teamwork to secure their positions within this dynamic squad.",
+      "Their remarkable skills and unwavering determination set them apart, and they're poised to bring their absolute best to every match. With a shared passion for the beautiful game and a strong sense of camaraderie, these players are more than just teammates; they are a tight-knit family — ready to tackle any challenge that comes their way and to proudly display their abilities on the field.",
+      "Get ready to witness the future of football as these remarkable Shadow Youth players light up the pitch!",
+    ],
+    roster: [
+      { name: "Luke Trentacost", pos: "GK" },
+      { name: "Josh Lucas", pos: "GK" },
+      { name: "Trevor Kyobe", pos: "RB" },
+      { name: "Casimir Ejinreh", pos: "RB" },
+      { name: "Tyler Beck", pos: "CB" },
+      { name: "Harry Lutakome", pos: "CB" },
+      { name: "Drew Abdella", pos: "CB" },
+      { name: "Benjamin Johns", pos: "CB" },
+      { name: "Connor Seymour", pos: "LB" },
+      { name: "Ed Schryburt", pos: "CDM" },
+      { name: "Adrian Kandeke", pos: "CDM" },
+      { name: "Carlos Dos Santos", pos: "CDM" },
+      { name: "Aidan Mcdade", pos: "CM" },
+      { name: "Mir Ishaq", pos: "CM" },
+      { name: "Basit Yusuff", pos: "Winger" },
+      { name: "Lucas Carey", pos: "Winger" },
+      { name: "Kamarl Nelson", pos: "Winger" },
+      { name: "Jefferson Abreu", pos: "Winger" },
+      { name: "Zoller Gray", pos: "ST" },
+      { name: "Jaylen Findley", pos: "ST" },
+    ],
+  },
+  "u23-women": {
+    slug: "u23-women",
+    name: "U23 Women's Squad",
+    title: "Under 23 Women's Squad",
+    heroImg: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+    photo: "/teams/u23%20women.jpg",
+    intro: [
+      "Allow us to introduce the dedicated and passionate athletes who compose our formidable U23 Women's Team! These talented individuals have displayed an unwavering commitment to their sport, dedicating countless hours to rigorous training, unyielding dedication, and seamless teamwork to secure their positions within this exceptional squad.",
+      "Their remarkable skills and unwavering determination set them apart, and they're prepared to bring their absolute best to every match. With a shared passion for the beautiful game and a strong sense of camaraderie, these players are more than just teammates; they are a tightly-knit family — ready to tackle any challenge that comes their way and to proudly display their abilities on the field.",
+      "Get ready to witness the future of football as the U23 Women's Team players shine on the pitch!",
+    ],
+    roster: [
+      { name: "Emelie Borg", pos: "GK" },
+      { name: "Allison Cress", pos: "GK" },
+      { name: "Ave Mcdonald", pos: "GK" },
+      { name: "Rebecca Nowicki", pos: "GK" },
+      { name: "Torrance Vest", pos: "GK" },
+      { name: "Panther Espinoza", pos: "RB" },
+      { name: "Laura McCann", pos: "RB" },
+      { name: "Hannah Bluemel", pos: "CB" },
+      { name: "Mallory Sears", pos: "CB" },
+      { name: "Poetrie Bedgood", pos: "CB" },
+      { name: "Isabelle Parish", pos: "LB" },
+      { name: "Julia Lebron", pos: "CDM" },
+      { name: "Xiomara Rodriguez", pos: "CDM" },
+      { name: "Grace Osvath", pos: "CM" },
+      { name: "Megan Cardenas", pos: "CM" },
+      { name: "Abigail Carte", pos: "CM" },
+      { name: "Lara Johnson", pos: "Winger" },
+      { name: "Jennifer Murcia", pos: "Winger" },
+      { name: "Kaitlyn Atleo", pos: "Winger" },
+      { name: "Dayzee Betton", pos: "Winger" },
+      { name: "Jayna Wildman", pos: "ST" },
+      { name: "Celeste Gordon", pos: "ST" },
+      { name: "Zoe Lam", pos: "ST" },
+    ],
+  },
+};
+
+// ---- Staff (Coaches & Staff detail page) ----
+export type StaffMember = { name: string; role: string; img: string; bio?: string };
+export type StaffGroup = { label: string; people: StaffMember[] };
+const sImg = (f: string) => `/teams/staff%20images/${f}`;
+
+export const STAFF_GROUPS: StaffGroup[] = [
+  {
+    label: "Leadership",
+    people: [
+      {
+        name: "Robert Smethurst",
+        role: "Director / Chairman",
+        img: sImg("robert.jpg"),
+        bio: "Robert, an accomplished entrepreneur, started in the motor trade and ran his car sales garage for a decade. He ventured into technology, creating an award-winning logistics website, earning Gold & Bronze in the 2016 NEBC Awards. A finalist in the 2015 Digital Entrepreneur Awards, he later sold his logistics company to AutoTrader in 2017. In 2022 he won the North-East Cheshire 'Business of the Year' Gold Award, and earned Lloyds Bank Business of the Year in 2019 running the Pro Football Academy. Owner of The International Football Group, Rob collaborates with UCLan and Juventus, offering football residency programmes, university degree courses, and gap-year opportunities in the UK and Italy.",
+      },
+      {
+        name: "Robbie Savage",
+        role: "Director of Football",
+        img: sImg("robbie.jpg"),
+        bio: "Robbie, a renowned former Premier League and international footballer, transitioned into an award-winning pundit. Starting as a youth player with Manchester United in the Class of '92, he later played for Crewe Alexandra, Leicester City, Birmingham City, Blackburn Rovers and Derby County. Captaining four Premier League clubs and his country, he played 350 Premier League games — 631 in all competitions — and represented Wales 39 times under managers like Sir Alex Ferguson and Martin O'Neill. Now a TV pundit, he presents 606 on BBC Radio 5 Live, writes for the Daily Mirror, and actively contributes to grassroots and academy football.",
+      },
+      {
+        name: "Paul Prescott",
+        role: "Chief Executive Officer",
+        img: sImg("PAUL-PRESCOTT.jpg"),
+      },
+    ],
+  },
+  {
+    label: "Recruiters",
+    people: [
+      {
+        name: "Nathan Bibby",
+        role: "Head of International Recruitment & Head Coach",
+        img: sImg("nathan.webp"),
+        bio: "Nathan Bibby, a dedicated sports professional with a BA Honours in Physical Education and Sports Coaching, combines academic knowledge with practical coaching skills. Holding UEFA and USSF licenses, he pursued certifications at prestigious institutions like Juventus FC and MLS clubs. His coaching journey spans the US & UK, and he leads recruitment projects for the Academy while fostering relationships with clubs like Juventus FC. Nathan's leadership shines through coaching the U21s across the 21/22 and 22/23 seasons, demonstrating hands-on expertise in player development and team management.",
+      },
+      {
+        name: "Tom Wilkinson",
+        role: "Recruitment Executive",
+        img: sImg("tom.jpg"),
+        bio: "Tom Wilkinson, a proud Mancunian and lifelong Manchester City fan, played football at amateur level in Manchester for as long as he can remember. In 2020 he graduated with a degree in Football Business and Media from UCFB Etihad. Taking his love for the sport to the next level, Tom joined Macclesfield FC in November 2022 — his journey enriched by experiences like the Gap Year, Summer Residency, and a special residency with Juventus, showcasing his commitment to furthering his career in the football industry.",
+      },
+      {
+        name: "Max Knight-Surie",
+        role: "Recruitment Executive",
+        img: sImg("maz.jpg"),
+        bio: "Max, originally from Brighton, immersed himself in football during his 10-year stint in Philadelphia, USA, contributing to player development as a coach for the Philadelphia Union Academy in MLS. He furthered his knowledge with a Master's degree in Football Business from the Football Business Academy. Eager to expand his horizons, he completed a 3-month internship with Mazatlán FC in Liga MX as a First Team scout & analyst. Max has now embraced a new challenge with Macclesfield FC International, bringing a wealth of experience and a global perspective to his role.",
+      },
+    ],
+  },
+  {
+    label: "Physios",
+    people: [
+      {
+        name: "Merrisa Heraldson",
+        role: "First Team Physio",
+        img: sImg("merrisa.jpg"),
+        bio: "Merrisa Heraldson, a dedicated professional in sports medicine and physiotherapy, holds a BSc in Sports Medicine from the United States with a certified athletic training qualification, and an MSc in Physiotherapy from Keele University. She serves as the full-time physio for the men's first team, extending her impact part-time to the BTEC team, academy and women's games, and holds EMFAIF Level 3 certification. She is also Head Physio for the England Box Lacrosse Team and contributes her expertise to G4 Physio and Fitness Clinic — a fusion of academic prowess, hands-on experience and a passion for athlete well-being.",
+      },
+    ],
+  },
+  {
+    label: "Coaches",
+    people: [
+      {
+        name: "Matthew Morgan",
+        role: "Academy Director & U23 SYT Head Coach",
+        img: sImg("mathew.jpg"),
+        bio: "With a UEFA A License in Coaching Football, a UEFA B License in Coaching Futsal, and an FA Youth Award, Matthew is a seasoned sports professional. He holds an MA in Sports Coaching and a BA in Sports, Society & Development. Having contributed to football development globally with organisations such as The FA and Juventus, his coaching journey spans England, USA, Brazil, Argentina, Hungary and Kuwait — a rich blend of theoretical knowledge and practical experience.",
+      },
+      {
+        name: "Gareth Gray",
+        role: "Head Goalkeeper Coach",
+        img: sImg("gareth.jpg"),
+        bio: "Gareth Gray brings a diverse football background, excelling in both playing and coaching. With professional stints at Bolton Wanderers and Rochdale and semi-professional spells at Morecambe, Hyde, Great Harwood and Squires Gate, his versatility spans different tiers. As a goalkeeping coach he has been recognised at institutions like the Manchester City Development Centre and Preston North End Academy. Holding UEFA C qualifications for outfield and goalkeeping, his dual expertise makes him a valuable asset in player development.",
+      },
+      {
+        name: "Francesco Landucci",
+        role: "U19 Head Coach",
+        img: sImg("francesco.jpg"),
+        bio: "Hailing from Guayaquil, Ecuador, Francesco Landucci has 12+ years of coaching experience, a Football Management degree from Instituto Tecnológico de Fútbol and a National Ecuadorian Pro Licence. Fluent in Spanish, English and Italian, his journey spans grassroots to professional tiers — Barcelona Ecuador U16, Emelec Reserves, CS Patria, Atletico Porteño, Assistant Manager at Guayaquil City and Ecuador's U20 National Team. He became Head of Women's Football at Macclesfield FC, works with the U23 & Reserve teams, and contributes to the Juventus Academy in Italy.",
+      },
+      {
+        name: "Danny Whittaker",
+        role: "Academy Manager / U23 SYT Head Coach",
+        img: sImg("danny.jpg"),
+        bio: "With over a decade in professional football, Danny showcased his talent at Stockport County, Morecambe, Scunthorpe United and Ayr United, and previously played for Chester. Alongside playing, he pursued coaching — earning a UEFA B license and progressing through the UEFA A course. His coaching journey began with Morecambe U15/16s, and he has assisted the U18s at Chester, balancing roles as a player and mentor while shaping the next generation at the Academy.",
+      },
+      {
+        name: "Alex Marr",
+        role: "U20 Head Coach",
+        img: sImg("alex.jpg"),
+        bio: "UEFA B qualified coach Alex Marr brings a unique blend of education and experience to football. His MSc in Football Coaching and Analysis, coupled with a BSc in Physics with Astrophysics, highlights analytical thinking and scientific acumen. Alex has coached Chorley Women, Fylde Women and Skelmersdale United Men, and took a leadership role as Head of Junior Academy at Fylde — a dedicated professional shaping football's future through a diverse skill set.",
+      },
+      {
+        name: "Ewan Gunter",
+        role: "U23 White Squad Head Coach",
+        img: sImg("ewan.webp"),
+        bio: "UEFA A Licensed coach Ewan Gunter holds a BSc in Football Coaching & Performance and an MSc in Advanced Performance Football Coaching from the University of South Wales. With experience at elite professional clubs like Swansea City AFC and Newport County AFC, plus semi-professional first-team roles in Wales and England, Ewan has a proven track record in player development — with his methods helping numerous academy players progress to professional contracts or age-group international honours.",
+      },
+    ],
+  },
+];
 
 // ---- Summer Residency sub-programme (Macclesfield) ----
 export type ScheduleDay = {
@@ -341,15 +696,15 @@ export const SUMMER_RESIDENCY = {
   hero: {
     title: "Summer Residency Programme",
     subtitle: "The International Football Group in partnership with Macclesfield FC.",
-    clip: mk(43487),
-    poster: mkt(43487),
+    clip: "",
+    poster: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
     logos: MACCLESFIELD.hero.logos,
   },
   features: [
-    { title: "UEFA-Qualified Coaches", icon: "award", img: mkt(43497) },
-    { title: "Daily Training Programme", icon: "dumbbell", img: mkt(43487) },
-    { title: "4-Star Accommodation", icon: "bed", img: mkt(4587) },
-    { title: "Unlimited Access to Facilities", icon: "building", img: mkt(43482) },
+    { title: "UEFA-Qualified Coaches", icon: "award", img: "/summer/53035529767_ab0183f004_o.jpg" },
+    { title: "Daily Training Programme", icon: "dumbbell", img: "/summer/53035856526_2f23eeb351_o.jpg" },
+    { title: "4-Star Accommodation", icon: "bed", img: "/summer/IMG_1227-scaled.jpg" },
+    { title: "Unlimited Access to Facilities", icon: "building", img: "/summer/Macclesfield-Stealth-Gym-2.webp" },
   ],
   intro: {
     heading: "Train like a pro this summer in the UK",
@@ -359,7 +714,7 @@ export const SUMMER_RESIDENCY = {
     ],
     datesHeading: "Programme dates",
     dates: "Summer 2026 residency starts on June 20th and finishes on August 1st. Sign up via our enquiry form to secure your place this summer!",
-    images: [mkt(43487), mkt(43482), mkt(43492)],
+    images: ["/summer/52647156393_db255d94b5_o.jpg", "/summer/53244287184_8f568349d2_o.jpg", "/summer/53283355490_a3b0905c26_o.jpg"],
   },
   optionsNote: "Multiple experiences available, from 2, 4 & 6 weeks.",
   options: [
@@ -370,29 +725,29 @@ export const SUMMER_RESIDENCY = {
     { label: "E", weeks: "Middle 2 Weeks", dur: "2 weeks", dates: "July 5th – July 18th", total: "£3,500", deposit: "£2,075", featured: false },
     { label: "F", weeks: "Last 2 Weeks", dur: "2 weeks", dates: "July 19th – Aug 1st", total: "£3,500", deposit: "£2,075", featured: false },
   ],
-  video: { title: "Summer Residency Programme", poster: mkt(43484), clip: mk(43484) },
+  video: { title: "Summer Residency in the UK | My IFG Experience", ytId: "7ezDdQM_gbI" },
   scheduleNote: "This two-week schedule shows the typical programme structure, but be aware that the final schedule and events may vary.",
   schedule: [
-    { day: "Day 1", weekday: "Monday", img: mkt(43482), sessions: [{ title: "Training @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
-    { day: "Day 2", weekday: "Tuesday", tone: "red", img: mkt(43494), sessions: [{ title: "University of Lancashire", place: "Tour & introduction" }] },
-    { day: "Day 3", weekday: "Wednesday", img: mkt(43492), sessions: [{ title: "Matchday @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
-    { day: "Day 4", weekday: "Thursday", tone: "navy", img: mkt(43495), sessions: [{ title: "Recovery training session", place: "The Leasing.com Stadium" }, { title: "Match analysis", place: "The Leasing.com Stadium" }] },
-    { day: "Day 5", weekday: "Friday", tone: "ink", img: mkt(43487), sessions: [{ title: "Training session", place: "The Leasing.com Stadium" }] },
-    { day: "Day 6", weekday: "Saturday", tone: "navy", img: mkt(43492), sessions: [{ title: "Watch Macclesfield FC", place: "First team game" }] },
-    { day: "Day 7", weekday: "Sunday", img: mkt(44602), sessions: [{ title: "Rest day" }] },
-    { day: "Day 8", weekday: "Monday", img: mkt(43482), sessions: [{ title: "Training @ Macclesfield FC", place: "Stealth Gymnasium" }] },
-    { day: "Day 9", weekday: "Tuesday", tone: "ink", img: mkt(4587), sessions: [{ title: "Gym", place: "Hybrid Training Centre" }, { title: "Training", place: "University Sports Arena" }] },
-    { day: "Day 10", weekday: "Wednesday", tone: "navy", img: mkt(43492), sessions: [{ title: "Matchday @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
-    { day: "Day 11", weekday: "Thursday", img: mkt(43479), sessions: [{ title: "Trip to London" }] },
-    { day: "Day 12", weekday: "Friday", tone: "ink", img: mkt(4587), sessions: [{ title: "Training @ Macclesfield FC", place: "The Leasing.com Stadium" }, { title: "Training", place: "Stealth Gymnasium" }] },
-    { day: "Day 13", weekday: "Saturday", tone: "red", img: mkt(4567), sessions: [{ title: "Visit Manchester", place: "Padel club" }] },
+    { day: "Day 1", weekday: "Monday", img: "/summer/53035529767_ab0183f004_o.jpg", sessions: [{ title: "Training @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
+    { day: "Day 2", weekday: "Tuesday", tone: "red", img: "/summer/54661849377_ae6918fc8d_o-scaled.jpg", sessions: [{ title: "University of Lancashire", place: "Tour & introduction" }] },
+    { day: "Day 3", weekday: "Wednesday", img: "/summer/53283355490_a3b0905c26_o.jpg", sessions: [{ title: "Matchday @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
+    { day: "Day 4", weekday: "Thursday", tone: "navy", img: "/summer/54291511311_1b0382a44f_o.jpg", sessions: [{ title: "Recovery training session", place: "The Leasing.com Stadium" }, { title: "Match analysis", place: "The Leasing.com Stadium" }] },
+    { day: "Day 5", weekday: "Friday", tone: "ink", img: "/summer/53035856526_2f23eeb351_o.jpg", sessions: [{ title: "Training session", place: "The Leasing.com Stadium" }] },
+    { day: "Day 6", weekday: "Saturday", tone: "navy", img: "/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg", sessions: [{ title: "Watch Macclesfield FC", place: "First team game" }] },
+    { day: "Day 7", weekday: "Sunday", img: "/summer/54600313098_aa6b27cf3f_o.jpg", sessions: [{ title: "Rest day" }] },
+    { day: "Day 8", weekday: "Monday", img: "/summer/Macclesfield-Stealth-Gym-2.webp", sessions: [{ title: "Training @ Macclesfield FC", place: "Stealth Gymnasium" }] },
+    { day: "Day 9", weekday: "Tuesday", tone: "ink", img: "/summer/54291747614_2393236ba1_o.jpg", sessions: [{ title: "Gym", place: "Hybrid Training Centre" }, { title: "Training", place: "University Sports Arena" }] },
+    { day: "Day 10", weekday: "Wednesday", tone: "navy", img: "/summer/53283355490_a3b0905c26_o.jpg", sessions: [{ title: "Matchday @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
+    { day: "Day 11", weekday: "Thursday", img: "/summer/52647156393_db255d94b5_o.jpg", sessions: [{ title: "Trip to London" }] },
+    { day: "Day 12", weekday: "Friday", tone: "ink", img: "/summer/53035529767_ab0183f004_o.jpg", sessions: [{ title: "Training @ Macclesfield FC", place: "The Leasing.com Stadium" }, { title: "Training", place: "Stealth Gymnasium" }] },
+    { day: "Day 13", weekday: "Saturday", tone: "red", img: "/summer/54291747614_2393236ba1_o.jpg", sessions: [{ title: "Visit Manchester", place: "Padel club" }] },
   ] as ScheduleDay[],
   facilitiesIntro: "Granted unlimited access to our fantastic on-site gymnasium, Stealth Gymnasium.",
   facilities: [
-    { name: "Stealth Gymnasium", img: mkt(4587) },
-    { name: "Leasing.com Stadium", img: mkt(43482) },
-    { name: "Bar Twenty Seven", img: mkt(41372) },
-    { name: "University of Lancashire", img: mkt(43494) },
+    { name: "Stealth Gymnasium", img: "/summer/Macclesfield-Stealth-Gym-2.webp" },
+    { name: "Leasing.com Stadium", img: "/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg" },
+    { name: "Bar Twenty Seven", img: "/summer/Bar-27-Hospitality.jpeg" },
+    { name: "University of Lancashire", img: "/summer/54661849377_ae6918fc8d_o-scaled.jpg" },
   ],
   included: {
     heading: "What's included and programme costs",
@@ -408,11 +763,11 @@ export const SUMMER_RESIDENCY = {
       "Offsite weekly scheduled day trips.",
       "Accommodation in a 4★ plus hotel offering excellent facilities — a short distance from the Leasing.com Stadium.",
     ],
-    images: [mkt(43492), mkt(43482), mkt(43494)],
+    images: ["/summer/53244287184_8f568349d2_o.jpg", "/summer/54291511311_1b0382a44f_o.jpg", "/summer/54600313098_aa6b27cf3f_o.jpg"],
   },
   accommodation: {
     heading: "Accommodation, meals, transport & events",
-    images: [mkt(4567), mkt(43499), mkt(43479)],
+    images: ["/summer/IMG_1227-scaled.jpg", "/summer/Bar-27-Hospitality.jpeg", "/summer/52647156393_db255d94b5_o.jpg"],
     paragraphs: [
       "All accommodation is included as part of the price, with players staying in a centrally based hotel close to all amenities. Three meals per day are provided at our dedicated Academy Restaurant — together with comprehensive nutritional guidance. All transport to and from training and games is provided and organised by Macclesfield FC.",
       "Joining us on the Residency Programme not only offers a fantastic football development programme but also the chance to embrace British culture.",
@@ -427,8 +782,8 @@ export const UNIVERSITY = {
   hero: {
     title: "University Programmes",
     subtitle: "The International Football Group in partnership with Macclesfield FC & University of Lancashire.",
-    clip: mk(43494),
-    poster: mkt(43494),
+    clip: "",
+    poster: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
     logos: MACCLESFIELD.hero.logos,
   },
   intro: {
@@ -438,25 +793,25 @@ export const UNIVERSITY = {
       "This exhilarating programme gives student-athletes from all over the world the unique opportunity to combine studying for a globally recognised degree qualification with continuing their football journey in a truly world-class, professional and inspiring environment.",
       "As well as enjoying the very best in academic provision, you will also revel in life as a full-time footballer knowing that your passions will be fuelled every step of the way. The University Programmes are meticulously designed — promoting exemplary standards both on and off the field of play.",
     ],
-    images: [mkt(43494), mkt(43482), mkt(43487)],
+    images: ["/summer/54661849377_ae6918fc8d_o-scaled.jpg", "/summer/53035529767_ab0183f004_o.jpg", "/summer/53283355490_a3b0905c26_o.jpg"],
   },
-  banner: { pre: "Train. Play. Live.", line: "Like a", accent: "pro", img: mkt(43492) },
+  banner: { pre: "Train. Play. Live.", line: "Like a", accent: "pro", img: "/summer/53035856526_2f23eeb351_o.jpg" },
   packageIntro: "The ultimate training and development environment, with UEFA-licensed coaches, world-class facilities, live-streamed matches and more. Explore the full package below.",
   package: [
-    { title: "UEFA Licensed Coaches", img: mkt(43497), desc: "The coaching staff brings a wealth of knowledge & expertise to the training ground. Possessing UEFA qualifications, they have honed their skills through years of practical experience." },
-    { title: "World Class Facilities", img: mkt(43482), desc: "The University Sport Arena includes 3x 3G pitches and 7x grass pitches alongside indoor facilities like a strength & conditioning suite, analysis room and therapy room." },
-    { title: "Technical Masterclass", img: mkt(43487), desc: "Throughout the training week players work in small groups focusing on position-specific areas of the game — allowing personal progression and more contact time with the ball and the coach." },
-    { title: "Goalkeeper Training", img: mkt(43495), desc: "The IFG goalkeepers have dedicated sessions just for them with our UEFA-qualified GK coaches." },
-    { title: "Strength & Conditioning", img: mkt(4587), desc: "IFG players receive weekly sessions at the Hybrid Training Centre with qualified coaches, helping prepare and improve physical development ready for matchday." },
-    { title: "Live Streamed Matches", img: mkt(4567), desc: "Every game is recorded via the club's Live VEO camera, allowing family and friends from around the world to watch the action as it happens." },
-    { title: "Team & Player Analysis", img: mkt(43479), desc: "The IFG coaches deliver team and player video-analysis sessions of both matches and training to understand where you can improve as a player & team." },
+    { title: "UEFA Licensed Coaches", img: "/summer/53035529767_ab0183f004_o.jpg", desc: "The coaching staff brings a wealth of knowledge & expertise to the training ground. Possessing UEFA qualifications, they have honed their skills through years of practical experience." },
+    { title: "World Class Facilities", img: "/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg", desc: "The University Sport Arena includes 3x 3G pitches and 7x grass pitches alongside indoor facilities like a strength & conditioning suite, analysis room and therapy room." },
+    { title: "Technical Masterclass", img: "/summer/53035856526_2f23eeb351_o.jpg", desc: "Throughout the training week players work in small groups focusing on position-specific areas of the game — allowing personal progression and more contact time with the ball and the coach." },
+    { title: "Goalkeeper Training", img: "/summer/53244287184_8f568349d2_o.jpg", desc: "The IFG goalkeepers have dedicated sessions just for them with our UEFA-qualified GK coaches." },
+    { title: "Strength & Conditioning", img: "/summer/Macclesfield-Stealth-Gym-2.webp", desc: "IFG players receive weekly sessions at the Hybrid Training Centre with qualified coaches, helping prepare and improve physical development ready for matchday." },
+    { title: "Live Streamed Matches", img: "/summer/54600313098_aa6b27cf3f_o.jpg", desc: "Every game is recorded via the club's Live VEO camera, allowing family and friends from around the world to watch the action as it happens." },
+    { title: "Team & Player Analysis", img: "/summer/54291511311_1b0382a44f_o.jpg", desc: "The IFG coaches deliver team and player video-analysis sessions of both matches and training to understand where you can improve as a player & team." },
   ],
   experiencesIntro: "Throughout the season we offer a range of footballing experiences for IFG players to enhance their footballing knowledge across the world.",
   experiences: [
-    { place: "Barcelona", tag: "Pre-season training", img: mkt(43499), desc: "To kick off the season we travel to one of the most iconic footballing cities, Barcelona — visiting the city, training and facing competitive Spanish teams to prepare for the season ahead." },
-    { place: "Juventus", tag: "Training experience", img: mkt(43487), desc: "In February we offer players the opportunity to travel to Italy for a 5-day Juventus training experience — train at the Juventus Academy, see the iconic stadium and play against Italian teams." },
-    { place: "Las Vegas", tag: "Mayors Cup", img: mkt(43492), desc: "In February we take teams to Las Vegas to represent IFG Macclesfield FC in the Mayors Cup tournament against teams from around the world." },
-    { place: "Dubai", tag: "Training experience", img: mkt(4567), desc: "Working with IFG partner club Phoenix City, we provide players with the chance to visit Dubai for a training experience of a lifetime." },
+    { place: "Barcelona", tag: "Pre-season training", img: "/summer/52647156393_db255d94b5_o.jpg", desc: "To kick off the season we travel to one of the most iconic footballing cities, Barcelona — visiting the city, training and facing competitive Spanish teams to prepare for the season ahead." },
+    { place: "Juventus", tag: "Training experience", img: "/juve/53008731624_2fba4df85a_o.jpg", desc: "In February we offer players the opportunity to travel to Italy for a 5-day Juventus training experience — train at the Juventus Academy, see the iconic stadium and play against Italian teams." },
+    { place: "Las Vegas", tag: "Mayors Cup", img: "/summer/54291747614_2393236ba1_o.jpg", desc: "In February we take teams to Las Vegas to represent IFG Macclesfield FC in the Mayors Cup tournament against teams from around the world." },
+    { place: "Dubai", tag: "Training experience", img: "/phoniex/0X7A8451-scaled.jpg", desc: "Working with IFG partner club Phoenix City, we provide players with the chance to visit Dubai for a training experience of a lifetime." },
   ],
   accommodation: {
     heading: "Accommodation",
@@ -466,7 +821,7 @@ export const UNIVERSITY = {
       "En-suite private bathroom", "Shared kitchen & lounge area", "On-site gym", "2-minute walk to the university",
       "Communal area", "Pool table", "Laundry facilities", "5-minute walk to town centre", "10-minute walk to train station",
     ],
-    images: [mkt(4587), mkt(43494), mkt(43482)],
+    images: ["/summer/IMG_1227-scaled.jpg", "/summer/Bar-27-Hospitality.jpeg", "/maccles/7.jpg"],
   },
   education: {
     heading: "Education & football",
@@ -493,8 +848,8 @@ export const GAP_YEAR = {
   hero: {
     title: "Gap Year Programme",
     subtitle: "The International Football Group in partnership with Macclesfield FC & University of Lancashire.",
-    clip: mk(43482),
-    poster: mkt(43482),
+    clip: "",
+    poster: "/maccles/DSC01273-Enhanced-NR-scaled.jpg",
     logos: MACCLESFIELD.hero.logos,
   },
   intro: {
@@ -504,30 +859,30 @@ export const GAP_YEAR = {
       "This inspiring programme is open to anyone around the world over the age of 16. More than just a gap year, it aims to nurture skills, improve knowledge and make lifelong friendships — ticking all the boxes in terms of development as both a footballer and a young adult.",
       "There can be no doubt that our Gap Year programme leads the way globally in football experiences, giving each player the opportunity to invest in the future whilst enjoying the time of their lives. The programme runs from September to May each year — get in touch today to register your interest!",
     ],
-    images: [mkt(43482), mkt(43487), mkt(43492)],
+    images: ["/maccles/54027689695_5d0b16b125_o.jpg", "/maccles/53046445765_c62d7e60e9_o.jpg", "/maccles/2023-Macclesfield-Fun-2-scaled.jpg"],
   },
-  banner: { pre: "Train. Play. Live.", line: "Like a", accent: "pro", img: mkt(43492) },
+  banner: { pre: "Train. Play. Live.", line: "Like a", accent: "pro", img: "/maccles/54370125778_fba1a86169_o-scaled.jpg" },
   packageIntro: "The ultimate training and development environment, with UEFA-licensed coaches, world-class facilities, live-streamed matches and more. Explore the full package below.",
   package: [
-    { title: "Team & Player Analysis", img: mkt(43479), desc: "The IFG coaches deliver team and player video-analysis sessions of both matches and training to understand where you can improve as a player & team." },
-    { title: "UEFA Licensed Coaches", img: mkt(43497), desc: "The coaching staff brings a wealth of knowledge & expertise to the training ground. Possessing UEFA qualifications, they have honed their skills through years of practical experience." },
-    { title: "Leasing.com Stadium", img: mkt(43482), desc: "Gain exclusive access to the 7,000-capacity home of Macclesfield FC, featuring state-of-the-art facilities including a gym, restaurant, fan zone, VIP lounges and analysis classrooms." },
-    { title: "World Class Facilities", img: mkt(43494), desc: "The University Sport Arena includes 3x 3G pitches and 7x grass pitches alongside indoor facilities like a strength & conditioning suite, analysis room and therapy room." },
-    { title: "Daily Training", img: mkt(43487), desc: "Daily training with a focus on both team and individual position-specific development, incorporating recovery sessions and detailed performance analysis across our indoor and outdoor facilities." },
-    { title: "Learning Plan", img: mkt(43495), desc: "Every 12 weeks IFG players receive an Individual Learning Plan, including a one-to-one with their coach, to understand their development and create a clear & achievable path to success." },
-    { title: "Technical Masterclass", img: mkt(43499), desc: "Throughout the training week players work in small groups focusing on position-specific areas of the game — allowing personal progression and more contact time with the ball and the coach." },
-    { title: "Goalkeeper Training", img: mkt(4567), desc: "The IFG goalkeepers have dedicated sessions just for them with our UEFA-qualified GK coaches." },
-    { title: "Strength & Conditioning", img: mkt(4587), desc: "IFG players receive weekly sessions at the Hybrid Training Centre with qualified coaches, helping prepare and improve physical development ready for matchday." },
-    { title: "Live Streamed Matches", img: mkt(43492), desc: "Every game is recorded via the club's Live VEO camera, allowing family and friends from around the world to watch the action as it happens." },
-    { title: "Sports Therapists", img: mkt(43484), desc: "Your safety is our priority. Our dedicated IFG sports therapists attend every session and game, offering instant injury assessment and treatment to maintain peak performance and prevent injuries." },
-    { title: "Return to Play", img: mkt(41372), desc: "The IFG return-to-play rehabilitation scheme helps players safely return to training and playing as quickly as possible, without re-occurring injuries." },
+    { title: "Team & Player Analysis", img: "/summer/54291511311_1b0382a44f_o.jpg", desc: "The IFG coaches deliver team and player video-analysis sessions of both matches and training to understand where you can improve as a player & team." },
+    { title: "UEFA Licensed Coaches", img: "/summer/53035529767_ab0183f004_o.jpg", desc: "The coaching staff brings a wealth of knowledge & expertise to the training ground. Possessing UEFA qualifications, they have honed their skills through years of practical experience." },
+    { title: "Leasing.com Stadium", img: "/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg", desc: "Gain exclusive access to the 7,000-capacity home of Macclesfield FC, featuring state-of-the-art facilities including a gym, restaurant, fan zone, VIP lounges and analysis classrooms." },
+    { title: "World Class Facilities", img: "/maccles/54661849377_ae6918fc8d_o-scaled.jpg", desc: "The University Sport Arena includes 3x 3G pitches and 7x grass pitches alongside indoor facilities like a strength & conditioning suite, analysis room and therapy room." },
+    { title: "Daily Training", img: "/summer/53035856526_2f23eeb351_o.jpg", desc: "Daily training with a focus on both team and individual position-specific development, incorporating recovery sessions and detailed performance analysis across our indoor and outdoor facilities." },
+    { title: "Learning Plan", img: "/maccles/53036293139_2c50713232_k.jpg", desc: "Every 12 weeks IFG players receive an Individual Learning Plan, including a one-to-one with their coach, to understand their development and create a clear & achievable path to success." },
+    { title: "Technical Masterclass", img: "/summer/53244287184_8f568349d2_o.jpg", desc: "Throughout the training week players work in small groups focusing on position-specific areas of the game — allowing personal progression and more contact time with the ball and the coach." },
+    { title: "Goalkeeper Training", img: "/summer/53283355490_a3b0905c26_o.jpg", desc: "The IFG goalkeepers have dedicated sessions just for them with our UEFA-qualified GK coaches." },
+    { title: "Strength & Conditioning", img: "/summer/Macclesfield-Stealth-Gym-2.webp", desc: "IFG players receive weekly sessions at the Hybrid Training Centre with qualified coaches, helping prepare and improve physical development ready for matchday." },
+    { title: "Live Streamed Matches", img: "/maccles/DSC04279.jpg", desc: "Every game is recorded via the club's Live VEO camera, allowing family and friends from around the world to watch the action as it happens." },
+    { title: "Sports Therapists", img: "/maccles/54027689695_5d0b16b125_o.jpg", desc: "Your safety is our priority. Our dedicated IFG sports therapists attend every session and game, offering instant injury assessment and treatment to maintain peak performance and prevent injuries." },
+    { title: "Return to Play", img: "/summer/54600313098_aa6b27cf3f_o.jpg", desc: "The IFG return-to-play rehabilitation scheme helps players safely return to training and playing as quickly as possible, without re-occurring injuries." },
   ],
   experiencesIntro: "Throughout the season we offer a range of footballing experiences for IFG players to enhance their footballing knowledge across the world.",
   experiences: [
-    { place: "Dubai", tag: "Training experience", img: mkt(4567), desc: "Working with IFG partner club Phoenix City, we provide players with the chance to visit Dubai for a training experience of a lifetime." },
-    { place: "Juventus", tag: "Training experience", img: mkt(43487), desc: "In February we offer players the opportunity to travel to Italy for a 5-day Juventus training experience — train at the Juventus Academy, see the iconic stadium and play against Italian teams." },
-    { place: "Barcelona", tag: "Pre-season training", img: mkt(43499), desc: "To kick off the season we travel to one of the most iconic footballing cities, Barcelona — visiting the city, training and facing competitive Spanish teams to prepare for the season ahead." },
-    { place: "Las Vegas", tag: "Mayors Cup", img: mkt(43492), desc: "In February we take teams to Las Vegas to represent IFG Macclesfield FC in the Mayors Cup tournament against teams from around the world." },
+    { place: "Dubai", tag: "Training experience", img: "/phoniex/0X7A8451-scaled.jpg", desc: "Working with IFG partner club Phoenix City, we provide players with the chance to visit Dubai for a training experience of a lifetime." },
+    { place: "Juventus", tag: "Training experience", img: "/juve/53008731624_2fba4df85a_o.jpg", desc: "In February we offer players the opportunity to travel to Italy for a 5-day Juventus training experience — train at the Juventus Academy, see the iconic stadium and play against Italian teams." },
+    { place: "Barcelona", tag: "Pre-season training", img: "/summer/52647156393_db255d94b5_o.jpg", desc: "To kick off the season we travel to one of the most iconic footballing cities, Barcelona — visiting the city, training and facing competitive Spanish teams to prepare for the season ahead." },
+    { place: "Las Vegas", tag: "Mayors Cup", img: "/summer/54291747614_2393236ba1_o.jpg", desc: "In February we take teams to Las Vegas to represent IFG Macclesfield FC in the Mayors Cup tournament against teams from around the world." },
   ],
   accommodation: {
     heading: "Accommodation",
@@ -538,7 +893,7 @@ export const GAP_YEAR = {
       "Communal lounge", "Cinema room", "Games hub", "Pool table", "Laundry facilities",
       "5-minute walk to town centre", "10-minute walk to train station",
     ],
-    images: [mkt(4587), mkt(43494), mkt(43482)],
+    images: ["/summer/IMG_1227-scaled.jpg", "/summer/Bar-27-Hospitality.jpeg", "/maccles/7.jpg"],
   },
   costs: [
     { title: "Full Season", season: "Sep – May", price: "£18,500", lines: ["Accommodation: £6,500", "Athletic fees: £12,000"], featured: true },
@@ -553,8 +908,8 @@ export const PHOENIX_CITY = {
     title: "IFG Phoenix City",
     subtitle: "The International Football Group in partnership with Phoenix Club UAE.",
     tagline: "Football. Degree. Pathway.",
-    clip: mk(4567),
-    poster: mkt(4567),
+    clip: "",
+    poster: "/phoniex/0X7A8451-scaled.jpg",
     logos: [{ src: "/assets/logo/partners-logos/phoenix.png", alt: "Phoenix City FC" }],
   },
   intro: {
@@ -566,11 +921,11 @@ export const PHOENIX_CITY = {
       "Beyond the pitch, you'll develop in a world-class environment with the best facilities in the UAE, clear pathways to Europe and the US, and the support to succeed during and after your playing career.",
     ],
     closer: "This is where your game, your degree, and your future come together.",
-    images: [mkt(4567), mkt(43499), mkt(43492)],
+    images: ["/phoniex/0X7A7053-scaled.jpg", "/phoniex/0X7A7331-scaled.jpg", "/phoniex/53872418652_093b710919_o.jpg"],
   },
   proven: {
     heading: "Proven worldwide",
-    img: mkt(43487),
+    img: "/phoniex/54641923863_ee626853af_o-scaled.jpg",
     stats: [
       ["300+", "Players supported"],
       ["600+", "Competitive matches"],
@@ -590,7 +945,7 @@ export const PHOENIX_CITY = {
   },
   cost: {
     heading: "The cost & dates",
-    images: [mkt(4567), mkt(43494)],
+    images: ["/phoniex/IMG_8974-scaled.jpg", "/phoniex/0X7A7331-scaled.jpg"],
     blocks: [
       { title: "Athletic fees", body: "Your athletic fee covers a comprehensive player-development package: daily training with UEFA-licensed coaches, competitive league matches, individual learning plans, video analysis, recovery support, and access to top-tier facilities.", lines: ["Full Season — 50,000 AED + VAT", "Half Season — 30,000 AED + VAT"] },
       { title: "Accommodation", body: "We help players secure safe, modern accommodation options that suit their needs — from private single rooms to shared apartments. Costs vary by room type and length of stay, with facilities like on-site gyms, lounges and easy access to training grounds.", lines: ["From 6,000 AED per month + VAT"] },
@@ -613,7 +968,7 @@ export const PHOENIX_CITY = {
       "Transport to all training sessions, matches and events",
       "Exclusive IFG Phoenix training kit",
     ],
-    img: mkt(43479),
+    img: "/phoniex/0X7A7053-scaled.jpg",
   },
 };
 
@@ -637,8 +992,8 @@ export const SUCCESS_STORIES: SuccessStory[] = [
     tag: "Latest News",
     year: "2024",
     club: "Macclesfield FC",
-    img: mkt(43492),
-    heroImg: mkt(43487),
+    img: "/success%20stories/Carlos-Dos-Santos.jpg",
+    heroImg: "/success%20stories/DSC00861.jpg",
     blurb: [
       "Carlos Dos Santos has officially signed for Macclesfield FC First Team ahead of the 2025/26 season in the National League North, marking a proud milestone in his football journey.",
       "Carlos joined IFG Macclesfield three years ago as part of the University Programme in partnership with UCLan University. From day one, his dedication, talent, and professionalism set him apart.",
@@ -649,44 +1004,6 @@ export const SUCCESS_STORIES: SuccessStory[] = [
       "His development continued beyond the training ground during the 2024/25 season, where Carlos also gained senior-level experience by playing men's first-team football for Newcastle Town, showcasing his ability to compete at a high level.",
       "Carlos was also a standout performer for the Macclesfield FC U23 Shadow Youth Team, where he was top goal scorer for two consecutive seasons. In his final season (2024/25), he took on a leadership role as captain, leading the team to a historic league and cup double — the most successful season ever recorded by IFG Macclesfield FC.",
       "His progression from the university programme to first-team football is a testament to his hard work, resilience, and the support of the development system at IFG Macclesfield. Everyone at IFG and Macclesfield FC is incredibly proud of Carlos and excited to watch him thrive in the National League North.",
-    ],
-  },
-  {
-    slug: "aiden-whitmore-ncaa-scholarship",
-    name: "Aiden Whitmore",
-    tag: "Success Story",
-    year: "2023",
-    club: "University of Tampa (NCAA)",
-    img: mkt(43487),
-    heroImg: mkt(43482),
-    blurb: [
-      "Aiden secured a full NCAA scholarship in the United States after two seasons inside the IFG environment.",
-      "Combining his degree pathway with elite training, Aiden caught the eye of US college scouts during an IFG showcase tour.",
-    ],
-    body: [
-      "Aiden Whitmore has secured a full NCAA Division II scholarship with the University of Tampa, opening the door to four years of college football in the United States alongside his degree.",
-      "Aiden joined IFG two seasons ago, balancing daily training with academic study through our university partnerships. His consistency, athleticism and attitude quickly marked him out as a player capable of competing internationally.",
-      "During an IFG showcase tour in the United States, Aiden impressed a number of college coaches with his performances against strong local opposition — ultimately earning offers from several programmes before choosing Tampa.",
-      "Aiden's journey is a clear example of the US college pathway IFG provides through its dedicated partnership network, connecting ambitious student-athletes with life-changing scholarship opportunities.",
-    ],
-  },
-  {
-    slug: "mateo-rossi-phoenix-city",
-    name: "Mateo Rossi",
-    tag: "Success Story",
-    year: "2024",
-    club: "Phoenix City FC (UAE)",
-    img: mkt(4567),
-    heroImg: mkt(43499),
-    blurb: [
-      "Mateo earned a professional contract with Phoenix City FC after graduating from the IFG programme.",
-      "His move to the UAE caps a development journey spanning training, education and international experience.",
-    ],
-    body: [
-      "Mateo Rossi has signed a professional contract with Phoenix City FC in the UAE, becoming one of the first IFG graduates to turn professional in the Middle East.",
-      "Mateo developed across both the football and education sides of the IFG programme, completing his degree while training daily within a professional club environment and travelling on IFG's international experiences.",
-      "His standout displays during the season — and on IFG's Dubai training experience with partner club Phoenix City — led directly to a professional offer in the UAE's official football pyramid.",
-      "Mateo's success highlights the global pathways IFG opens up, taking players from the classroom and the training ground all the way to professional football abroad.",
     ],
   },
 ];
@@ -968,6 +1285,19 @@ export const YT_CHANNEL = {
 // 16:9 thumbnail (maxres where available; component falls back to hqdefault).
 export const ytThumb = (id: string) => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
 
+// Hero background reel — hosted mp4 clips that crossfade behind the home hero.
+// Cloudinary `f_auto,q_auto` serves the best format/quality per browser.
+export const HERO_VIDEOS: string[] = [
+  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.mp4",
+  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901312/Macclesfield_FC_U23_3-3_Squires_Gate_FC_Match_Highlights_iivx9w.mp4",
+  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901477/UCLan_University_in_partnership_with_IFG_yr8sle.mp4",
+  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901671/UK_Soccer_SUMMER_RESIDENCY_2023_bwrctr.mp4",
+];
+
+// First-frame poster (Cloudinary derives a still by swapping .mp4 → .jpg).
+export const HERO_POSTER =
+  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto,so_0/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.jpg";
+
 export type YTVideo = { id: string; title: string; tag: string };
 
 // Featured film for the IFG TV hero.
@@ -1080,8 +1410,16 @@ export const US_STATES: string[] = [
 // [label, lucide brand icon key, emoji, href]
 export type Social = [string, string, string, string];
 export const SOCIALS: Social[] = [
-  ["Instagram", "instagram", "📸", "https://instagram.com"],
-  ["Facebook", "facebook", "👍", "https://facebook.com"],
-  ["LinkedIn", "linkedin", "💼", "https://linkedin.com"],
-  ["YouTube", "youtube", "▶️", "https://youtube.com"],
+  ["Instagram", "instagram", "📸", "https://www.instagram.com/ifgmacclesfieldfc"],
+  ["Facebook", "facebook", "👍", "https://www.facebook.com/MFCIntAcademy"],
+  ["LinkedIn", "linkedin", "💼", "https://www.linkedin.com/company/the-international-football-group/"],
+  ["YouTube", "youtube", "▶️", "https://www.youtube.com/channel/UCtWiv0xv-YbIykIejNScogQ"],
+  ["Flickr", "flickr", "📷", "https://www.flickr.com/people/198618797@N03/"],
+];
+
+// Footer legal documents (PDFs in /public).
+export const LEGAL_DOCS: [string, string][] = [
+  ["Privacy Policy", "/pdf%20docs/TIFSG-PRIVACY-POLICY.pdf"],
+  ["Data Protection Policy", "/pdf%20docs/TIFSG-DATA-PROTECTION-POLICY.pdf"],
+  ["Complaints Policy", "/pdf%20docs/TIFSG-COMPLAINTS-POLICY.pdf"],
 ];

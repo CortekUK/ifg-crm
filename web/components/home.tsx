@@ -6,7 +6,8 @@ import { Icon } from "./icons";
 import { CardCarousel } from "./carousels";
 import { ProgrammeCard, CTABand, StatItem } from "./sections";
 import { YouTubeLite } from "./youtube";
-import { PROGRAMMES, VALUES, YT_FEATURED, YT_VIDEOS, ARTICLES, STATS, PARTNERS, mkt, VIDEO_SRC, VIDEO_POSTER } from "@/lib/data";
+import { HeroReel } from "./hero-reel";
+import { PROGRAMMES, VALUES, YT_FEATURED, YT_VIDEOS, HERO_VIDEOS, HERO_POSTER, ARTICLES, STATS, PARTNERS, mkt } from "@/lib/data";
 
 function Hero() {
   const router = useRouter();
@@ -16,7 +17,7 @@ function Hero() {
   };
   return (
     <section className="hero">
-      <video className="hero-video" data-hero-video src={VIDEO_SRC} poster={VIDEO_POSTER} autoPlay muted loop playsInline />
+      <HeroReel srcs={HERO_VIDEOS} seconds={14} poster={HERO_POSTER} />
       <div className="protect hero-protect" />
       <div className="wrap hero-in">
         <div data-anim="hero-fade"><Eyebrow style={{ color: "var(--pitch-400)" }}>Market-leading sports education</Eyebrow></div>

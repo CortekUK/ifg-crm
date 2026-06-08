@@ -37,7 +37,11 @@ export function UniversityView() {
     <div>
       {/* hero */}
       <section className="c-hero mh-hero">
-        <video className="hero-video" data-hero-video src={u.hero.clip} poster={u.hero.poster} autoPlay muted loop playsInline />
+        {u.hero.clip ? (
+          <video className="hero-video" data-hero-video src={u.hero.clip} poster={u.hero.poster} autoPlay muted loop playsInline />
+        ) : (
+          <img className="hero-video" data-hero-video src={u.hero.poster} alt="" />
+        )}
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <div className="mh-logos" data-anim="hero-fade">

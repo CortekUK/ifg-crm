@@ -25,7 +25,11 @@ export function GapYearView() {
     <div>
       {/* hero */}
       <section className="c-hero mh-hero">
-        <video className="hero-video" data-hero-video src={g.hero.clip} poster={g.hero.poster} autoPlay muted loop playsInline />
+        {g.hero.clip ? (
+          <video className="hero-video" data-hero-video src={g.hero.clip} poster={g.hero.poster} autoPlay muted loop playsInline />
+        ) : (
+          <img className="hero-video" data-hero-video src={g.hero.poster} alt="" />
+        )}
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <div className="mh-logos" data-anim="hero-fade">

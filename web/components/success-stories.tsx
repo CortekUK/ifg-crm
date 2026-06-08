@@ -3,14 +3,15 @@ import Link from "next/link";
 import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
 import { CTABand } from "./sections";
-import { SUCCESS_STORIES, VIDEO_SRC, VIDEO_POSTER, type SuccessStory } from "@/lib/data";
+import { HeroReel } from "./hero-reel";
+import { SUCCESS_STORIES, HERO_VIDEOS, HERO_POSTER, type SuccessStory } from "@/lib/data";
 
 export function SuccessStoriesView() {
   return (
     <div>
       {/* hero */}
-      <section className="c-hero">
-        <video className="hero-video" data-hero-video src={VIDEO_SRC} poster={VIDEO_POSTER} autoPlay muted loop playsInline />
+      <section className="c-hero ss-hero">
+        <HeroReel srcs={HERO_VIDEOS} seconds={14} poster={HERO_POSTER} />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>

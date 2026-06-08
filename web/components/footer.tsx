@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SocialIcon } from "./icons";
-import { SOCIALS } from "@/lib/data";
+import { SOCIALS, LEGAL_DOCS } from "@/lib/data";
 
 export function Footer() {
   return (
@@ -35,14 +35,17 @@ export function Footer() {
           </div>
           <div>
             <h5>Group</h5>
-            <Link href="/about">About</Link>
             <Link href="/contact">Get in touch</Link>
             <Link href="/contact">Contact</Link>
           </div>
         </div>
         <div className="ftr-base">
           <span>© {new Date().getFullYear()} The International Football Group</span>
-          <span>#IFG · World-class football education</span>
+          <div className="ftr-legal">
+            {LEGAL_DOCS.map(([label, href]) => (
+              <a key={href} href={href} target="_blank" rel="noreferrer">{label}</a>
+            ))}
+          </div>
         </div>
       </div>
     </footer>

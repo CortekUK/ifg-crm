@@ -14,7 +14,7 @@ const LINKS: [string, string][] = [
   [`${BASE}/teams`, "Teams"],
   [`${BASE}/success-stories`, "Success Stories"],
   [`${BASE}/facilities`, "Facilities"],
-  [`${BASE}/brochure`, "View Brochure"],
+  ["https://publuu.com/flip-book/448626/2075544", "View Brochure"],
 ];
 
 export function ProgrammeHeader() {
@@ -49,9 +49,13 @@ export function ProgrammeHeader() {
               </div>
             )}
           </div>
-          {LINKS.slice(1).map(([href, label]) => (
-            <Link key={href} href={href} className={active(href) ? "active" : ""}>{label}</Link>
-          ))}
+          {LINKS.slice(1).map(([href, label]) =>
+            href.startsWith("http") ? (
+              <a key={href} href={href} target="_blank" rel="noreferrer">{label}</a>
+            ) : (
+              <Link key={href} href={href} className={active(href) ? "active" : ""}>{label}</Link>
+            )
+          )}
         </nav>
         <div className="spacer" />
         <div className="hdr-cta">
@@ -73,9 +77,13 @@ export function ProgrammeHeader() {
           {MACC_SUBPROGRAMMES.map((s) => (
             <Link key={s.id} href={`${BASE}/${s.id}`} className={"hdr-drawer-sub" + (pathname === `${BASE}/${s.id}` ? " active" : "")}>{s.name}</Link>
           ))}
-          {LINKS.slice(1).map(([href, label]) => (
-            <Link key={href} href={href} className={active(href) ? "active" : ""}>{label}</Link>
-          ))}
+          {LINKS.slice(1).map(([href, label]) =>
+            href.startsWith("http") ? (
+              <a key={href} href={href} target="_blank" rel="noreferrer">{label}</a>
+            ) : (
+              <Link key={href} href={href} className={active(href) ? "active" : ""}>{label}</Link>
+            )
+          )}
         </nav>
         <div className="hdr-drawer-cta">
           <Link href={`${BASE}/apply`} className="btn btn-primary">Apply Now</Link>

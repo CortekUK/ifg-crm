@@ -1,18 +1,17 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { Eyebrow, Button, PlayBadge } from "./primitives";
+import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { MediaCarousel, CardCarousel } from "./carousels";
-import { useVideo } from "./video-modal";
+import { YouTubeLite } from "./youtube";
 import { CTABand } from "./sections";
-import { SUMMER_RESIDENCY, VIDEO_SRC, type ScheduleDay } from "@/lib/data";
+import { SUMMER_RESIDENCY, type ScheduleDay } from "@/lib/data";
 
 const APPLY = "/programmes/macclesfield/apply?programme=training";
 const BROCHURE = "/programmes/macclesfield/brochure";
 
 export function SummerResidencyView() {
   const router = useRouter();
-  const { open } = useVideo();
   const s = SUMMER_RESIDENCY;
 
   const heroCtas = (
@@ -27,7 +26,11 @@ export function SummerResidencyView() {
     <div>
       {/* hero */}
       <section className="c-hero mh-hero">
-        <video className="hero-video" data-hero-video src={s.hero.clip} poster={s.hero.poster} autoPlay muted loop playsInline />
+        {s.hero.clip ? (
+          <video className="hero-video" data-hero-video src={s.hero.clip} poster={s.hero.poster} autoPlay muted loop playsInline />
+        ) : (
+          <img className="hero-video" data-hero-video src={s.hero.poster} alt="" />
+        )}
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <div className="mh-logos" data-anim="hero-fade">
@@ -110,10 +113,8 @@ export function SummerResidencyView() {
       {/* video */}
       <section className="section tight">
         <div className="wrap">
-          <div className="mh-video" data-anim="up" onClick={() => open({ title: s.video.title, src: s.video.clip || VIDEO_SRC, poster: s.video.poster })}>
-            <img src={s.video.poster} alt={s.video.title} loading="lazy" />
-            <div className="mh-video-shade" />
-            <PlayBadge size={84} onClick={(e) => { e.stopPropagation(); open({ title: s.video.title, src: s.video.clip || VIDEO_SRC, poster: s.video.poster }); }} />
+          <div className="mh-video" data-anim="up">
+            <YouTubeLite id={s.video.ytId} title={s.video.title} />
           </div>
         </div>
       </section>

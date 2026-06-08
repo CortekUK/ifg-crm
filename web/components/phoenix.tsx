@@ -32,7 +32,11 @@ export function PhoenixCityView() {
     <div>
       {/* hero */}
       <section className="c-hero mh-hero">
-        <video className="hero-video" data-hero-video src={p.hero.clip} poster={p.hero.poster} autoPlay muted loop playsInline />
+        {p.hero.clip ? (
+          <video className="hero-video" data-hero-video src={p.hero.clip} poster={p.hero.poster} autoPlay muted loop playsInline />
+        ) : (
+          <img className="hero-video" data-hero-video src={p.hero.poster} alt="" />
+        )}
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <div className="mh-logos ph-hero-logo" data-anim="hero-fade">

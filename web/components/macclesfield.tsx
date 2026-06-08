@@ -1,26 +1,29 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eyebrow, Button, PlayBadge } from "./primitives";
+import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { MediaCarousel } from "./carousels";
 import { Accordion } from "./accordion";
-import { useVideo } from "./video-modal";
+import { YouTubeLite } from "./youtube";
 import { CTABand } from "./sections";
-import { MACCLESFIELD, MACC_SUBPROGRAMMES, MACC_BENEFITS, VIDEO_SRC, type SubProgramme } from "@/lib/data";
+import { MACCLESFIELD, MACC_SUBPROGRAMMES, MACC_BENEFITS, type SubProgramme } from "@/lib/data";
 
 // Maps a sub-programme to its matching application tab on the apply page.
 const APPLY_TAB: Record<string, string> = { "summer-residency": "training", university: "university", "gap-year": "gap-year" };
 
 export function MacclesfieldView() {
   const router = useRouter();
-  const { open } = useVideo();
   const m = MACCLESFIELD;
   return (
     <div>
       {/* hero — dual logos + title */}
       <section className="c-hero mh-hero">
-        <video className="hero-video" data-hero-video src={m.hero.clip} poster={m.hero.poster} autoPlay muted loop playsInline />
+        {m.hero.clip ? (
+          <video className="hero-video" data-hero-video src={m.hero.clip} poster={m.hero.poster} autoPlay muted loop playsInline />
+        ) : (
+          <img className="hero-video" data-hero-video src={m.hero.poster} alt="" />
+        )}
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <div className="mh-logos" data-anim="hero-fade">
@@ -69,13 +72,11 @@ export function MacclesfieldView() {
         </div>
       </section>
 
-      {/* video */}
+      {/* video — from IFG TV (YouTube) */}
       <section className="section band-ink tight">
         <div className="wrap">
-          <div className="mh-video" data-anim="up" onClick={() => open({ title: m.video.title, src: m.video.clip || VIDEO_SRC, poster: m.video.poster })}>
-            <img src={m.video.poster} alt={m.video.title} loading="lazy" />
-            <div className="mh-video-shade" />
-            <PlayBadge size={84} onClick={(e) => { e.stopPropagation(); open({ title: m.video.title, src: m.video.clip || VIDEO_SRC, poster: m.video.poster }); }} />
+          <div className="mh-video" data-anim="up">
+            <YouTubeLite id={m.video.ytId} title={m.video.title} />
           </div>
         </div>
       </section>

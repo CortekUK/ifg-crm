@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/coming-soon";
+import { TeamsView } from "@/components/teams";
 
-export const metadata: Metadata = { title: "Teams · Macclesfield" };
+export const metadata: Metadata = {
+  title: "Teams · Macclesfield",
+  description:
+    "Meet the committed players and teams of The International Football Group at Macclesfield FC — Coaches & Staff, U19–U23 squads and the U23 Women's squad.",
+};
 
 export default function Page() {
-  return <ComingSoon title="Teams" />;
+  return <TeamsView />;
 }

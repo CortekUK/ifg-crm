@@ -1,11 +1,13 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eyebrow, Button, PhotoPlate } from "./primitives";
 import { Icon } from "./icons";
-import { MediaCarousel, VideoCarousel } from "./carousels";
+import { MediaCarousel, CardCarousel } from "./carousels";
+import { YouTubeLite } from "./youtube";
 import { useVideo } from "./video-modal";
 import { ProgrammeCard, CTABand } from "./sections";
-import { PROGRAMMES, PROGRAMME_DETAIL, VIDEO_SRC, type Programme } from "@/lib/data";
+import { PROGRAMMES, PROGRAMME_DETAIL, YT_FEATURED, YT_VIDEOS, type Programme } from "@/lib/data";
 
 export function ProgrammesView() {
   return (
@@ -42,7 +44,11 @@ export function ProgrammeDetailView({ p }: { p: Programme }) {
     <div>
       {/* hero */}
       <section className="pd-hero">
-        <video className="hero-video" data-hero-video src={p.clip || VIDEO_SRC} poster={p.img} autoPlay muted loop playsInline />
+        {p.clip ? (
+          <video className="hero-video" data-hero-video src={p.clip} poster={p.hero || p.img} autoPlay muted loop playsInline />
+        ) : (
+          <img className="hero-video" data-hero-video src={p.hero || p.img} alt="" />
+        )}
         <div className="protect hero-protect" />
         <div className="wrap pd-hero-in">
           <a className="pd-back" onClick={() => router.push("/programmes")}><Icon name="arrow-left" size={16} /> All programmes</a>
@@ -56,7 +62,7 @@ export function ProgrammeDetailView({ p }: { p: Programme }) {
           </div>
           <div className="pd-hero-cta" data-anim="hero-fade">
             <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push("/contact")}>Get in touch</Button>
-            <Button variant="ghost" size="lg" icon="play" onClick={() => open({ title: p.name, src: p.clip || VIDEO_SRC, poster: p.img })}>Watch the film</Button>
+            {p.clip && <Button variant="ghost" size="lg" icon="play" onClick={() => open({ title: p.name, src: p.clip, poster: p.img })}>Watch the film</Button>}
           </div>
         </div>
         <div className="pd-scroll-hint" aria-hidden="true"><span /></div>
@@ -165,19 +171,33 @@ export function ProgrammeDetailView({ p }: { p: Programme }) {
         </section>
       )}
 
-      {/* video carousel */}
-      {d?.videos && (
-        <section className="section band-ink">
-          <div className="wrap">
-            <div className="section-head" data-anim="up">
-              <Eyebrow>Watch</Eyebrow>
+      {/* IFG TV — videos from the YouTube channel */}
+      <section className="section band-ink">
+        <div className="wrap">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 40, gap: 24, flexWrap: "wrap" }} data-anim="up">
+            <div className="section-head" style={{ margin: 0 }}>
+              <Eyebrow>IFG TV</Eyebrow>
               <h2 className="t-h1" style={{ marginTop: 12 }}>See it in motion</h2>
-              <p>Programme films, training sessions and behind-the-scenes from inside the experience.</p>
             </div>
-            <div data-anim="up"><VideoCarousel videos={d.videos} /></div>
+            <Link href="/ifg-tv" className="btn btn-ghost">View all on IFG TV<Icon name="arrow-right" className="ic" size={18} /></Link>
           </div>
-        </section>
-      )}
+          <div data-anim="up">
+            <CardCarousel
+              items={[YT_FEATURED, ...YT_VIDEOS]}
+              auto={4500}
+              render={(v) => (
+                <article className="tv-card">
+                  <YouTubeLite id={v.id} title={v.title} />
+                  <div className="tv-card-body">
+                    <span className="tv-card-tag">{v.tag}</span>
+                    <h3 className="tv-card-title">{v.title}</h3>
+                  </div>
+                </article>
+              )}
+            />
+          </div>
+        </div>
+      </section>
 
       {/* facilities */}
       {d?.facilities && (
