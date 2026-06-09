@@ -22,7 +22,7 @@ function StaffCard({ p }: { p: StaffMember }) {
         )}
       </div>
       {p.bio && (
-        <div className="staff-reveal" data-lenis-prevent>
+        <div className="staff-reveal">
           <h3 className="staff-name">{p.name}</h3>
           <span className="staff-role">{p.role}</span>
           <p className="staff-bio">{p.bio}</p>

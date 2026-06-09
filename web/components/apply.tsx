@@ -144,19 +144,13 @@ function ApplicationForm({ form }: { form: FormDef }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ form: form.id, ...values }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        const msg = data.error || "Something went wrong. Please try again.";
-        if (res.status === 409 || data.code === "duplicate_email") {
-          // Existing contact — surface as a toast and flag the email field.
-          setToast(msg);
-          setErrors((prev) => ({ ...prev, email: msg }));
-          document.getElementById(`${form.id}-email`)?.focus();
-        } else {
-          setError(msg);
-        }
+        setError(data.error || "Something went wrong. Please try again.");
         return;
       }
+      // A repeat email is no longer rejected — the contact is updated and the
+      // programme's deal is created, so every valid submission is a success.
       setSent(true);
     } catch {
       setError("Could not submit your application. Please try again.");

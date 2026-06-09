@@ -86,22 +86,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
-    // Reject duplicate website applications: unlike the ActiveCampaign webhook
-    // (which intentionally updates existing contacts), a public website
-    // submission for an email we already hold is treated as a duplicate.
-    const emailNorm = contact.email.toLowerCase().trim()
-    const { data: existing } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('email', emailNorm)
-      .maybeSingle()
-    if (existing) {
-      return NextResponse.json(
-        { error: 'This email already exists in our contacts.', code: 'duplicate_email' },
-        { status: 409 },
-      )
-    }
-
+    // A repeat submission for an email we already hold is NOT a duplicate to
+    // reject — like the ActiveCampaign webhook, we update the existing contact
+    // and let the form's automation create a deal in its own pipeline. This is
+    // how one person can apply to several programmes (e.g. Summer then Gap Year)
+    // and land in each pipeline while keeping a single contact record.
     const result = await processFormSubmission({
       formId: mapping.formId,
       formName: mapping.formName,
