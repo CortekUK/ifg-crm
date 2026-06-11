@@ -1442,7 +1442,7 @@ export const LENGTH_OF_STAY_OPTIONS: string[] = [
   "Option F · Full 6 weeks",
 ];
 
-export const YEAR_OF_ENTRY_OPTIONS: string[] = ["2026", "2027", "2028"];
+export const YEAR_OF_ENTRY_OPTIONS: string[] = ["2026", "2027", "2028", "2029", "2030"];
 
 // ---- Phoenix application form option lists ----
 export const ENTRY_YEARS: string[] = ["2025", "2026", "2027", "2028", "2029", "2030", "2031"];

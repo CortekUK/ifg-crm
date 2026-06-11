@@ -62,6 +62,7 @@ function extractContactFromAC(data: Record<string, string>): {
   date_of_birth: string | null
   gender: string | null
   country: string | null
+  state: string | null
   position: string | null
   expected_year_of_entry: string | null
   length_of_stay: string | null
@@ -76,6 +77,7 @@ function extractContactFromAC(data: Record<string, string>): {
     ]),
     gender: pickField(data, ['gender', 'sex']),
     country: pickField(data, ['country', 'nationality']),
+    state: pickField(data, ['state', 'region', 'province', 'county']),
     position: pickField(data, [
       'football_position', 'position', 'playing_position', 'role',
     ]),

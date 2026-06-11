@@ -510,6 +510,18 @@ export function ContactDetailSheet({
                       </a>
                     </div>
                   )}
+                  {contact.date_of_birth && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Date of Birth</span>
+                      <span className="text-sm font-medium">{formatDate(contact.date_of_birth)}</span>
+                    </div>
+                  )}
+                  {contact.gender && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Gender</span>
+                      <span className="text-sm font-medium capitalize">{contact.gender}</span>
+                    </div>
+                  )}
                   {(contact.city || contact.country) && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-500">Location</span>

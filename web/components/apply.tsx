@@ -1,10 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { isValidPhoneNumber } from "libphonenumber-js";
 import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { Select } from "./select";
 import { DatePicker } from "./datepicker";
+import { PhoneInput } from "./phone-input";
 import {
   COUNTRIES,
   FOOTBALL_POSITIONS,
@@ -20,7 +22,7 @@ import {
 type FieldDef = {
   key: string;
   label: string;
-  type: "text" | "email" | "tel" | "date" | "select";
+  type: "text" | "email" | "tel" | "phone" | "date" | "select" | "country" | "state";
   required?: boolean;
   placeholder?: string;
   hint?: string;
@@ -32,10 +34,11 @@ type FieldDef = {
 const FIRST: FieldDef = { key: "firstName", label: "First name", type: "text", required: true, placeholder: "Marco" };
 const LAST: FieldDef = { key: "lastName", label: "Last name", type: "text", required: true, placeholder: "Rossi" };
 const DOB: FieldDef = { key: "dob", label: "Date of birth", type: "date", required: true };
-const PHONE: FieldDef = { key: "phone", label: "Phone", type: "tel", required: true, placeholder: "+44 …", hint: "We'll contact you via SMS" };
+const PHONE: FieldDef = { key: "phone", label: "Phone", type: "phone", required: true, hint: "We'll contact you via SMS" };
 const EMAIL: FieldDef = { key: "email", label: "Email", type: "email", required: true, placeholder: "you@email.com", full: true };
 const GENDER: FieldDef = { key: "gender", label: "Gender", type: "select", required: true, options: GENDER_OPTIONS };
-const COUNTRY: FieldDef = { key: "country", label: "Country", type: "select", required: true, options: COUNTRIES, searchable: true };
+const COUNTRY: FieldDef = { key: "country", label: "Country", type: "country", required: true };
+const STATE: FieldDef = { key: "state", label: "State / Region", type: "state", required: true };
 const POSITION: FieldDef = { key: "position", label: "Football position", type: "select", required: true, options: FOOTBALL_POSITIONS };
 const LENGTH: FieldDef = { key: "lengthOfStay", label: "Length of stay", type: "select", required: true, options: LENGTH_OF_STAY_OPTIONS };
 const YEAR: FieldDef = { key: "yearOfEntry", label: "Expected year of entry", type: "select", required: true, options: YEAR_OF_ENTRY_OPTIONS };
@@ -44,12 +47,22 @@ type FormDef = { id: string; tab: string; title: string; blurb: string; fields: 
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Single source of truth for field validity — covers the custom Select and
-// DatePicker too (which the browser can't validate natively).
-function validateField(f: FieldDef, raw: string): string | null {
+// Single source of truth for field validity — covers the custom Select,
+// DatePicker and PhoneInput too (which the browser can't validate natively).
+// `statesAvailable` makes the state field required only when the chosen country
+// actually has a list of states/regions to pick from.
+function validateField(f: FieldDef, raw: string, statesAvailable = false): string | null {
   const v = (raw || "").trim();
+  if (f.type === "state") {
+    if (!v) return statesAvailable ? `${f.label} is required` : null;
+    return null;
+  }
   if (!v) return f.required ? `${f.label} is required` : null;
   if (f.type === "email" && !EMAIL_RE.test(v)) return "Enter a valid email address";
+  if (f.type === "phone") {
+    if (!isValidPhoneNumber(v)) return "Enter a valid phone number";
+    return null;
+  }
   if (f.type === "tel") {
     const digits = v.replace(/[^\d]/g, "");
     if (digits.length < 7) return "Enter a valid phone number";
@@ -71,21 +84,21 @@ const FORMS: FormDef[] = [
     tab: "Training Experience",
     title: "Summer Residency Application",
     blurb: "An intensive summer residency training within the Macclesfield FC environment.",
-    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, POSITION, LENGTH],
+    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, POSITION, LENGTH],
   },
   {
     id: "university",
     tab: "University Programme",
     title: "University Application",
     blurb: "Accredited Bachelor's & Master's degrees awarded by the University of Lancashire.",
-    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, YEAR, POSITION],
+    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, YEAR, POSITION],
   },
   {
     id: "gap-year",
     tab: "Gap Year Programme",
     title: "Gap Year Application",
     blurb: "A nine-month playing season combining football development with life experience.",
-    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, YEAR, POSITION],
+    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, YEAR, POSITION],
   },
 ];
 
@@ -97,6 +110,37 @@ function ApplicationForm({ form }: { form: FormDef }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Country/state data (country-state-city) is lazy-loaded so its dataset only
+  // ships on this page and doesn't bloat the initial bundle.
+  const [countries, setCountries] = useState<{ name: string; iso: string }[]>([]);
+  const [states, setStates] = useState<string[]>([]);
+  const [countryIso, setCountryIso] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    import("country-state-city").then((csc) => {
+      if (alive) setCountries(csc.Country.getAllCountries().map((c) => ({ name: c.name, iso: c.isoCode })));
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!countryIso) { setStates([]); return; }
+    let alive = true;
+    import("country-state-city").then((csc) => {
+      if (alive) setStates(csc.State.getStatesOfCountry(countryIso).map((s) => s.name));
+    });
+    return () => { alive = false; };
+  }, [countryIso]);
+
+  const isoByName = useMemo(() => {
+    const m = new Map<string, string>();
+    countries.forEach((c) => m.set(c.name, c.iso));
+    return m;
+  }, [countries]);
+  const countryOptions = countries.length ? countries.map((c) => c.name) : COUNTRIES;
+  const hasStates = states.length > 0;
 
   // Auto-dismiss the toast.
   useEffect(() => {
@@ -111,8 +155,16 @@ function ApplicationForm({ form }: { form: FormDef }) {
     // fixes it so the error clears the moment it becomes valid.
     if (submitted) {
       const f = form.fields.find((x) => x.key === k);
-      if (f) setErrors((e) => ({ ...e, [k]: validateField(f, v) || "" }));
+      if (f) setErrors((e) => ({ ...e, [k]: validateField(f, v, hasStates) || "" }));
     }
+  };
+
+  // Picking a country resets the dependent state field and reloads its options.
+  const onCountry = (name: string) => {
+    setValues((s) => ({ ...s, country: name, state: "" }));
+    setCountryIso(isoByName.get(name) || "");
+    setStates([]);
+    if (submitted) setErrors((e) => ({ ...e, country: "", state: "" }));
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -123,7 +175,7 @@ function ApplicationForm({ form }: { form: FormDef }) {
     // Validate everything up front.
     const next: Record<string, string> = {};
     for (const f of form.fields) {
-      const msg = validateField(f, values[f.key] || "");
+      const msg = validateField(f, values[f.key] || "", hasStates);
       if (msg) next[f.key] = msg;
     }
     setErrors(next);
@@ -168,7 +220,7 @@ function ApplicationForm({ form }: { form: FormDef }) {
           Thank you{values.firstName ? ", " + values.firstName : ""}. Our team will review your {form.title.toLowerCase()} and be in touch shortly with the next steps.
         </p>
         <div style={{ marginTop: 26 }}>
-          <Button variant="ghost" onClick={() => { setSent(false); setValues({}); setErrors({}); setSubmitted(false); }}>Submit another application</Button>
+          <Button variant="ghost" onClick={() => { setSent(false); setValues({}); setErrors({}); setSubmitted(false); setCountryIso(""); setStates([]); }}>Submit another application</Button>
         </div>
       </div>
     );
@@ -200,7 +252,44 @@ function ApplicationForm({ form }: { form: FormDef }) {
                 {f.label}{f.required && <span className="req">*</span>}
                 {f.hint && <span className="field-hint">{f.hint}</span>}
               </label>
-              {f.type === "select" ? (
+              {f.type === "phone" ? (
+                <PhoneInput
+                  id={`${form.id}-${f.key}`}
+                  value={values[f.key] || ""}
+                  defaultCountry={countryIso || "GB"}
+                  invalid={!!fieldErr}
+                  onChange={(v) => set(f.key, v)}
+                />
+              ) : f.type === "country" ? (
+                <Select
+                  id={`${form.id}-${f.key}`}
+                  value={values.country || ""}
+                  options={countryOptions}
+                  searchable
+                  placeholder="Select…"
+                  onChange={onCountry}
+                />
+              ) : f.type === "state" ? (
+                hasStates ? (
+                  <Select
+                    id={`${form.id}-${f.key}`}
+                    value={values.state || ""}
+                    options={states}
+                    searchable
+                    placeholder="Select…"
+                    onChange={(v) => set("state", v)}
+                  />
+                ) : (
+                  <input
+                    id={`${form.id}-${f.key}`}
+                    type="text"
+                    placeholder={values.country ? "State / region (optional)" : "Select a country first"}
+                    value={values.state || ""}
+                    aria-invalid={!!fieldErr}
+                    onChange={(e) => set("state", e.target.value)}
+                  />
+                )
+              ) : f.type === "select" ? (
                 <Select
                   id={`${form.id}-${f.key}`}
                   value={values[f.key] || ""}

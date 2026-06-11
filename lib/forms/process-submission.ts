@@ -25,6 +25,7 @@ export interface ContactInput {
   date_of_birth: string | null
   gender: string | null
   country: string | null
+  state: string | null
   position: string | null
   expected_year_of_entry: string | null
   length_of_stay: string | null
@@ -107,6 +108,8 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
   const customFields: Record<string, string> = {}
   if (contact.length_of_stay) customFields.length_of_stay = contact.length_of_stay
   if (contact.expected_year_of_entry) customFields.expected_year_of_entry = contact.expected_year_of_entry
+  // gender column is a male/female enum — preserve any other selection verbatim.
+  if (contact.gender && !normalizedGender) customFields.gender = contact.gender
 
   // graduation_year is a real column — coerce expected_year_of_entry when it
   // parses cleanly as a 4-digit year; otherwise leave null (raw value still
@@ -135,6 +138,7 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
       if (contact.phone) updates.phone = contact.phone
       if (normalizedGender) updates.gender = normalizedGender
       if (contact.country) updates.country = contact.country
+      if (contact.state) updates.state = contact.state
       if (contact.position) updates.position = contact.position
       if (contact.date_of_birth) updates.date_of_birth = contact.date_of_birth
       if (graduationYear) updates.graduation_year = graduationYear
@@ -161,6 +165,7 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
           phone: contact.phone,
           gender: normalizedGender,
           country: contact.country,
+          state: contact.state,
           position: contact.position,
           date_of_birth: contact.date_of_birth,
           graduation_year: graduationYear,
@@ -175,6 +180,11 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
         return { ok: false, error: 'Failed to create contact' }
       }
       contactId = newContact.id
+    }
+
+    // 1b. State → location tag (find-or-create, then attach) -----------------
+    if (contact.state) {
+      await assignLocationTag(supabase, contactId, contact.state)
     }
 
     // 2. Record the submission (status processed) ---------------------------
@@ -341,6 +351,38 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
     const message = error instanceof Error ? error.message : 'Unknown error'
     await safeLogFailure(supabase, formId, formSource, rawPayload, message, email)
     return { ok: false, error: message }
+  }
+}
+
+/**
+ * Find-or-create a `location` tag for the contact's state/region and attach it.
+ * Best-effort: a failure here must never fail the whole submission.
+ */
+async function assignLocationTag(supabase: SupabaseClient, contactId: string, state: string) {
+  const name = state.trim()
+  if (!name) return
+  try {
+    let { data: tag } = await supabase.from('tags').select('id').eq('name', name).maybeSingle()
+    if (!tag) {
+      const { data: created } = await supabase
+        .from('tags')
+        .insert({ name, category: 'location' })
+        .select('id')
+        .single()
+      tag = created ?? null
+      // Lost a create race against a concurrent submission — re-read by name.
+      if (!tag) {
+        const { data: refetched } = await supabase.from('tags').select('id').eq('name', name).maybeSingle()
+        tag = refetched ?? null
+      }
+    }
+    if (tag) {
+      await supabase
+        .from('contact_tags')
+        .upsert({ contact_id: contactId, tag_id: tag.id }, { onConflict: 'contact_id,tag_id', ignoreDuplicates: true })
+    }
+  } catch (err) {
+    console.error('Failed to assign location tag:', err)
   }
 }
 

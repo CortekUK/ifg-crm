@@ -279,6 +279,24 @@ button{font-family:inherit}
 .sel-opt.on{color:var(--pitch-400);font-weight:600}
 .sel-opt .ic-wrap{color:var(--pitch-400)}
 
+/* ---- phone input (custom country-code dropdown + national number) ---- */
+.phone{display:flex;gap:10px;align-items:stretch}
+.phone-cc-wrap{position:relative;flex:none}
+.phone-cc{height:100%;display:flex;align-items:center;gap:8px;background:var(--bg-elevated);border:1.5px solid var(--hairline);border-radius:10px;padding:0 12px;color:var(--fg);font-family:var(--font-sans);font-size:15px;cursor:pointer;white-space:nowrap;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)}
+.phone-cc-wrap.open .phone-cc{border-color:var(--pitch-500);box-shadow:0 0 0 3px rgba(190,22,35,.18)}
+.phone-cc .sel-caret{color:var(--fg-subtle)}
+.phone-cc-wrap.open .sel-caret{transform:rotate(180deg);color:var(--pitch-400)}
+.phone-flag{font-size:18px;line-height:1}
+.phone-dial{font-weight:600;font-variant-numeric:tabular-nums}
+.phone-num{flex:1;min-width:0}
+.phone-menu{position:absolute;z-index:40;top:calc(100% + 8px);left:0;width:320px;max-width:78vw;
+  background:var(--surface-card);border:1px solid var(--hairline-strong);border-radius:12px;
+  box-shadow:0 20px 48px rgba(0,0,0,.45);overflow:hidden;animation:sel-in .16s var(--ease-out)}
+.phone-opt{display:flex;align-items:center;gap:10px}
+.phone-opt-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phone-opt-dial{color:var(--fg-subtle);font-variant-numeric:tabular-nums}
+.phone.invalid .phone-cc,.phone.invalid .phone-num{border-color:#ef4444}
+
 /* ---- custom date picker ---- */
 .dp{position:relative}
 .dp-cal{color:var(--fg-subtle)}

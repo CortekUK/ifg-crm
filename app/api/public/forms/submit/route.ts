@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       date_of_birth: str(body.dob) ?? str(body.date_of_birth),
       gender: str(body.gender),
       country: str(body.country),
+      state: str(body.state),
       position: str(body.position),
       expected_year_of_entry: str(body.yearOfEntry) ?? str(body.expected_year_of_entry),
       length_of_stay: str(body.lengthOfStay) ?? str(body.length_of_stay),

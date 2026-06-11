@@ -93,7 +93,7 @@ Tone: concise, factual, business-friendly. No filler. No emoji unless the user u
 - **DealCard left bar colour** reflects intent: positive = emerald, negative/unsubscribe = rose, question = amber, neutral = slate.
 
 ## Forms & inbound
-- Website forms post to /api/webhooks/wordpress or /api/webhooks/activecampaign. Each automation of type deal_creation has a form_id config (e.g. "masters", "gap", "uclan_2026"); the webhook matches incoming form_id to find which automation fires.
+- Website forms post to /api/webhooks/wordpress or /api/webhooks/activecampaign. Each automation of type deal_creation has a form_id config (e.g. "masters", "gap", "uclan"); the webhook matches incoming form_id to find which automation fires.
 - A form_submissions row is logged for every payload regardless of match.
 
 ## Calendar / Calendly

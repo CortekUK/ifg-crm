@@ -9,7 +9,7 @@
 // Human-readable label per form_id (used by the AC webhook + admin section).
 export const FORM_LABELS: Record<string, string> = {
   gap: 'Gap Year Programme',
-  uclan_2026: 'University Programme (UCLan)',
+  uclan: 'University Programme (UCLan)',
   masters: 'Training Experience (Masters)',
 }
 
@@ -17,7 +17,7 @@ export const FORM_LABELS: Record<string, string> = {
 // form_id + label. Keep these keys in sync with /web's apply form ids.
 export const WEBSITE_FORM_MAP: Record<string, { formId: string; formName: string }> = {
   training: { formId: 'masters', formName: FORM_LABELS.masters },
-  university: { formId: 'uclan_2026', formName: FORM_LABELS.uclan_2026 },
+  university: { formId: 'uclan', formName: FORM_LABELS.uclan },
   'gap-year': { formId: 'gap', formName: FORM_LABELS.gap },
 }
 
