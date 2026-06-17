@@ -200,13 +200,15 @@ async function handleInviteeCreated(
   const hostUri = payload.payload.event_membership?.user
   
   if (hostUri) {
+    // Calendly secrets/identifiers live in calendly_credentials (owner-only
+    // RLS); this function uses the service role, which bypasses RLS.
     const { data: recruiter } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('calendly_user_uri', hostUri)
+      .from('calendly_credentials')
+      .select('user_id')
+      .eq('user_uri', hostUri)
       .single()
-    
-    recruiterId = recruiter?.id || null
+
+    recruiterId = recruiter?.user_id || null
   }
 
   // Find associated deal for this contact

@@ -97,7 +97,7 @@ Tone: concise, factual, business-friendly. No filler. No emoji unless the user u
 - A form_submissions row is logged for every payload regardless of match.
 
 ## Calendar / Calendly
-- Each recruiter can connect Calendly (profiles.calendly_url, calendly_access_token, calendly_user_uri, calendly_webhook_uri). The calendly-webhook edge function handles invitee.created/canceled.
+- Each recruiter can connect Calendly: profiles.calendly_url holds the public booking link; secrets (access token, webhook URI, user URI) live in the owner-only calendly_credentials table. The calendly-webhook edge function handles invitee.created/canceled.
 - When invitee.created comes in for a contact with an active deal, deals.interview_date is updated, which then unblocks any meeting_scheduler enrollments parked on wait_until_before_date for interview_date.
 - calendly_events stores every booked meeting (start_time, end_time, join_url, status).
 

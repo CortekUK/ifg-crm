@@ -242,21 +242,33 @@ export function useConnectCalendly() {
         )
       }
 
-      // 3. Persist everything we'll need later: the scheduling URL for
-      // merge tags + the user URI (so the webhook can look up which
-      // recruiter owns an incoming event) + the access token (so we can
-      // tear down the webhook on disconnect) + the subscription URI itself.
-      const { error: updateError } = await supabase
+      // 3. Persist what we need. The public scheduling URL lives on profiles
+      // (used by the {{deal_owner_calendly}} merge tag, readable by the team).
+      // The secrets — access token, webhook subscription URI, signing key — and
+      // the user URI (so the webhook can resolve the recruiter) go into the
+      // owner-only calendly_credentials table.
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update({
-          calendly_url: schedulingUrl,
-          calendly_user_uri: userUri,
-          calendly_access_token: params.accessToken,
-          calendly_webhook_uri: webhookUri,
-        })
+        .update({ calendly_url: schedulingUrl })
         .eq('id', user.id)
 
-      if (updateError) throw updateError
+      if (profileError) throw profileError
+
+      const { error: credError } = await supabase
+        .from('calendly_credentials')
+        .upsert(
+          {
+            user_id: user.id,
+            access_token: params.accessToken,
+            webhook_secret: params.webhookSecret ?? null,
+            webhook_uri: webhookUri,
+            user_uri: userUri,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' },
+        )
+
+      if (credError) throw credError
 
       return {
         connected: true,
@@ -272,9 +284,9 @@ export function useConnectCalendly() {
 
 /**
  * Disconnect Calendly account. Best-effort: try to delete the webhook
- * subscription on Calendly's side, then clear all four columns regardless.
- * If the API call fails we don't block disconnect — the user can clean up
- * the orphan subscription manually if it matters.
+ * subscription on Calendly's side, then clear the booking link and remove the
+ * stored credentials regardless. If the API call fails we don't block
+ * disconnect — the user can clean up the orphan subscription manually.
  */
 export function useDisconnectCalendly() {
   const queryClient = useQueryClient()
@@ -286,34 +298,32 @@ export function useDisconnectCalendly() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('calendly_access_token, calendly_webhook_uri')
-        .eq('id', user.id)
+      const { data: cred } = await supabase
+        .from('calendly_credentials')
+        .select('access_token, webhook_uri')
+        .eq('user_id', user.id)
         .single()
 
-      if (profile?.calendly_access_token && profile.calendly_webhook_uri) {
+      if (cred?.access_token && cred.webhook_uri) {
         try {
-          await fetch(profile.calendly_webhook_uri, {
+          await fetch(cred.webhook_uri, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${profile.calendly_access_token}` },
+            headers: { 'Authorization': `Bearer ${cred.access_token}` },
           })
         } catch (err) {
           console.warn('Failed to delete Calendly webhook subscription:', err)
         }
       }
 
+      // Clear the public booking link and remove the stored secrets.
       const { error } = await supabase
         .from('profiles')
-        .update({
-          calendly_url: null,
-          calendly_user_uri: null,
-          calendly_access_token: null,
-          calendly_webhook_uri: null,
-        })
+        .update({ calendly_url: null })
         .eq('id', user.id)
 
       if (error) throw error
+
+      await supabase.from('calendly_credentials').delete().eq('user_id', user.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendly-connection-status'] })
