@@ -30,6 +30,8 @@ export function ContactView() {
               right pathway. Pick a time that works for you below.
             </p>
           </div>
+        </div>
+        <div className="cal-wrap">
           <Calendly url={CALENDLY_URL} />
         </div>
       </section>
