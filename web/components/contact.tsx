@@ -1,28 +1,11 @@
 "use client";
-import { useState } from "react";
-import { Eyebrow, Button } from "./primitives";
+import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
-import { Select } from "./select";
-import { PROGRAMMES } from "@/lib/data";
+import { Calendly } from "./calendly";
 
-const PROGRAMME_OPTIONS = [...PROGRAMMES.map((p) => p.name), "General enquiry"];
-
-const EMAIL = "info@theinternationalfootballgroup.com";
-const PHONE = "0161 808 0252";
-
-type Form = { name: string; email: string; phone: string; programme: string; message: string };
+const CALENDLY_URL = "https://calendly.com/nathan-9394/15min";
 
 export function ContactView() {
-  const [sent, setSent] = useState(false);
-  const [form, setForm] = useState<Form>({ name: "", email: "", phone: "", programme: PROGRAMMES[0].name, message: "" });
-  const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }));
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: wire to CRM / email endpoint. For now, confirm receipt locally.
-    setSent(true);
-  };
-
   return (
     <div>
       {/* hero */}
@@ -36,55 +19,18 @@ export function ContactView() {
         </div>
       </section>
 
-      {/* details + form */}
+      {/* booking */}
       <section className="section">
-        <div className="wrap contact-grid">
-          <div data-anim="up">
-            <Eyebrow>Contact us</Eyebrow>
-            <h2 className="t-h1" style={{ margin: "14px 0 0" }}>Unforgettable football experiences</h2>
-            <p style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: 20 }}>
-              The International Football Group is forging collaborations with the foremost names in global football, integrating education and football experience.
+        <div className="wrap">
+          <div className="section-head contact-book-head" data-anim="up">
+            <Eyebrow style={{ justifyContent: "center" }}>Book a call</Eyebrow>
+            <h2 data-anim="reveal-title">Speak to the team</h2>
+            <p>
+              Grab a 15-minute call with us — we&apos;ll talk through the programmes and help you find the
+              right pathway. Pick a time that works for you below.
             </p>
-            <p style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: 14 }}>
-              To hear more about our programmes please get in touch using the details below or the form.
-            </p>
-            <div className="contact-methods">
-              <a className="cmethod" href={`mailto:${EMAIL}`}>
-                <span className="cmethod-ic"><Icon name="mail" size={22} /></span>
-                <span><span className="cmethod-l">Email now</span><span className="cmethod-v">{EMAIL}</span></span>
-              </a>
-              <a className="cmethod" href={`tel:${PHONE.replace(/\s/g, "")}`}>
-                <span className="cmethod-ic"><Icon name="phone" size={22} /></span>
-                <span><span className="cmethod-l">Call now</span><span className="cmethod-v">{PHONE}</span></span>
-              </a>
-            </div>
           </div>
-
-          <div data-anim="up">
-            {sent ? (
-              <div className="contact-ok glass">
-                <div className="contact-ok-ic"><Icon name="check" size={32} /></div>
-                <h3 className="t-h2">Message sent</h3>
-                <p style={{ color: "var(--fg-muted)", margin: "12px auto 0", maxWidth: "40ch" }}>
-                  Thank you{form.name ? ", " + form.name.split(" ")[0] : ""}. Our team will be in touch shortly about the {form.programme}.
-                </p>
-              </div>
-            ) : (
-              <form className="contact-form glass" onSubmit={submit}>
-                <div className="field"><label>Full name</label><input required value={form.name} placeholder="Marco Rossi" onChange={(e) => set("name", e.target.value)} /></div>
-                <div className="grid-2" style={{ gap: 18 }}>
-                  <div className="field"><label>Email</label><input required type="email" value={form.email} placeholder="you@email.com" onChange={(e) => set("email", e.target.value)} /></div>
-                  <div className="field"><label>Phone</label><input value={form.phone} placeholder="+44 …" onChange={(e) => set("phone", e.target.value)} /></div>
-                </div>
-                <div className="field">
-                  <label>Programme of interest</label>
-                  <Select value={form.programme} options={PROGRAMME_OPTIONS} onChange={(v) => set("programme", v)} />
-                </div>
-                <div className="field"><label>Message</label><textarea required value={form.message} placeholder="Tell us a little about yourself and what you're interested in…" onChange={(e) => set("message", e.target.value)} /></div>
-                <Button variant="primary" size="lg" iconRight="arrow-right">Send message</Button>
-              </form>
-            )}
-          </div>
+          <Calendly url={CALENDLY_URL} />
         </div>
       </section>
     </div>
