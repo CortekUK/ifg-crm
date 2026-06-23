@@ -17,6 +17,17 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
+/**
+ * Race a promise against a timeout so a hung auth/network call can't leave the
+ * submit button spinning forever. Rejects with Error('timeout') on expiry.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
+
 export default function SetPasswordPage() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
@@ -58,9 +69,15 @@ export default function SetPasswordPage() {
     try {
       const supabase = createClient()
 
-      const { error: updateError } = await supabase.auth.updateUser({
-        password,
-      })
+      // Guard every await with a timeout so the button can never sit on
+      // "Setting Password…" forever. The Supabase auth client can deadlock on
+      // its internal lock if the invite link is opened in a browser that still
+      // has another session active — surface that as a retryable error instead
+      // of an endless spinner.
+      const { error: updateError } = await withTimeout(
+        supabase.auth.updateUser({ password }),
+        20000,
+      )
 
       if (updateError) {
         setError(updateError.message)
@@ -70,15 +87,29 @@ export default function SetPasswordPage() {
 
       // Stamp profiles.password_set_at — the truth source for "user really
       // has a working password". Done before accept-invite so even if invite
-      // bookkeeping fails we still mark the password.
-      await fetch('/api/auth/mark-password-set', { method: 'POST' })
+      // bookkeeping fails we still mark the password. Best-effort: never block
+      // login on this bookkeeping (or let it hang the button).
+      try {
+        await withTimeout(fetch('/api/auth/mark-password-set', { method: 'POST' }), 10000)
+      } catch (err) {
+        console.warn('mark-password-set failed (continuing):', err)
+      }
 
       // Accept invite (marks invite as accepted + copies pipeline assignments)
-      await fetch('/api/auth/accept-invite', { method: 'POST' })
+      try {
+        await withTimeout(fetch('/api/auth/accept-invite', { method: 'POST' }), 10000)
+      } catch (err) {
+        console.warn('accept-invite failed (continuing):', err)
+      }
 
       router.replace('/dashboard')
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (err) {
+      console.error('Set password failed:', err)
+      setError(
+        err instanceof Error && err.message === 'timeout'
+          ? 'This is taking too long. If you are signed in elsewhere, open this link in a private window and try again.'
+          : 'Something went wrong. Please try again.',
+      )
       setIsLoading(false)
     }
   }
