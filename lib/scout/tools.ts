@@ -268,7 +268,7 @@ export const SCOUT_TOOLS: ChatCompletionTool[] = [
       parameters: {
         type: 'object',
         properties: {
-          form_id: stringField('Filter by form_id (e.g. masters, gap, uclan).'),
+          form_id: stringField('Filter by form_id (e.g. summer, gapyear, university).'),
           form_source: stringField("Filter by form_source (e.g. 'activecampaign', 'wordpress')."),
           status: enumField(['pending', 'processed', 'failed'], 'Filter by submission status.'),
           since: stringField('ISO timestamp: only submissions after this time.'),
