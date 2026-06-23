@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { VERIFIED_EMAIL_DOMAIN, isVerifiedDomainEmail } from '@/lib/config/email-domain'
 
 /**
  * Email the new team member their password-setup link via Resend.
@@ -120,6 +121,19 @@ export async function POST(request: NextRequest) {
 
     if (!email || !fullName) {
       return NextResponse.json({ error: 'Email and name are required' }, { status: 400 })
+    }
+
+    // Hard domain restriction: team members must be on the verified sending
+    // domain, otherwise their outbound automation emails would be rejected by
+    // Resend. Enforced server-side too (not just in the modal) so the rule
+    // can't be bypassed via a direct API call.
+    if (!isVerifiedDomainEmail(String(email))) {
+      return NextResponse.json(
+        {
+          error: `Team members must use an @${VERIFIED_EMAIL_DOMAIN} email address. The CRM sends emails from this domain, so other addresses can't send.`,
+        },
+        { status: 400 },
+      )
     }
 
     // Get admin client

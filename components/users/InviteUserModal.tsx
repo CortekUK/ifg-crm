@@ -25,6 +25,7 @@ import { Loader2, Send, Briefcase, GitBranch, Copy, Check } from 'lucide-react'
 import { useInviteUser } from '@/lib/hooks/useUsers'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { toast } from '@/lib/hooks/use-toast'
+import { VERIFIED_EMAIL_DOMAIN, isVerifiedDomainEmail } from '@/lib/config/email-domain'
 
 interface InviteUserModalProps {
   isOpen: boolean
@@ -135,7 +136,10 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
   }
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
-  const isValid = formData.fullName && formData.email && isValidEmail
+  // Team members must be on the verified sending domain (see lib/config/email-domain).
+  const isVerifiedDomain = isVerifiedDomainEmail(formData.email)
+  const wrongDomain = !!formData.email && isValidEmail && !isVerifiedDomain
+  const isValid = !!formData.fullName && !!formData.email && isValidEmail && isVerifiedDomain
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -223,10 +227,20 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleChange('email', e.target.value)}
-                    placeholder="john@example.com"
+                    placeholder={`john@${VERIFIED_EMAIL_DOMAIN}`}
+                    className={wrongDomain ? 'border-red-500 focus-visible:ring-red-500' : ''}
                   />
-                  {formData.email && !isValidEmail && (
+                  {formData.email && !isValidEmail ? (
                     <p className="text-xs text-red-500">Please enter a valid email address.</p>
+                  ) : wrongDomain ? (
+                    <p className="text-xs text-red-500">
+                      Must be an <span className="font-semibold">@{VERIFIED_EMAIL_DOMAIN}</span> address.
+                      Team emails are sent from this domain, so other addresses can&apos;t send.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Must be a company <span className="font-medium">@{VERIFIED_EMAIL_DOMAIN}</span> address.
+                    </p>
                   )}
                 </div>
               </div>
