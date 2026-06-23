@@ -185,12 +185,29 @@ export default function UsersPage() {
         if (invite.role === 'player') {
           await deleteUser.mutateAsync(invite.id)
         } else {
-          const { error } = await supabase
-            .from('user_invites')
-            .delete()
-            .eq('id', invite.id)
+          // A staff invite ALSO created an unconfirmed auth user + profile
+          // (via generateLink at invite time). That profile is hidden in the
+          // list only while the user_invites row exists — so deleting just the
+          // invite row would unmask it as an "Active" user. Delete the whole
+          // account instead; DELETE /api/users/[id] also clears the
+          // user_invites rows for that email. Fall back to a plain invite-row
+          // delete if no profile was created (e.g. link generation failed).
+          const { data: pendingProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', invite.email)
+            .maybeSingle()
 
-          if (error) throw error
+          if (pendingProfile?.id) {
+            await deleteUser.mutateAsync(pendingProfile.id)
+          } else {
+            const { error } = await supabase
+              .from('user_invites')
+              .delete()
+              .eq('id', invite.id)
+
+            if (error) throw error
+          }
         }
 
         toast({
