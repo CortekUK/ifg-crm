@@ -15,7 +15,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { createCallbackClient } from '@/lib/supabase/client'
 
 /**
  * Race a promise against a timeout so a hung auth/network call can't leave the
@@ -40,7 +40,7 @@ export default function SetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
 
   useEffect(() => {
-    const supabase = createClient()
+    const supabase = createCallbackClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
         router.replace('/login?error=invalid_link')
@@ -67,7 +67,7 @@ export default function SetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const supabase = createClient()
+      const supabase = createCallbackClient()
 
       // Guard every await with a timeout so the button can never sit on
       // "Setting Password…" forever. The Supabase auth client can deadlock on

@@ -2,9 +2,18 @@
 
 import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createCallbackClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
 import type { EmailOtpType } from '@supabase/supabase-js'
+
+// Race an auth call against a timeout so the callback can never spin forever if
+// a network call or auth lock stalls. Rejects with Error('timeout') on expiry.
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
 
 function CallbackHandler() {
   const router = useRouter()
@@ -13,7 +22,7 @@ function CallbackHandler() {
   useEffect(() => {
     const handleCallback = async () => {
      try {
-      const supabase = createClient()
+      const supabase = createCallbackClient()
       const code = searchParams.get('code')
 
       // Helper to redirect based on user role
@@ -42,10 +51,13 @@ function CallbackHandler() {
       const tokenHash = searchParams.get('token_hash')
       const otpType = searchParams.get('type')
       if (tokenHash && otpType) {
-        const { error } = await supabase.auth.verifyOtp({
-          type: otpType as EmailOtpType,
-          token_hash: tokenHash,
-        })
+        const { error } = await withTimeout(
+          supabase.auth.verifyOtp({
+            type: otpType as EmailOtpType,
+            token_hash: tokenHash,
+          }),
+          20000,
+        )
         if (error) {
           console.error('verifyOtp error:', error.message)
           router.replace('/login?error=invalid_link')
