@@ -56,6 +56,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { FORM_LABELS } from '@/lib/forms/forms-config'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useTemplates } from '@/lib/hooks/useTemplates'
@@ -676,26 +677,38 @@ export function ConfigureAutomationModal({
                       </p>
 
                       <div className="space-y-2">
-                        <Label htmlFor="form_id">
-                          Form ID <span className="text-red-500">*</span>
+                        <Label>
+                          Website Form <span className="text-red-500">*</span>
                         </Label>
-                        <Input
-                          id="form_id"
-                          placeholder="e.g. summer, gapyear, university"
-                          value={formData.config.form_id || ''}
-                          onChange={(e) => {
-                            // Lowercase + strip whitespace so the token matches
-                            // the form_id the website sends exactly.
-                            const cleaned = e.target.value.toLowerCase().replace(/\s+/g, '')
-                            setFormData((prev) => ({
-                              ...prev,
-                              config: { ...prev.config, form_id: cleaned },
-                            }))
-                          }}
-                        />
                         <p className="text-xs text-muted-foreground">
-                          Lowercase, no spaces. Must match the form id the website sends — summer, gapyear or university.
+                          Which website form should trigger this automation?
                         </p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {Object.entries(FORM_LABELS).map(([id, label]) => {
+                            const active = formData.config.form_id === id
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    config: { ...prev.config, form_id: id },
+                                  }))
+                                }
+                                className={cn(
+                                  'inline-flex flex-col items-start rounded-lg border px-3 py-2 text-left transition',
+                                  active
+                                    ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500 dark:border-blue-500 dark:bg-blue-950/40'
+                                    : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700',
+                                )}
+                              >
+                                <span className="text-sm font-medium text-foreground">{label}</span>
+                                <code className="font-mono text-[11px] text-muted-foreground">{id}</code>
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
 
                     </div>
