@@ -285,7 +285,23 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
         if (!existingDeal) {
           // Round-robin owner assignment.
           let assignedOwnerId: string | null = null
-          const roundRobinUsers = config?.round_robin_users || []
+          let roundRobinUsers = config?.round_robin_users || []
+          // Empty selection means "round-robin across all recruiters" — that's
+          // what the automation builder's UI promises. Resolve it to every
+          // active recruiter here so deals always get an owner. An unowned deal
+          // silently falls back to the Nathan Bibby catch-all for the email
+          // from-name, from-address, AND signature, which looks like a bug to
+          // the operator. Ordered by created_at so the rotation array is stable
+          // across submissions (round_robin_next walks it by position).
+          if (roundRobinUsers.length === 0) {
+            const { data: recruiters } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('role', 'recruiter')
+              .eq('is_active', true)
+              .order('created_at', { ascending: true })
+            roundRobinUsers = (recruiters ?? []).map((r) => r.id as string)
+          }
           if (roundRobinUsers.length > 0) {
             const { data: nextUserId, error: rrError } = await supabase.rpc('round_robin_next', {
               p_context_type: 'automation',
