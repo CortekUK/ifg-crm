@@ -85,11 +85,14 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Admin-only route protection
+    // Admin-only route protection.
+    // NOTE: /settings is intentionally NOT here — recruiters need it to manage
+    // their own profile (email signature, phone, title) and connect their
+    // Calendly. The settings page itself restricts admin-only sections by role.
     const adminOnlyPaths = [
       '/campaigns', '/lists', '/templates', '/automations',
       '/invoices', '/payments', '/analytics', '/reports',
-      '/users', '/settings', '/form-submissions',
+      '/users', '/form-submissions',
     ]
 
     const isAdminRoute = adminOnlyPaths.some(

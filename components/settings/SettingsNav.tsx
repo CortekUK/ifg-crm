@@ -15,12 +15,17 @@ import {
 } from 'lucide-react'
 import type { SettingsSection } from '@/lib/types/settings'
 
+export type SettingsNavItem = { id: SettingsSection; label: string; icon: React.ElementType }
+
 interface SettingsNavProps {
   activeSection: SettingsSection
   onSectionChange: (section: SettingsSection) => void
+  // Optional override of the visible items (e.g. recruiters see a subset).
+  // Defaults to the full admin list.
+  items?: SettingsNavItem[]
 }
 
-export const navItems: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
+export const navItems: SettingsNavItem[] = [
   { id: 'profile', label: 'My Profile', icon: User },
   { id: 'general', label: 'General', icon: Settings },
   { id: 'pipelines', label: 'Pipelines', icon: GitBranch },
@@ -33,10 +38,10 @@ export const navItems: { id: SettingsSection; label: string; icon: React.Element
   { id: 'data', label: 'Data & Privacy', icon: Shield },
 ]
 
-export function SettingsNav({ activeSection, onSectionChange }: SettingsNavProps) {
+export function SettingsNav({ activeSection, onSectionChange, items = navItems }: SettingsNavProps) {
   return (
     <nav className="space-y-1">
-      {navItems.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon
         const isActive = activeSection === item.id
 

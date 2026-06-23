@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
+import { Loader2 } from 'lucide-react'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
 import { SettingsNav, navItems } from '@/components/settings/SettingsNav'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { cn } from '@/lib/utils'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { ProfileSettings } from '@/components/settings/ProfileSettings'
@@ -18,11 +20,27 @@ import { CustomFieldsSettings } from '@/components/settings/CustomFieldsSettings
 import { DataPrivacySettings } from '@/components/settings/DataPrivacySettings'
 import type { SettingsSection } from '@/lib/types/settings'
 
+// Sections a non-admin (recruiter) may manage — their own profile, their
+// Calendly connection, and their notification preferences. Everything else is
+// org/admin configuration.
+const RECRUITER_SECTIONS: SettingsSection[] = ['profile', 'calendly', 'notifications']
+
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('profile')
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+  const visibleNavItems = isAdmin
+    ? navItems
+    : navItems.filter((item) => RECRUITER_SECTIONS.includes(item.id))
+
+  // Defense-in-depth: a non-admin can only ever render their allowed sections,
+  // regardless of activeSection state.
+  const safeSection =
+    isAdmin || RECRUITER_SECTIONS.includes(activeSection) ? activeSection : 'profile'
 
   const renderContent = () => {
-    switch (activeSection) {
+    switch (safeSection) {
       case 'profile':
         return <ProfileSettings />
       case 'general':
@@ -48,6 +66,14 @@ export default function SettingsPage() {
     }
   }
 
+  if (userLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -57,9 +83,9 @@ export default function SettingsPage() {
       <div className="lg:hidden">
         <ScrollArea className="w-full">
           <div className="flex gap-1 pb-2">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon
-              const isActive = activeSection === item.id
+              const isActive = safeSection === item.id
               return (
                 <button
                   key={item.id}
@@ -86,8 +112,9 @@ export default function SettingsPage() {
         {/* Left Navigation — desktop only */}
         <Card className="hidden lg:block w-64 p-4 h-fit shrink-0">
           <SettingsNav
-            activeSection={activeSection}
+            activeSection={safeSection}
             onSectionChange={setActiveSection}
+            items={visibleNavItems}
           />
         </Card>
 
