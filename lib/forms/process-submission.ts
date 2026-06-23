@@ -277,12 +277,24 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
       if (automation.pipeline_id && automation.trigger_stage_id) {
         const { data: existingDeal } = await supabase
           .from('deals')
-          .select('id')
+          .select('id, deal_owner_id')
           .eq('contact_id', contactId)
           .eq('pipeline_id', automation.pipeline_id)
           .single()
 
-        if (!existingDeal) {
+        if (existingDeal) {
+          // Repeat submission into a pipeline this contact already has a deal
+          // in: don't create a duplicate, but still link THIS submission to the
+          // existing deal/automation/owner so the Form Submissions table shows
+          // what it relates to instead of blank Deal/Automation/Assigned cells.
+          if (!firstDeal) {
+            firstDeal = {
+              dealId: existingDeal.id,
+              automationId: automation.id,
+              ownerId: (existingDeal.deal_owner_id as string | null) ?? null,
+            }
+          }
+        } else {
           // Round-robin owner assignment.
           let assignedOwnerId: string | null = null
           let roundRobinUsers = config?.round_robin_users || []
