@@ -11,6 +11,7 @@ function CallbackHandler() {
 
   useEffect(() => {
     const handleCallback = async () => {
+     try {
       const supabase = createClient()
       const code = searchParams.get('code')
 
@@ -77,6 +78,12 @@ function CallbackHandler() {
 
       // No code, no hash, no session — invalid link
       router.replace('/login?error=invalid_link')
+     } catch (err) {
+       // Never leave the user stuck on the spinner. If anything throws, send
+       // them somewhere actionable instead of buffering forever.
+       console.error('Auth callback failed:', err)
+       router.replace('/login?error=invalid_link')
+     }
     }
 
     handleCallback()
