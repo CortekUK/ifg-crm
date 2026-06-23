@@ -36,7 +36,6 @@ import {
   Plus,
   ChevronRight,
   FileText,
-  Link,
   FileCheck,
   Video,
   MessageSquare,
@@ -62,8 +61,6 @@ import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useTemplates } from '@/lib/hooks/useTemplates'
 import { useUsers } from '@/lib/hooks/useUsers'
 import { useLists } from '@/lib/hooks/useLists'
-import { useReceivedFormIds } from '@/lib/hooks/useFormSubmissions'
-import { FormWebhookUrlBlock } from './FormWebhookUrlBlock'
 import { DynamicListRulesEditor } from './DynamicListRulesEditor'
 import { ListMultiSelect } from './ListMultiSelect'
 import { toast } from '@/lib/hooks/use-toast'
@@ -145,7 +142,6 @@ export function ConfigureAutomationModal({
   // Surface form_ids AC has actually fired against us so the recruiter
   // doesn't have to remember the slug. Top 12 most-recent are rendered as
   // one-click chips below the Form ID input.
-  const { data: receivedFormIds = [] } = useReceivedFormIds()
 
   // Round-robin candidates for deal_creation. Only role='recruiter' —
   // admins and super_admins exist to manage the platform, not to own
@@ -679,221 +675,29 @@ export function ConfigureAutomationModal({
                         Configure the form webhook to create deals from submissions
                       </p>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="form_id">
-                            Form ID <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="form_id"
-                            placeholder="e.g. summer, gap, uclan"
-                            value={formData.config.form_id || ''}
-                            onChange={(e) => {
-                              // Lowercase + trim + strip whitespace as the
-                              // user types so the token matches whatever ends
-                              // up in the webhook URL exactly. Mismatches
-                              // here are silent failures, so make them
-                              // impossible to introduce in the first place.
-                              const cleaned = e.target.value.toLowerCase().replace(/\s+/g, '')
-                              setFormData((prev) => ({
-                                ...prev,
-                                config: { ...prev.config, form_id: cleaned },
-                              }))
-                            }}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Lowercase, no spaces. Must match the <code>?form_id=</code> in the webhook URL below.
-                          </p>
-                          {/* Recently received form_ids — click to fill.
-                              Pulled from form_submissions so the recruiter
-                              setting up an automation for an existing AC
-                              form doesn't have to remember (or guess) the
-                              slug. Highlighted when the field already
-                              matches one of the chips, so a typo is
-                              visually obvious. */}
-                          {receivedFormIds.length > 0 && (
-                            <div className="space-y-1.5 pt-1">
-                              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                                Recently received from AC
-                              </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {receivedFormIds.slice(0, 12).map((r) => {
-                                  const active = formData.config.form_id === r.form_id
-                                  return (
-                                    <button
-                                      key={r.form_id}
-                                      type="button"
-                                      onClick={() =>
-                                        setFormData((prev) => ({
-                                          ...prev,
-                                          config: { ...prev.config, form_id: r.form_id },
-                                        }))
-                                      }
-                                      title={`${r.submissions} submission${r.submissions === 1 ? '' : 's'} · last seen ${new Date(r.last_seen).toLocaleDateString()}`}
-                                      className={cn(
-                                        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition',
-                                        active
-                                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-300'
-                                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700',
-                                      )}
-                                    >
-                                      <code className="font-mono">{r.form_id}</code>
-                                      <span className="text-[10px] text-muted-foreground">
-                                        {r.submissions}
-                                      </span>
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Form Source</Label>
-                          <Select
-                            value={formData.config.form_source || 'generic'}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                config: {
-                                  ...prev.config,
-                                  form_source: value as 'activecampaign' | 'gravity_forms' | 'wpforms' | 'contact_form_7' | 'elementor_forms' | 'generic'
-                                },
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select form plugin" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="activecampaign">ActiveCampaign</SelectItem>
-                              <SelectItem value="gravity_forms">Gravity Forms</SelectItem>
-                              <SelectItem value="wpforms">WPForms</SelectItem>
-                              <SelectItem value="contact_form_7">Contact Form 7</SelectItem>
-                              <SelectItem value="elementor_forms">Elementor Forms</SelectItem>
-                              <SelectItem value="generic">Generic / Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <FormWebhookUrlBlock
-                        formId={formData.config.form_id}
-                        formSource={formData.config.form_source}
-                      />
-
-                      <div className="space-y-3">
-                        <Label>Field Mappings</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Map your form field names to contact fields (e.g., input_1, field_email)
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">First Name Field</Label>
-                            <Input
-                              placeholder="e.g., input_1 or first_name"
-                              value={formData.config.field_mappings?.first_name || ''}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  config: {
-                                    ...prev.config,
-                                    field_mappings: {
-                                      ...prev.config.field_mappings,
-                                      first_name: e.target.value,
-                                    },
-                                  },
-                                }))
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Last Name Field</Label>
-                            <Input
-                              placeholder="e.g., input_2 or last_name"
-                              value={formData.config.field_mappings?.last_name || ''}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  config: {
-                                    ...prev.config,
-                                    field_mappings: {
-                                      ...prev.config.field_mappings,
-                                      last_name: e.target.value,
-                                    },
-                                  },
-                                }))
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Email Field *</Label>
-                            <Input
-                              placeholder="e.g., input_3 or email"
-                              value={formData.config.field_mappings?.email || ''}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  config: {
-                                    ...prev.config,
-                                    field_mappings: {
-                                      ...prev.config.field_mappings,
-                                      email: e.target.value,
-                                    },
-                                  },
-                                }))
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Phone Field</Label>
-                            <Input
-                              placeholder="e.g., input_4 or phone"
-                              value={formData.config.field_mappings?.phone || ''}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  config: {
-                                    ...prev.config,
-                                    field_mappings: {
-                                      ...prev.config.field_mappings,
-                                      phone: e.target.value,
-                                    },
-                                  },
-                                }))
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <Link className="h-4 w-4" />
-                          Webhook URL
+                        <Label htmlFor="form_id">
+                          Form ID <span className="text-red-500">*</span>
                         </Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            readOnly
-                            value={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/form-webhook`}
-                            className="text-xs font-mono bg-slate-50 dark:bg-slate-800"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/form-webhook`)
-                            }}
-                          >
-                            Copy
-                          </Button>
-                        </div>
+                        <Input
+                          id="form_id"
+                          placeholder="e.g. summer, gapyear, university"
+                          value={formData.config.form_id || ''}
+                          onChange={(e) => {
+                            // Lowercase + strip whitespace so the token matches
+                            // the form_id the website sends exactly.
+                            const cleaned = e.target.value.toLowerCase().replace(/\s+/g, '')
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, form_id: cleaned },
+                            }))
+                          }}
+                        />
                         <p className="text-xs text-muted-foreground">
-                          Configure your form to POST to this URL
+                          Lowercase, no spaces. Must match the form id the website sends — summer, gapyear or university.
                         </p>
                       </div>
+
                     </div>
                   </>
                 )}
