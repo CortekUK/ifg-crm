@@ -230,7 +230,17 @@ export async function POST(request: NextRequest) {
         console.error('Error generating invite link:', authError)
         linkError = authError.message
       } else {
-        inviteLink = linkData?.properties?.action_link ?? null
+        // Prefer an SSR-native token_hash link pointing at our own callback
+        // (/auth/callback?token_hash=...&type=invite). It's verified via
+        // verifyOtp, which writes the session through @supabase/ssr's cookie
+        // adapter — reliable, unlike the default action_link's #access_token
+        // implicit flow, which hangs/breaks under SSR. Fall back to the raw
+        // action_link if the hashed token isn't present for some reason.
+        const hashedToken = linkData?.properties?.hashed_token
+        const appBase = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        inviteLink = hashedToken
+          ? `${appBase}/auth/callback?token_hash=${hashedToken}&type=invite`
+          : (linkData?.properties?.action_link ?? null)
       }
     }
 

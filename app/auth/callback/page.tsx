@@ -4,6 +4,7 @@ import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
+import type { EmailOtpType } from '@supabase/supabase-js'
 
 function CallbackHandler() {
   const router = useRouter()
@@ -31,6 +32,27 @@ function CallbackHandler() {
           }
         }
         router.replace('/set-password')
+      }
+
+      // Token-hash flow (SSR-native). Invite links we generate point here as
+      // /auth/callback?token_hash=...&type=invite. verifyOtp exchanges the
+      // hash for a session and writes it through the cookie adapter cleanly —
+      // unlike the legacy #access_token implicit flow, which fights
+      // @supabase/ssr's cookie storage and lands on invalid_link.
+      const tokenHash = searchParams.get('token_hash')
+      const otpType = searchParams.get('type')
+      if (tokenHash && otpType) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: otpType as EmailOtpType,
+          token_hash: tokenHash,
+        })
+        if (error) {
+          console.error('verifyOtp error:', error.message)
+          router.replace('/login?error=invalid_link')
+          return
+        }
+        await redirectByRole()
+        return
       }
 
       // PKCE flow (password reset / magic link with code)
