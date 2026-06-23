@@ -45,6 +45,9 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
   // admin has a chance to copy it.
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  // Whether the invite email was actually delivered via Resend. Drives the
+  // post-invite copy ("emailed + backup link" vs "share this link").
+  const [emailSent, setEmailSent] = useState(false)
 
   const inviteUser = useInviteUser()
   const { data: pipelines = [] } = usePipelines()
@@ -61,6 +64,7 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
       })
       setInviteLink(null)
       setLinkCopied(false)
+      setEmailSent(false)
     }
   }, [isOpen])
 
@@ -101,12 +105,16 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
       })
 
       const link = (result as { invite_link?: string | null })?.invite_link ?? null
+      const emailSent = (result as { email_sent?: boolean })?.email_sent ?? false
+      setEmailSent(emailSent)
       if (link) {
         // Show link in the modal for the admin to copy. No auto-close.
         setInviteLink(link)
         toast({
-          title: 'Invite created',
-          description: `Copy the link below and share it with ${formData.email}.`,
+          title: emailSent ? 'Invite emailed' : 'Invite created',
+          description: emailSent
+            ? `An email was sent to ${formData.email}. You can also copy the backup link below.`
+            : `Copy the link below and share it with ${formData.email}.`,
         })
       } else {
         // Fallback: link generation failed or env not configured. Close modal.
@@ -138,8 +146,10 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
           </DialogTitle>
           <DialogDescription>
             {inviteLink
-              ? 'Share the link below with the new team member to finish setup.'
-              : 'Create an invite link for a new team member. We’ll show you the link to share manually.'}
+              ? emailSent
+                ? 'We emailed the setup link to the new team member. The link below is a backup you can share too.'
+                : 'Share the link below with the new team member to finish setup.'
+              : 'Create an invite for a new team member. We’ll email them a setup link and show you a backup link to share.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -149,7 +159,9 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
             <div className="space-y-3 py-4">
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40 p-4 space-y-3">
                 <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
-                  Invite ready. Copy this link and send it to the user — they&apos;ll set their password and join.
+                  {emailSent
+                    ? 'Invite emailed to the user. This is a backup link — copy it if you also want to share it directly.'
+                    : 'Invite ready. Copy this link and send it to the user — they’ll set their password and join.'}
                 </p>
                 <div className="flex items-stretch gap-2">
                   <Input
@@ -176,7 +188,9 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
                   </Button>
                 </div>
                 <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
-                  This link is single-use. No email is sent — share it via WhatsApp, Slack, or whichever channel works.
+                  {emailSent
+                    ? 'This link is single-use. You can also share it via WhatsApp, Slack, or any channel.'
+                    : 'This link is single-use. The email could not be sent automatically — share it via WhatsApp, Slack, or whichever channel works.'}
                 </p>
               </div>
             </div>

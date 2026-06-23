@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Save, Calendar, Phone, FileSignature, Eye, Loader2, Upload, Key, AlertTriangle, Video, Briefcase } from 'lucide-react'
+import { Save, Calendar, Phone, FileSignature, Eye, Loader2, Upload, Key, AlertTriangle, Briefcase } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 
@@ -535,7 +535,7 @@ export function ProfileSettings() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="calendly_url" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
@@ -557,6 +557,10 @@ export function ProfileSettings() {
               )}
             </div>
 
+            {/* Zoom integration hidden for now per request. The zoom_url field
+                still exists on the profile and the {'{{deal_owner_zoom}}'} merge
+                tag still works — only the settings input is hidden. Re-enable
+                this block (and switch the grid back to grid-cols-2) when needed.
             <div className="space-y-2">
               <Label htmlFor="zoom_url" className="flex items-center gap-2">
                 <Video className="h-4 w-4" />
@@ -572,6 +576,7 @@ export function ProfileSettings() {
                 Your Zoom meeting link. Available as {'{{deal_owner_zoom}}'} in templates.
               </p>
             </div>
+            */}
           </div>
         </CardContent>
       </Card>

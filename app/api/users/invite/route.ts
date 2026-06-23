@@ -1,6 +1,72 @@
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
+
+/**
+ * Email the new team member their password-setup link via Resend.
+ *
+ * The admin still gets the shareable link in the modal (single source of
+ * truth, works even if email fails), but we also send it directly so the
+ * recruiter can set their password without the admin having to forward
+ * anything. Best-effort: a send failure must NOT fail the invite — the link
+ * is already created and returned to the admin.
+ */
+async function sendInviteEmail(opts: {
+  to: string
+  fullName: string
+  role: string
+  inviteLink: string
+}): Promise<{ sent: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not configured' }
+
+  const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
+  const roleLabel = opts.role === 'super_admin' ? 'Super Admin' : opts.role === 'admin' ? 'Admin' : 'Recruiter'
+  const firstName = opts.fullName.trim().split(/\s+/)[0] || 'there'
+
+  const html = `
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0a0f0e;">
+    <h1 style="font-size:20px;margin:0 0 16px;">You're invited to the IFG CRM</h1>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 12px;">Hi ${firstName},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 20px;">
+      You've been added to the International Football Group CRM as a <strong>${roleLabel}</strong>.
+      Click the button below to set your password and activate your account.
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="${opts.inviteLink}" style="display:inline-block;background:#0a0f0e;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;font-weight:bold;">
+        Set your password
+      </a>
+    </p>
+    <p style="font-size:13px;line-height:1.6;color:#666;margin:0 0 8px;">
+      If the button doesn't work, copy and paste this link into your browser:
+    </p>
+    <p style="font-size:12px;line-height:1.5;color:#888;word-break:break-all;margin:0 0 24px;">
+      ${opts.inviteLink}
+    </p>
+    <p style="font-size:12px;color:#999;margin:0;">This link is single-use. If you didn't expect this invite, you can ignore this email.</p>
+  </div>`
+
+  try {
+    const resend = new Resend(apiKey)
+    const result = await resend.emails.send({
+      from: `International Football Group <${fromEmail}>`,
+      to: [opts.to],
+      subject: 'Set up your IFG CRM account',
+      html,
+    })
+    if (result.error) {
+      const message =
+        typeof result.error === 'object' && result.error !== null && 'message' in result.error
+          ? String((result.error as { message: unknown }).message)
+          : 'Email failed'
+      return { sent: false, error: message }
+    }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, error: err instanceof Error ? err.message : 'Email failed' }
+  }
+}
 
 // Create admin client lazily to avoid issues with env vars at module load
 function getSupabaseAdmin() {
@@ -154,10 +220,31 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Also email the link directly to the new user via Resend so they can set
+    // their password without the admin forwarding anything. Best-effort: the
+    // admin still has the shareable link as a fallback if this fails.
+    let emailSent = false
+    let emailError: string | null = null
+    if (inviteLink) {
+      const sendResult = await sendInviteEmail({
+        to: email,
+        fullName,
+        role: role || 'recruiter',
+        inviteLink,
+      })
+      emailSent = sendResult.sent
+      emailError = sendResult.error ?? null
+      if (!emailSent) {
+        console.warn(`Invite email to ${email} not sent: ${emailError}`)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: inviteLink
-        ? 'Invite created. Share the link below with the new user.'
+        ? emailSent
+          ? `Invite created and emailed to ${email}. The link below is a backup you can share too.`
+          : 'Invite created. Share the link below with the new user.'
         : 'Invite record created (link generation failed or service role key missing).',
       invite: {
         id: invite.id,
@@ -168,6 +255,8 @@ export async function POST(request: NextRequest) {
       },
       invite_link: inviteLink,
       link_error: linkError,
+      email_sent: emailSent,
+      email_error: emailError,
     })
   } catch (error) {
     console.error('Invite error:', error)
