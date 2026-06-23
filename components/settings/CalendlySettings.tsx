@@ -66,10 +66,21 @@ export function CalendlySettings() {
         webhookSecret: webhookSecret.trim() || undefined,
       })
 
-      toast({
-        title: 'Calendly connected',
-        description: `Successfully connected as ${result.user_name || 'Calendly user'}.`,
-      })
+      if (!result.webhook_registered) {
+        // Booking link is saved and works in emails, but automatic meeting
+        // sync (booked/cancelled) couldn't be set up — almost always because
+        // the Calendly account is on the free plan.
+        toast({
+          title: 'Connected — booking link active',
+          description:
+            'Your Calendly link will now be used in emails. Automatic meeting sync (booked/cancelled into the CRM) needs a Calendly Standard plan or higher.',
+        })
+      } else {
+        toast({
+          title: 'Calendly connected',
+          description: `Successfully connected as ${result.user_name || 'Calendly user'}.`,
+        })
+      }
 
       setAccessToken('')
       setWebhookSecret('')

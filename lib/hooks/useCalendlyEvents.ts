@@ -206,6 +206,10 @@ export function useConnectCalendly() {
       }
 
       let webhookUri: string | null = null
+      // Captures why the webhook couldn't be registered (most commonly: the
+      // recruiter's Calendly is on the free plan, which can't create webhook
+      // subscriptions). Non-fatal — see the else branch below.
+      let webhookError: string | null = null
       const subResponse = await fetch('https://api.calendly.com/webhook_subscriptions', {
         method: 'POST',
         headers: {
@@ -236,10 +240,15 @@ export function useConnectCalendly() {
           webhookUri = ours?.uri ?? null
         }
       } else {
+        // Webhook subscription failed — DON'T abort the connection. The booking
+        // link still works in outbound emails ({{deal_owner_calendly}}) without
+        // a webhook; the webhook only powers meeting sync (booked/cancelled →
+        // CRM), which Calendly restricts to paid plans (Standard+). Record the
+        // reason so the UI can explain it, then carry on saving the token + URL.
         const error = await subResponse.json().catch(() => ({}))
-        throw new Error(
-          error.message || `Failed to register webhook (HTTP ${subResponse.status})`,
-        )
+        webhookError =
+          error.message || `Could not register webhook (HTTP ${subResponse.status})`
+        console.warn('Calendly webhook registration failed (continuing):', webhookError)
       }
 
       // 3. Persist what we need. The public scheduling URL lives on profiles
@@ -274,6 +283,7 @@ export function useConnectCalendly() {
         connected: true,
         user_name: calendlyUser.resource.name as string,
         webhook_registered: !!webhookUri,
+        webhook_error: webhookError,
       }
     },
     onSuccess: () => {
