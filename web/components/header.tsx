@@ -13,6 +13,10 @@ const LINKS: [string, string][] = [
   ["/news", "Latest News"],
 ];
 
+// Prospect application (the 3 programme forms). Primary CTA for new visitors —
+// same destination as the Macclesfield micro-site's "Apply Now".
+const APPLY_HREF = "/programmes/macclesfield/apply";
+
 export function Header() {
   const pathname = usePathname();
   const { theme, toggle } = useTheme();
@@ -38,7 +42,8 @@ export function Header() {
           <button className="theme-toggle" onClick={toggle} title={theme === "dark" ? "Switch to light" : "Switch to dark"} aria-label="Toggle theme">
             <Icon name={theme === "dark" ? "sun" : "moon"} size={18} />
           </button>
-          <Link href="/contact" className="btn btn-primary btn-sm hdr-only">Get in touch<Icon name="arrow-right" className="ic" size={18} /></Link>
+          <Link href="/contact" className="btn btn-ghost btn-sm hdr-only">Get in touch</Link>
+          <Link href={APPLY_HREF} className="btn btn-primary btn-sm hdr-only">Apply Now<Icon name="arrow-right" className="ic" size={18} /></Link>
           <button className="hdr-burger" onClick={() => setOpen((o) => !o)} aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open}>
             <Icon name={open ? "x" : "menu"} size={22} />
           </button>
@@ -53,7 +58,8 @@ export function Header() {
           ))}
         </nav>
         <div className="hdr-drawer-cta">
-          <Link href="/contact" className="btn btn-primary">Get in touch<Icon name="arrow-right" className="ic" size={18} /></Link>
+          <Link href={APPLY_HREF} className="btn btn-primary">Apply Now<Icon name="arrow-right" className="ic" size={18} /></Link>
+          <Link href="/contact" className="btn btn-ghost">Get in touch</Link>
         </div>
       </div>
     </header>
