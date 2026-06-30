@@ -1449,3 +1449,84 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
   .phdr-div,.phdr-partner{display:none}
   .hero-title{font-size:clamp(1.8rem,8.2vw,2.6rem)}
 }
+
+/* ============================================================
+   ASSISTANT WIDGET — floating chat (bottom-right, site-wide)
+   ============================================================ */
+.aw-launcher{
+  position:fixed;right:22px;bottom:22px;z-index:200;
+  display:inline-flex;align-items:center;gap:9px;
+  height:52px;padding:0 20px;border:0;border-radius:999px;cursor:pointer;
+  background:var(--pitch-500);color:#fff;font-family:var(--f-archivo);font-weight:600;font-size:14px;
+  box-shadow:var(--shadow-accent);
+  transition:transform var(--dur) var(--ease-out),background var(--dur),box-shadow var(--dur);
+}
+.aw-launcher:hover{background:var(--pitch-400);transform:translateY(-1px)}
+.aw-launcher.open{width:52px;padding:0;justify-content:center}
+.aw-launcher-label{white-space:nowrap}
+
+.aw-panel{
+  position:fixed;right:22px;bottom:86px;z-index:200;
+  width:min(390px,calc(100vw - 32px));height:min(600px,calc(100svh - 120px));
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--surface-card,var(--bg));border:1px solid var(--hairline);border-radius:18px;
+  box-shadow:var(--shadow-lg);
+  opacity:0;transform:translateY(12px) scale(.98);pointer-events:none;
+  transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out);
+}
+.aw-panel.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+
+.aw-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--hairline);background:var(--pitch-500);color:#fff}
+.aw-head-title{display:flex;align-items:center;gap:8px;font-family:var(--f-archivo);font-weight:700;font-size:15px}
+.aw-close{background:transparent;border:0;color:#fff;cursor:pointer;display:flex;opacity:.85}
+.aw-close:hover{opacity:1}
+
+.aw-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.aw-msg{display:flex}
+.aw-msg.user{justify-content:flex-end}
+.aw-msg.assistant{justify-content:flex-start}
+.aw-bubble{
+  max-width:84%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;
+  font-family:var(--f-archivo);white-space:pre-wrap;word-wrap:break-word;
+}
+.aw-msg.assistant .aw-bubble{background:var(--bg);border:1px solid var(--hairline);color:var(--fg);border-bottom-left-radius:4px}
+.aw-msg.user .aw-bubble{background:var(--pitch-500);color:#fff;border-bottom-right-radius:4px}
+.aw-bubble a{color:inherit;text-decoration:underline;font-weight:600}
+.aw-msg.assistant .aw-bubble a{color:var(--pitch-500)}
+
+.aw-typing{display:inline-flex;gap:4px;align-items:center}
+.aw-typing span{width:6px;height:6px;border-radius:50%;background:var(--fg);opacity:.4;animation:awblink 1.2s infinite}
+.aw-typing span:nth-child(2){animation-delay:.2s}
+.aw-typing span:nth-child(3){animation-delay:.4s}
+@keyframes awblink{0%,60%,100%{opacity:.25}30%{opacity:.9}}
+
+.aw-error{font-size:13px;color:var(--pitch-500);font-family:var(--f-archivo)}
+
+.aw-quick{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 10px}
+.aw-chip{
+  font-family:var(--f-archivo);font-size:12.5px;font-weight:600;text-decoration:none;
+  padding:7px 12px;border-radius:999px;border:1px solid var(--hairline-strong);color:var(--fg);
+  transition:border-color var(--dur),color var(--dur),background var(--dur);
+}
+.aw-chip:hover{border-color:var(--pitch-500);color:var(--pitch-500)}
+
+.aw-input{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--hairline)}
+.aw-input input{
+  flex:1;min-width:0;height:42px;padding:0 14px;border-radius:999px;
+  background:var(--bg);border:1px solid var(--hairline-strong);color:var(--fg);
+  font-family:var(--f-archivo);font-size:14px;outline:none;
+}
+.aw-input input:focus{border-color:var(--pitch-500)}
+.aw-input button{
+  width:42px;height:42px;flex:0 0 42px;border:0;border-radius:50%;cursor:pointer;
+  background:var(--pitch-500);color:#fff;display:flex;align-items:center;justify-content:center;
+  transition:background var(--dur),opacity var(--dur);
+}
+.aw-input button:hover:not(:disabled){background:var(--pitch-400)}
+.aw-input button:disabled{opacity:.5;cursor:not-allowed}
+
+@media (max-width:560px){
+  .aw-launcher{right:16px;bottom:16px}
+  .aw-panel{right:12px;left:12px;bottom:80px;width:auto;height:min(70svh,560px)}
+}
