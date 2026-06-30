@@ -59,7 +59,15 @@
       "Bash(npx --yes tsx scripts/rerender-templates.mts)",
       "Bash(git ls-tree *)",
       "Bash(git fetch *)",
-      "Bash(npx tsx *)"
+      "Bash(npx tsx *)",
+      "Bash(git commit *)",
+      "PowerShell($env:NODE_OPTIONS=\"--max-old-space-size=6144\"; npx tsc --noEmit -p tsconfig.json 2>&1 | Select-Object -Last 20)",
+      "PowerShell($env:NODE_OPTIONS=\"--max-old-space-size=6144\"; npx tsc --noEmit -p tsconfig.json 2>&1 | Select-Object -Last 15)",
+      "PowerShell($env:NODE_OPTIONS=\"--max-old-space-size=6144\"; npx --prefix web tsc --noEmit -p web/tsconfig.json 2>&1 | Select-Object -Last 15)",
+      "PowerShell($env:NODE_OPTIONS=\"--max-old-space-size=6144\"; Write-Output \"=== CRM ===\"; npx tsc --noEmit -p tsconfig.json 2>&1 | Select-Object -Last 20; Write-Output \"=== WEB ===\"; npx tsc --noEmit -p web/tsconfig.json 2>&1 | Select-Object -Last 20)",
+      "PowerShell($env:NODE_OPTIONS=\"--max-old-space-size=6144\"; Write-Output \"=== CRM ===\"; npx tsc --noEmit -p tsconfig.json 2>&1 | Select-Object -Last 25; Write-Output \"=== WEB ===\"; npx tsc --noEmit -p web/tsconfig.json 2>&1 | Select-Object -Last 25)",
+      "Bash(git add *)",
+      "Bash(git push *)"
     ]
   }
 }

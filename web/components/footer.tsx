@@ -35,6 +35,7 @@ export function Footer() {
           </div>
           <div>
             <h5>Group</h5>
+            <Link href="/faq">FAQs</Link>
             <Link href="/contact">Get in touch</Link>
             <Link href="/contact">Contact</Link>
           </div>

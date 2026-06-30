@@ -1481,3 +1481,33 @@ export const LEGAL_DOCS: [string, string][] = [
   ["Data Protection Policy", "/pdf%20docs/TIFSG-DATA-PROTECTION-POLICY.pdf"],
   ["Complaints Policy", "/pdf%20docs/TIFSG-COMPLAINTS-POLICY.pdf"],
 ];
+
+// Frequently asked questions. IFG manages these from the CRM
+// (Website Content → FAQs, stored as site_content type 'faq'). This bundled
+// list is the fallback shown if the CMS is empty or unreachable.
+export const FAQS: { title: string; body: string }[] = [
+  {
+    title: "Who are IFG programmes for?",
+    body: "Our pathways are built for ambitious players who want to combine serious football development with education. We work with players across a range of ages and levels — from those exploring a route into the game to those targeting university and professional opportunities.",
+  },
+  {
+    title: "How do I apply?",
+    body: "Start by submitting an application through our online form. Once we receive it, a member of the IFG team will be in touch to discuss the right programme for you, answer your questions and guide you through the next steps.",
+  },
+  {
+    title: "What is included in the programmes?",
+    body: "Each programme combines elite coaching, education and a full player experience. Exactly what's included varies by programme — accommodation, facilities, fixtures and academic support differ — so the best step is to view the programme page or speak to our team.",
+  },
+  {
+    title: "Do I need to be at a certain level to join?",
+    body: "We welcome players of different abilities. Some of our programmes are open-access experiences, while others are more selective. If you're unsure whether a programme is right for you, get in touch and we'll advise honestly.",
+  },
+  {
+    title: "What are the costs and what do they cover?",
+    body: "Costs depend on the programme, duration and whether accommodation is included. We're transparent about pricing and what's covered — request a brochure or speak to the team for a full breakdown for your chosen programme.",
+  },
+  {
+    title: "Can I speak to someone before applying?",
+    body: "Absolutely. We'd encourage it. You can book a call or send us a message through the contact page, and a member of our team will talk you through the options with no obligation.",
+  },
+];

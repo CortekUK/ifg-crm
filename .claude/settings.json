@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path . -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(git check-ignore *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(sed -i 's#\\\\.\\\\./\\\\.\\\\./assets/logo/#assets/logo/#g' website/Header.jsx website/Footer.jsx)",
+      "Bash(sed -i 's#\\\\.\\\\./\\\\.\\\\./colors_and_type.css#colors_and_type.css#g' website/index.html)",
+      "WebFetch(domain:theinternationalfootballgroup.com)",
+      "Bash(npx esbuild *)",
+      "Bash(echo \"exit: $?\")"
+    ]
+  }
+}

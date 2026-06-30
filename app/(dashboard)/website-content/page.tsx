@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Loader2, Images, Trophy, LayoutList } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Images, Trophy, LayoutList, HelpCircle } from 'lucide-react'
 import {
   useSuccessStories,
   useGalleryCategories,
@@ -15,6 +15,7 @@ import {
 import { StoryModal } from '@/components/website-content/StoryModal'
 import { GalleryModal } from '@/components/website-content/GalleryModal'
 import { SiteContentModal } from '@/components/website-content/SiteContentModal'
+import { FaqModal } from '@/components/website-content/FaqModal'
 import { toast } from '@/lib/hooks/use-toast'
 import type { SuccessStory, GalleryCategory, SiteContentItem } from '@/lib/types/website-content'
 
@@ -71,7 +72,12 @@ export default function WebsiteContentPage() {
   const [storyModal, setStoryModal] = useState<{ open: boolean; item: SuccessStory | null }>({ open: false, item: null })
   const [galleryModal, setGalleryModal] = useState<{ open: boolean; item: GalleryCategory | null }>({ open: false, item: null })
   const [siteModal, setSiteModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
+  const [faqModal, setFaqModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // FAQs share the site_content table (type 'faq'); keep them out of the Site Content tab.
+  const faqs = site.data?.filter((it) => it.type === 'faq') ?? []
+  const siteItems = site.data?.filter((it) => it.type !== 'faq') ?? []
 
   async function remove(table: ContentTable, id: string, label: string) {
     if (!window.confirm(`Delete "${label}"? This removes it from the website.`)) return
@@ -100,6 +106,7 @@ export default function WebsiteContentPage() {
         <TabsList>
           <TabsTrigger value="stories"><Trophy className="mr-2 h-4 w-4" />Success Stories</TabsTrigger>
           <TabsTrigger value="gallery"><Images className="mr-2 h-4 w-4" />Gallery</TabsTrigger>
+          <TabsTrigger value="faq"><HelpCircle className="mr-2 h-4 w-4" />FAQs</TabsTrigger>
           <TabsTrigger value="site"><LayoutList className="mr-2 h-4 w-4" />Site Content</TabsTrigger>
         </TabsList>
 
@@ -153,6 +160,33 @@ export default function WebsiteContentPage() {
           )}
         </TabsContent>
 
+        {/* FAQs */}
+        <TabsContent value="faq" className="space-y-3">
+          <div className="flex justify-end">
+            <Button onClick={() => setFaqModal({ open: true, item: null })}><Plus className="mr-2 h-4 w-4" />Add FAQ</Button>
+          </div>
+          {site.isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : faqs.length ? (
+            faqs.map((it) => (
+              <Row
+                key={it.id}
+                thumb={null}
+                title={it.title}
+                subtitle={it.body ?? ''}
+                published={it.published}
+                onEdit={() => setFaqModal({ open: true, item: it })}
+                onDelete={() => remove('website_site_content', it.id, it.title)}
+                deleting={deletingId === it.id}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No FAQs yet. These appear on the website&apos;s FAQ page.
+            </p>
+          )}
+        </TabsContent>
+
         {/* Site Content */}
         <TabsContent value="site" className="space-y-3">
           <div className="flex justify-end">
@@ -160,8 +194,8 @@ export default function WebsiteContentPage() {
           </div>
           {site.isLoading ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : site.data?.length ? (
-            site.data.map((it) => (
+          ) : siteItems.length ? (
+            siteItems.map((it) => (
               <Row
                 key={it.id}
                 thumb={it.image}
@@ -184,6 +218,7 @@ export default function WebsiteContentPage() {
       <StoryModal open={storyModal.open} story={storyModal.item} onClose={() => setStoryModal({ open: false, item: null })} />
       <GalleryModal open={galleryModal.open} category={galleryModal.item} onClose={() => setGalleryModal({ open: false, item: null })} />
       <SiteContentModal open={siteModal.open} item={siteModal.item} onClose={() => setSiteModal({ open: false, item: null })} />
+      <FaqModal open={faqModal.open} item={faqModal.item} onClose={() => setFaqModal({ open: false, item: null })} />
     </div>
   )
 }
