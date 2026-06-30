@@ -325,7 +325,7 @@ function ApplicationForm({ form }: { form: FormDef }) {
       </p>
       {error && <p className="apply-error" role="alert">{error}</p>}
       <Button variant="primary" size="lg" iconRight={submitting ? undefined : "arrow-right"}>
-        {submitting ? "Submitting…" : "Submit application"}
+        {submitting ? "Submitting…" : "Submit Application"}
       </Button>
     </form>
     </>
@@ -392,7 +392,7 @@ export function ApplyView() {
               </ul>
               <div className="apply-aside-cta">
                 <Link href="/contact" className="btn btn-ghost">Speak to the team</Link>
-                <Link href="/programmes/macclesfield/brochure" className="btn btn-solid">View brochure</Link>
+                <Link href="/programmes/macclesfield/brochure" className="btn btn-solid">View Brochure</Link>
               </div>
             </aside>
           </div>
