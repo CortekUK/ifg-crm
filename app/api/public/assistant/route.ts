@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import { getServiceClient } from '@/lib/forms/process-submission'
 import { logOpenAIUsage } from '@/lib/ai/usage-logger'
 import { ASSISTANT_SYSTEM_PROMPT } from '@/lib/assistant/knowledge'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { captureEnquiry, type EnquiryArgs } from '@/lib/assistant/capture'
 
 /**
  * Public website assistant (the floating chat widget on the marketing site).
@@ -50,88 +50,6 @@ const CAPTURE_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
       additionalProperties: false,
     },
   },
-}
-
-/** Find-or-create a marketing list by name, returning its id (or null). */
-async function findOrCreateList(supabase: SupabaseClient, name: string): Promise<string | null> {
-  const { data: existing } = await supabase.from('lists').select('id').eq('name', name).maybeSingle()
-  if (existing?.id) return existing.id as string
-  const { data: created } = await supabase
-    .from('lists')
-    .insert({ name, description: 'Leads captured by the website assistant', sport: 'football', is_dynamic: false })
-    .select('id')
-    .single()
-  if (created?.id) return created.id as string
-  // Lost a create race — re-read.
-  const { data: refetched } = await supabase.from('lists').select('id').eq('name', name).maybeSingle()
-  return (refetched?.id as string) ?? null
-}
-
-interface EnquiryArgs {
-  email?: string
-  name?: string
-  phone?: string
-  interest?: string
-  message?: string
-}
-
-/** Land an enquiry as a contact + add to the "Website Enquiries" list (list-only). */
-async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs): Promise<{ ok: boolean }> {
-  const email = args.email?.toLowerCase().trim()
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false }
-
-  const parts = (args.name ?? '').trim().split(/\s+/).filter(Boolean)
-  const firstName = parts[0] || 'Website'
-  const lastName = parts.slice(1).join(' ') || 'Enquiry'
-
-  const { data: existing } = await supabase.from('contacts').select('id').eq('email', email).maybeSingle()
-  let contactId: string | null = existing?.id ?? null
-
-  if (contactId) {
-    const updates: Record<string, unknown> = {}
-    if (parts.length) {
-      updates.first_name = firstName
-      updates.last_name = lastName
-    }
-    if (args.phone) updates.phone = args.phone
-    if (Object.keys(updates).length) await supabase.from('contacts').update(updates).eq('id', contactId)
-  } else {
-    const { data: created } = await supabase
-      .from('contacts')
-      .insert({
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        phone: args.phone ?? null,
-        source: 'website_chatbot',
-      })
-      .select('id')
-      .single()
-    contactId = created?.id ?? null
-  }
-
-  if (!contactId) return { ok: false }
-
-  const listId = await findOrCreateList(supabase, 'Website Enquiries')
-  if (listId) {
-    await supabase
-      .from('contact_lists')
-      .upsert(
-        { contact_id: contactId, list_id: listId, added_at: new Date().toISOString() },
-        { onConflict: 'contact_id,list_id' },
-      )
-  }
-
-  // Audit log so chatbot leads appear under Form Submissions like other captures.
-  await supabase.from('form_submissions').insert({
-    contact_id: contactId,
-    form_id: 'enquiry',
-    form_source: 'chatbot',
-    payload: args as Record<string, unknown>,
-    status: 'processed',
-  })
-
-  return { ok: true }
 }
 
 export async function POST(request: NextRequest) {

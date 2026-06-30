@@ -9,6 +9,7 @@ import { Header } from "./header";
 import { Footer } from "./footer";
 import { Loader, Grain, Cursor } from "./chrome";
 import { AssistantWidget } from "./assistant-widget";
+import { ExitIntent } from "./exit-intent";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -27,6 +28,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <main>{children}</main>
           <Footer />
           <AssistantWidget />
+          <ExitIntent />
         </MotionProvider>
       </VideoProvider>
     </ThemeProvider>
