@@ -6,7 +6,7 @@ import { Icon } from "./icons";
 import { CTABand } from "./sections";
 import { GALLERY, type GalleryCategory } from "@/lib/data";
 
-export function GalleryView() {
+export function GalleryView({ categories = GALLERY }: { categories?: GalleryCategory[] }) {
   return (
     <div>
       {/* hero */}
@@ -31,7 +31,7 @@ export function GalleryView() {
             <h2 data-anim="reveal-title">Explore the galleries</h2>
           </div>
           <div className="gal-cats" data-anim="stagger">
-            {GALLERY.map((c) => (
+            {categories.map((c) => (
               <Link key={c.slug} href={`/gallery/${c.slug}`} className="gal-cat">
                 <div className="gal-cat-media">
                   <img src={c.cover} alt={c.title} loading="lazy" />

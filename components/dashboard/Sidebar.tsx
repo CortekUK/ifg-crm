@@ -38,6 +38,7 @@ import {
   ListIcon,
   Tag,
   Sparkles,
+  Globe,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { useSidebar } from '@/components/providers/SidebarProvider'
@@ -113,6 +114,7 @@ const navSections = [
     items: [
       { href: '/users', label: 'Users', icon: UserCog },
       { href: '/form-submissions', label: 'Form Submissions', icon: Inbox },
+      { href: '/website-content', label: 'Website Content', icon: Globe },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },

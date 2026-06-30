@@ -9,6 +9,7 @@ const LINKS: [string, string][] = [
   ["/", "Home"],
   ["/programmes", "Programmes"],
   ["/success-stories", "Success Stories"],
+  ["/id-clinics", "ID Clinics"],
   ["/ifg-tv", "IFG TV"],
   ["/news", "Latest News"],
 ];

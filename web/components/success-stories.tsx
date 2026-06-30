@@ -6,7 +6,7 @@ import { CTABand } from "./sections";
 import { HeroReel } from "./hero-reel";
 import { SUCCESS_STORIES, HERO_VIDEOS, HERO_POSTER, type SuccessStory } from "@/lib/data";
 
-export function SuccessStoriesView() {
+export function SuccessStoriesView({ stories = SUCCESS_STORIES }: { stories?: SuccessStory[] }) {
   return (
     <div>
       {/* hero */}
@@ -33,7 +33,7 @@ export function SuccessStoriesView() {
       {/* stories */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="wrap ss-list">
-          {SUCCESS_STORIES.map((s, i) => (
+          {stories.map((s, i) => (
             <article className={"ss-card" + (i % 2 ? " flip" : "")} key={s.slug} data-anim="up">
               <div className="ss-card-body">
                 <h2 className="t-h2 ss-card-name">{s.name}</h2>
