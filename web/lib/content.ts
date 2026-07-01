@@ -116,7 +116,7 @@ export async function getSiteContent(type: string): Promise<SiteContent[]> {
 // Stored as site_content type 'course': title=name, location=School,
 // summary=level, link_url=UCLan page, image=tile image. Returns [] on empty so
 // the University page falls back to the bundled UNIVERSITY_COURSES.
-import type { UniCourse, UniSchool } from "./data";
+import type { UniCourse, UniSchool, StaffGroup, StaffMember } from "./data";
 
 const SCHOOLS: UniSchool[] = ["Sport", "Business", "Arts"];
 
@@ -131,4 +131,27 @@ export async function getUniversityCourses(): Promise<UniCourse[]> {
       url: r.linkUrl,
       img: r.image,
     }));
+}
+
+// ── Staff & Coaches (grouped by category) ─────────────────────────────────────
+// Stored as site_content type 'staff': title=name, summary=role,
+// location=group, body=bio, image=photo. Returns [] on empty so the Staff page
+// falls back to the bundled STAFF_GROUPS.
+const STAFF_ORDER = ["Leadership", "Recruiters", "Physios", "Coaches"];
+
+export async function getStaff(): Promise<StaffGroup[]> {
+  const rows = await getSiteContent("staff");
+  if (!rows.length) return [];
+  const byGroup = new Map<string, StaffMember[]>();
+  for (const r of rows) {
+    const group = r.location || "Team";
+    const member: StaffMember = { name: r.title, role: r.summary, img: r.image, bio: r.body || undefined };
+    const arr = byGroup.get(group);
+    if (arr) arr.push(member);
+    else byGroup.set(group, [member]);
+  }
+  const rank = (g: string) => { const i = STAFF_ORDER.indexOf(g); return i === -1 ? 99 : i; };
+  return [...byGroup.keys()]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((label) => ({ label, people: byGroup.get(label)! }));
 }

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
 import { CTABand } from "./sections";
-import { STAFF_GROUPS, MACCLESFIELD, type StaffMember } from "@/lib/data";
+import { STAFF_GROUPS, MACCLESFIELD, type StaffMember, type StaffGroup } from "@/lib/data";
 
 function StaffCard({ p }: { p: StaffMember }) {
   const [open, setOpen] = useState(false);
@@ -32,7 +32,8 @@ function StaffCard({ p }: { p: StaffMember }) {
   );
 }
 
-export function StaffView() {
+export function StaffView({ groups }: { groups?: StaffGroup[] }) {
+  const staffGroups = groups && groups.length ? groups : STAFF_GROUPS;
   return (
     <div>
       {/* hero */}
@@ -64,7 +65,7 @@ export function StaffView() {
       </section>
 
       {/* groups */}
-      {STAFF_GROUPS.map((g) => (
+      {staffGroups.map((g) => (
         <section className="section staff-section" key={g.label} style={{ paddingTop: 0 }}>
           <div className="wrap">
             <h2 className="staff-watermark" data-anim="up">{g.label}</h2>

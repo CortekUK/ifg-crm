@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   Plus, Pencil, Trash2, Loader2, Images, Trophy, LayoutList, HelpCircle,
-  GraduationCap, ExternalLink, ImageOff, type LucideIcon,
+  GraduationCap, ExternalLink, ImageOff, Users, type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -21,6 +21,7 @@ import { GalleryModal } from '@/components/website-content/GalleryModal'
 import { SiteContentModal } from '@/components/website-content/SiteContentModal'
 import { FaqModal } from '@/components/website-content/FaqModal'
 import { CourseModal } from '@/components/website-content/CourseModal'
+import { StaffModal } from '@/components/website-content/StaffModal'
 import { toast } from '@/lib/hooks/use-toast'
 import type { SuccessStory, GalleryCategory, SiteContentItem } from '@/lib/types/website-content'
 
@@ -251,14 +252,16 @@ export default function WebsiteContentPage() {
   const [siteModal, setSiteModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
   const [faqModal, setFaqModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
   const [courseModal, setCourseModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
+  const [staffModal, setStaffModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [target, setTarget] = useState<{ table: ContentTable; id: string; label: string } | null>(null)
 
-  // FAQs and University Courses share the site_content table (types 'faq' /
-  // 'course'); keep them out of the generic Site Content tab.
+  // FAQs, University Courses and Staff share the site_content table (types
+  // 'faq' / 'course' / 'staff'); keep them out of the generic Site Content tab.
   const faqs = site.data?.filter((it) => it.type === 'faq') ?? []
   const courses = site.data?.filter((it) => it.type === 'course') ?? []
-  const siteItems = site.data?.filter((it) => it.type !== 'faq' && it.type !== 'course') ?? []
+  const staff = site.data?.filter((it) => it.type === 'staff') ?? []
+  const siteItems = site.data?.filter((it) => !['faq', 'course', 'staff'].includes(it.type)) ?? []
 
   async function confirmDelete() {
     if (!target) return
@@ -307,6 +310,7 @@ export default function WebsiteContentPage() {
           <TabsTrigger value="stories"><Trophy className="mr-2 h-4 w-4" />Success Stories{tabBadge(stories.data?.length ?? 0)}</TabsTrigger>
           <TabsTrigger value="gallery"><Images className="mr-2 h-4 w-4" />Gallery{tabBadge(gallery.data?.length ?? 0)}</TabsTrigger>
           <TabsTrigger value="courses"><GraduationCap className="mr-2 h-4 w-4" />University Courses{tabBadge(courses.length)}</TabsTrigger>
+          <TabsTrigger value="staff"><Users className="mr-2 h-4 w-4" />Staff &amp; Coaches{tabBadge(staff.length)}</TabsTrigger>
           <TabsTrigger value="faq"><HelpCircle className="mr-2 h-4 w-4" />FAQs{tabBadge(faqs.length)}</TabsTrigger>
           <TabsTrigger value="site"><LayoutList className="mr-2 h-4 w-4" />Site Content{tabBadge(siteItems.length)}</TabsTrigger>
         </TabsList>
@@ -386,6 +390,31 @@ export default function WebsiteContentPage() {
           </Section>
         </TabsContent>
 
+        {/* Staff & Coaches */}
+        <TabsContent value="staff" className="mt-6">
+          <Section
+            icon={Users} tint={TINT.violet} title="Staff & Coaches"
+            description="The people shown on the Coaches & Staff page, grouped by role."
+            count={staff.length} addLabel="Add staff member"
+            onAdd={() => setStaffModal({ open: true, item: null })}
+            loading={site.isLoading} isEmpty={!staff.length}
+            empty={{ title: 'No staff added yet', description: 'The website shows a placeholder team until you add people here. Group each person by Leadership, Recruiters, Physios or Coaches.' }}
+          >
+            <div className={GRID}>
+              {staff.map((it) => (
+                <ContentCard
+                  key={it.id} thumb={it.image} title={it.title}
+                  subtitle={it.summary || ''} badge={it.location} published={it.published}
+                  fallbackIcon={Users}
+                  onEdit={() => setStaffModal({ open: true, item: it })}
+                  onDelete={() => setTarget({ table: 'website_site_content', id: it.id, label: it.title })}
+                  deleting={deletingId === it.id}
+                />
+              ))}
+            </div>
+          </Section>
+        </TabsContent>
+
         {/* FAQs */}
         <TabsContent value="faq" className="mt-6">
           <Section
@@ -440,6 +469,7 @@ export default function WebsiteContentPage() {
       <SiteContentModal open={siteModal.open} item={siteModal.item} onClose={() => setSiteModal({ open: false, item: null })} />
       <FaqModal open={faqModal.open} item={faqModal.item} onClose={() => setFaqModal({ open: false, item: null })} />
       <CourseModal open={courseModal.open} item={courseModal.item} onClose={() => setCourseModal({ open: false, item: null })} />
+      <StaffModal open={staffModal.open} item={staffModal.item} onClose={() => setStaffModal({ open: false, item: null })} />
 
       <AlertDialog open={!!target} onOpenChange={(o) => !o && setTarget(null)}>
         <AlertDialogContent>
