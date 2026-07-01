@@ -13,12 +13,12 @@ const PROG_BASE = "/programmes/macclesfield";
 const BROCHURE = "https://publuu.com/flip-book/448626/2075544";
 const APPLY_HREF = `${PROG_BASE}/apply`;
 
-// Top-level links after the Programmes dropdown.
+// Top-level links after the Programmes dropdown. (FAQs lives in the footer.)
 const LINKS: [string, string][] = [
+  [`${PROG_BASE}/teams`, "Teams"],
   ["/success-stories", "Success Stories"],
   [`${PROG_BASE}/facilities`, "Facilities"],
   ["/news", "Latest News"],
-  ["/faq", "FAQs"],
 ];
 
 export function Header() {
