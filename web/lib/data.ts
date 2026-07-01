@@ -39,183 +39,7 @@ export type Experience = { title: string; img: string; desc: string };
 export type Facility = { name: string; img: string };
 export type Video = { title: string; meta: string; dur: string; poster: string; clip: string };
 export type Method = { title: string; intro: string; points: string[]; img: string; note: { title: string; body: string[] } };
-export type ProgrammeDetail = {
-  tagline: string;
-  dates: string;
-  duration: string;
-  cost: string;
-  costNote: string;
-  intro: string[];
-  experiences: Experience[];
-  highlights: string[];
-  facilities: Facility[];
-  videos: Video[];
-  method: Method;
-};
 
-export const PROGRAMME_DETAIL: Record<string, ProgrammeDetail> = {
-  juventus: {
-    tagline: "The International Football Group, working together with Juventus.",
-    dates: "16–20 February 2026",
-    duration: "5 days",
-    cost: "£900",
-    costNote: "Total cost · flights not included",
-    intro: [
-      "The Juventus Training Experience is an immersive residency inside the methodology of one of football's most decorated clubs. Over five days in Turin, players train under qualified Juventus staff, play competitive matches, and step inside the Allianz Stadium and J-Museum.",
-      "Every session is overseen by official Juventus coaches, with a physiotherapist and doctor present throughout. You can be assured of an unforgettable IFG experience.",
-    ],
-    experiences: [
-      { title: "Museum & Stadium Tour", img: "/juve/i4.png", desc: "The J-Museum tells Juventus' story through an eclectic range of interactive mediums — immerse yourself in some of the greatest footballing triumphs ever seen." },
-      { title: "Juventus Training Sessions", img: "/juve/DSC00050.jpg", desc: "Daily technical and tactical sessions delivered by official Juventus coaches inside the academy environment." },
-      { title: "Full Board Accommodation", img: "/juve/DSC00301.jpg", desc: "Stay at the Juventus Residency Academy campus with full-board accommodation throughout your visit." },
-      { title: "Showcase Games", img: "/juve/53008731624_2fba4df85a_o.jpg", desc: "Test yourself in competitive friendly matches and showcase games against local opposition." },
-    ],
-    highlights: [
-      "Official Juventus Team Leader",
-      "Official IFG Team Leader",
-      "Training sessions in the Juventus Academy",
-      "Friendly & showcase matches",
-      "Physiotherapist & doctor at all training and matches",
-      "Full board accommodation included",
-      "Juventus Museum & Allianz Stadium tour",
-      "Day trip to the city of Turin",
-      "Leisure & cultural activities",
-      "Insurance for all participants",
-    ],
-    facilities: [
-      { name: "Villaggio Olimpico Bardonecchia", img: "/juve/fac1.jpeg" },
-      { name: "Allianz Stadium", img: "/juve/fac2.webp" },
-      { name: "Training Centre Vinovo", img: "/juve/fac3.jpeg" },
-      { name: "Juventus Museum", img: "/juve/fac4.jpeg" },
-    ],
-    videos: [
-      { title: "Inside the Juventus Training Experience", meta: "Featured film", dur: "3:24", poster: mkt(43484), clip: mk(43484) },
-      { title: "Official Juventus coaching sessions", meta: "Training", dur: "2:11", poster: mkt(43487), clip: mk(43487) },
-      { title: "Allianz Stadium & J-Museum tour", meta: "Experience", dur: "1:58", poster: mkt(43479), clip: mk(43479) },
-      { title: "Showcase match highlights", meta: "Matchday", dur: "4:02", poster: mkt(43492), clip: mk(43492) },
-    ],
-    method: {
-      title: "What do we mean by The Juventus Way?",
-      intro:
-        "We aim to develop footballers through a vision that combines technical aspects with mental, emotional and interpersonal ones. The Juventus methodology can be summarised in five points:",
-      points: ["Style of Play", "Technical Ability", "Tactical Ability", "Mental Factor", "Emotional & Social Factors"],
-      img: "/juve/i6.png",
-      note: {
-        title: "Juventus Means Youth",
-        body: [
-          "Juve's history speaks for itself. Over a century of silverware has made the Bianconeri colours iconic and created a fanbase of millions around the world — and it is no coincidence the word Juventus means Youth.",
-          "Founded and developed by young men throughout the club's history, Juventus combines its historic legacy with forward-thinking targets in a teaching method designed to convey values that go beyond the playing field.",
-        ],
-      },
-    },
-  },
-
-  macclesfield: {
-    tagline: "Bachelor & master degrees in sport, delivered with the University of Lancashire at Macclesfield FC.",
-    dates: "September 2026 intake",
-    duration: "BSc 3 yrs · MSc 1 yr",
-    cost: "Tuition varies",
-    costNote: "BSc & MSc routes · funding available",
-    intro: [
-      "Macclesfield Football Education is a full football-and-education pathway: train within a professional club environment at Macclesfield FC while studying for an accredited bachelor's or master's degree awarded by the University of Lancashire (UCLan).",
-      "Diverse routes span football-specific careers and broader sports employment worldwide, combining daily training with academic study, work placements and performance analysis.",
-    ],
-    experiences: [
-      { title: "Accredited Degree Study", img: mkt(43494), desc: "Study for a BSc or MSc awarded by the University of Lancashire while based inside a football club." },
-      { title: "Club Training Environment", img: mkt(43482), desc: "Train within the Macclesfield FC setup with qualified coaching, strength & conditioning support." },
-      { title: "Work Placements", img: mkt(43495), desc: "Gain real-world experience through placements across football operations and the wider sports industry." },
-      { title: "Performance Analysis", img: mkt(43487), desc: "Learn modern match and performance analysis tools used in the professional game." },
-    ],
-    highlights: [
-      "BSc & MSc degrees awarded by University of Lancashire",
-      "Training within the Macclesfield FC environment",
-      "Qualified coaching & strength and conditioning",
-      "Work placement opportunities",
-      "Match & performance analysis",
-      "Accommodation guidance",
-      "International student support",
-      "Pathways into football & sport careers worldwide",
-    ],
-    facilities: [
-      { name: "Macclesfield FC Stadium", img: mkt(43482) },
-      { name: "University of Lancashire", img: mkt(43494) },
-      { name: "Performance Gym", img: mkt(4587) },
-      { name: "Analysis Suite", img: mkt(43492) },
-    ],
-    videos: [
-      { title: "A day at Macclesfield Football Education", meta: "Programme tour", dur: "2:46", poster: mkt(43482), clip: mk(43482) },
-      { title: "Inside the degree pathway", meta: "Education", dur: "3:10", poster: mkt(43494), clip: mk(43494) },
-      { title: "Player development & analysis", meta: "Performance", dur: "2:05", poster: mkt(43487), clip: mk(43487) },
-      { title: "Graduate stories", meta: "Success Stories", dur: "4:18", poster: mkt(43492), clip: mk(43492) },
-    ],
-    method: {
-      title: "Player. Person. Professional.",
-      intro:
-        "Our Macclesfield pathway develops the whole individual — building the athlete, the academic and the professional in parallel through three priorities:",
-      points: ["Elite Training", "Accredited Education", "Career Pathways"],
-      img: mkt(43479),
-      note: {
-        title: "Education that travels",
-        body: [
-          "A University of Lancashire degree is recognised worldwide, opening doors across football and the wider sports economy long after the final whistle.",
-          "Students graduate with both an accredited qualification and genuine club-environment experience — a rare combination that sets IFG graduates apart.",
-        ],
-      },
-    },
-  },
-
-  phoenix: {
-    tagline: "Extending IFG's world-class pathways and experiences to the UAE through Phoenix City.",
-    dates: "Emerging 2026 cohorts",
-    duration: "Flexible",
-    cost: "On application",
-    costNote: "International experience · enquire for details",
-    intro: [
-      "Phoenix City UAE is IFG's international hub, bringing world-class football education and experiences to the United Arab Emirates in partnership with Phoenix FC.",
-      "The programme connects players, students and clubs across continents — combining elite training, cultural immersion and clear pathways into the global game.",
-    ],
-    experiences: [
-      { title: "Elite Training", img: mkt(4567), desc: "Train in world-class UAE facilities with experienced coaching and modern methodology." },
-      { title: "International Experience", img: mkt(43492), desc: "Live and play in the UAE, immersing yourself in a truly international football environment." },
-      { title: "Club Connections", img: mkt(43479), desc: "Connect directly with Phoenix FC and IFG's wider network of renowned clubs." },
-      { title: "Cultural Activities", img: mkt(43499), desc: "Experience the culture of the UAE alongside your football development." },
-    ],
-    highlights: [
-      "Training with experienced coaching staff",
-      "World-class UAE facilities",
-      "International match experience",
-      "Connections to Phoenix FC & IFG partners",
-      "Full support for international participants",
-      "Cultural & leisure activities",
-      "Pathways into the global game",
-    ],
-    facilities: [
-      { name: "Phoenix City Campus", img: mkt(4567) },
-      { name: "Training Pitches", img: mkt(43482) },
-      { name: "Recovery & Performance", img: mkt(4587) },
-      { name: "City Experiences", img: mkt(43492) },
-    ],
-    videos: [
-      { title: "Phoenix City UAE — launch film", meta: "Featured film", dur: "1:58", poster: mkt(43492), clip: mk(43492) },
-      { title: "Training in world-class facilities", meta: "Training", dur: "2:20", poster: mkt(4567), clip: mk(4567) },
-      { title: "International match experience", meta: "Matchday", dur: "3:05", poster: mkt(43479), clip: mk(43479) },
-      { title: "Life in the UAE", meta: "Experience", dur: "2:34", poster: mkt(43499), clip: mk(43499) },
-    ],
-    method: {
-      title: "A bridge to the global game",
-      intro: "Phoenix City brings the IFG philosophy to a new region — developing players through three priorities:",
-      points: ["World-class Training", "International Exposure", "Real Pathways"],
-      img: mkt(43487),
-      note: {
-        title: "One group, worldwide",
-        body: [
-          "Phoenix City represents IFG's international expansion — opening the door to football education and experiences far beyond Europe.",
-          "Players join a worldwide group connected by a single standard: world-class football education and experiences.",
-        ],
-      },
-    },
-  },
-};
 
 // ---- Macclesfield programme micro-site content ----
 export type SubProgramme = { id: string; name: string; tag: string; img: string; blurb: string; intro: string[]; highlights: string[] };
@@ -782,9 +606,7 @@ export const UNIVERSITY = {
   experiencesIntro: "Throughout the season we offer a range of footballing experiences for IFG players to enhance their footballing knowledge across the world.",
   experiences: [
     { place: "Barcelona", tag: "Pre-season training", img: "/summer/52647156393_db255d94b5_o.jpg", desc: "To kick off the season we travel to one of the most iconic footballing cities, Barcelona — visiting the city, training and facing competitive Spanish teams to prepare for the season ahead." },
-    { place: "Juventus", tag: "Training experience", img: "/juve/53008731624_2fba4df85a_o.jpg", desc: "In February we offer players the opportunity to travel to Italy for a 5-day Juventus training experience — train at the Juventus Academy, see the iconic stadium and play against Italian teams." },
     { place: "Las Vegas", tag: "Mayors Cup", img: "/summer/54291747614_2393236ba1_o.jpg", desc: "In February we take teams to Las Vegas to represent IFG Macclesfield FC in the Mayors Cup tournament against teams from around the world." },
-    { place: "Dubai", tag: "Training experience", img: "/phoniex/0X7A8451-scaled.jpg", desc: "Working with IFG partner club Phoenix City, we provide players with the chance to visit Dubai for a training experience of a lifetime." },
   ],
   accommodation: {
     heading: "Accommodation",
@@ -895,8 +717,6 @@ export const GAP_YEAR = {
   ],
   experiencesIntro: "Throughout the season we offer a range of footballing experiences for IFG players to enhance their footballing knowledge across the world.",
   experiences: [
-    { place: "Dubai", tag: "Training experience", img: "/phoniex/0X7A8451-scaled.jpg", desc: "Working with IFG partner club Phoenix City, we provide players with the chance to visit Dubai for a training experience of a lifetime." },
-    { place: "Juventus", tag: "Training experience", img: "/juve/53008731624_2fba4df85a_o.jpg", desc: "In February we offer players the opportunity to travel to Italy for a 5-day Juventus training experience — train at the Juventus Academy, see the iconic stadium and play against Italian teams." },
     { place: "Barcelona", tag: "Pre-season training", img: "/summer/52647156393_db255d94b5_o.jpg", desc: "To kick off the season we travel to one of the most iconic footballing cities, Barcelona — visiting the city, training and facing competitive Spanish teams to prepare for the season ahead." },
     { place: "Las Vegas", tag: "Mayors Cup", img: "/summer/54291747614_2393236ba1_o.jpg", desc: "In February we take teams to Las Vegas to represent IFG Macclesfield FC in the Mayors Cup tournament against teams from around the world." },
   ],
@@ -918,75 +738,6 @@ export const GAP_YEAR = {
   ],
 };
 
-// ---- Phoenix City UAE programme (top-level) ----
-export const PHOENIX_CITY = {
-  hero: {
-    title: "IFG Phoenix City",
-    subtitle: "The International Football Group in partnership with Phoenix Club UAE.",
-    tagline: "Football. Degree. Pathway.",
-    clip: "",
-    poster: "/phoniex/0X7A8451-scaled.jpg",
-    logos: [{ src: "/assets/logo/partners-logos/phoenix.png", alt: "Phoenix City FC" }],
-  },
-  intro: {
-    heading: "Football-Education Programme: in partnership with Phoenix Club UAE",
-    paragraphs: [
-      "At IFG Phoenix, we're proud to launch the UAE's first football-education programme — giving ambitious footballers the chance to earn it on & off the pitch.",
-      "Here, you don't just train — you live like a true professional, competing as part of a club in the UAE's official football pyramid, guided by UEFA-licensed coaches, Premier League winners, and an ecosystem built to take your game further.",
-      "At the same time, you'll work towards a UK Bachelor's or Master's degree, fully flexible for student-athletes who want the best of both worlds.",
-      "Beyond the pitch, you'll develop in a world-class environment with the best facilities in the UAE, clear pathways to Europe and the US, and the support to succeed during and after your playing career.",
-    ],
-    closer: "This is where your game, your degree, and your future come together.",
-    images: ["/phoniex/0X7A7053-scaled.jpg", "/phoniex/0X7A7331-scaled.jpg", "/phoniex/53872418652_093b710919_o.jpg"],
-  },
-  proven: {
-    heading: "Proven worldwide",
-    img: "/phoniex/54641923863_ee626853af_o-scaled.jpg",
-    stats: [
-      ["300+", "Players supported"],
-      ["600+", "Competitive matches"],
-      ["1,600+", "US scholarships placed"],
-      ["£4m", "Invested in facilities"],
-    ] as [string, string][],
-    columns: [
-      [
-        "The International Football Group (IFG) has operated for years as a trusted leader in combining elite football pathways with real education. Working alongside respected clubs like Juventus, it has supported over 300 players, delivered 600+ competitive matches, and built pathways that help athletes progress across the UK and Europe.",
-        "Through IFG's university partnerships, players earn UK-accredited degrees built for athletes — including with the University of Central Lancashire (UCLan), one of the UK's top universities for sport and football education, and UBI Business School, a 5-star QS-rated school for flexible online study.",
-      ],
-      [
-        "In the English football system, Macclesfield FC — one of England's fastest-growing clubs — showcases what's possible with the IFG model: 3 promotions in 4 years, £4 million invested in facilities, and exposure to millions on national TV.",
-        "Phoenix players also benefit from our dedicated partnership with FFF USA, which has helped place over 1,600 players into elite US college scholarships and opened pathways to the French leagues and beyond. Now based in the UAE, Phoenix connects this proven global network to the Middle East.",
-      ],
-    ],
-  },
-  cost: {
-    heading: "The cost & dates",
-    images: ["/phoniex/IMG_8974-scaled.jpg", "/phoniex/0X7A7331-scaled.jpg"],
-    blocks: [
-      { title: "Athletic fees", body: "Your athletic fee covers a comprehensive player-development package: daily training with UEFA-licensed coaches, competitive league matches, individual learning plans, video analysis, recovery support, and access to top-tier facilities.", lines: ["Full Season — 50,000 AED + VAT", "Half Season — 30,000 AED + VAT"] },
-      { title: "Accommodation", body: "We help players secure safe, modern accommodation options that suit their needs — from private single rooms to shared apartments. Costs vary by room type and length of stay, with facilities like on-site gyms, lounges and easy access to training grounds.", lines: ["From 6,000 AED per month + VAT"] },
-      { title: "Tuition", body: "Earn a fully accredited UK Bachelor's or Master's degree through our partner universities UBI Business School and the University of Lancashire, with flexible online or hybrid study to fit your training schedule.", lines: ["From 46,000 AED per year + VAT"] },
-    ],
-  },
-  included: {
-    heading: "What's included",
-    intro: "All of the below is included within our IFG Phoenix City Football Education Programme as standard — with passports, food packages, flights and visas to be purchased separately.",
-    bullets: [
-      "Full accommodation throughout your entire stay",
-      "A minimum of fourteen hours of coaching time per week with our respected coaches",
-      "Position-specific sessions",
-      "Weekly competitive / showcase matches",
-      "Strength and conditioning sessions",
-      "Nutrition plans",
-      "Video-based feedback and personalised analysis sessions",
-      "Mental performance coaching",
-      "Trial opportunities",
-      "Transport to all training sessions, matches and events",
-      "Exclusive IFG Phoenix training kit",
-    ],
-    img: "/phoniex/0X7A7053-scaled.jpg",
-  },
-};
 
 // ---- Success stories ----
 export type SuccessStory = {
@@ -1060,12 +811,8 @@ export const GALLERY: GalleryCategory[] = [
       "/summer/53035529767_ab0183f004_o.jpg",
       "/summer/53035856526_2f23eeb351_o.jpg",
       "/summer/Macclesfield-Stealth-Gym-2.webp",
-      "/juve/DSC00050.jpg",
-      "/juve/DSC00301.jpg",
-      "/juve/53008731624_2fba4df85a_o.jpg",
       "/summer/54600313098_aa6b27cf3f_o.jpg",
       "/summer/54291747614_2393236ba1_o.jpg",
-      "/juve/i4.png",
     ],
   },
   {
@@ -1083,23 +830,6 @@ export const GALLERY: GalleryCategory[] = [
       "/summer/54291511311_1b0382a44f_o.jpg",
       "/maccles/2023-Macclesfield-Fun-2-scaled.jpg",
       "/summer/54661849377_ae6918fc8d_o-scaled.jpg",
-    ],
-  },
-  {
-    slug: "experiences",
-    title: "Travel & Experiences",
-    blurb: "Tours, cultures and stadiums — football as a passport to the world.",
-    cover: "/phoniex/0X7A8451-scaled.jpg",
-    images: [
-      "/phoniex/0X7A8451-scaled.jpg",
-      "/phoniex/0X7A7053-scaled.jpg",
-      "/phoniex/0X7A7331-scaled.jpg",
-      "/phoniex/53872418652_093b710919_o.jpg",
-      "/phoniex/54641923863_ee626853af_o-scaled.jpg",
-      "/juve/53009046183_2ff6a980c2_o.jpg",
-      "/juve/53008732419_405b135a02_o.jpg",
-      "/juve/i1.png",
-      "/summer/52647156393_db255d94b5_o.jpg",
     ],
   },
   {
@@ -1127,8 +857,6 @@ export const GALLERY: GalleryCategory[] = [
     images: [
       "/maccles/2023-Macclesfield-Fun-2-scaled.jpg",
       "/teams/IFG-Staff-pic-1-scaled.jpg",
-      "/phoniex/IMG_8974-scaled.jpg",
-      "/juve/DSC00122.jpg",
       "/summer/Bar-27-Hospitality.jpeg",
       "/maccles/7.jpg",
       "/teams/staff%20images/nathan.webp",
@@ -1157,17 +885,14 @@ export const STATS: [string, string][] = [
 
 export type Partner = { name: string; logo: string };
 export const PARTNERS: Partner[] = [
-  { name: "Juventus", logo: "/assets/logo/partners-logos/juventus.png" },
   { name: "Macclesfield FC", logo: "/assets/logo/partners-logos/maccles.png" },
   { name: "University of Lancashire", logo: "/assets/logo/partners-logos/lancashire.png" },
-  { name: "Phoenix FC", logo: "/assets/logo/partners-logos/phoenix.png" },
 ];
 
 export type News = { tag: string; title: string; date: string; img: string; lead?: boolean };
 export const NEWS: News[] = [
   { tag: "Latest News", title: "The most successful season yet at IFG Macclesfield", date: "1 Sep 2025", img: mkt(41372), lead: true },
   { tag: "Newsletter", title: "IFG Newsletter: Season Kick-Off 2025/26", date: "3 Nov 2025", img: mkt(43494) },
-  { tag: "Phoenix City", title: "IFG Phoenix City launches in the UAE", date: "24 Jul 2025", img: mkt(43495) },
   { tag: "Feature", title: "Why the best young players still come to England", date: "10 May 2026", img: mkt(43492) },
 ];
 
@@ -1260,7 +985,7 @@ export const ARTICLES: Article[] = [
     body: [
       { type: "p", text: "Welcome to the first newsletter of the 2025/26 season. It has been a remarkable start across every part of the group, with new students arriving from more countries than ever and our programmes operating at full capacity." },
       { type: "h", text: "A Growing Group" },
-      { type: "p", text: "This season's intake spans Europe, North America, the Middle East and beyond. Our university programme with the University of Lancashire continues to grow, and the launch of IFG Phoenix City in the UAE has opened an entirely new pathway for players seeking international experience." },
+      { type: "p", text: "This season’s intake spans Europe, North America and beyond. Our university programme with the University of Lancashire continues to grow, opening new pathways for players seeking international experience." },
       { type: "h", text: "On the Pitch" },
       { type: "p", text: "Macclesfield FC's National League North campaign is under way, and our shadow and development squads have started strongly. Several students have already trained with the first team — exactly the kind of progression the programme is built to create." },
       { type: "p", text: "We will be sharing match reports, player features and behind-the-scenes films throughout the season. Thank you for being part of the IFG journey." },
@@ -1325,26 +1050,6 @@ export const ARTICLES: Article[] = [
       { type: "p", text: "With more fixtures to come and first-team opportunities continuing to open up, the months ahead are an exciting time for our student-athletes. We will keep sharing their progress as the season develops." },
     ],
   },
-  {
-    slug: "ifg-phoenix-city-launches-uae",
-    category: "Phoenix City",
-    title: "IFG Phoenix City Launches in the UAE",
-    date: "24 Jul 2025",
-    iso: "2025-07-24",
-    img: "/phoniex/Phoenix-Club-UAE.webp",
-    heroImg: "/phoniex/0X7A8451-scaled.jpg",
-    excerpt:
-      "IFG expands its global footprint with the launch of Phoenix City in the UAE — a new international pathway combining elite training and life in Dubai.",
-    lead: "A new chapter for the group — elite football, education and international experience in the UAE.",
-    body: [
-      { type: "p", text: "The International Football Group is proud to announce the launch of IFG Phoenix City in the United Arab Emirates — a new programme that brings the IFG model to one of the most exciting football markets in the world." },
-      { type: "h", text: "A New International Pathway" },
-      { type: "p", text: "Based around partner club Phoenix City FC, the programme offers players the chance to train in a professional environment while experiencing life in Dubai. It is a natural extension of IFG's mission to open global pathways for ambitious student-athletes." },
-      { type: "h", text: "What It Offers" },
-      { type: "p", text: "Players will benefit from elite coaching, modern facilities and genuine international exposure — combined with the structure, support and education-first philosophy that defines every IFG programme." },
-      { type: "p", text: "Applications for the first intakes are now open. Get in touch with the IFG team to find out more about the Phoenix City pathway." },
-    ],
-  },
 ];
 
 // ---- IFG TV / YouTube ----
@@ -1394,10 +1099,8 @@ export const YT_VIDEOS: YTVideo[] = [
 ];
 
 export const TV: Video[] = [
-  { title: "Inside the Juventus Training Experience", meta: "IFG TV · Featured film", dur: "3:24", poster: mkt(43484), clip: mk(43484) },
   { title: "A day at Macclesfield Football Education", meta: "Programme tour", dur: "2:11", poster: mkt(43482), clip: mk(43482) },
   { title: "Player stories: from trial to first team", meta: "Success Stories", dur: "4:46", poster: mkt(43487), clip: mk(43487) },
-  { title: "Phoenix City — football in the UAE", meta: "Launch film", dur: "1:58", poster: mkt(43492), clip: mk(43492) },
 ];
 
 // ---- Application form data (Macclesfield apply page) ----

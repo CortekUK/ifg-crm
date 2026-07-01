@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { CardCarousel, MediaCarousel } from "./carousels";
@@ -17,7 +16,6 @@ const APPLY_HREF = "/programmes/macclesfield/apply";
 const PROG_BASE = "/programmes/macclesfield";
 
 function Hero() {
-  const router = useRouter();
   const down = () => {
     if (window.__lenis) window.__lenis.scrollTo(window.innerHeight * 0.92);
     else window.scrollTo({ top: window.innerHeight * 0.92, behavior: "smooth" });
@@ -37,8 +35,8 @@ function Hero() {
           Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe&apos;s great cities.
         </p>
         <div className="hero-cta" data-anim="hero-fade">
-          <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push(APPLY_HREF)}>Apply Now</Button>
-          <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Book a call</Button>
+          <Button variant="primary" size="lg" iconRight="arrow-right" as="a" href={APPLY_HREF}>Apply Now</Button>
+          <Button variant="ghost" size="lg" as="a" href="/contact">Book a call</Button>
           <button className="scroll-cue" onClick={down} aria-label="Scroll down">
             <span>Scroll</span>
             <span className="scroll-cue-line"><span /></span>
@@ -98,7 +96,6 @@ function PartnersMarquee() {
 
 // Editorial "introducing" block from the education page.
 function Introducing() {
-  const router = useRouter();
   const m = MACCLESFIELD;
   return (
     <section className="section">
@@ -110,9 +107,9 @@ function Introducing() {
             <p key={i} style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: i ? 16 : 22 }}>{p}</p>
           ))}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
-            <Button variant="primary" iconRight="arrow-right" onClick={() => router.push(APPLY_HREF)}>Apply Now</Button>
-            <Button variant="ghost" icon="download" onClick={() => router.push(`${PROG_BASE}/brochure`)}>View Brochure</Button>
-            <Button variant="solid" onClick={() => router.push("/contact")}>Book a Call</Button>
+            <Button variant="primary" iconRight="arrow-right" as="a" href={APPLY_HREF}>Apply Now</Button>
+            <Button variant="ghost" icon="download" as="a" href={`${PROG_BASE}/brochure`}>View Brochure</Button>
+            <Button variant="solid" as="a" href="/contact">Book a Call</Button>
           </div>
         </div>
         <div data-anim="up">
@@ -205,7 +202,6 @@ function NewsGrid() {
 }
 
 export function HomeView() {
-  const router = useRouter();
   return (
     <div>
       <Hero />
@@ -255,7 +251,7 @@ export function HomeView() {
                 Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.
               </p>
               <div style={{ marginTop: 28 }}>
-                <Button variant="solid" iconRight="arrow-right" onClick={() => router.push("/news")}>Latest news</Button>
+                <Button variant="solid" iconRight="arrow-right" as="a" href="/news">Latest news</Button>
               </div>
             </div>
             <div className="editorial-media" data-anim="clip">
