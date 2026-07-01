@@ -111,3 +111,24 @@ export async function getSiteContent(type: string): Promise<SiteContent[]> {
     linkUrl: r.link_url ?? "", linkLabel: r.link_label ?? "",
   }));
 }
+
+// ── University courses (grouped by School) ────────────────────────────────────
+// Stored as site_content type 'course': title=name, location=School,
+// summary=level, link_url=UCLan page, image=tile image. Returns [] on empty so
+// the University page falls back to the bundled UNIVERSITY_COURSES.
+import type { UniCourse, UniSchool } from "./data";
+
+const SCHOOLS: UniSchool[] = ["Sport", "Business", "Arts"];
+
+export async function getUniversityCourses(): Promise<UniCourse[]> {
+  const rows = await getSiteContent("course");
+  return rows
+    .filter((r) => SCHOOLS.includes(r.location as UniSchool) && r.linkUrl)
+    .map((r) => ({
+      school: r.location as UniSchool,
+      name: r.title,
+      level: r.summary,
+      url: r.linkUrl,
+      img: r.image,
+    }));
+}

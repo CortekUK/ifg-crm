@@ -816,6 +816,49 @@ export const UNIVERSITY = {
   ],
 };
 
+// ---- University degree courses, grouped by School ----
+// IFG self-manages these from the CRM (Website Content → University Courses,
+// stored as site_content type 'course': title=name, location=school,
+// summary=level, link_url=UCLan course page, image=tile image). This bundled
+// list is the fallback shown until IFG populates the CMS. The links point at
+// UCLan's course search as PLACEHOLDERS — replace each with the real
+// course-specific UCLan page in the CRM.
+export type UniSchool = "Sport" | "Business" | "Arts";
+export type UniCourse = { school: UniSchool; name: string; level: string; url: string; img: string };
+
+const UCLAN_COURSES = "https://www.uclan.ac.uk/courses"; // placeholder deep-link target
+const UC_IMG = [
+  "/maccles/54661849377_ae6918fc8d_o-scaled.jpg",
+  "/maccles/53046445765_c62d7e60e9_o.jpg",
+  "/maccles/54370125778_fba1a86169_o-scaled.jpg",
+  "/maccles/DSC04279.jpg",
+  "/maccles/7.jpg",
+  "/maccles/DSC01273-Enhanced-NR-scaled.jpg",
+];
+const uc = (school: UniSchool, name: string, level: string, i: number): UniCourse => ({
+  school, name, level, url: UCLAN_COURSES, img: UC_IMG[i % UC_IMG.length],
+});
+
+export const UNIVERSITY_COURSES: UniCourse[] = [
+  // Sport
+  uc("Sport", "BSc (Hons) Football Studies", "Bachelor's · 3 Years", 0),
+  uc("Sport", "BSc (Hons) Sports Coaching", "Bachelor's · 3 Years", 1),
+  uc("Sport", "BSc (Hons) Sports & Exercise Science", "Bachelor's · 3 Years", 2),
+  uc("Sport", "BSc (Hons) Sports Therapy", "Bachelor's · 3 Years", 3),
+  uc("Sport", "MSc Sports Coaching & Performance", "Master's · 1 Year", 4),
+  uc("Sport", "MSc Performance Analysis & Talent Management", "Master's · 1 Year", 5),
+  // Business
+  uc("Business", "BA (Hons) Business & Management", "Bachelor's · 3 Years", 0),
+  uc("Business", "BA (Hons) Business & Entrepreneurship", "Bachelor's · 3 Years", 1),
+  uc("Business", "BSc (Hons) Business & Marketing", "Bachelor's · 3 Years", 2),
+  uc("Business", "BA (Hons) Accounting & Finance", "Bachelor's · 3 Years", 3),
+  uc("Business", "BA (Hons) International Business", "Bachelor's · 3 Years", 4),
+  // Arts (placeholder examples — IFG to confirm/replace in the CRM)
+  uc("Arts", "BA (Hons) Graphic Design", "Bachelor's · 3 Years", 0),
+  uc("Arts", "BA (Hons) Music Production", "Bachelor's · 3 Years", 1),
+  uc("Arts", "BA (Hons) Film & Media Production", "Bachelor's · 3 Years", 2),
+];
+
 // ---- Gap Year sub-programme (Macclesfield) ----
 export const GAP_YEAR = {
   hero: {

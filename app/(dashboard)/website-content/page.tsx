@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Loader2, Images, Trophy, LayoutList, HelpCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Images, Trophy, LayoutList, HelpCircle, GraduationCap } from 'lucide-react'
 import {
   useSuccessStories,
   useGalleryCategories,
@@ -16,6 +16,7 @@ import { StoryModal } from '@/components/website-content/StoryModal'
 import { GalleryModal } from '@/components/website-content/GalleryModal'
 import { SiteContentModal } from '@/components/website-content/SiteContentModal'
 import { FaqModal } from '@/components/website-content/FaqModal'
+import { CourseModal } from '@/components/website-content/CourseModal'
 import { toast } from '@/lib/hooks/use-toast'
 import type { SuccessStory, GalleryCategory, SiteContentItem } from '@/lib/types/website-content'
 
@@ -73,11 +74,14 @@ export default function WebsiteContentPage() {
   const [galleryModal, setGalleryModal] = useState<{ open: boolean; item: GalleryCategory | null }>({ open: false, item: null })
   const [siteModal, setSiteModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
   const [faqModal, setFaqModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
+  const [courseModal, setCourseModal] = useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // FAQs share the site_content table (type 'faq'); keep them out of the Site Content tab.
+  // FAQs and University Courses share the site_content table (types 'faq' and
+  // 'course'); keep them out of the generic Site Content tab.
   const faqs = site.data?.filter((it) => it.type === 'faq') ?? []
-  const siteItems = site.data?.filter((it) => it.type !== 'faq') ?? []
+  const courses = site.data?.filter((it) => it.type === 'course') ?? []
+  const siteItems = site.data?.filter((it) => it.type !== 'faq' && it.type !== 'course') ?? []
 
   async function remove(table: ContentTable, id: string, label: string) {
     if (!window.confirm(`Delete "${label}"? This removes it from the website.`)) return
@@ -106,6 +110,7 @@ export default function WebsiteContentPage() {
         <TabsList>
           <TabsTrigger value="stories"><Trophy className="mr-2 h-4 w-4" />Success Stories</TabsTrigger>
           <TabsTrigger value="gallery"><Images className="mr-2 h-4 w-4" />Gallery</TabsTrigger>
+          <TabsTrigger value="courses"><GraduationCap className="mr-2 h-4 w-4" />University Courses</TabsTrigger>
           <TabsTrigger value="faq"><HelpCircle className="mr-2 h-4 w-4" />FAQs</TabsTrigger>
           <TabsTrigger value="site"><LayoutList className="mr-2 h-4 w-4" />Site Content</TabsTrigger>
         </TabsList>
@@ -157,6 +162,34 @@ export default function WebsiteContentPage() {
             ))
           ) : (
             <p className="text-sm text-muted-foreground">No gallery categories yet.</p>
+          )}
+        </TabsContent>
+
+        {/* University Courses */}
+        <TabsContent value="courses" className="space-y-3">
+          <div className="flex justify-end">
+            <Button onClick={() => setCourseModal({ open: true, item: null })}><Plus className="mr-2 h-4 w-4" />Add course</Button>
+          </div>
+          {site.isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : courses.length ? (
+            courses.map((it) => (
+              <Row
+                key={it.id}
+                thumb={it.image}
+                title={it.title}
+                subtitle={[it.location, it.summary].filter(Boolean).join(' · ')}
+                published={it.published}
+                onEdit={() => setCourseModal({ open: true, item: it })}
+                onDelete={() => remove('website_site_content', it.id, it.title)}
+                deleting={deletingId === it.id}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No courses yet — the website shows a built-in placeholder list until you add them here.
+              Group each degree by School (Sport, Business, Arts) with its UCLan link.
+            </p>
           )}
         </TabsContent>
 
@@ -219,6 +252,7 @@ export default function WebsiteContentPage() {
       <GalleryModal open={galleryModal.open} category={galleryModal.item} onClose={() => setGalleryModal({ open: false, item: null })} />
       <SiteContentModal open={siteModal.open} item={siteModal.item} onClose={() => setSiteModal({ open: false, item: null })} />
       <FaqModal open={faqModal.open} item={faqModal.item} onClose={() => setFaqModal({ open: false, item: null })} />
+      <CourseModal open={courseModal.open} item={courseModal.item} onClose={() => setCourseModal({ open: false, item: null })} />
     </div>
   )
 }

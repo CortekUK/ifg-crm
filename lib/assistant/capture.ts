@@ -53,6 +53,10 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
     if (args.phone) updates.phone = args.phone
     if (Object.keys(updates).length) await supabase.from('contacts').update(updates).eq('id', contactId)
   } else {
+    const sourceMap: Record<string, string> = {
+      exit_intent: 'website_exit_intent',
+      university_course: 'website_university',
+    }
     const { data: created } = await supabase
       .from('contacts')
       .insert({
@@ -60,7 +64,7 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
         first_name: firstName,
         last_name: lastName,
         phone: args.phone ?? null,
-        source: args.source === 'exit_intent' ? 'website_exit_intent' : 'website_chatbot',
+        source: (args.source && sourceMap[args.source]) || 'website_chatbot',
       })
       .select('id')
       .single()
@@ -69,7 +73,9 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
 
   if (!contactId) return { ok: false }
 
-  const listId = await findOrCreateList(supabase, 'Website Enquiries')
+  // University course enquiries go to their own list for easy follow-up.
+  const listName = args.source === 'university_course' ? 'University Enquiries' : 'Website Enquiries'
+  const listId = await findOrCreateList(supabase, listName)
   if (listId) {
     await supabase
       .from('contact_lists')

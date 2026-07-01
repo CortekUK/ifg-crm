@@ -4,14 +4,13 @@ import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { MediaCarousel, CardCarousel } from "./carousels";
 import { CTABand } from "./sections";
-import { UNIVERSITY } from "@/lib/data";
+import { UniversityCourses } from "./university-courses";
+import { UNIVERSITY, type UniCourse } from "@/lib/data";
 
 const APPLY = "/programmes/macclesfield/apply?programme=university";
 const BROCHURE = "/programmes/macclesfield/brochure";
 
-type DegreeTier = { title: string; sub: string; items: string[] };
-
-export function UniversityView() {
+export function UniversityView({ courses }: { courses?: UniCourse[] }) {
   const router = useRouter();
   const u = UNIVERSITY;
 
@@ -21,16 +20,6 @@ export function UniversityView() {
       <Button variant="solid" icon="download" onClick={() => router.push(BROCHURE)}>View Brochure</Button>
       <Button variant="solid" onClick={() => router.push("/contact")}>Book a Call</Button>
     </>
-  );
-
-  const degCard = (t: DegreeTier, wide = false) => (
-    <article className={"uni-deg" + (wide ? " wide" : "")} key={t.title}>
-      <div className="uni-deg-head">
-        <h3>{t.title}</h3>
-        <span>{t.sub}</span>
-      </div>
-      <ul>{t.items.map((it) => <li key={it}>{it}</li>)}</ul>
-    </article>
   );
 
   return (
@@ -161,29 +150,15 @@ export function UniversityView() {
         </div>
       </section>
 
-      {/* education & football */}
+      {/* degrees by School — roll-over tiles that capture details, then link to UCLan */}
       <section className="section">
         <div className="wrap">
           <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 760, margin: "0 auto 48px" }}>
             <Eyebrow style={{ justifyContent: "center" }}>Your future</Eyebrow>
-            <h2 className="t-h2" style={{ marginTop: 12 }}>{u.education.heading}</h2>
-            <p style={{ marginInline: "auto" }}>{u.education.intro}</p>
+            <h2 className="t-h2" style={{ marginTop: 12 }}>Degrees by School</h2>
+            <p style={{ marginInline: "auto" }}>{u.education.intro} Choose a course to see it on the University of Lancashire site — we&apos;ll help with your application every step of the way.</p>
           </div>
-          <div className="uni-degs" data-anim="stagger">
-            {u.education.tiers.map((t) => degCard(t))}
-          </div>
-        </div>
-      </section>
-
-      {/* course expansion */}
-      <section className="section band-ink tight">
-        <div className="wrap">
-          <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto 40px" }}>
-            <h2 className="t-h2">Course expansion</h2>
-          </div>
-          <div className="uni-degs two" data-anim="stagger">
-            {u.expansion.map((t) => degCard(t, true))}
-          </div>
+          <UniversityCourses courses={courses} />
         </div>
       </section>
 

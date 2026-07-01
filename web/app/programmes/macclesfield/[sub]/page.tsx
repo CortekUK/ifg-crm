@@ -5,6 +5,7 @@ import { SummerResidencyView } from "@/components/summer-residency";
 import { UniversityView } from "@/components/university";
 import { GapYearView } from "@/components/gap-year";
 import { MACC_SUBPROGRAMMES } from "@/lib/data";
+import { getUniversityCourses } from "@/lib/content";
 
 export function generateStaticParams() {
   return MACC_SUBPROGRAMMES.map((s) => ({ sub: s.id }));
@@ -26,7 +27,7 @@ export default async function Page({ params }: { params: Promise<{ sub: string }
   // Summer Residency has its own bespoke page; the other two use the generic
   // sub-programme layout until their dedicated pages are built.
   if (s.id === "summer-residency") return <SummerResidencyView />;
-  if (s.id === "university") return <UniversityView />;
+  if (s.id === "university") return <UniversityView courses={await getUniversityCourses()} />;
   if (s.id === "gap-year") return <GapYearView />;
   return <SubProgrammeView sub={s} />;
 }
