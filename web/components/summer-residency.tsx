@@ -5,6 +5,7 @@ import { Icon } from "./icons";
 import { MediaCarousel, CardCarousel } from "./carousels";
 import { YouTubeLite } from "./youtube";
 import { CTABand } from "./sections";
+import { DepositButton } from "./deposit-button";
 import { SUMMER_RESIDENCY, type ScheduleDay } from "@/lib/data";
 
 const APPLY = "/programmes/macclesfield/apply?programme=training";
@@ -101,9 +102,9 @@ export function SummerResidencyView() {
                   <span className="sr-price-row"><Icon name="calendar" size={15} />{o.dates}</span>
                   <span className="sr-price-row"><Icon name="check" size={15} />{o.deposit} deposit to secure</span>
                 </div>
-                <button className="sr-price-cta" onClick={() => router.push(APPLY)}>
+                <DepositButton programme="residency" className="sr-price-cta">
                   Pay deposit <Icon name="arrow-right" size={15} />
-                </button>
+                </DepositButton>
               </article>
             ))}
           </div>

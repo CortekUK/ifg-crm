@@ -5,6 +5,7 @@ import { Icon } from "./icons";
 import { MediaCarousel, CardCarousel } from "./carousels";
 import { CTABand } from "./sections";
 import { UniversityCourses } from "./university-courses";
+import { DepositButton } from "./deposit-button";
 import { UNIVERSITY, type UniCourse } from "@/lib/data";
 
 const APPLY = "/programmes/macclesfield/apply?programme=university";
@@ -178,7 +179,10 @@ export function UniversityView({ courses }: { courses?: UniCourse[] }) {
             ))}
           </div>
           <div className="uni-apply-cta">
-            <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push(APPLY)}>Apply &amp; pay deposit</Button>
+            <DepositButton programme="university" className="btn btn-primary btn-lg">
+              Pay deposit &amp; secure your place<Icon name="arrow-right" className="ic" size={18} />
+            </DepositButton>
+            <Button variant="ghost" size="lg" onClick={() => router.push(APPLY)}>Apply first</Button>
             <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Speak to the team</Button>
           </div>
         </div>
