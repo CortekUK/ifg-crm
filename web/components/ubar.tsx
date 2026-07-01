@@ -10,7 +10,7 @@ export function Ubar() {
           <Icon name="mail" size={14} className="le-ic" />
           <strong style={{ color: "var(--fg)" }}>IFG Office:</strong> info@theinternationalfootballgroup.com
         </a>
-        <Link className="ubar-ann" href="/contact">
+        <Link className="ubar-ann" href="/programmes/macclesfield/apply">
           <span className="ann-live"><i />Now enrolling</span>
           <span className="ann-text">2026/27 programmes are open — secure your place</span>
           <Icon name="arrow-right" size={13} className="ann-go" />

@@ -165,10 +165,10 @@ button{font-family:inherit}
 .theme-toggle{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--hairline-strong);background:transparent;color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color var(--dur),color var(--dur),transform var(--dur-fast)}
 .theme-toggle:hover{border-color:var(--pitch-500);color:var(--pitch-400)}
 .theme-toggle:active{transform:scale(.92)}
-.hdr-in{display:flex;align-items:center;gap:30px;height:76px}
+.hdr-in{display:flex;align-items:center;gap:22px;height:76px}
 .hdr .logo{height:40px;cursor:pointer;transition:height var(--dur) var(--ease-out)}
-.hdr nav{display:flex;gap:30px;margin-left:6px}
-.hdr nav a{color:var(--fg-muted);font-weight:600;font-size:15px;cursor:pointer;transition:color var(--dur-fast);position:relative;padding:6px 0}
+.hdr nav{display:flex;align-items:center;gap:22px;margin-left:6px}
+.hdr nav a{color:var(--fg-muted);font-weight:600;font-size:15px;cursor:pointer;transition:color var(--dur-fast);position:relative;padding:6px 0;white-space:nowrap}
 .hdr nav a:hover,.hdr nav a.active{color:var(--fg)}
 .hdr nav a::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;background:var(--pitch-500);transform:scaleX(0);transform-origin:left center;transition:transform var(--dur) var(--ease-out)}
 .hdr nav a:hover::after,.hdr nav a.active::after{transform:scaleX(1)}
@@ -931,7 +931,6 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .grid-3,.stats{grid-template-columns:1fr 1fr}
   .values{grid-template-columns:1fr 1fr 1fr}
   .ftr-grid{grid-template-columns:1fr 1fr}
-  .hdr nav.hdr-nav{display:none}
 }
 
 /* ============================================================
@@ -1291,7 +1290,7 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
 
 /* ---- programme nav dropdown ---- */
 .nav-drop{position:relative;display:inline-flex;align-items:center}
-.nav-drop-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:0;color:var(--fg-muted);font-weight:600;font-size:15px;cursor:pointer;font-family:var(--font-sans);padding:4px 0}
+.nav-drop-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:0;color:var(--fg-muted);font-weight:600;font-size:15px;cursor:pointer;font-family:var(--font-sans);padding:4px 0;white-space:nowrap}
 .nav-drop-btn:hover,.nav-drop-btn.active{color:var(--fg)}
 .nav-drop-caret{transition:transform var(--dur) var(--ease-out)}
 .nav-drop:hover .nav-drop-caret{transform:rotate(180deg);color:var(--pitch-400)}
@@ -1354,7 +1353,8 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
 .hdr-burger:hover{background:var(--bg-elevated);border-color:var(--hairline-strong)}
 .hdr-drawer{display:none}
 
-@media (max-width:900px){
+@media (max-width:1200px){
+  .hdr nav.hdr-nav{display:none}
   .hdr-only{display:none}
   .hdr-burger{display:inline-flex}
   .hdr.menu-open{background:var(--bg)}
