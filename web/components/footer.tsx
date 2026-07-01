@@ -22,9 +22,9 @@ export function Footer() {
           </div>
           <div>
             <h5>Programmes</h5>
-            <Link href="/programmes/juventus">Juventus Training Experience</Link>
-            <Link href="/programmes/macclesfield">Macclesfield Football Education</Link>
-            <Link href="/programmes/phoenix">Phoenix City UAE</Link>
+            <Link href="/programmes/macclesfield/university">University</Link>
+            <Link href="/programmes/macclesfield/summer-residency">Summer Residency</Link>
+            <Link href="/programmes/macclesfield/gap-year">Gap Year</Link>
           </div>
           <div>
             <h5>Media</h5>

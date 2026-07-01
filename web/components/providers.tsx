@@ -1,6 +1,5 @@
 "use client";
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
 import { ThemeProvider } from "./theme";
 import { VideoProvider } from "./video-modal";
 import { MotionProvider } from "./motion";
@@ -12,9 +11,6 @@ import { AssistantWidget } from "./assistant-widget";
 import { ExitIntent } from "./exit-intent";
 
 export function Providers({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  // Programme micro-sites supply their own header (and hide the announcement bar).
-  const microSite = pathname.startsWith("/programmes/macclesfield");
   return (
     <ThemeProvider>
       <VideoProvider>
@@ -23,8 +19,8 @@ export function Providers({ children }: { children: ReactNode }) {
           <Grain />
           <Cursor />
           <div className="atmos" aria-hidden="true" />
-          {!microSite && <Ubar />}
-          {!microSite && <Header />}
+          <Ubar />
+          <Header />
           <main>{children}</main>
           <Footer />
           <AssistantWidget />

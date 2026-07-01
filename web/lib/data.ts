@@ -21,20 +21,6 @@ export type Programme = {
 
 export const PROGRAMMES: Programme[] = [
   {
-    id: "juventus",
-    name: "Juventus Training Experience",
-    tag: "Experience",
-    loc: "Turin, Italy",
-    img: "/juve/card-home.png",
-    clip: "",
-    hero: "/juve/i1.png",
-    short: "Train within the Juventus methodology at one of football's most decorated clubs.",
-    tone: "linear-gradient(160deg,#2A2A2E 0%,#16161A 50%,#0A0A0C 100%)",
-    blurb:
-      "An immersive residency inside the Juventus methodology — daily technical and tactical sessions, performance analysis, and the culture of a serial champion. Participants live in Turin and experience the rhythm of an elite professional environment.",
-    facts: [["Location", "Turin, Italy"], ["Format", "Residential experience"], ["Partner", "Juventus"], ["Intake", "Year-round cohorts"]],
-  },
-  {
     id: "macclesfield",
     name: "Macclesfield Football Education",
     tag: "Degree pathway",
@@ -46,19 +32,6 @@ export const PROGRAMMES: Programme[] = [
     blurb:
       "A full football-and-education pathway: train within a club environment at Macclesfield FC while studying for an accredited bachelor's or master's degree awarded by the University of Lancashire (UCLan). Diverse routes span football-specific careers and broader sports employment worldwide.",
     facts: [["Location", "Macclesfield, UK"], ["Awarded by", "University of Lancashire"], ["Levels", "BSc & MSc"], ["Base", "Macclesfield FC"]],
-  },
-  {
-    id: "phoenix",
-    name: "Phoenix City UAE",
-    tag: "International",
-    loc: "United Arab Emirates",
-    img: "/phoniex/Phoenix-Club-UAE.webp",
-    clip: "",
-    short: "An international hub extending IFG's pathways and experiences to the UAE.",
-    tone: "linear-gradient(160deg,#33291E 0%,#1A140C 55%,#0C0905 100%)",
-    blurb:
-      "IFG's international expansion brings world-class football education and experiences to the UAE through Phoenix City — connecting players, students and clubs across continents.",
-    facts: [["Location", "United Arab Emirates"], ["Partner", "Phoenix FC"], ["Focus", "International experience"], ["Intake", "Emerging cohorts"]],
   },
 ];
 

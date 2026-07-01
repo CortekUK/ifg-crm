@@ -32,8 +32,8 @@ export function CTABand() {
         <h2 className="t-display cta-title" data-anim="reveal-title">Begin your pathway</h2>
         <p className="cta-sub">Apply to train inside world-class methodologies and graduate with an accredited degree — living in Europe&apos;s great cities.</p>
         <div className="cta-actions">
-          <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push("/contact")}>Get in touch</Button>
-          <Button variant="ghost" size="lg" onClick={() => router.push("/programmes")}>Explore programmes</Button>
+          <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push("/programmes/macclesfield/apply")}>Start your application</Button>
+          <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Speak to the team</Button>
         </div>
         <div className="cta-foot">
           <span><Icon name="check" size={15} />Accredited degrees</span>

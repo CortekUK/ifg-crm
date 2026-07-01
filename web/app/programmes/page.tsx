@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-import { ProgrammesView } from "@/components/programmes";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Programmes",
-  description: "Choose your pathway — football-specific routes and broader sports careers, each delivered with a world-renowned club or university partner.",
-};
-
+// Programmes now live directly on the homepage (one clean structure). Keep this
+// URL alive by redirecting to home.
 export default function Page() {
-  return <ProgrammesView />;
+  redirect("/");
 }

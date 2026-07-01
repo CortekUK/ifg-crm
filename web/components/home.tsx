@@ -3,11 +3,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
-import { CardCarousel } from "./carousels";
-import { ProgrammeCard, CTABand, StatItem } from "./sections";
+import { CardCarousel, MediaCarousel } from "./carousels";
+import { CTABand, StatItem } from "./sections";
 import { YouTubeLite } from "./youtube";
 import { HeroReel } from "./hero-reel";
-import { PROGRAMMES, VALUES, YT_FEATURED, YT_VIDEOS, HERO_VIDEOS, HERO_POSTER, ARTICLES, STATS, PARTNERS } from "@/lib/data";
+import { Accordion } from "./accordion";
+import {
+  VALUES, YT_FEATURED, YT_VIDEOS, HERO_VIDEOS, HERO_POSTER, ARTICLES, STATS, PARTNERS,
+  MACC_SUBPROGRAMMES, MACCLESFIELD, MACC_BENEFITS,
+} from "@/lib/data";
+
+const APPLY_HREF = "/programmes/macclesfield/apply";
+const PROG_BASE = "/programmes/macclesfield";
 
 function Hero() {
   const router = useRouter();
@@ -30,11 +37,41 @@ function Hero() {
           Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe&apos;s great cities.
         </p>
         <div className="hero-cta" data-anim="hero-fade">
-          <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push("/programmes")}>Explore programmes</Button>
+          <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push(APPLY_HREF)}>Apply Now</Button>
+          <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Book a call</Button>
           <button className="scroll-cue" onClick={down} aria-label="Scroll down">
             <span>Scroll</span>
             <span className="scroll-cue-line"><span /></span>
           </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// The direct programme tiles — a visitor lands and clicks straight into a
+// programme, no intermediate "discover the programmes" step.
+function ProgrammeTiles() {
+  return (
+    <section className="section">
+      <div className="wrap">
+        <div className="section-head" data-anim="up">
+          <Eyebrow>Our programmes</Eyebrow>
+          <h2 data-anim="reveal-title">Choose your pathway</h2>
+          <p>Three routes into the game — each built around elite football and accredited education, delivered with Macclesfield FC and the University of Lancashire.</p>
+        </div>
+        <div className="mh-cards" data-anim="stagger">
+          {MACC_SUBPROGRAMMES.map((s) => (
+            <Link key={s.id} href={`${PROG_BASE}/${s.id}`} className="mh-card">
+              <img className="mh-card-img" src={s.img} alt={s.name} loading="lazy" />
+              <div className="mh-card-shade" />
+              <div className="mh-card-body">
+                <span className="mh-card-tag">{s.tag}</span>
+                <h3 className="mh-card-name">{s.name}</h3>
+                <span className="mh-card-more">find out more <Icon name="arrow-right" size={15} /></span>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </section>
@@ -53,6 +90,33 @@ function PartnersMarquee() {
               <i className="mq-dot">●</i>
             </span>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Editorial "introducing" block from the education page.
+function Introducing() {
+  const router = useRouter();
+  const m = MACCLESFIELD;
+  return (
+    <section className="section">
+      <div className="wrap grid-2 mh-intro" style={{ gap: 64, alignItems: "center" }}>
+        <div data-anim="up">
+          <Eyebrow>Introducing</Eyebrow>
+          <h2 className="t-h1" style={{ marginTop: 14 }}>{m.introducing.heading}</h2>
+          {m.introducing.paragraphs.map((p, i) => (
+            <p key={i} style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: i ? 16 : 22 }}>{p}</p>
+          ))}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
+            <Button variant="primary" iconRight="arrow-right" onClick={() => router.push(APPLY_HREF)}>Apply Now</Button>
+            <Button variant="ghost" icon="download" onClick={() => router.push(`${PROG_BASE}/brochure`)}>View Brochure</Button>
+            <Button variant="solid" onClick={() => router.push("/contact")}>Book a Call</Button>
+          </div>
+        </div>
+        <div data-anim="up">
+          <MediaCarousel images={m.introducing.images} className="mh-intro-media" />
         </div>
       </div>
     </section>
@@ -85,6 +149,24 @@ function IFGTV() {
             )}
           />
         </div>
+      </div>
+    </section>
+  );
+}
+
+// Benefits accordion from the education page.
+function Benefits() {
+  const m = MACCLESFIELD;
+  return (
+    <section className="section">
+      <div className="wrap grid-2 mh-benefits" style={{ gap: 48, alignItems: "start" }}>
+        <div data-anim="up">
+          <Eyebrow>The International Football Group</Eyebrow>
+          <h2 className="t-h2" style={{ margin: "12px 0 0" }}>{m.benefitsIntro.heading}</h2>
+          <p style={{ color: "var(--fg-muted)", fontSize: 16, lineHeight: 1.65, margin: "16px 0 0" }}>{m.benefitsIntro.text}</p>
+          <img className="mh-benefits-img" src={m.benefitsIntro.img} alt="" loading="lazy" />
+        </div>
+        <div data-anim="up"><Accordion items={MACC_BENEFITS} /></div>
       </div>
     </section>
   );
@@ -127,20 +209,9 @@ export function HomeView() {
   return (
     <div>
       <Hero />
+      <ProgrammeTiles />
       <PartnersMarquee />
-
-      <section className="section">
-        <div className="wrap">
-          <div className="section-head" data-anim="up">
-            <Eyebrow>Our programmes</Eyebrow>
-            <h2 data-anim="reveal-title">Diverse pathways into the game</h2>
-            <p>Football-specific routes and broader sports careers — each delivered with a world-renowned club or university partner.</p>
-          </div>
-          <div className="grid-3" data-anim="stagger">
-            {PROGRAMMES.map((p) => <ProgrammeCard key={p.id} p={p} />)}
-          </div>
-        </div>
-      </section>
+      <Introducing />
 
       <section className="section band-ink">
         <div className="wrap">
@@ -169,6 +240,7 @@ export function HomeView() {
       </section>
 
       <IFGTV />
+      <Benefits />
 
       <section className="section band-bone">
         <div className="wrap">

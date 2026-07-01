@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-import { MacclesfieldView } from "@/components/macclesfield";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Macclesfield Football Education",
-  description: "Elite football education in partnership with Macclesfield FC and the University of Lancashire — Summer Residency, University degrees and Gap Year pathways.",
-};
-
+// The Macclesfield education page is now the main homepage. Keep this URL alive
+// (ads/bookmarks) by sending it to the merged home.
 export default function Page() {
-  return <MacclesfieldView />;
+  redirect("/");
 }
