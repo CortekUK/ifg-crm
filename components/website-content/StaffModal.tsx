@@ -1,15 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2 } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { ImageField } from './ImageField'
+import { ContentDialog, Field, FieldRow, FormSection, PublishControls } from './_form'
 import { useSaveSiteContent } from '@/lib/hooks/useWebsiteContent'
 import { toast } from '@/lib/hooks/use-toast'
 import type { SiteContentItem } from '@/lib/types/website-content'
@@ -84,53 +81,46 @@ export function StaffModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{item ? 'Edit staff member' : 'New staff member'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Group *</Label>
-              <Select value={f.group} onValueChange={(v) => set('group', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {GROUPS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Sort order</Label>
-              <Input type="number" value={f.sort_order} onChange={(e) => set('sort_order', e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Name *</Label>
+    <ContentDialog
+      open={open}
+      onClose={onClose}
+      icon={Users}
+      accent="violet"
+      title={item ? 'Edit staff member' : 'New staff member'}
+      description="A person shown on the Coaches & Staff page."
+      onSubmit={submit}
+      submitLabel={item ? 'Save changes' : 'Add staff member'}
+      saving={save.isPending}
+    >
+      <FormSection title="Person">
+        <FieldRow>
+          <Field label="Group" required>
+            <Select value={f.group} onValueChange={(v) => set('group', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {GROUPS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Name" required>
             <Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="Nathan Bibby" />
-          </div>
-          <div className="space-y-2">
-            <Label>Role *</Label>
-            <Input value={f.role} onChange={(e) => set('role', e.target.value)} placeholder="Head of International Recruitment & Head Coach" />
-          </div>
-          <div className="space-y-2">
-            <Label>Bio</Label>
-            <Textarea value={f.bio} onChange={(e) => set('bio', e.target.value)} rows={5} placeholder="A short professional biography (optional)." />
-          </div>
-          <ImageField label="Photo" value={f.image} onChange={(v) => set('image', v)} />
-          <div className="flex items-center gap-2">
-            <Switch checked={f.published} onCheckedChange={(v) => set('published', v)} />
-            <Label className="!mt-0">Published</Label>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={save.isPending}>
-            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {item ? 'Save changes' : 'Add staff member'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </Field>
+        </FieldRow>
+        <Field label="Role" required>
+          <Input value={f.role} onChange={(e) => set('role', e.target.value)} placeholder="Head of International Recruitment & Head Coach" />
+        </Field>
+        <Field label="Bio">
+          <Textarea value={f.bio} onChange={(e) => set('bio', e.target.value)} rows={5} placeholder="A short professional biography (optional)." />
+        </Field>
+        <ImageField label="Photo" value={f.image} onChange={(v) => set('image', v)} />
+      </FormSection>
+
+      <PublishControls
+        published={f.published}
+        onPublishedChange={(v) => set('published', v)}
+        sortOrder={f.sort_order}
+        onSortOrderChange={(v) => set('sort_order', v)}
+      />
+    </ContentDialog>
   )
 }

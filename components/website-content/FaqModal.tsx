@@ -1,13 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Loader2 } from 'lucide-react'
+import { HelpCircle } from 'lucide-react'
+import { ContentDialog, Field, PublishControls } from './_form'
 import { useSaveSiteContent } from '@/lib/hooks/useWebsiteContent'
 import { toast } from '@/lib/hooks/use-toast'
 import type { SiteContentItem } from '@/lib/types/website-content'
@@ -76,39 +73,29 @@ export function FaqModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{item ? 'Edit FAQ' : 'New FAQ'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label>Question *</Label>
-            <Input value={f.question} onChange={(e) => set('question', e.target.value)} placeholder="How do I apply?" />
-          </div>
-          <div className="space-y-2">
-            <Label>Answer *</Label>
-            <Textarea value={f.answer} onChange={(e) => set('answer', e.target.value)} rows={6} placeholder="Start by submitting an application…" />
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Switch checked={f.published} onCheckedChange={(v) => set('published', v)} />
-              <Label className="!mt-0">Published</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="!mt-0">Sort order</Label>
-              <Input type="number" className="w-20" value={f.sort_order} onChange={(e) => set('sort_order', e.target.value)} />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={save.isPending}>
-            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {item ? 'Save changes' : 'Create FAQ'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ContentDialog
+      open={open}
+      onClose={onClose}
+      icon={HelpCircle}
+      accent="emerald"
+      title={item ? 'Edit FAQ' : 'New FAQ'}
+      description="A question and answer on the website's FAQ page."
+      onSubmit={submit}
+      submitLabel={item ? 'Save changes' : 'Create FAQ'}
+      saving={save.isPending}
+    >
+      <Field label="Question" required>
+        <Input value={f.question} onChange={(e) => set('question', e.target.value)} placeholder="How do I apply?" />
+      </Field>
+      <Field label="Answer" required>
+        <Textarea value={f.answer} onChange={(e) => set('answer', e.target.value)} rows={6} placeholder="Start by submitting an application…" />
+      </Field>
+      <PublishControls
+        published={f.published}
+        onPublishedChange={(v) => set('published', v)}
+        sortOrder={f.sort_order}
+        onSortOrderChange={(v) => set('sort_order', v)}
+      />
+    </ContentDialog>
   )
 }

@@ -18,6 +18,7 @@ export function UniversityView({ courses }: { courses?: UniCourse[] }) {
   const heroCtas = (
     <>
       <Button variant="primary" iconRight="arrow-right" onClick={() => router.push(APPLY)}>Apply Now</Button>
+      <Button variant="solid" iconRight="chevron-down" as="a" href="#plans">See plans &amp; pricing</Button>
       <Button variant="solid" icon="download" onClick={() => router.push(BROCHURE)}>View Brochure</Button>
       <Button variant="solid" onClick={() => router.push("/contact")}>Book a Call</Button>
     </>
@@ -164,11 +165,11 @@ export function UniversityView({ courses }: { courses?: UniCourse[] }) {
       </section>
 
       {/* application / costs */}
-      <section className="section">
+      <section id="plans" className="section" style={{ scrollMarginTop: 90 }}>
         <div className="wrap">
           <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto 40px" }}>
             <Eyebrow style={{ justifyContent: "center" }}>IFG University Programme</Eyebrow>
-            <h2 className="t-h2" style={{ marginTop: 12 }}>Application</h2>
+            <h2 className="t-h2" style={{ marginTop: 12 }}>Plans &amp; pricing</h2>
           </div>
           <div className="uni-costs" data-anim="stagger">
             {u.costs.map((c) => (
@@ -180,7 +181,10 @@ export function UniversityView({ courses }: { courses?: UniCourse[] }) {
           </div>
           <div className="uni-apply-cta">
             <DepositButton programme="university" className="btn btn-primary btn-lg">
-              Pay deposit &amp; secure your place<Icon name="arrow-right" className="ic" size={18} />
+              Pay £2,000 deposit<Icon name="arrow-right" className="ic" size={18} />
+            </DepositButton>
+            <DepositButton programme="university" mode="full" amount={18500} label="Full programme" className="btn btn-ghost btn-lg">
+              Pay in full (£18,500)
             </DepositButton>
             <Button variant="ghost" size="lg" onClick={() => router.push(APPLY)}>Apply first</Button>
             <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Speak to the team</Button>

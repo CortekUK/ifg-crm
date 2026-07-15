@@ -390,6 +390,11 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .field .req{color:var(--pitch-400);margin-left:3px}
 .field-hint{display:block;margin-top:4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:none;color:var(--fg-subtle)}
 .apply-note{margin:24px 0 20px;font-size:13px;line-height:1.55;color:var(--fg-subtle)}
+.apply-deposit-note{display:flex;align-items:flex-start;gap:9px;margin-top:16px;padding:12px 14px;
+  border:1px solid color-mix(in srgb,var(--pitch-500) 35%,transparent);
+  background:color-mix(in srgb,var(--pitch-500) 10%,transparent);border-radius:11px;
+  font-family:var(--f-archivo);font-size:13.5px;line-height:1.5;color:var(--fg)}
+.apply-deposit-note svg{flex:0 0 auto;margin-top:2px;color:var(--pitch-500)}
 .apply-error{margin:0 0 16px;padding:12px 14px;border-radius:10px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.35);color:#f87171;font-size:14px;line-height:1.5}
 /* per-field validation */
 .field.invalid input,.field.invalid textarea,.field.invalid .sel-btn,.field.invalid .dp-btn{border-color:#ef4444}
@@ -457,6 +462,11 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .sr-price.feat .sr-price-cta:hover{filter:brightness(1.08)}
 .sr-price-cta .ic-wrap{transition:transform var(--dur-fast)}
 .sr-price-cta:hover .ic-wrap{transform:translateX(3px)}
+.sr-price-full{margin-top:9px;display:inline-flex;align-items:center;justify-content:center;width:100%;
+  background:none;border:none;cursor:pointer;color:var(--muted);font-family:var(--font-sans);
+  font-weight:600;font-size:12.5px;text-decoration:underline;text-underline-offset:3px;
+  transition:color var(--dur-fast)}
+.sr-price-full:hover{color:var(--pitch-500)}
 @media(max-width:980px){.sr-prices{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.sr-prices{grid-template-columns:1fr}}
 /* schedule day cards */
@@ -544,7 +554,18 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .uni-deg li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:50%;background:var(--pitch-500)}
 @media(max-width:980px){.uni-degs{grid-template-columns:1fr}.uni-degs.two{grid-template-columns:1fr}}
 /* university courses — roll-over tiles grouped by School */
-.uc-school{margin-top:56px}
+.uc-tabs{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:8px}
+.uc-tab{display:inline-flex;align-items:center;gap:9px;padding:11px 22px;border-radius:999px;
+  border:1px solid var(--hairline-strong);background:none;color:var(--fg);cursor:pointer;
+  font-family:var(--font-display);text-transform:uppercase;letter-spacing:.02em;font-size:16px;
+  transition:background var(--dur-fast),color var(--dur-fast),border-color var(--dur-fast)}
+.uc-tab:hover{border-color:var(--pitch-500)}
+.uc-tab.on{background:var(--pitch-500);color:#fff;border-color:transparent}
+.uc-tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;
+  padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--fg) 12%,transparent);
+  font-family:var(--font-sans);font-size:12px;font-weight:700;line-height:1}
+.uc-tab.on .uc-tab-count{background:rgba(255,255,255,.25);color:#fff}
+.uc-school{margin-top:36px}
 .uc-school:first-child{margin-top:0}
 .uc-school-head{max-width:64ch}
 .uc-school-title{font-family:var(--font-display);font-size:clamp(28px,3.4vw,40px);text-transform:uppercase;color:var(--fg);margin:0;line-height:1}
@@ -1066,13 +1087,13 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
    white wordmark text, which only reads on a dark background. */
 .marquee-sec{border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);background:var(--ink-950);overflow:hidden}
 .marquee{overflow:hidden}
-.marquee-track{display:flex;align-items:center;width:max-content;animation:marquee 36s linear infinite}
+.marquee-track{display:flex;align-items:center;width:max-content;animation:marquee 90s linear infinite}
 .marquee:hover .marquee-track{animation-play-state:paused}
 .mq-item{display:inline-flex;align-items:center;white-space:nowrap;padding:22px 0}
 .mq-logo{height:42px;width:auto;max-width:210px;object-fit:contain;opacity:.66;transition:opacity .3s var(--ease-out),filter .3s var(--ease-out)}
 .mq-item:hover .mq-logo{opacity:1}
 .mq-dot{color:var(--pitch-500);font-size:11px;margin:0 44px;transform:translateY(-.1em)}
-@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-33.333%)}}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion: reduce){.marquee-track{animation:none}}
 
 /* ---- premium card carousel ---- */
@@ -1502,7 +1523,7 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
 .aw-close{background:transparent;border:0;color:#fff;cursor:pointer;display:flex;opacity:.85}
 .aw-close:hover{opacity:1}
 
-.aw-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.aw-body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
 .aw-msg{display:flex}
 .aw-msg.user{justify-content:flex-end}
 .aw-msg.assistant{justify-content:flex-start}
@@ -1571,6 +1592,11 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
 .ei-kicker{font-family:var(--f-archivo);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--pitch-500);margin:0 0 6px}
 .ei-title{font-family:var(--f-anton);font-size:clamp(1.5rem,4vw,2rem);line-height:1.05;margin:0 0 10px;color:var(--fg)}
 .ei-sub{font-family:var(--f-archivo);font-size:14.5px;line-height:1.55;color:var(--fg);opacity:.8;margin:0 0 18px}
+.ei-amount{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:12px 14px;
+  border:1px solid var(--hairline-strong);border-radius:11px;background:var(--pitch-500-a08,rgba(0,0,0,.03))}
+.ei-amount span{font-family:var(--f-archivo);font-size:12px;text-transform:uppercase;letter-spacing:.05em;opacity:.7}
+.ei-amount strong{font-family:var(--font-sans);font-size:22px;font-weight:800;color:var(--pitch-500);line-height:1}
+.ei-amount em{font-style:normal;font-size:12px;opacity:.65;margin-left:auto}
 .ei-form{display:flex;flex-direction:column;gap:10px}
 .ei-form input{
   height:46px;padding:0 16px;border-radius:12px;background:var(--bg);
@@ -1590,3 +1616,21 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor .pcard,
 .ei-done h3{font-family:var(--f-anton);font-size:1.6rem;margin:0 0 8px;color:var(--fg)}
 .ei-done p{font-family:var(--f-archivo);font-size:14.5px;line-height:1.55;color:var(--fg);opacity:.8;margin:0 0 18px}
 .ei-actions{display:flex;justify-content:center}
+
+/* Deposit result pages (success / cancelled) — centred, balanced status layout */
+.dep-status{min-height:80vh;display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:130px 20px 90px;position:relative;overflow:hidden}
+.dep-status::before{content:"";position:absolute;top:-10%;left:50%;transform:translateX(-50%);
+  width:min(720px,90%);height:420px;background:radial-gradient(closest-side,var(--pitch-500),transparent);
+  opacity:.10;pointer-events:none}
+.dep-status-in{position:relative;max-width:660px;margin:0 auto}
+.dep-status-icon{width:66px;height:66px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px}
+.dep-status-icon.ok{background:var(--pitch-500);color:#fff;box-shadow:0 10px 30px -8px var(--pitch-500)}
+.dep-status-icon.warn{background:color-mix(in srgb,var(--pitch-500) 14%,transparent);color:var(--pitch-500);
+  border:1.5px solid color-mix(in srgb,var(--pitch-500) 40%,transparent)}
+.dep-status-title{font-family:var(--f-anton);font-size:clamp(2rem,5.2vw,3.15rem);line-height:1.05;
+  margin:14px auto 0;max-width:16ch;text-wrap:balance;color:var(--fg)}
+.dep-status-sub{font-family:var(--f-archivo);font-size:clamp(15px,1.4vw,17px);line-height:1.62;
+  color:var(--fg-muted);max-width:50ch;margin:18px auto 0;text-wrap:pretty}
+.dep-status-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+@media(max-width:560px){.dep-status-cta{flex-direction:column}.dep-status-cta .btn{width:100%}}

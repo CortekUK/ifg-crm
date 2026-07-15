@@ -102,7 +102,14 @@ const FORMS: FormDef[] = [
   },
 ];
 
-function ApplicationForm({ form }: { form: FormDef }) {
+// Apply form tab id → deposit programme key (Gap Year has no deposit).
+const DEPOSIT_PROGRAMME: Record<string, string> = { training: "residency", university: "university" };
+
+interface DepositCtx { on: boolean; mode: string; amount?: string; email?: string }
+
+function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCtx }) {
+  const depProgramme = DEPOSIT_PROGRAMME[form.id];
+  const depositOn = !!deposit?.on && !!depProgramme;
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -141,6 +148,11 @@ function ApplicationForm({ form }: { form: FormDef }) {
   }, [countries]);
   const countryOptions = countries.length ? countries.map((c) => c.name) : COUNTRIES;
   const hasStates = states.length > 0;
+
+  // Prefill email when arriving from the deposit flow.
+  useEffect(() => {
+    if (deposit?.email) setValues((v) => (v.email ? v : { ...v, email: deposit.email! }));
+  }, [deposit?.email]);
 
   // Auto-dismiss the toast.
   useEffect(() => {
@@ -203,6 +215,28 @@ function ApplicationForm({ form }: { form: FormDef }) {
       }
       // A repeat email is no longer rejected — the contact is updated and the
       // programme's deal is created, so every valid submission is a success.
+      // Deposit flow: the deal now exists, so hand off to secure payment.
+      if (depositOn) {
+        try {
+          const dres = await fetch("/api/deposit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              programme: depProgramme,
+              mode: deposit!.mode,
+              amount: deposit!.amount ? Number(deposit!.amount) : undefined,
+              email: (values.email || "").trim(),
+            }),
+          });
+          const ddata = (await dres.json().catch(() => ({}))) as { status?: string; url?: string };
+          if (dres.ok && ddata.status === "checkout" && ddata.url) {
+            window.location.href = ddata.url;
+            return;
+          }
+        } catch {
+          /* fall through to the received screen — the application is captured */
+        }
+      }
       setSent(true);
     } catch {
       setError("Could not submit your application. Please try again.");
@@ -241,6 +275,12 @@ function ApplicationForm({ form }: { form: FormDef }) {
       <div className="apply-form-head">
         <h3 className="t-h3">{form.title}</h3>
         <p>{form.blurb}</p>
+        {depositOn && (
+          <div className="apply-deposit-note">
+            <Icon name="check" size={15} />
+            <span>Complete your application below, then you&apos;ll be taken to secure payment for your {deposit!.mode === "full" ? "full programme fee" : "£2,000 deposit"}.</span>
+          </div>
+        )}
       </div>
       <div className="apply-fields">
         {form.fields.map((f) => {
@@ -325,7 +365,9 @@ function ApplicationForm({ form }: { form: FormDef }) {
       </p>
       {error && <p className="apply-error" role="alert">{error}</p>}
       <Button variant="primary" size="lg" iconRight={submitting ? undefined : "arrow-right"}>
-        {submitting ? "Submitting…" : "Submit Application"}
+        {submitting
+          ? (depositOn ? "Preparing payment…" : "Submitting…")
+          : (depositOn ? "Continue to payment" : "Submit Application")}
       </Button>
     </form>
     </>
@@ -334,13 +376,24 @@ function ApplicationForm({ form }: { form: FormDef }) {
 
 export function ApplyView() {
   const [active, setActive] = useState(FORMS[0].id);
+  const [deposit, setDeposit] = useState<DepositCtx>({ on: false, mode: "deposit" });
   const form = FORMS.find((f) => f.id === active)!;
 
-  // Preselect a tab when deep-linked, e.g. /apply?programme=university.
-  // Read in an effect so the page stays statically generated.
+  // Preselect a tab when deep-linked, e.g. /apply?programme=university, and pick
+  // up the deposit flow (?deposit=1&mode=&amount=&email=). Read in an effect so
+  // the page stays statically generated.
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search).get("programme");
+    const sp = new URLSearchParams(window.location.search);
+    const p = sp.get("programme");
     if (p && FORMS.some((f) => f.id === p)) setActive(p);
+    if (sp.get("deposit") === "1") {
+      setDeposit({
+        on: true,
+        mode: sp.get("mode") === "full" ? "full" : "deposit",
+        amount: sp.get("amount") || undefined,
+        email: sp.get("email") || undefined,
+      });
+    }
   }, []);
 
   return (
@@ -377,7 +430,7 @@ export function ApplyView() {
 
           <div className="apply-body">
             {/* key forces a fresh form (and clears state) per tab */}
-            <ApplicationForm key={form.id} form={form} />
+            <ApplicationForm key={form.id} form={form} deposit={deposit} />
 
             <aside className="apply-aside" data-anim="up">
               <Eyebrow>Need a hand?</Eyebrow>

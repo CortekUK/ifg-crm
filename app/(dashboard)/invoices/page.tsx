@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { InvoicesPageHeader } from '@/components/invoices/InvoicesPageHeader'
 import { InvoiceStats } from '@/components/invoices/InvoiceStats'
 import { InvoiceFilters } from '@/components/invoices/InvoiceFilters'
+import { AbandonedDeposits } from '@/components/invoices/AbandonedDeposits'
 import { InvoicesTable } from '@/components/invoices/InvoicesTable'
 import { CreateInvoiceModal } from '@/components/invoices/CreateInvoiceModal'
 import { CreatePaymentPlanModal } from '@/components/invoices/CreatePaymentPlanModal'
@@ -222,6 +223,9 @@ export default function InvoicesPage() {
         avgPaymentDays={stats?.avgPaymentDays ?? null}
         isLoading={statsLoading}
       />
+
+      {/* Abandoned website checkouts — warm leads who reached payment but didn't pay */}
+      <AbandonedDeposits onView={handleView} />
 
       {/* Filters */}
       <InvoiceFilters filters={filters} onFiltersChange={setFilters} />

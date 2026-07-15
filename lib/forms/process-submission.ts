@@ -39,6 +39,16 @@ export interface ProcessArgs {
   contact: ContactInput
   /** The raw payload, stored verbatim on the submission for the audit log. */
   rawPayload: Record<string, unknown>
+  /**
+   * The `source` stamped on a NEWLY created contact. Defaults to 'website_form'.
+   * The website chatbot passes 'website_chatbot' so its leads are distinguishable.
+   */
+  contactSource?: string
+  /**
+   * Extra tags to find-or-create and attach to the contact (beyond the automatic
+   * location tag). Used to label chatbot-sourced leads.
+   */
+  tags?: { name: string; category?: string }[]
   /** Optional pre-built service-role client (defaults to one built from env). */
   supabase?: SupabaseClient
 }
@@ -170,7 +180,7 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
           date_of_birth: contact.date_of_birth,
           graduation_year: graduationYear,
           custom_fields: Object.keys(customFields).length > 0 ? customFields : {},
-          source: 'website_form',
+          source: args.contactSource || 'website_form',
         })
         .select('id')
         .single()
@@ -184,7 +194,12 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
 
     // 1b. State → location tag (find-or-create, then attach) -----------------
     if (contact.state) {
-      await assignLocationTag(supabase, contactId, contact.state)
+      await assignTag(supabase, contactId, contact.state, 'location')
+    }
+
+    // 1c. Caller-supplied tags (e.g. a "Chatbot" source tag) -----------------
+    for (const t of args.tags ?? []) {
+      if (t?.name?.trim()) await assignTag(supabase, contactId, t.name, t.category ?? 'source')
     }
 
     // 2. Record the submission (status processed) ---------------------------
@@ -383,18 +398,18 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
 }
 
 /**
- * Find-or-create a `location` tag for the contact's state/region and attach it.
+ * Find-or-create a tag by name and attach it to the contact.
  * Best-effort: a failure here must never fail the whole submission.
  */
-async function assignLocationTag(supabase: SupabaseClient, contactId: string, state: string) {
-  const name = state.trim()
+async function assignTag(supabase: SupabaseClient, contactId: string, rawName: string, category: string) {
+  const name = rawName.trim()
   if (!name) return
   try {
     let { data: tag } = await supabase.from('tags').select('id').eq('name', name).maybeSingle()
     if (!tag) {
       const { data: created } = await supabase
         .from('tags')
-        .insert({ name, category: 'location' })
+        .insert({ name, category })
         .select('id')
         .single()
       tag = created ?? null

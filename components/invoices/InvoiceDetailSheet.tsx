@@ -228,8 +228,8 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
 
               {/* Amount Display */}
               <div className="text-center py-4 bg-slate-50 dark:bg-slate-800 rounded-lg mt-4">
-                <p className="text-sm text-slate-500 mb-1">Amount Due</p>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatCurrency(invoice.amount)}</p>
+                <p className="text-sm text-slate-500 mb-1">{invoice.status === 'paid' ? 'Amount Paid' : 'Amount Due'}</p>
+                <p className={cn('text-3xl font-bold', invoice.status === 'paid' ? 'text-green-600 dark:text-green-500' : 'text-gray-900 dark:text-white')}>{formatCurrency(invoice.amount)}</p>
               </div>
             </SheetHeader>
 

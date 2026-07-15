@@ -15,6 +15,9 @@ const CAPTURED_KEY = "ifg_uni_captured"; // sessionStorage flag — capture once
 export function UniversityCourses({ courses }: { courses?: UniCourse[] }) {
   const list = courses && courses.length ? courses : UNIVERSITY_COURSES;
 
+  // Which School tab is open.
+  const [tab, setTab] = useState<UniSchool | null>(null);
+
   // Capture-gate modal state.
   const [active, setActive] = useState<UniCourse | null>(null);
   const [name, setName] = useState("");
@@ -85,29 +88,51 @@ export function UniversityCourses({ courses }: { courses?: UniCourse[] }) {
     .map((s) => ({ ...s, items: list.filter((c) => c.school === s.key) }))
     .filter((s) => s.items.length);
 
+  const activeKey = (tab && grouped.some((g) => g.key === tab)) ? tab : grouped[0]?.key;
+  const activeSchool = grouped.find((g) => g.key === activeKey);
+
   return (
     <>
-      {grouped.map((school) => (
-        <div className="uc-school" key={school.key}>
-          <div className="uc-school-head" data-anim="up">
-            <h3 className="uc-school-title">{school.key}</h3>
-            <p className="uc-school-blurb">{school.blurb}</p>
-          </div>
-          <div className="uc-grid" data-anim="stagger">
-            {school.items.map((c) => (
-              <button key={`${c.school}-${c.name}`} className="uc-tile" onClick={() => openCourse(c)} type="button">
-                {c.img && <img className="uc-tile-img" src={c.img} alt="" loading="lazy" />}
-                <div className="uc-tile-shade" />
-                <div className="uc-tile-body">
-                  {c.level && <span className="uc-tile-level">{c.level}</span>}
-                  <span className="uc-tile-name">{c.name}</span>
-                  <span className="uc-tile-cta">Find out more &amp; apply <Icon name="arrow-right" size={15} /></span>
-                </div>
+      {grouped.length > 0 && (
+        <>
+          <div className="uc-tabs" role="tablist" aria-label="Course categories">
+            {grouped.map((s) => (
+              <button
+                key={s.key}
+                role="tab"
+                aria-selected={s.key === activeKey}
+                className={"uc-tab" + (s.key === activeKey ? " on" : "")}
+                onClick={() => setTab(s.key)}
+                type="button"
+              >
+                {s.key}
+                <span className="uc-tab-count">{s.items.length}</span>
               </button>
             ))}
           </div>
-        </div>
-      ))}
+
+          {activeSchool && (
+            <div className="uc-school" key={activeSchool.key}>
+              <div className="uc-school-head" data-anim="up">
+                <p className="uc-school-blurb">{activeSchool.blurb}</p>
+              </div>
+              <div className="uc-grid" data-anim="stagger">
+                {activeSchool.items.map((c) => (
+                  <button key={`${c.school}-${c.name}`} className="uc-tile" onClick={() => openCourse(c)} type="button">
+                    {c.img && <img className="uc-tile-img" src={c.img} alt="" loading="lazy" />}
+                    <div className="uc-tile-shade" />
+                    <div className="uc-tile-body">
+                      {c.level && <span className="uc-tile-level">{c.level}</span>}
+                      <span className="uc-tile-name">{c.name}</span>
+                      <span className="uc-tile-cta">Find out more &amp; apply <Icon name="arrow-right" size={15} /></span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {active && (
         <div className="ei-overlay" role="dialog" aria-modal="true" aria-label={`Enquire about ${active.name}`}>

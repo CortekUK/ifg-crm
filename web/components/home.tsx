@@ -77,11 +77,14 @@ function ProgrammeTiles() {
 }
 
 function PartnersMarquee() {
-  const items = [...PARTNERS, ...PARTNERS, ...PARTNERS];
+  // Repeat the partners enough to overflow even a wide viewport, then render
+  // two identical halves so the -50% loop is perfectly seamless (no empty gap).
+  const half = Array.from({ length: 6 }).flatMap(() => PARTNERS);
+  const items = [...half, ...half];
   return (
     <section className="marquee-sec" aria-label="Our partners">
       <div className="marquee">
-        <div className="marquee-track">
+        <div className="marquee-track" aria-hidden="true">
           {items.map((p, i) => (
             <span className="mq-item" key={i}>
               <img className="mq-logo" src={p.logo} alt={p.name} loading="lazy" />

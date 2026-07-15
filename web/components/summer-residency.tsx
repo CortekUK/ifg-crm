@@ -18,6 +18,7 @@ export function SummerResidencyView() {
   const heroCtas = (
     <>
       <Button variant="primary" iconRight="arrow-right" onClick={() => router.push(APPLY)}>Apply Now</Button>
+      <Button variant="solid" iconRight="chevron-down" as="a" href="#plans">See plans &amp; pricing</Button>
       <Button variant="solid" icon="download" onClick={() => router.push(BROCHURE)}>View Brochure</Button>
       <Button variant="solid" onClick={() => router.push("/contact")}>Book a Call</Button>
     </>
@@ -80,7 +81,7 @@ export function SummerResidencyView() {
       </section>
 
       {/* options & cost */}
-      <section className="section band-ink">
+      <section id="plans" className="section band-ink" style={{ scrollMarginTop: 90 }}>
         <div className="wrap">
           <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
             <h2 className="t-h2">Programme options &amp; cost</h2>
@@ -103,7 +104,16 @@ export function SummerResidencyView() {
                   <span className="sr-price-row"><Icon name="check" size={15} />{o.deposit} deposit to secure</span>
                 </div>
                 <DepositButton programme="residency" className="sr-price-cta">
-                  Pay deposit <Icon name="arrow-right" size={15} />
+                  Pay {o.deposit} deposit <Icon name="arrow-right" size={15} />
+                </DepositButton>
+                <DepositButton
+                  programme="residency"
+                  mode="full"
+                  amount={Number(o.total.replace(/[^0-9.]/g, ""))}
+                  label={o.weeks}
+                  className="sr-price-full"
+                >
+                  Or pay in full ({o.total})
                 </DepositButton>
               </article>
             ))}

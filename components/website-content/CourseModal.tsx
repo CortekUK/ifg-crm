@@ -1,14 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2 } from 'lucide-react'
+import { GraduationCap } from 'lucide-react'
 import { ImageField } from './ImageField'
+import { ContentDialog, Field, FieldRow, FormSection, PublishControls } from './_form'
 import { useSaveSiteContent } from '@/lib/hooks/useWebsiteContent'
 import { toast } from '@/lib/hooks/use-toast'
 import type { SiteContentItem } from '@/lib/types/website-content'
@@ -84,56 +81,46 @@ export function CourseModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{item ? 'Edit course' : 'New course'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>School *</Label>
-              <Select value={f.school} onValueChange={(v) => set('school', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SCHOOLS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Level</Label>
-              <Input value={f.level} onChange={(e) => set('level', e.target.value)} placeholder="Bachelor's · 3 Years" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Course name *</Label>
-            <Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="BSc (Hons) Football Studies" />
-          </div>
-          <div className="space-y-2">
-            <Label>UCLan course link *</Label>
-            <Input value={f.url} onChange={(e) => set('url', e.target.value)} placeholder="https://www.uclan.ac.uk/courses/..." />
-            <p className="text-xs text-muted-foreground">The visitor&apos;s details are captured before they&apos;re taken to this page.</p>
-          </div>
-          <ImageField label="Tile image" value={f.image} onChange={(v) => set('image', v)} />
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Switch checked={f.published} onCheckedChange={(v) => set('published', v)} />
-              <Label className="!mt-0">Published</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="!mt-0">Sort order</Label>
-              <Input type="number" className="w-20" value={f.sort_order} onChange={(e) => set('sort_order', e.target.value)} />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={save.isPending}>
-            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {item ? 'Save changes' : 'Create course'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ContentDialog
+      open={open}
+      onClose={onClose}
+      icon={GraduationCap}
+      accent="blue"
+      title={item ? 'Edit course' : 'New course'}
+      description="A degree shown on the University Courses page."
+      onSubmit={submit}
+      submitLabel={item ? 'Save changes' : 'Create course'}
+      saving={save.isPending}
+    >
+      <FormSection title="Course">
+        <FieldRow>
+          <Field label="School" required>
+            <Select value={f.school} onValueChange={(v) => set('school', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {SCHOOLS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Level">
+            <Input value={f.level} onChange={(e) => set('level', e.target.value)} placeholder="Bachelor's · 3 Years" />
+          </Field>
+        </FieldRow>
+        <Field label="Course name" required>
+          <Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="BSc (Hons) Football Studies" />
+        </Field>
+        <Field label="UCLan course link" required hint="The visitor's details are captured before they're taken to this page.">
+          <Input value={f.url} onChange={(e) => set('url', e.target.value)} placeholder="https://www.uclan.ac.uk/courses/..." />
+        </Field>
+        <ImageField label="Tile image" value={f.image} onChange={(v) => set('image', v)} />
+      </FormSection>
+
+      <PublishControls
+        published={f.published}
+        onPublishedChange={(v) => set('published', v)}
+        sortOrder={f.sort_order}
+        onSortOrderChange={(v) => set('sort_order', v)}
+      />
+    </ContentDialog>
   )
 }

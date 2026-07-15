@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { getServiceClient } from '@/lib/forms/process-submission'
+import { getServiceClient, processFormSubmission, type ContactInput } from '@/lib/forms/process-submission'
+import { WEBSITE_FORM_MAP } from '@/lib/forms/forms-config'
 import { logOpenAIUsage } from '@/lib/ai/usage-logger'
 import { ASSISTANT_SYSTEM_PROMPT } from '@/lib/assistant/knowledge'
 import { captureEnquiry, type EnquiryArgs } from '@/lib/assistant/capture'
@@ -50,6 +51,93 @@ const CAPTURE_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
       additionalProperties: false,
     },
   },
+}
+
+// A FULL application, collected conversationally. Runs the identical landing →
+// automation → deal pipeline as the website apply form, so a chatbot application
+// lands in the CRM exactly like a form one (just tagged as chatbot-sourced).
+const SUBMIT_APPLICATION_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'submit_application',
+    description:
+      "Submit a visitor's completed programme application to the CRM (same as filling in the website form). Only call this once the visitor has chosen a programme AND given every required detail and confirmed. Creates a real application — never guess or invent a field.",
+    parameters: {
+      type: 'object',
+      properties: {
+        programme: {
+          type: 'string',
+          enum: ['training', 'university', 'gap-year'],
+          description: "'training' = Summer Residency, 'university' = University, 'gap-year' = Gap Year.",
+        },
+        firstName: { type: 'string', description: 'First name' },
+        lastName: { type: 'string', description: 'Last name / surname' },
+        email: { type: 'string', description: 'Email address (required)' },
+        phone: { type: 'string', description: 'Phone number including country code if given' },
+        dob: { type: 'string', description: 'Date of birth in YYYY-MM-DD format' },
+        gender: { type: 'string', description: "Gender, e.g. 'male' or 'female'" },
+        country: { type: 'string', description: 'Country of residence' },
+        region: { type: 'string', description: 'State / region / county' },
+        position: { type: 'string', description: 'Preferred football position' },
+        yearOfEntry: { type: 'string', description: 'Expected year of entry, e.g. 2026 (University / Gap Year)' },
+        lengthOfStay: { type: 'string', description: 'Length of stay for Summer Residency, e.g. 2, 4 or 6 weeks' },
+      },
+      required: ['programme', 'firstName', 'lastName', 'email'],
+      additionalProperties: false,
+    },
+  },
+}
+
+interface ApplicationArgs {
+  programme?: string
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string
+  dob?: string
+  gender?: string
+  country?: string
+  region?: string
+  position?: string
+  yearOfEntry?: string
+  lengthOfStay?: string
+}
+
+/** Run a chatbot-collected application through the shared form pipeline. */
+async function submitApplication(
+  supabase: NonNullable<ReturnType<typeof getServiceClient>>,
+  args: ApplicationArgs,
+): Promise<{ ok: boolean; error?: string }> {
+  const mapping = args.programme ? WEBSITE_FORM_MAP[args.programme] : undefined
+  if (!mapping) return { ok: false, error: 'unknown_programme' }
+  const email = args.email?.trim()
+  if (!email) return { ok: false, error: 'email_required' }
+
+  const contact: ContactInput = {
+    first_name: args.firstName?.trim() || null,
+    last_name: args.lastName?.trim() || null,
+    email,
+    phone: args.phone?.trim() || null,
+    date_of_birth: args.dob?.trim() || null,
+    gender: args.gender?.trim() || null,
+    country: args.country?.trim() || null,
+    state: args.region?.trim() || null,
+    position: args.position?.trim() || null,
+    expected_year_of_entry: args.yearOfEntry?.trim() || null,
+    length_of_stay: args.lengthOfStay?.trim() || null,
+  }
+
+  const result = await processFormSubmission({
+    formId: mapping.formId,
+    formName: mapping.formName,
+    formSource: 'chatbot',
+    contact,
+    rawPayload: { ...args, via: 'chatbot' },
+    contactSource: 'website_chatbot',
+    tags: [{ name: 'Chatbot', category: 'source' }],
+    supabase,
+  })
+  return { ok: result.ok, error: result.error }
 }
 
 export async function POST(request: NextRequest) {
@@ -108,14 +196,14 @@ export async function POST(request: NextRequest) {
   let captured = false
 
   try {
-    // Tool loop: at most 2 passes (one optional capture_enquiry, then the
-    // final natural-language reply).
-    for (let i = 0; i < 2; i++) {
+    // Tool loop: a few passes to allow an optional capture_enquiry /
+    // submit_application call, then the final natural-language reply.
+    for (let i = 0; i < 3; i++) {
       const startedAt = performance.now()
       const completion = await openai.chat.completions.create({
         model,
         messages,
-        tools: [CAPTURE_TOOL],
+        tools: [CAPTURE_TOOL, SUBMIT_APPLICATION_TOOL],
         max_tokens: 600,
         temperature: 0.4,
       })
@@ -138,7 +226,7 @@ export async function POST(request: NextRequest) {
       messages.push(choice)
       for (const call of toolCalls) {
         if (call.type !== 'function') continue
-        let result = { ok: false }
+        let result: { ok: boolean; error?: string } = { ok: false }
         if (call.function.name === 'capture_enquiry') {
           let parsed: EnquiryArgs = {}
           try {
@@ -147,6 +235,15 @@ export async function POST(request: NextRequest) {
             parsed = {}
           }
           result = await captureEnquiry(supabase, parsed)
+          if (result.ok) captured = true
+        } else if (call.function.name === 'submit_application') {
+          let parsed: ApplicationArgs = {}
+          try {
+            parsed = JSON.parse(call.function.arguments || '{}')
+          } catch {
+            parsed = {}
+          }
+          result = await submitApplication(supabase, parsed)
           if (result.ok) captured = true
         }
         messages.push({

@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Upload, Loader2, X } from 'lucide-react'
+import { Upload, Loader2, X, ImagePlus } from 'lucide-react'
 import { uploadWebsiteImage } from '@/lib/website-content/upload'
 import { toast } from '@/lib/hooks/use-toast'
 
@@ -60,29 +60,38 @@ export function MultiImageField({
 
   return (
     <div className="space-y-2">
-      <Label>
-        {label} <span className="text-xs text-muted-foreground">({value.length})</span>
+      <Label className="flex items-center gap-2 text-sm font-medium">
+        {label}
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{value.length}</span>
       </Label>
 
-      {value.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-          {value.map((url, i) => (
-            <div key={`${url}-${i}`} className="relative aspect-square overflow-hidden rounded-md border bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-full w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                className="absolute right-1 top-1 rounded bg-black/60 p-0.5 text-white"
-                aria-label="Remove image"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+        {value.map((url, i) => (
+          <div key={`${url}-${i}`} className="group/thumb relative aspect-square overflow-hidden rounded-lg border border-border bg-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt="" className="h-full w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              className="absolute right-1 top-1 rounded-md bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-black/80 group-hover/thumb:opacity-100"
+              aria-label="Remove image"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted/60 hover:text-foreground disabled:opacity-60"
+        >
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+          <span className="text-[10px] font-medium">{uploading ? '…' : 'Add'}</span>
+        </button>
+      </div>
 
+      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
       <div className="flex gap-2">
         <Input
           value={pending}
@@ -95,15 +104,11 @@ export function MultiImageField({
           }}
           placeholder="Paste an image URL or /public path, then Enter"
         />
-        <Button type="button" variant="outline" onClick={addPasted} disabled={!pending.trim()}>
-          Add
+        <Button type="button" variant="outline" onClick={addPasted} disabled={!pending.trim()}>Add</Button>
+        <Button type="button" variant="outline" size="icon" onClick={() => fileRef.current?.click()} disabled={uploading} aria-label="Upload images">
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
         </Button>
       </div>
-      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
-      <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-        {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-        {uploading ? 'Uploading…' : 'Upload images'}
-      </Button>
     </div>
   )
 }

@@ -515,12 +515,12 @@ export const SUMMER_RESIDENCY = {
   },
   optionsNote: "Multiple experiences available, from 2, 4 & 6 weeks.",
   options: [
-    { label: "A", weeks: "Full 6 Weeks", dur: "6 weeks", dates: "June 20th – Aug 1st", total: "£8,000", deposit: "£2,075", featured: true },
-    { label: "B", weeks: "First 4 Weeks", dur: "4 weeks", dates: "June 20th – July 18th", total: "£6,000", deposit: "£2,075", featured: false },
-    { label: "C", weeks: "Last 4 Weeks", dur: "4 weeks", dates: "June 5th – Aug 1st", total: "£6,000", deposit: "£2,075", featured: false },
-    { label: "D", weeks: "First 2 Weeks", dur: "2 weeks", dates: "June 20th – July 4th", total: "£3,500", deposit: "£2,075", featured: false },
-    { label: "E", weeks: "Middle 2 Weeks", dur: "2 weeks", dates: "July 5th – July 18th", total: "£3,500", deposit: "£2,075", featured: false },
-    { label: "F", weeks: "Last 2 Weeks", dur: "2 weeks", dates: "July 19th – Aug 1st", total: "£3,500", deposit: "£2,075", featured: false },
+    { label: "A", weeks: "Full 6 Weeks", dur: "6 weeks", dates: "June 20th – Aug 1st", total: "£8,000", deposit: "£2,000", featured: true },
+    { label: "B", weeks: "First 4 Weeks", dur: "4 weeks", dates: "June 20th – July 18th", total: "£6,000", deposit: "£2,000", featured: false },
+    { label: "C", weeks: "Last 4 Weeks", dur: "4 weeks", dates: "June 5th – Aug 1st", total: "£6,000", deposit: "£2,000", featured: false },
+    { label: "D", weeks: "First 2 Weeks", dur: "2 weeks", dates: "June 20th – July 4th", total: "£3,500", deposit: "£2,000", featured: false },
+    { label: "E", weeks: "Middle 2 Weeks", dur: "2 weeks", dates: "July 5th – July 18th", total: "£3,500", deposit: "£2,000", featured: false },
+    { label: "F", weeks: "Last 2 Weeks", dur: "2 weeks", dates: "July 19th – Aug 1st", total: "£3,500", deposit: "£2,000", featured: false },
   ],
   video: { title: "Summer Residency in the UK | My IFG Experience", ytId: "7ezDdQM_gbI" },
   scheduleNote: "This two-week schedule shows the typical programme structure, but be aware that the final schedule and events may vary.",
@@ -660,6 +660,11 @@ const UC_IMG = [
 const uc = (school: UniSchool, name: string, level: string, i: number): UniCourse => ({
   school, name, level, url: UCLAN_COURSES, img: UC_IMG[i % UC_IMG.length],
 });
+// Same, but with a real course-specific University of Lancashire link.
+const LANC = "https://www.lancashire.ac.uk/undergraduate/courses";
+const ucl = (school: UniSchool, name: string, level: string, slug: string, i: number): UniCourse => ({
+  school, name, level, url: `${LANC}/${slug}`, img: UC_IMG[i % UC_IMG.length],
+});
 
 export const UNIVERSITY_COURSES: UniCourse[] = [
   // Sport
@@ -669,12 +674,20 @@ export const UNIVERSITY_COURSES: UniCourse[] = [
   uc("Sport", "BSc (Hons) Sports Therapy", "Bachelor's · 3 Years", 3),
   uc("Sport", "MSc Sports Coaching & Performance", "Master's · 1 Year", 4),
   uc("Sport", "MSc Performance Analysis & Talent Management", "Master's · 1 Year", 5),
-  // Business
-  uc("Business", "BA (Hons) Business & Management", "Bachelor's · 3 Years", 0),
-  uc("Business", "BA (Hons) Business & Entrepreneurship", "Bachelor's · 3 Years", 1),
-  uc("Business", "BSc (Hons) Business & Marketing", "Bachelor's · 3 Years", 2),
-  uc("Business", "BA (Hons) Accounting & Finance", "Bachelor's · 3 Years", 3),
-  uc("Business", "BA (Hons) International Business", "Bachelor's · 3 Years", 4),
+  // Business — School of Business (Sept 2027 expansion). Foundation-year variants
+  // are intentionally omitted (IFG downplay foundation). Each links straight to
+  // its University of Lancashire course page.
+  ucl("Business", "BA (Hons) Accounting & Finance", "Bachelor's · 3 Years", "accounting-finance-ba", 0),
+  ucl("Business", "BA (Hons) Accounting & Financial Management", "Bachelor's · 3 Years", "accounting-financial-management-ba", 1),
+  ucl("Business", "BA (Hons) Business & Entrepreneurship", "Bachelor's · 3 Years", "business-entrepreneurship-ba", 2),
+  ucl("Business", "BA (Hons) Business & Finance", "Bachelor's · 3 Years", "business-finance-ba", 3),
+  ucl("Business", "BA (Hons) Business & Hospitality", "Bachelor's · 3 Years", "business-hospitality-ba", 4),
+  ucl("Business", "BA (Hons) Business & Human Resource Management", "Bachelor's · 3 Years", "business-hr-management-ba", 5),
+  ucl("Business", "BA (Hons) Business & Management", "Bachelor's · 3 Years", "business-management-ba", 0),
+  ucl("Business", "BSc (Hons) Business & Marketing", "Bachelor's · 3 Years", "business-marketing-bsc", 1),
+  ucl("Business", "BA (Hons) Business & Tourism", "Bachelor's · 3 Years", "business-tourism-ba", 2),
+  ucl("Business", "BSc (Hons) Digital Marketing", "Bachelor's · 3 Years", "digital-marketing-bsc", 3),
+  ucl("Business", "BA (Hons) International Business", "Bachelor's · 3 Years", "international-business-ba", 4),
   // Arts (placeholder examples — IFG to confirm/replace in the CRM)
   uc("Arts", "BA (Hons) Graphic Design", "Bachelor's · 3 Years", 0),
   uc("Arts", "BA (Hons) Music Production", "Bachelor's · 3 Years", 1),

@@ -17,6 +17,7 @@ const EXPLORE: [string, string][] = [
   [`${PROG_BASE}/teams`, "Teams"],
   [`${PROG_BASE}/facilities`, "Facilities"],
   ["/gallery", "Gallery"],
+  ["/id-clinics", "ID Clinics"],
 ];
 // Top-level links after the two dropdowns.
 const LINKS: [string, string][] = [

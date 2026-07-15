@@ -13,16 +13,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     : "/";
 
   return (
-    <section className="section" style={{ paddingTop: 160, minHeight: "70vh" }}>
-      <div className="wrap" style={{ maxWidth: 640, textAlign: "center" }}>
+    <section className="dep-status">
+      <div className="dep-status-in">
+        <div className="dep-status-icon warn"><Icon name="x" size={28} /></div>
         <Eyebrow style={{ justifyContent: "center" }}>Payment not completed</Eyebrow>
-        <h1 className="t-h1" style={{ marginTop: 12 }}>No problem — your place isn&apos;t secured yet</h1>
-        <p className="ss-lead" style={{ marginTop: 16 }}>
-          Your card was not charged. You can try again whenever you&apos;re ready, or speak to the IFG team if you
-          have any questions about the deposit or your application.
+        <h1 className="dep-status-title">Your place isn&apos;t secured yet</h1>
+        <p className="dep-status-sub">
+          No problem — your card was not charged. You can pick up where you left off whenever you&apos;re ready, or
+          speak to the IFG team if you have any questions about the deposit or your application.
         </p>
-        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginTop: 28 }}>
-          <Link href={back} className="btn btn-primary">Try again<Icon name="arrow-right" className="ic" size={18} /></Link>
+        <div className="dep-status-cta">
+          <Link href={back} className="btn btn-primary">Back to {programme === "university" ? "University" : programme === "residency" ? "Summer Residency" : "programmes"}<Icon name="arrow-right" className="ic" size={18} /></Link>
           <Link href="/contact" className="btn btn-ghost">Speak to the team</Link>
         </div>
       </div>

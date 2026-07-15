@@ -1,14 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Loader2 } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { ImageField } from './ImageField'
+import { ContentDialog, Field, FieldRow, FormSection, PublishControls } from './_form'
 import { useSaveStory } from '@/lib/hooks/useWebsiteContent'
 import { toast } from '@/lib/hooks/use-toast'
 import type { SuccessStory } from '@/lib/types/website-content'
@@ -72,63 +69,60 @@ export function StoryModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{story ? 'Edit success story' : 'New success story'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Player name *</Label>
-              <Input
-                value={f.name}
-                onChange={(e) => {
-                  set('name', e.target.value)
-                  if (!slugTouched) set('slug', slugify(e.target.value))
-                }}
-                placeholder="Carlos Dos Santos"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Slug *</Label>
-              <Input value={f.slug} onChange={(e) => { setSlugTouched(true); set('slug', e.target.value) }} placeholder="carlos-dos-santos" />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2"><Label>Tag</Label><Input value={f.tag} onChange={(e) => set('tag', e.target.value)} placeholder="Latest News" /></div>
-            <div className="space-y-2"><Label>Year</Label><Input value={f.year} onChange={(e) => set('year', e.target.value)} placeholder="2024" /></div>
-            <div className="space-y-2"><Label>Club</Label><Input value={f.club} onChange={(e) => set('club', e.target.value)} placeholder="Macclesfield FC" /></div>
-          </div>
-          <ImageField label="Card image" value={f.img} onChange={(v) => set('img', v)} />
-          <ImageField label="Hero image (detail page)" value={f.hero_img} onChange={(v) => set('hero_img', v)} />
-          <div className="space-y-2">
-            <Label>Card summary <span className="text-xs text-muted-foreground">(one paragraph per blank line)</span></Label>
-            <Textarea value={f.blurb} onChange={(e) => set('blurb', e.target.value)} rows={4} />
-          </div>
-          <div className="space-y-2">
-            <Label>Full story <span className="text-xs text-muted-foreground">(one paragraph per blank line)</span></Label>
-            <Textarea value={f.body} onChange={(e) => set('body', e.target.value)} rows={8} />
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Switch checked={f.published} onCheckedChange={(v) => set('published', v)} />
-              <Label className="!mt-0">Published</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="!mt-0">Sort order</Label>
-              <Input type="number" className="w-20" value={f.sort_order} onChange={(e) => set('sort_order', e.target.value)} />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={save.isPending}>
-            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {story ? 'Save changes' : 'Create story'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ContentDialog
+      open={open}
+      onClose={onClose}
+      icon={Trophy}
+      accent="amber"
+      title={story ? 'Edit success story' : 'New success story'}
+      description="A player's journey, featured on the website."
+      onSubmit={submit}
+      submitLabel={story ? 'Save changes' : 'Create story'}
+      saving={save.isPending}
+    >
+      <FormSection title="Player">
+        <FieldRow>
+          <Field label="Player name" required>
+            <Input
+              value={f.name}
+              onChange={(e) => {
+                set('name', e.target.value)
+                if (!slugTouched) set('slug', slugify(e.target.value))
+              }}
+              placeholder="Carlos Dos Santos"
+            />
+          </Field>
+          <Field label="Slug" required hint="Used in the page URL.">
+            <Input value={f.slug} onChange={(e) => { setSlugTouched(true); set('slug', e.target.value) }} placeholder="carlos-dos-santos" />
+          </Field>
+        </FieldRow>
+        <FieldRow cols={3}>
+          <Field label="Tag"><Input value={f.tag} onChange={(e) => set('tag', e.target.value)} placeholder="Latest News" /></Field>
+          <Field label="Year"><Input value={f.year} onChange={(e) => set('year', e.target.value)} placeholder="2024" /></Field>
+          <Field label="Club"><Input value={f.club} onChange={(e) => set('club', e.target.value)} placeholder="Macclesfield FC" /></Field>
+        </FieldRow>
+      </FormSection>
+
+      <FormSection title="Images">
+        <ImageField label="Card image" value={f.img} onChange={(v) => set('img', v)} />
+        <ImageField label="Hero image" hint="Shown on the story's detail page." value={f.hero_img} onChange={(v) => set('hero_img', v)} />
+      </FormSection>
+
+      <FormSection title="Story">
+        <Field label="Card summary" hint="Shown on the card. One paragraph per blank line.">
+          <Textarea value={f.blurb} onChange={(e) => set('blurb', e.target.value)} rows={3} />
+        </Field>
+        <Field label="Full story" hint="Shown on the detail page. One paragraph per blank line.">
+          <Textarea value={f.body} onChange={(e) => set('body', e.target.value)} rows={7} />
+        </Field>
+      </FormSection>
+
+      <PublishControls
+        published={f.published}
+        onPublishedChange={(v) => set('published', v)}
+        sortOrder={f.sort_order}
+        onSortOrderChange={(v) => set('sort_order', v)}
+      />
+    </ContentDialog>
   )
 }

@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
     const session = event.data.object
     const invoiceId = session.metadata?.invoice_id
     const contactId = session.metadata?.contact_id
+    const programmeKey = session.metadata?.programme_key
+    const paymentMode = session.metadata?.payment_mode
     const paymentIntentId = session.payment_intent
 
     if (invoiceId) {
@@ -56,6 +58,36 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', invoiceId)
+
+      // They paid — take them out of the "Abandoned … Deposits" follow-up list
+      // for this programme, so it only ever holds people who haven't paid.
+      if (contactId && programmeKey) {
+        const abandonedList =
+          programmeKey === 'university' ? 'Abandoned University Deposits' : 'Abandoned Summer Deposits'
+        const { data: list } = await supabase.from('lists').select('id').eq('name', abandonedList).maybeSingle()
+        if (list?.id) {
+          await supabase.from('contact_lists').delete().eq('contact_id', contactId).eq('list_id', list.id)
+        }
+      }
+
+      // Full payment → tag the contact "Paid in Full" so full payers are
+      // distinguishable from deposit-only payers within the Deposit Paid stage.
+      if (contactId && paymentMode === 'full') {
+        let { data: tag } = await supabase.from('tags').select('id').eq('name', 'Paid in Full').maybeSingle()
+        if (!tag) {
+          const { data: created } = await supabase.from('tags').insert({ name: 'Paid in Full', category: 'other' }).select('id').single()
+          tag = created ?? null
+          if (!tag) {
+            const { data: refetched } = await supabase.from('tags').select('id').eq('name', 'Paid in Full').maybeSingle()
+            tag = refetched ?? null
+          }
+        }
+        if (tag?.id) {
+          await supabase
+            .from('contact_tags')
+            .upsert({ contact_id: contactId, tag_id: tag.id }, { onConflict: 'contact_id,tag_id', ignoreDuplicates: true })
+        }
+      }
 
       // Create payment record
       if (contactId) {
@@ -244,7 +276,7 @@ export async function POST(request: NextRequest) {
       if (invoiceWithDeal?.deal_id) {
         const { data: deal } = await supabase
           .from('deals')
-          .select('id, pipeline_id')
+          .select('id, pipeline_id, current_stage_id')
           .eq('id', invoiceWithDeal.deal_id)
           .single()
 
@@ -252,18 +284,32 @@ export async function POST(request: NextRequest) {
           // Find "Deposit Paid" stage
           const { data: depositPaidStage } = await supabase
             .from('pipeline_stages')
-            .select('id')
+            .select('id, display_order')
             .eq('pipeline_id', deal.pipeline_id)
             .ilike('name', '%deposit%paid%')
             .single()
 
           if (depositPaidStage) {
-            await supabase
-              .from('deals')
-              .update({ current_stage_id: depositPaidStage.id })
-              .eq('id', deal.id)
-
-            console.log(`Deal ${deal.id} moved to Deposit Paid stage`)
+            // Only move FORWARD — never drag a deal back if it's already past
+            // Deposit Paid (e.g. Arrival).
+            let currentOrder = -1
+            if (deal.current_stage_id) {
+              const { data: currentStage } = await supabase
+                .from('pipeline_stages')
+                .select('display_order')
+                .eq('id', deal.current_stage_id)
+                .single()
+              currentOrder = currentStage?.display_order ?? -1
+            }
+            if (currentOrder < (depositPaidStage.display_order ?? 0)) {
+              await supabase
+                .from('deals')
+                .update({ current_stage_id: depositPaidStage.id })
+                .eq('id', deal.id)
+              console.log(`Deal ${deal.id} moved to Deposit Paid stage`)
+            } else {
+              console.log(`Deal ${deal.id} already at/after Deposit Paid — not moving back`)
+            }
           }
         }
       }

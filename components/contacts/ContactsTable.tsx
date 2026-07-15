@@ -92,6 +92,10 @@ export function ContactsTable({
     'google_ads': 'Google Ads',
     'facebook': 'Facebook',
     'instagram': 'Instagram',
+    'website_deposit': 'Website Deposit',
+    'website_chatbot': 'Website Chatbot',
+    'website_exit_intent': 'Website Exit Popup',
+    'website_university': 'University Enquiry',
   }
 
   const formatSource = (source: string | null) => {

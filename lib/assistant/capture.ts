@@ -18,12 +18,16 @@ export interface EnquiryArgs {
 }
 
 /** Find-or-create a marketing list by name, returning its id (or null). */
-export async function findOrCreateList(supabase: SupabaseClient, name: string): Promise<string | null> {
+export async function findOrCreateList(
+  supabase: SupabaseClient,
+  name: string,
+  description = 'Leads captured from the website',
+): Promise<string | null> {
   const { data: existing } = await supabase.from('lists').select('id').eq('name', name).maybeSingle()
   if (existing?.id) return existing.id as string
   const { data: created } = await supabase
     .from('lists')
-    .insert({ name, description: 'Leads captured from the website', sport: 'football', is_dynamic: false })
+    .insert({ name, description, sport: 'football', is_dynamic: false })
     .select('id')
     .single()
   if (created?.id) return created.id as string

@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
     if (!res.ok) {
       return NextResponse.json({ error: data.error || "Could not start checkout." }, { status: res.status });
     }
-    return NextResponse.json({ url: data.url });
+    // Pass through the resolver result: { status: 'need_form' | 'checkout' | 'already_paid', url?, invoice? }
+    return NextResponse.json(data);
   } catch (err) {
     console.error("Deposit proxy error:", err);
     return NextResponse.json({ error: "Could not reach the payment service. Please try again." }, { status: 502 });

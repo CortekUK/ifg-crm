@@ -20,6 +20,10 @@ const sourceColours: Record<string, string> = {
   'csv_import': '#f97316',
   'sms_reply': '#14b8a6',
   'tournament': '#eab308',
+  'website_deposit': '#ec4899',
+  'website_chatbot': '#0ea5e9',
+  'website_exit_intent': '#a855f7',
+  'website_university': '#22c55e',
   'other': '#94a3b8',
 }
 
@@ -37,6 +41,10 @@ const sourceLabels: Record<string, string> = {
   'csv_import': 'CSV Import',
   'sms_reply': 'SMS Reply',
   'tournament': 'Tournament',
+  'website_deposit': 'Website Deposit',
+  'website_chatbot': 'Website Chatbot',
+  'website_exit_intent': 'Website Exit Popup',
+  'website_university': 'University Enquiry',
   'other': 'Other',
 }
 

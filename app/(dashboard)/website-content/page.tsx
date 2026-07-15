@@ -9,7 +9,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Plus, Pencil, Trash2, Loader2, Images, Trophy, LayoutList, HelpCircle,
+  Plus, Pencil, Trash2, Loader2, Images, Trophy, CalendarClock, HelpCircle,
   GraduationCap, ExternalLink, ImageOff, Users, type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -257,7 +257,7 @@ export default function WebsiteContentPage() {
   const [target, setTarget] = useState<{ table: ContentTable; id: string; label: string } | null>(null)
 
   // FAQs, University Courses and Staff share the site_content table (types
-  // 'faq' / 'course' / 'staff'); keep them out of the generic Site Content tab.
+  // 'faq' / 'course' / 'staff'); everything else (type 'id_clinic') is an ID Clinic.
   const faqs = site.data?.filter((it) => it.type === 'faq') ?? []
   const courses = site.data?.filter((it) => it.type === 'course') ?? []
   const staff = site.data?.filter((it) => it.type === 'staff') ?? []
@@ -306,14 +306,17 @@ export default function WebsiteContentPage() {
       </div>
 
       <Tabs defaultValue="stories">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="stories"><Trophy className="mr-2 h-4 w-4" />Success Stories{tabBadge(stories.data?.length ?? 0)}</TabsTrigger>
-          <TabsTrigger value="gallery"><Images className="mr-2 h-4 w-4" />Gallery{tabBadge(gallery.data?.length ?? 0)}</TabsTrigger>
-          <TabsTrigger value="courses"><GraduationCap className="mr-2 h-4 w-4" />University Courses{tabBadge(courses.length)}</TabsTrigger>
-          <TabsTrigger value="staff"><Users className="mr-2 h-4 w-4" />Staff &amp; Coaches{tabBadge(staff.length)}</TabsTrigger>
-          <TabsTrigger value="faq"><HelpCircle className="mr-2 h-4 w-4" />FAQs{tabBadge(faqs.length)}</TabsTrigger>
-          <TabsTrigger value="site"><LayoutList className="mr-2 h-4 w-4" />Site Content{tabBadge(siteItems.length)}</TabsTrigger>
-        </TabsList>
+        {/* Single-row nav: fills the width on desktop, scrolls on narrow screens instead of wrapping. */}
+        <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="h-10 w-max min-w-full justify-start">
+            <TabsTrigger value="stories"><Trophy className="mr-2 h-4 w-4" />Success Stories{tabBadge(stories.data?.length ?? 0)}</TabsTrigger>
+            <TabsTrigger value="gallery"><Images className="mr-2 h-4 w-4" />Gallery{tabBadge(gallery.data?.length ?? 0)}</TabsTrigger>
+            <TabsTrigger value="courses"><GraduationCap className="mr-2 h-4 w-4" />University Courses{tabBadge(courses.length)}</TabsTrigger>
+            <TabsTrigger value="staff"><Users className="mr-2 h-4 w-4" />Staff &amp; Coaches{tabBadge(staff.length)}</TabsTrigger>
+            <TabsTrigger value="faq"><HelpCircle className="mr-2 h-4 w-4" />FAQs{tabBadge(faqs.length)}</TabsTrigger>
+            <TabsTrigger value="site"><CalendarClock className="mr-2 h-4 w-4" />ID Clinics{tabBadge(siteItems.length)}</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Success Stories */}
         <TabsContent value="stories" className="mt-6">
@@ -438,22 +441,22 @@ export default function WebsiteContentPage() {
           </Section>
         </TabsContent>
 
-        {/* Site Content */}
+        {/* ID Clinics */}
         <TabsContent value="site" className="mt-6">
           <Section
-            icon={LayoutList} tint={TINT.slate} title="Site Content"
-            description="ID Clinics and other frequently-changing sections."
-            count={siteItems.length} addLabel="Add item"
+            icon={CalendarClock} tint={TINT.slate} title="ID Clinics"
+            description="Upcoming identification clinics shown on the ID Clinics page."
+            count={siteItems.length} addLabel="Add clinic"
             onAdd={() => setSiteModal({ open: true, item: null })}
             loading={site.isLoading} isEmpty={!siteItems.length}
-            empty={{ title: 'No items yet', description: 'Use this for ID Clinics and any other section you update often.' }}
+            empty={{ title: 'No clinics yet', description: 'The ID Clinics page shows a “coming soon” message until you add upcoming clinics here.' }}
           >
             <div className={GRID}>
               {siteItems.map((it) => (
                 <ContentCard
                   key={it.id} thumb={it.image} title={it.title}
-                  subtitle={[it.date_text, it.location].filter(Boolean).join(' · ')}
-                  badge={it.type} published={it.published} fallbackIcon={LayoutList}
+                  subtitle={[it.date_text, it.location].filter(Boolean).join(' · ') || it.summary || ''}
+                  published={it.published} fallbackIcon={CalendarClock}
                   onEdit={() => setSiteModal({ open: true, item: it })}
                   onDelete={() => setTarget({ table: 'website_site_content', id: it.id, label: it.title })}
                   deleting={deletingId === it.id}
