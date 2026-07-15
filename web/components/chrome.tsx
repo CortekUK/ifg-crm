@@ -95,12 +95,3 @@ export function Grain() {
   return <div className="grain" aria-hidden="true" />;
 }
 
-// Custom cursor markup (driven by MotionProvider).
-export function Cursor() {
-  return (
-    <>
-      <div className="cursor-ring" aria-hidden="true" />
-      <div className="cursor-dot" aria-hidden="true" />
-    </>
-  );
-}

@@ -23,7 +23,6 @@ export function MotionProvider({ children }: { children: ReactNode }) {
     if (started.current) return;
     started.current = true;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const fine = window.matchMedia("(pointer: fine)").matches;
     gsap.registerPlugin(ScrollTrigger);
 
     const setNav = (y: number) => {
@@ -54,25 +53,6 @@ export function MotionProvider({ children }: { children: ReactNode }) {
       window.addEventListener("scroll", () => { setNav(window.scrollY); setProg(window.scrollY); }, { passive: true });
     }
 
-    // Custom cursor (desktop, motion on).
-    if (fine && !reduce) {
-      const dot = document.querySelector<HTMLElement>(".cursor-dot");
-      const ring = document.querySelector<HTMLElement>(".cursor-ring");
-      if (dot && ring) {
-        document.body.classList.add("has-cursor");
-        const rx = gsap.quickTo(ring, "x", { duration: 0.4, ease: "power3" });
-        const ry = gsap.quickTo(ring, "y", { duration: 0.4, ease: "power3" });
-        const dx = gsap.quickTo(dot, "x", { duration: 0.08, ease: "power3" });
-        const dy = gsap.quickTo(dot, "y", { duration: 0.08, ease: "power3" });
-        window.addEventListener("mousemove", (e) => { rx(e.clientX); ry(e.clientY); dx(e.clientX); dy(e.clientY); });
-        document.addEventListener("mouseover", (e) => {
-          const hit = (e.target as Element).closest("a,button,.pcard,.vpanel,.news-card,.tv-item,.tv-feature,.play-badge,.gal-cat,.gal-tile,[data-cursor]");
-          document.body.classList.toggle("cursor-hover", !!hit);
-        });
-        window.addEventListener("mousedown", () => document.body.classList.add("cursor-down"));
-        window.addEventListener("mouseup", () => document.body.classList.remove("cursor-down"));
-      }
-    }
   }, []);
 
   // Build the scroll scene for the current route (re-armed on navigation).

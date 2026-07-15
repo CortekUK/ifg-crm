@@ -6,7 +6,7 @@ import { MotionProvider } from "./motion";
 import { Ubar } from "./ubar";
 import { Header } from "./header";
 import { Footer } from "./footer";
-import { Loader, Grain, Cursor } from "./chrome";
+import { Loader, Grain } from "./chrome";
 import { AssistantWidget } from "./assistant-widget";
 import { ExitIntent } from "./exit-intent";
 
@@ -17,7 +17,6 @@ export function Providers({ children }: { children: ReactNode }) {
         <MotionProvider>
           <Loader />
           <Grain />
-          <Cursor />
           <div className="atmos" aria-hidden="true" />
           <Ubar />
           <Header />
