@@ -135,7 +135,7 @@ export function UniversityCourses({ courses }: { courses?: UniCourse[] }) {
       )}
 
       {active && (
-        <div className="ei-overlay" role="dialog" aria-modal="true" aria-label={`Enquire about ${active.name}`}>
+        <div className="ei-overlay" role="dialog" aria-modal="true" aria-label={`Enquire about ${active.name}`} data-lenis-prevent>
           <div className="ei-card">
             <button className="ei-close" onClick={close} aria-label="Close"><Icon name="x" size={18} /></button>
 

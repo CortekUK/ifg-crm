@@ -119,7 +119,7 @@ export function AssistantWidget() {
           </button>
         </div>
 
-        <div className="aw-body" ref={scrollRef}>
+        <div className="aw-body" ref={scrollRef} data-lenis-prevent>
           {messages.map((m, i) => (
             <div key={i} className={"aw-msg " + m.role}>
               <div className="aw-bubble">{renderContent(m.content)}</div>

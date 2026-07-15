@@ -141,6 +141,7 @@ export function DepositButton({
           role="dialog"
           aria-modal="true"
           aria-label={`${DEPOSIT_LABEL[programme]} ${isFull ? "full payment" : "deposit"}`}
+          data-lenis-prevent
           onClick={(e) => { if (e.target === e.currentTarget) close(); }}
         >
           <div className="ei-card">

@@ -118,7 +118,7 @@ export function ExitIntent() {
   if (!open) return null;
 
   return (
-    <div className="ei-overlay" role="dialog" aria-modal="true" aria-label="Before you go">
+    <div className="ei-overlay" role="dialog" aria-modal="true" aria-label="Before you go" data-lenis-prevent>
       <div className="ei-card">
         <button className="ei-close" onClick={dismiss} aria-label="Close">
           <Icon name="x" size={18} />
