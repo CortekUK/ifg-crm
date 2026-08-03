@@ -188,7 +188,7 @@ export function UniversityView({ courses, pricing, content }: { courses?: UniCou
             ))}
           </div>
           <div className="uni-apply-cta">
-            <DepositButton programme="university" className="btn btn-primary btn-lg">
+            <DepositButton programme="university" deposit={pricing?.deposit ?? undefined} className="btn btn-primary btn-lg">
               Pay {depositLabel} deposit<Icon name="arrow-right" className="ic" size={18} />
             </DepositButton>
             <DepositButton programme="university" mode="full" amount={fullAmount} label="Full programme" className="btn btn-ghost btn-lg">

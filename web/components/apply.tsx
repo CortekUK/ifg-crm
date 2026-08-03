@@ -105,11 +105,16 @@ const FORMS: FormDef[] = [
 // Apply form tab id → deposit programme key (Gap Year has no deposit).
 const DEPOSIT_PROGRAMME: Record<string, string> = { training: "residency", university: "university" };
 
-interface DepositCtx { on: boolean; mode: string; amount?: string; email?: string }
+interface DepositCtx { on: boolean; mode: string; amount?: string; email?: string; depositAmount?: string }
 
 function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCtx }) {
   const depProgramme = DEPOSIT_PROGRAMME[form.id];
   const depositOn = !!deposit?.on && !!depProgramme;
+  // Show the real CMS deposit passed through the deposit flow; fall back to
+  // neutral wording rather than a wrong hardcoded figure.
+  const depositLabel = deposit?.depositAmount
+    ? `£${Number(deposit.depositAmount).toLocaleString("en-GB")} deposit`
+    : "deposit";
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -278,7 +283,7 @@ function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCt
         {depositOn && (
           <div className="apply-deposit-note">
             <Icon name="check" size={15} />
-            <span>Complete your application below, then you&apos;ll be taken to secure payment for your {deposit!.mode === "full" ? "full programme fee" : "£2,000 deposit"}.</span>
+            <span>Complete your application below, then you&apos;ll be taken to secure payment for your {deposit!.mode === "full" ? "full programme fee" : depositLabel}.</span>
           </div>
         )}
       </div>
@@ -392,6 +397,7 @@ export function ApplyView() {
         mode: sp.get("mode") === "full" ? "full" : "deposit",
         amount: sp.get("amount") || undefined,
         email: sp.get("email") || undefined,
+        depositAmount: sp.get("depositAmount") || undefined,
       });
     }
   }, []);

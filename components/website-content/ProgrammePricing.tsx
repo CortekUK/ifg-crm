@@ -26,7 +26,7 @@ function PackageRow({
 }) {
   return (
     <div className={cn('flex items-center gap-3 rounded-lg border border-border/70 bg-card p-3', !pkg.published && 'opacity-70')}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold uppercase text-muted-foreground">{pkg.key}</span>
+      <span title={pkg.key} className="flex h-9 min-w-[36px] max-w-[92px] shrink-0 items-center justify-center overflow-hidden truncate whitespace-nowrap rounded-md bg-muted px-2 text-xs font-semibold uppercase text-muted-foreground">{pkg.key}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium text-foreground">{pkg.label}</p>

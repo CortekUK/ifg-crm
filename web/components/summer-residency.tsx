@@ -104,7 +104,7 @@ export function SummerResidencyView({ options, data }: { options?: SummerOption[
                   <span className="sr-price-row"><Icon name="calendar" size={15} />{o.dates}</span>
                   <span className="sr-price-row"><Icon name="check" size={15} />{o.deposit} deposit to secure</span>
                 </div>
-                <DepositButton programme="residency" className="sr-price-cta">
+                <DepositButton programme="residency" deposit={Number(o.deposit.replace(/[^0-9.]/g, ""))} className="sr-price-cta">
                   Pay {o.deposit} deposit <Icon name="arrow-right" size={15} />
                 </DepositButton>
                 <DepositButton

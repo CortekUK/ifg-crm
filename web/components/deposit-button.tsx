@@ -39,6 +39,7 @@ export function DepositButton({
   mode = "deposit",
   amount,
   label,
+  deposit,
 }: {
   programme: Programme;
   className?: string;
@@ -48,9 +49,11 @@ export function DepositButton({
   amount?: number;
   /** Short label for the thing being paid for, e.g. "Full 6 Weeks". */
   label?: string;
+  /** CMS-managed deposit (whole GBP) shown in deposit mode. */
+  deposit?: number;
 }) {
   const isFull = mode === "full";
-  const DEPOSIT_DISPLAY = "£2,000";
+  const DEPOSIT_DISPLAY = typeof deposit === "number" ? `£${deposit.toLocaleString("en-GB")}` : "£2,000";
   const amountDisplay = isFull
     ? typeof amount === "number"
       ? `£${amount.toLocaleString("en-GB")}`
@@ -120,6 +123,7 @@ export function DepositButton({
         email: addr,
       });
       if (isFull && typeof amount === "number") params.set("amount", String(amount));
+      if (!isFull && typeof deposit === "number") params.set("depositAmount", String(deposit));
       window.location.href = `${APPLY_BASE}?${params.toString()}`;
     } catch {
       setError("Could not continue. Please try again.");
