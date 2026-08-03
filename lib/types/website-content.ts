@@ -49,7 +49,64 @@ export interface SiteContentItem {
   updated_at: string
 }
 
+// ── Programme pricing (migration 142) ────────────────────────────────────────
+// Programme keys used by the pricing tables and the deposit checkout.
+export type ProgrammeKey = 'residency' | 'university' | 'gapyear'
+
+// A display-only breakdown line, e.g. { label: 'Accommodation', value: '£6,500' }.
+export interface PriceLine {
+  label: string
+  value: string
+}
+
+export interface WebsitePackage {
+  id: string
+  programme: string
+  key: string                    // stable id within a programme, e.g. 'A', 'programme'
+  label: string
+  subtitle: string | null
+  duration: string | null
+  full_amount: number | null     // authoritative full charge (whole GBP)
+  deposit_amount: number | null  // per-package deposit override (whole GBP); null = programme default
+  deposit_enabled: boolean
+  full_enabled: boolean
+  currency: string
+  breakdown: PriceLine[]
+  featured: boolean
+  published: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+// Per-programme default deposit + advanced card-fee settings (PK = programme).
+export interface PricingSettings {
+  programme: string
+  deposit_default: number | null
+  deposit_enabled: boolean
+  fee_rate: number               // decimal, e.g. 0.035
+  fee_fixed: number              // whole GBP, e.g. 0.20
+  currency: string
+  updated_at: string
+}
+
+// ── Page content overrides (migration 142) ───────────────────────────────────
+export interface WebsitePageRow {
+  id: string
+  slug: string
+  title: string
+  route: string | null
+  overrides: Record<string, unknown>
+  published: boolean
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+export type WebsitePageInput = Partial<Omit<WebsitePageRow, 'id' | 'created_at' | 'updated_at'>>
+
 // Insert/update payloads — id optional (present = update, absent = insert).
 export type SuccessStoryInput = Partial<Omit<SuccessStory, 'created_at' | 'updated_at'>>
 export type GalleryCategoryInput = Partial<Omit<GalleryCategory, 'created_at' | 'updated_at'>>
 export type SiteContentInput = Partial<Omit<SiteContentItem, 'created_at' | 'updated_at'>>
+export type WebsitePackageInput = Partial<Omit<WebsitePackage, 'created_at' | 'updated_at'>>
+export type PricingSettingsInput = Partial<Omit<PricingSettings, 'updated_at'>>

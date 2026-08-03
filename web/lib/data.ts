@@ -752,6 +752,28 @@ export const GAP_YEAR = {
 };
 
 
+// ---- Home page (CMS-editable copy) ----
+// The animated hero title is intentionally NOT here (its per-line masks are
+// hand-built); everything below is plain text/CTA copy safe to edit in the CMS.
+export const HOME = {
+  hero: {
+    eyebrow: "Market-leading sports education",
+    subtitle: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities.",
+    ctaPrimary: "Apply Now",
+    ctaSecondary: "Book a call",
+  },
+  programmes: {
+    eyebrow: "Our programmes",
+    heading: "Choose your pathway",
+    intro: "Three routes into the game — each built around elite football and accredited education, delivered with Macclesfield FC and the University of Lancashire.",
+  },
+  values: {
+    eyebrow: "Group values",
+    heading: "Built around five priorities",
+    intro: "A holistic approach to developing every key stakeholder — the player, the person and the people around them.",
+  },
+};
+
 // ---- Success stories ----
 export type SuccessStory = {
   slug: string;

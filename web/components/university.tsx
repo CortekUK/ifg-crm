@@ -7,13 +7,21 @@ import { CTABand } from "./sections";
 import { UniversityCourses } from "./university-courses";
 import { DepositButton } from "./deposit-button";
 import { UNIVERSITY, type UniCourse } from "@/lib/data";
+import type { UniversityPricing } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=university";
 const BROCHURE = "/programmes/macclesfield/brochure";
 
-export function UniversityView({ courses }: { courses?: UniCourse[] }) {
+export function UniversityView({ courses, pricing, content }: { courses?: UniCourse[]; pricing?: UniversityPricing | null; content?: typeof UNIVERSITY }) {
   const router = useRouter();
-  const u = UNIVERSITY;
+  const u = content ?? UNIVERSITY;
+
+  // Plans & pricing from the CMS (website_packages), with the bundled defaults as
+  // fallback. Defaults mirror the values previously hardcoded in this component.
+  const costs = pricing?.costs?.length ? pricing.costs : u.costs;
+  const fullAmount = pricing?.fullAmount ?? 18500;
+  const depositLabel = `£${(pricing?.deposit ?? 2000).toLocaleString("en-GB")}`;
+  const fullLabel = `£${fullAmount.toLocaleString("en-GB")}`;
 
   const heroCtas = (
     <>
@@ -172,7 +180,7 @@ export function UniversityView({ courses }: { courses?: UniCourse[] }) {
             <h2 className="t-h2" style={{ marginTop: 12 }}>Plans &amp; pricing</h2>
           </div>
           <div className="uni-costs" data-anim="stagger">
-            {u.costs.map((c) => (
+            {costs.map((c) => (
               <article className="uni-cost" key={c.label}>
                 <span className="uni-cost-l">{c.label}</span>
                 <span className="uni-cost-v">{c.value}</span>
@@ -181,10 +189,10 @@ export function UniversityView({ courses }: { courses?: UniCourse[] }) {
           </div>
           <div className="uni-apply-cta">
             <DepositButton programme="university" className="btn btn-primary btn-lg">
-              Pay £2,000 deposit<Icon name="arrow-right" className="ic" size={18} />
+              Pay {depositLabel} deposit<Icon name="arrow-right" className="ic" size={18} />
             </DepositButton>
-            <DepositButton programme="university" mode="full" amount={18500} label="Full programme" className="btn btn-ghost btn-lg">
-              Pay in full (£18,500)
+            <DepositButton programme="university" mode="full" amount={fullAmount} label="Full programme" className="btn btn-ghost btn-lg">
+              Pay in full ({fullLabel})
             </DepositButton>
             <Button variant="ghost" size="lg" onClick={() => router.push(APPLY)}>Apply first</Button>
             <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Speak to the team</Button>

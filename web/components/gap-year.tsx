@@ -5,13 +5,15 @@ import { Icon } from "./icons";
 import { MediaCarousel, CardCarousel } from "./carousels";
 import { CTABand } from "./sections";
 import { GAP_YEAR } from "@/lib/data";
+import type { GapCost } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=gap-year";
 const BROCHURE = "/programmes/macclesfield/brochure";
 
-export function GapYearView() {
+export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: typeof GAP_YEAR }) {
   const router = useRouter();
-  const g = GAP_YEAR;
+  const g = content ?? GAP_YEAR;
+  const gyCosts = costs && costs.length ? costs : g.costs;
 
   const heroCtas = (
     <>
@@ -157,7 +159,7 @@ export function GapYearView() {
             <h2 className="t-h2" style={{ marginTop: 12 }}>Programme costs</h2>
           </div>
           <div className="gy-costs" data-anim="stagger">
-            {g.costs.map((c, i) => (
+            {gyCosts.map((c, i) => (
               <article className={"gy-cost" + (c.featured ? " feat" : "")} key={c.title + i}>
                 {c.featured && <span className="gy-cost-badge"><Icon name="sparkles" size={13} /> Best value</span>}
                 <span className="gy-cost-t">{c.title}</span>

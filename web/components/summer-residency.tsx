@@ -7,13 +7,14 @@ import { YouTubeLite } from "./youtube";
 import { CTABand } from "./sections";
 import { DepositButton } from "./deposit-button";
 import { SUMMER_RESIDENCY, type ScheduleDay } from "@/lib/data";
+import type { SummerOption } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=training";
 const BROCHURE = "/programmes/macclesfield/brochure";
 
-export function SummerResidencyView() {
+export function SummerResidencyView({ options, data }: { options?: SummerOption[]; data?: typeof SUMMER_RESIDENCY }) {
   const router = useRouter();
-  const s = SUMMER_RESIDENCY;
+  const s = data ?? SUMMER_RESIDENCY;
 
   const heroCtas = (
     <>
@@ -88,7 +89,7 @@ export function SummerResidencyView() {
             <p style={{ color: "var(--fg-muted)", marginTop: 10, fontWeight: 600 }}>{s.optionsNote}</p>
           </div>
           <div className="sr-prices" data-anim="stagger">
-            {s.options.map((o) => (
+            {(options && options.length ? options : s.options).map((o) => (
               <article className={"sr-price" + (o.featured ? " feat" : "")} key={o.label}>
                 {o.featured && <span className="sr-price-badge"><Icon name="sparkles" size={13} /> Most popular</span>}
                 <div className="sr-price-head">

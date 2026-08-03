@@ -9,13 +9,13 @@ import { HeroReel } from "./hero-reel";
 import { Accordion } from "./accordion";
 import {
   VALUES, YT_FEATURED, YT_VIDEOS, HERO_VIDEOS, HERO_POSTER, ARTICLES, STATS, PARTNERS,
-  MACC_SUBPROGRAMMES, MACCLESFIELD, MACC_BENEFITS,
+  MACC_SUBPROGRAMMES, MACCLESFIELD, MACC_BENEFITS, HOME,
 } from "@/lib/data";
 
 const APPLY_HREF = "/programmes/macclesfield/apply";
 const PROG_BASE = "/programmes/macclesfield";
 
-function Hero() {
+function Hero({ hero }: { hero: typeof HOME.hero }) {
   const down = () => {
     if (window.__lenis) window.__lenis.scrollTo(window.innerHeight * 0.92);
     else window.scrollTo({ top: window.innerHeight * 0.92, behavior: "smooth" });
@@ -25,18 +25,18 @@ function Hero() {
       <HeroReel srcs={HERO_VIDEOS} seconds={14} poster={HERO_POSTER} />
       <div className="protect hero-protect" />
       <div className="wrap hero-in">
-        <div data-anim="hero-fade"><Eyebrow style={{ color: "var(--pitch-400)" }}>Market-leading sports education</Eyebrow></div>
+        <div data-anim="hero-fade"><Eyebrow style={{ color: "var(--pitch-400)" }}>{hero.eyebrow}</Eyebrow></div>
         <h1 className="t-hero hero-title">
           <span className="hero-mask"><span className="hero-word" data-anim="hero-line">World-class</span></span>
           <span className="hero-mask"><span className="hero-word" data-anim="hero-line">football <span style={{ color: "var(--pitch-500)" }}>education</span></span></span>
           <span className="hero-mask"><span className="hero-word" data-anim="hero-line">&amp; experiences</span></span>
         </h1>
         <p className="hero-sub" data-anim="hero-fade">
-          Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe&apos;s great cities.
+          {hero.subtitle}
         </p>
         <div className="hero-cta" data-anim="hero-fade">
-          <Button variant="primary" size="lg" iconRight="arrow-right" as="a" href={APPLY_HREF}>Apply Now</Button>
-          <Button variant="ghost" size="lg" as="a" href="/contact">Book a call</Button>
+          <Button variant="primary" size="lg" iconRight="arrow-right" as="a" href={APPLY_HREF}>{hero.ctaPrimary}</Button>
+          <Button variant="ghost" size="lg" as="a" href="/contact">{hero.ctaSecondary}</Button>
           <button className="scroll-cue" onClick={down} aria-label="Scroll down">
             <span>Scroll</span>
             <span className="scroll-cue-line"><span /></span>
@@ -49,14 +49,14 @@ function Hero() {
 
 // The direct programme tiles — a visitor lands and clicks straight into a
 // programme, no intermediate "discover the programmes" step.
-function ProgrammeTiles() {
+function ProgrammeTiles({ copy }: { copy: typeof HOME.programmes }) {
   return (
     <section className="section">
       <div className="wrap">
         <div className="section-head" data-anim="up">
-          <Eyebrow>Our programmes</Eyebrow>
-          <h2 data-anim="reveal-title">Choose your pathway</h2>
-          <p>Three routes into the game — each built around elite football and accredited education, delivered with Macclesfield FC and the University of Lancashire.</p>
+          <Eyebrow>{copy.eyebrow}</Eyebrow>
+          <h2 data-anim="reveal-title">{copy.heading}</h2>
+          <p>{copy.intro}</p>
         </div>
         <div className="mh-cards" data-anim="stagger">
           {MACC_SUBPROGRAMMES.map((s) => (
@@ -204,20 +204,21 @@ function NewsGrid() {
   );
 }
 
-export function HomeView() {
+export function HomeView({ data }: { data?: typeof HOME }) {
+  const h = data ?? HOME;
   return (
     <div>
-      <Hero />
-      <ProgrammeTiles />
+      <Hero hero={h.hero} />
+      <ProgrammeTiles copy={h.programmes} />
       <PartnersMarquee />
       <Introducing />
 
       <section className="section band-ink">
         <div className="wrap">
           <div className="section-head" data-anim="up">
-            <Eyebrow>Group values</Eyebrow>
-            <h2 data-anim="reveal-title">Built around five priorities</h2>
-            <p>A holistic approach to developing every key stakeholder — the player, the person and the people around them.</p>
+            <Eyebrow>{h.values.eyebrow}</Eyebrow>
+            <h2 data-anim="reveal-title">{h.values.heading}</h2>
+            <p>{h.values.intro}</p>
           </div>
           <div data-anim="up">
             <CardCarousel

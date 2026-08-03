@@ -23,6 +23,10 @@ import { stripe } from '@/lib/stripe'
  * "Deposit Paid", removes them from the abandoned list, and (for full payments)
  * tags the contact "Paid in Full".
  *
+ * Pricing (amounts, deposit, card fee) is resolved from the CMS tables
+ * website_packages / website_pricing_settings via resolvePricing(); the env vars
+ * below are only FALLBACKS if those tables have no rows for the programme.
+ *
  * Env: FORM_INGEST_SECRET (auth), STRIPE_SECRET_KEY, optionally DEPOSIT_AMOUNT
  * (2000), DEPOSIT_FEE_RATE (0.035), DEPOSIT_FEE_FIXED (0.20),
  * UNIVERSITY_FULL_AMOUNT (18500), WEBSITE_URL (success/cancel fallback).
@@ -42,9 +46,16 @@ const FORM_ID_BY_PROGRAMME: Record<string, string> = {
   university: 'university',
 }
 
-// Allowed full-payment amounts (server-authoritative). Residency = published
-// per-package totals; University = the headline programme fee.
-const RESIDENCY_FULL_AMOUNTS = [3500, 6000, 8000]
+// Historical fallbacks — used ONLY when the CMS pricing tables have no rows for a
+// programme, so a DB hiccup can never break checkout. Live prices come from
+// website_packages / website_pricing_settings via resolvePricing().
+const FALLBACK_DEPOSIT = Number(process.env.DEPOSIT_AMOUNT || 2000)
+const FALLBACK_FULL_AMOUNTS: Record<string, number[]> = {
+  residency: [3500, 6000, 8000],
+  university: [Number(process.env.UNIVERSITY_FULL_AMOUNT || 18500)],
+}
+const FALLBACK_FEE_RATE = Number(process.env.DEPOSIT_FEE_RATE || 0.035)
+const FALLBACK_FEE_FIXED = Number(process.env.DEPOSIT_FEE_FIXED || 0.2)
 
 function str(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined
@@ -53,12 +64,63 @@ function str(v: unknown): string | undefined {
 }
 
 // Gross-up the card fee on top of `base` so IFG nets the full amount.
-function price(base: number) {
-  const rate = Number(process.env.DEPOSIT_FEE_RATE || 0.035)
-  const fixed = Number(process.env.DEPOSIT_FEE_FIXED || 0.2)
+function price(base: number, rate: number, fixed: number) {
   const total = (base + fixed) / (1 - rate)
   const fee = Math.max(0, Math.ceil((total - base) * 100) / 100)
   return { base, fee, total: base + fee }
+}
+
+interface Pricing { depositBase: number | null; fullAmounts: number[]; feeRate: number; feeFixed: number }
+
+// Resolve authoritative pricing for a programme from the CMS tables, with the
+// historical constants as a safety net. Server-side only (service client) — the
+// client can never dictate an amount; every `full` request is validated against
+// the published package amounts returned here.
+async function resolvePricing(
+  supabase: NonNullable<ReturnType<typeof getServiceClient>>,
+  programmeKey: string,
+): Promise<Pricing> {
+  try {
+    const [settingsRes, pkgRes] = await Promise.all([
+      supabase
+        .from('website_pricing_settings')
+        .select('deposit_default, deposit_enabled, fee_rate, fee_fixed')
+        .eq('programme', programmeKey)
+        .maybeSingle(),
+      supabase
+        .from('website_packages')
+        .select('full_amount, full_enabled')
+        .eq('programme', programmeKey)
+        .eq('published', true),
+    ])
+    const settings = settingsRes.data as
+      | { deposit_default: number | null; deposit_enabled: boolean; fee_rate: number | null; fee_fixed: number | null }
+      | null
+    const pkgs = (pkgRes.data as { full_amount: number | null; full_enabled: boolean }[] | null) ?? []
+
+    const fullAmounts = Array.from(
+      new Set(
+        pkgs.filter((p) => p.full_enabled && typeof p.full_amount === 'number').map((p) => p.full_amount as number),
+      ),
+    )
+    return {
+      depositBase: settings
+        ? settings.deposit_enabled && settings.deposit_default != null
+          ? Number(settings.deposit_default)
+          : null
+        : FALLBACK_DEPOSIT,
+      fullAmounts: fullAmounts.length ? fullAmounts : FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
+      feeRate: settings?.fee_rate != null ? Number(settings.fee_rate) : FALLBACK_FEE_RATE,
+      feeFixed: settings?.fee_fixed != null ? Number(settings.fee_fixed) : FALLBACK_FEE_FIXED,
+    }
+  } catch {
+    return {
+      depositBase: FALLBACK_DEPOSIT,
+      fullAmounts: FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
+      feeRate: FALLBACK_FEE_RATE,
+      feeFixed: FALLBACK_FEE_FIXED,
+    }
+  }
 }
 
 interface AutomationRow { pipeline_id: string | null; config: { form_id?: string; form_ids?: string[] } | null }
@@ -110,26 +172,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 })
   }
 
-  // Payment mode: 'deposit' (£2k) or 'full' (whole programme).
+  // Payment mode: 'deposit' or 'full' (whole programme).
   const mode = str(body.mode) === 'full' ? 'full' : 'deposit'
-  let baseAmount = Number(process.env.DEPOSIT_AMOUNT || 2000)
   const invoiceType: 'deposit' | 'full_payment' = mode === 'full' ? 'full_payment' : 'deposit'
   const payNoun = mode === 'full' ? 'full payment' : 'deposit'
-  if (mode === 'full') {
-    if (programmeKey === 'university') {
-      baseAmount = Number(process.env.UNIVERSITY_FULL_AMOUNT || 18500)
-    } else {
-      const requested = Math.round(Number(body.amount))
-      if (!RESIDENCY_FULL_AMOUNTS.includes(requested)) {
-        return NextResponse.json({ error: 'Invalid payment amount.' }, { status: 400 })
-      }
-      baseAmount = requested
-    }
-  }
 
   const supabase = getServiceClient()
   if (!supabase) {
     return NextResponse.json({ error: 'Payments are temporarily unavailable.' }, { status: 503 })
+  }
+
+  // Authoritative amount from the CMS pricing tables (never trust the client).
+  const pricing = await resolvePricing(supabase, programmeKey)
+  let baseAmount: number
+  if (mode === 'full') {
+    const raw = body.amount
+    const requested = raw != null && raw !== '' ? Math.round(Number(raw)) : null
+    if (requested != null) {
+      if (Number.isNaN(requested) || !pricing.fullAmounts.includes(requested)) {
+        return NextResponse.json({ error: 'Invalid payment amount.' }, { status: 400 })
+      }
+      baseAmount = requested
+    } else if (pricing.fullAmounts.length === 1) {
+      baseAmount = pricing.fullAmounts[0] // single programme fee (e.g. University)
+    } else {
+      return NextResponse.json({ error: 'Invalid payment amount.' }, { status: 400 })
+    }
+  } else {
+    if (pricing.depositBase == null) {
+      return NextResponse.json({ error: 'Deposits are not available for this programme.' }, { status: 400 })
+    }
+    baseAmount = pricing.depositBase
   }
 
   try {
@@ -189,7 +262,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payments are temporarily unavailable.' }, { status: 500 })
     }
 
-    const { base, fee, total } = price(baseAmount)
+    const { base, fee, total } = price(baseAmount, pricing.feeRate, pricing.feeFixed)
     const due = new Date()
     due.setDate(due.getDate() + 7)
     const dueDate = due.toISOString().slice(0, 10)
