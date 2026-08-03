@@ -7,6 +7,7 @@
 
 import {
   Home, Sun, GraduationCap, Compass, Trophy, Images, Users, HelpCircle, CalendarClock,
+  Info, Mail, Youtube, Building2,
   type LucideIcon,
 } from 'lucide-react'
 import type { ProgrammeKey } from '@/lib/types/website-content'
@@ -42,6 +43,14 @@ export const CMS_PAGES: CmsPage[] = [
     description: 'Questions and answers on the FAQ page.', modules: ['faqs'] },
   { slug: 'id-clinics', title: 'ID Clinics', route: '/id-clinics', icon: CalendarClock,
     description: 'Upcoming identification clinics.', modules: ['clinics'] },
+  { slug: 'about', title: 'About', route: '/about', icon: Info,
+    description: 'About-the-group page copy and imagery.', modules: ['content'] },
+  { slug: 'contact', title: 'Contact', route: '/contact', icon: Mail,
+    description: 'Contact hero, booking copy and scheduling link.', modules: ['content'] },
+  { slug: 'ifg-tv', title: 'IFG TV', route: '/ifg-tv', icon: Youtube,
+    description: 'IFG TV page copy (videos come from YouTube).', modules: ['content'] },
+  { slug: 'facilities', title: 'Facilities', route: '/programmes/macclesfield/facilities', icon: Building2,
+    description: 'Facilities page hero and intro copy.', modules: ['content'] },
 ]
 
 export function getCmsPage(slug: string): CmsPage | undefined {

@@ -8,7 +8,7 @@ import { YouTubeLite } from "./youtube";
 import { HeroReel } from "./hero-reel";
 import { Accordion } from "./accordion";
 import {
-  VALUES, YT_FEATURED, YT_VIDEOS, HERO_VIDEOS, HERO_POSTER, ARTICLES, STATS, PARTNERS,
+  VALUES, YT_FEATURED, YT_VIDEOS, ARTICLES, STATS, PARTNERS,
   MACC_SUBPROGRAMMES, MACCLESFIELD, MACC_BENEFITS, HOME,
 } from "@/lib/data";
 
@@ -22,7 +22,7 @@ function Hero({ hero }: { hero: typeof HOME.hero }) {
   };
   return (
     <section className="hero">
-      <HeroReel srcs={HERO_VIDEOS} seconds={14} poster={HERO_POSTER} />
+      <HeroReel srcs={hero.videos} seconds={14} poster={hero.poster} />
       <div className="protect hero-protect" />
       <div className="wrap hero-in">
         <div data-anim="hero-fade"><Eyebrow style={{ color: "var(--pitch-400)" }}>{hero.eyebrow}</Eyebrow></div>
@@ -123,14 +123,14 @@ function Introducing() {
   );
 }
 
-function IFGTV() {
+function IFGTV({ copy }: { copy: typeof HOME.ifgtv }) {
   return (
     <section className="section">
       <div className="wrap">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 40, gap: 24, flexWrap: "wrap" }} data-anim="up">
           <div className="section-head" style={{ margin: 0 }}>
-            <Eyebrow>IFG TV</Eyebrow>
-            <h2 data-anim="reveal-title">Watch the journey</h2>
+            <Eyebrow>{copy.eyebrow}</Eyebrow>
+            <h2 data-anim="reveal-title">{copy.heading}</h2>
           </div>
           <Link href="/ifg-tv" className="btn btn-ghost">View all on IFG TV<Icon name="arrow-right" className="ic" size={18} /></Link>
         </div>
@@ -172,14 +172,14 @@ function Benefits() {
   );
 }
 
-function NewsGrid() {
+function NewsGrid({ copy }: { copy: typeof HOME.news }) {
   return (
     <section className="section">
       <div className="wrap">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 40, gap: 24, flexWrap: "wrap" }} data-anim="up">
           <div className="section-head" style={{ margin: 0 }}>
-            <Eyebrow>Group news</Eyebrow>
-            <h2 style={{ marginTop: 14 }} data-anim="reveal-title">Latest from the group</h2>
+            <Eyebrow>{copy.eyebrow}</Eyebrow>
+            <h2 style={{ marginTop: 14 }} data-anim="reveal-title">{copy.heading}</h2>
           </div>
           <Link href="/news" className="btn btn-ghost">View all news<Icon name="arrow-right" className="ic" size={18} /></Link>
         </div>
@@ -239,27 +239,27 @@ export function HomeView({ data }: { data?: typeof HOME }) {
         </div>
       </section>
 
-      <IFGTV />
+      <IFGTV copy={h.ifgtv} />
       <Benefits />
 
       <section className="section band-bone">
         <div className="wrap">
           <div className="grid-2" style={{ alignItems: "center", gap: 64 }}>
             <div data-anim="up">
-              <Eyebrow style={{ color: "var(--pitch-700)" }}>About the group</Eyebrow>
-              <h2 className="t-h1" style={{ marginTop: 16 }} data-anim="reveal-title">Where football and education meet</h2>
+              <Eyebrow style={{ color: "var(--pitch-700)" }}>{h.about.eyebrow}</Eyebrow>
+              <h2 className="t-h1" style={{ marginTop: 16 }} data-anim="reveal-title">{h.about.heading}</h2>
               <p className="t-quote" style={{ color: "var(--slate-900)", margin: "24px 0 0" }}>
-                &ldquo;We forge collaborations with the foremost names in global football, integrating education and football experience.&rdquo;
+                &ldquo;{h.about.quote}&rdquo;
               </p>
               <p style={{ color: "var(--slate-700)", fontSize: 18, margin: "20px 0 0", maxWidth: "54ch" }}>
-                Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.
+                {h.about.body}
               </p>
               <div style={{ marginTop: 28 }}>
                 <Button variant="solid" iconRight="arrow-right" as="a" href="/news">Latest news</Button>
               </div>
             </div>
             <div className="editorial-media" data-anim="clip">
-              <img className="emedia-img" data-parallax="0.12" src="/maccles/DSC01273-Enhanced-NR-scaled.jpg" alt="" loading="lazy" />
+              <img className="emedia-img" data-parallax="0.12" src={h.about.image} alt="" loading="lazy" />
             </div>
           </div>
           <div className="about-stats" data-anim="up">
@@ -268,7 +268,7 @@ export function HomeView({ data }: { data?: typeof HOME }) {
         </div>
       </section>
 
-      <NewsGrid />
+      <NewsGrid copy={h.news} />
 
       <CTABand />
     </div>

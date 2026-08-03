@@ -761,6 +761,13 @@ export const HOME = {
     subtitle: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities.",
     ctaPrimary: "Apply Now",
     ctaSecondary: "Book a call",
+    poster: "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto,so_0/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.jpg",
+    videos: [
+      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.mp4",
+      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901312/Macclesfield_FC_U23_3-3_Squires_Gate_FC_Match_Highlights_iivx9w.mp4",
+      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901477/UCLan_University_in_partnership_with_IFG_yr8sle.mp4",
+      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901671/UK_Soccer_SUMMER_RESIDENCY_2023_bwrctr.mp4",
+    ],
   },
   programmes: {
     eyebrow: "Our programmes",
@@ -771,6 +778,88 @@ export const HOME = {
     eyebrow: "Group values",
     heading: "Built around five priorities",
     intro: "A holistic approach to developing every key stakeholder — the player, the person and the people around them.",
+  },
+  ifgtv: {
+    eyebrow: "IFG TV",
+    heading: "Watch the journey",
+  },
+  about: {
+    eyebrow: "About the group",
+    heading: "Where football and education meet",
+    quote: "We forge collaborations with the foremost names in global football, integrating education and football experience.",
+    body: "Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.",
+    image: "/maccles/DSC01273-Enhanced-NR-scaled.jpg",
+  },
+  news: {
+    eyebrow: "Group news",
+    heading: "Latest from the group",
+  },
+};
+
+// ---- About page (CMS-editable copy) ----
+export const ABOUT = {
+  hero: {
+    eyebrow: "About the group",
+    heading: "Integrating education and football experience",
+    image: mkt(43482),
+  },
+  intro: {
+    quote: "The International Football Group is forging collaborations with the foremost names in global football.",
+    paragraphs: [
+      "We provide bachelor and master degrees within sport, offering diverse pathways that span football-specific pursuits and broader sports employment opportunities worldwide.",
+      "As part of our immersive approach, participants have the unique opportunity to explore and live in major European cities while engaging in the distinctive methodologies of world-renowned football clubs.",
+    ],
+  },
+  guides: {
+    eyebrow: "What guides us",
+    heading: "The player, person, parent, coach & club",
+  },
+  partnersEyebrow: "In collaboration with",
+};
+
+// ---- Contact page (CMS-editable copy) ----
+export const CONTACT = {
+  hero: {
+    eyebrow: "Get in touch",
+    heading: "Get in touch",
+    image: "/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg",
+  },
+  booking: {
+    eyebrow: "Book a call",
+    heading: "Speak to the team",
+    intro: "Grab a 15-minute call with us — we'll talk through the programmes and help you find the right pathway. Pick a time that works for you below.",
+  },
+  calendlyUrl: "https://calendly.com/nathan-9394/15min",
+};
+
+// ---- IFG TV page (CMS-editable copy) ----
+export const IFG_TV = {
+  hero: {
+    eyebrow: "The International Football Group",
+    heading: "IFG TV",
+    subtitle: "Match footage, player stories and behind-the-scenes films from inside world-class football education.",
+  },
+  featured: {
+    text: "Go inside the IFG experience — life in the UK, daily training, and the moments that make the journey. New films land on our YouTube channel every week.",
+  },
+  grid: {
+    eyebrow: "Latest uploads",
+    heading: "From the IFG channel",
+    intro: "Match days, development squads and the stories behind the programme — straight from our YouTube.",
+  },
+};
+
+// ---- Facilities page (CMS-editable copy) ----
+export const FACILITIES = {
+  hero: {
+    heading: "Programme Facilities",
+    subtitle: "The International Football Group in partnership with Macclesfield FC & UCLan.",
+    image: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+  },
+  intro: {
+    eyebrow: "The environment",
+    heading: "Everything you need to develop",
+    intro: "From a professional stadium and elite all-weather pitches to a dedicated gym, university campus and modern student halls — our environment is built to develop the complete athlete, on and off the pitch.",
   },
 };
 

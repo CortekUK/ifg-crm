@@ -37,6 +37,13 @@ const HOME: PageSchema = {
     { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', hint: 'The animated hero headline itself is fixed by design.', default: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities." },
     { section: 'Hero', path: 'hero.ctaPrimary', label: 'Primary button', type: 'text', default: 'Apply Now' },
     { section: 'Hero', path: 'hero.ctaSecondary', label: 'Secondary button', type: 'text', default: 'Book a call' },
+    { section: 'Hero', path: 'hero.poster', label: 'Background poster image', type: 'image', hint: 'Still shown before the background videos load.', default: 'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto,so_0/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.jpg' },
+    { section: 'Hero', path: 'hero.videos', label: 'Background video URLs', type: 'list', hint: 'Full mp4 URLs that crossfade behind the hero.', default: [
+      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.mp4',
+      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901312/Macclesfield_FC_U23_3-3_Squires_Gate_FC_Match_Highlights_iivx9w.mp4',
+      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901477/UCLan_University_in_partnership_with_IFG_yr8sle.mp4',
+      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901671/UK_Soccer_SUMMER_RESIDENCY_2023_bwrctr.mp4',
+    ] },
 
     { section: 'Programmes', path: 'programmes.eyebrow', label: 'Eyebrow', type: 'text', default: 'Our programmes' },
     { section: 'Programmes', path: 'programmes.heading', label: 'Heading', type: 'text', default: 'Choose your pathway' },
@@ -45,6 +52,18 @@ const HOME: PageSchema = {
     { section: 'Group values', path: 'values.eyebrow', label: 'Eyebrow', type: 'text', default: 'Group values' },
     { section: 'Group values', path: 'values.heading', label: 'Heading', type: 'text', default: 'Built around five priorities' },
     { section: 'Group values', path: 'values.intro', label: 'Intro', type: 'textarea', default: 'A holistic approach to developing every key stakeholder — the player, the person and the people around them.' },
+
+    { section: 'IFG TV', path: 'ifgtv.eyebrow', label: 'Eyebrow', type: 'text', default: 'IFG TV' },
+    { section: 'IFG TV', path: 'ifgtv.heading', label: 'Heading', type: 'text', default: 'Watch the journey' },
+
+    { section: 'About the group', path: 'about.eyebrow', label: 'Eyebrow', type: 'text', default: 'About the group' },
+    { section: 'About the group', path: 'about.heading', label: 'Heading', type: 'text', default: 'Where football and education meet' },
+    { section: 'About the group', path: 'about.quote', label: 'Quote', type: 'textarea', default: 'We forge collaborations with the foremost names in global football, integrating education and football experience.' },
+    { section: 'About the group', path: 'about.body', label: 'Body', type: 'textarea', default: 'Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.' },
+    { section: 'About the group', path: 'about.image', label: 'Image', type: 'image', default: '/maccles/DSC01273-Enhanced-NR-scaled.jpg' },
+
+    { section: 'News', path: 'news.eyebrow', label: 'Eyebrow', type: 'text', default: 'Group news' },
+    { section: 'News', path: 'news.heading', label: 'Heading', type: 'text', default: 'Latest from the group' },
   ],
 }
 
@@ -159,7 +178,70 @@ const GAP_YEAR: PageSchema = {
   ],
 }
 
-export const PAGE_SCHEMAS: PageSchema[] = [HOME, SUMMER, UNIVERSITY, GAP_YEAR]
+const ABOUT: PageSchema = {
+  slug: 'about',
+  title: 'About',
+  route: '/about',
+  fields: [
+    { section: 'Hero', path: 'hero.eyebrow', label: 'Eyebrow', type: 'text', default: 'About the group' },
+    { section: 'Hero', path: 'hero.heading', label: 'Heading', type: 'text', default: 'Integrating education and football experience' },
+    { section: 'Hero', path: 'hero.image', label: 'Background image', type: 'image', default: 'https://assets.mixkit.co/videos/43482/43482-thumb-720-0.jpg' },
+    { section: 'Introduction', path: 'intro.quote', label: 'Quote', type: 'textarea', default: 'The International Football Group is forging collaborations with the foremost names in global football.' },
+    { section: 'Introduction', path: 'intro.paragraphs', label: 'Paragraphs', type: 'list', default: [
+      'We provide bachelor and master degrees within sport, offering diverse pathways that span football-specific pursuits and broader sports employment opportunities worldwide.',
+      'As part of our immersive approach, participants have the unique opportunity to explore and live in major European cities while engaging in the distinctive methodologies of world-renowned football clubs.',
+    ] },
+    { section: 'What guides us', path: 'guides.eyebrow', label: 'Eyebrow', type: 'text', default: 'What guides us' },
+    { section: 'What guides us', path: 'guides.heading', label: 'Heading', type: 'text', default: 'The player, person, parent, coach & club' },
+    { section: 'Partners', path: 'partnersEyebrow', label: 'Eyebrow', type: 'text', default: 'In collaboration with' },
+  ],
+}
+
+const CONTACT: PageSchema = {
+  slug: 'contact',
+  title: 'Contact',
+  route: '/contact',
+  fields: [
+    { section: 'Hero', path: 'hero.eyebrow', label: 'Eyebrow', type: 'text', default: 'Get in touch' },
+    { section: 'Hero', path: 'hero.heading', label: 'Heading', type: 'text', default: 'Get in touch' },
+    { section: 'Hero', path: 'hero.image', label: 'Background image', type: 'image', default: '/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg' },
+    { section: 'Book a call', path: 'booking.eyebrow', label: 'Eyebrow', type: 'text', default: 'Book a call' },
+    { section: 'Book a call', path: 'booking.heading', label: 'Heading', type: 'text', default: 'Speak to the team' },
+    { section: 'Book a call', path: 'booking.intro', label: 'Intro', type: 'textarea', default: "Grab a 15-minute call with us — we'll talk through the programmes and help you find the right pathway. Pick a time that works for you below." },
+    { section: 'Book a call', path: 'calendlyUrl', label: 'Calendly link', type: 'text', hint: 'The scheduling link the booking widget loads.', default: 'https://calendly.com/nathan-9394/15min' },
+  ],
+}
+
+const IFG_TV: PageSchema = {
+  slug: 'ifg-tv',
+  title: 'IFG TV',
+  route: '/ifg-tv',
+  fields: [
+    { section: 'Hero', path: 'hero.eyebrow', label: 'Eyebrow', type: 'text', default: 'The International Football Group' },
+    { section: 'Hero', path: 'hero.heading', label: 'Heading', type: 'text', default: 'IFG TV' },
+    { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', default: 'Match footage, player stories and behind-the-scenes films from inside world-class football education.' },
+    { section: 'Featured', path: 'featured.text', label: 'Featured text', type: 'textarea', default: 'Go inside the IFG experience — life in the UK, daily training, and the moments that make the journey. New films land on our YouTube channel every week.' },
+    { section: 'Latest uploads', path: 'grid.eyebrow', label: 'Eyebrow', type: 'text', default: 'Latest uploads' },
+    { section: 'Latest uploads', path: 'grid.heading', label: 'Heading', type: 'text', default: 'From the IFG channel' },
+    { section: 'Latest uploads', path: 'grid.intro', label: 'Intro', type: 'textarea', default: 'Match days, development squads and the stories behind the programme — straight from our YouTube.' },
+  ],
+}
+
+const FACILITIES: PageSchema = {
+  slug: 'facilities',
+  title: 'Facilities',
+  route: '/programmes/macclesfield/facilities',
+  fields: [
+    { section: 'Hero', path: 'hero.heading', label: 'Heading', type: 'text', default: 'Programme Facilities' },
+    { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', default: 'The International Football Group in partnership with Macclesfield FC & UCLan.' },
+    { section: 'Hero', path: 'hero.image', label: 'Background image', type: 'image', default: '/summer/DJI_20240719121925_0067_D-scaled.jpg' },
+    { section: 'Introduction', path: 'intro.eyebrow', label: 'Eyebrow', type: 'text', default: 'The environment' },
+    { section: 'Introduction', path: 'intro.heading', label: 'Heading', type: 'text', default: 'Everything you need to develop' },
+    { section: 'Introduction', path: 'intro.intro', label: 'Intro', type: 'textarea', default: 'From a professional stadium and elite all-weather pitches to a dedicated gym, university campus and modern student halls — our environment is built to develop the complete athlete, on and off the pitch.' },
+  ],
+}
+
+export const PAGE_SCHEMAS: PageSchema[] = [HOME, SUMMER, UNIVERSITY, GAP_YEAR, ABOUT, CONTACT, IFG_TV, FACILITIES]
 
 export function getPageSchema(slug: string): PageSchema | undefined {
   return PAGE_SCHEMAS.find((p) => p.slug === slug)

@@ -3,9 +3,10 @@ import { Eyebrow } from "./primitives";
 import { Icon, SocialIcon } from "./icons";
 import { CTABand } from "./sections";
 import { YouTubeLite } from "./youtube";
-import { YT_CHANNEL, YT_FEATURED, YT_VIDEOS, VIDEO_SRC, VIDEO_POSTER } from "@/lib/data";
+import { YT_CHANNEL, YT_FEATURED, YT_VIDEOS, VIDEO_SRC, VIDEO_POSTER, IFG_TV } from "@/lib/data";
 
-export function IFGTVView() {
+export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
+  const t = data ?? IFG_TV;
   return (
     <div>
       {/* hero */}
@@ -13,10 +14,10 @@ export function IFGTVView() {
         <video className="hero-video" data-hero-video src={VIDEO_SRC} poster={VIDEO_POSTER} autoPlay muted loop playsInline />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
-          <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>IFG TV</h1>
+          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>{t.hero.eyebrow}</Eyebrow>
+          <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>{t.hero.heading}</h1>
           <p className="tv-hero-sub" data-anim="hero-fade">
-            Match footage, player stories and behind-the-scenes films from inside world-class football education.
+            {t.hero.subtitle}
           </p>
           <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
@@ -33,7 +34,7 @@ export function IFGTVView() {
               <span className="tv-pill"><span className="tv-pill-live"><i />{YT_FEATURED.tag}</span></span>
               <h2 className="t-h2 tv-feature-title">{YT_FEATURED.title}</h2>
               <p className="tv-feature-text">
-                Go inside the IFG experience — life in the UK, daily training, and the moments that make the journey. New films land on our YouTube channel every week.
+                {t.featured.text}
               </p>
               <div className="tv-channel-card">
                 <span className="tv-channel-ic"><SocialIcon name="youtube" size={26} /></span>
@@ -54,9 +55,9 @@ export function IFGTVView() {
       <section className="section band-ink" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="section-head" data-anim="up" style={{ paddingTop: "clamp(56px,7vw,96px)" }}>
-            <Eyebrow>Latest uploads</Eyebrow>
-            <h2 data-anim="reveal-title">From the IFG channel</h2>
-            <p>Match days, development squads and the stories behind the programme — straight from our YouTube.</p>
+            <Eyebrow>{t.grid.eyebrow}</Eyebrow>
+            <h2 data-anim="reveal-title">{t.grid.heading}</h2>
+            <p>{t.grid.intro}</p>
           </div>
           <div className="tv-grid" data-anim="stagger">
             {YT_VIDEOS.map((v) => (
