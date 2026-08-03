@@ -7,12 +7,12 @@
 
 import {
   Home, Sun, GraduationCap, Compass, Trophy, Images, Users, HelpCircle, CalendarClock,
-  Info, Mail, Youtube, Building2,
+  Info, Mail, Youtube, Building2, Newspaper,
   type LucideIcon,
 } from 'lucide-react'
 import type { ProgrammeKey } from '@/lib/types/website-content'
 
-export type CmsModule = 'content' | 'pricing' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics'
+export type CmsModule = 'content' | 'pricing' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news'
 
 export interface CmsPage {
   slug: string              // registry id + content-schema slug + URL param
@@ -41,6 +41,8 @@ export const CMS_PAGES: CmsPage[] = [
     description: 'The people on the Coaches & Staff page.', modules: ['staff'] },
   { slug: 'faq', title: 'FAQ', route: '/faq', icon: HelpCircle,
     description: 'Questions and answers on the FAQ page.', modules: ['faqs'] },
+  { slug: 'news', title: 'Latest News', route: '/news', icon: Newspaper,
+    description: 'News articles, each with its own detail page.', modules: ['news'] },
   { slug: 'id-clinics', title: 'ID Clinics', route: '/id-clinics', icon: CalendarClock,
     description: 'Upcoming identification clinics.', modules: ['clinics'] },
   { slug: 'about', title: 'About', route: '/about', icon: Info,

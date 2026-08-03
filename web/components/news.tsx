@@ -7,8 +7,8 @@ import { ARTICLES, type Article } from "@/lib/data";
 
 const byDate = (a: Article, b: Article) => (a.iso < b.iso ? 1 : -1);
 
-export function NewsView() {
-  const articles = [...ARTICLES].sort(byDate);
+export function NewsView({ articles: cms }: { articles?: Article[] }) {
+  const articles = [...(cms && cms.length ? cms : ARTICLES)].sort(byDate);
   return (
     <div>
       {/* hero */}
@@ -50,8 +50,8 @@ export function NewsView() {
   );
 }
 
-export function NewsArticleView({ article }: { article: Article }) {
-  const more = [...ARTICLES].filter((a) => a.slug !== article.slug).sort(byDate).slice(0, 3);
+export function NewsArticleView({ article, all }: { article: Article; all?: Article[] }) {
+  const more = [...(all && all.length ? all : ARTICLES)].filter((a) => a.slug !== article.slug).sort(byDate).slice(0, 3);
 
   const share = (network: "facebook" | "twitter" | "email") => {
     const url = typeof window !== "undefined" ? window.location.href : "";

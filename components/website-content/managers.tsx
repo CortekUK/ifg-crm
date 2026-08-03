@@ -1,18 +1,20 @@
 'use client'
 
 import * as React from 'react'
-import { GraduationCap, Users, HelpCircle, CalendarClock, Trophy, Images, ImageOff } from 'lucide-react'
+import { GraduationCap, Users, HelpCircle, CalendarClock, Trophy, Images, ImageOff, Newspaper } from 'lucide-react'
 import { toast } from '@/lib/hooks/use-toast'
 import {
   useSuccessStories, useGalleryCategories, useSiteContent, useDeleteContent,
 } from '@/lib/hooks/useWebsiteContent'
-import type { SuccessStory, GalleryCategory, SiteContentItem } from '@/lib/types/website-content'
+import { useNews, useDeleteNews } from '@/lib/hooks/useWebsiteNews'
+import type { SuccessStory, GalleryCategory, SiteContentItem, WebsiteNews } from '@/lib/types/website-content'
 import { StoryModal } from './StoryModal'
 import { GalleryModal } from './GalleryModal'
 import { SiteContentModal } from './SiteContentModal'
 import { FaqModal } from './FaqModal'
 import { CourseModal } from './CourseModal'
 import { StaffModal } from './StaffModal'
+import { NewsModal } from './NewsModal'
 import { Section, ContentCard, FaqCard, DeleteConfirm, GRID, TINT } from './_shared'
 
 type ContentTable = 'website_success_stories' | 'website_gallery_categories' | 'website_site_content'
@@ -94,6 +96,54 @@ export function GalleryManager() {
         </div>
       </Section>
       <GalleryModal open={modal.open} category={modal.item} onClose={() => setModal({ open: false, item: null })} />
+      <DeleteConfirm target={target} onCancel={() => setTarget(null)} onConfirm={confirm} />
+    </>
+  )
+}
+
+// ── Latest News (own table, rich article body) ───────────────────────────────
+export function NewsManager() {
+  const news = useNews()
+  const del = useDeleteNews()
+  const [modal, setModal] = React.useState<{ open: boolean; item: WebsiteNews | null }>({ open: false, item: null })
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [target, setTarget] = React.useState<{ id: string; label: string } | null>(null)
+
+  async function confirm() {
+    if (!target) return
+    const id = target.id
+    setTarget(null)
+    setDeletingId(id)
+    try {
+      await del.mutateAsync(id)
+      toast({ title: 'Article deleted', description: 'Removed from the website.' })
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e instanceof Error ? e.message : '', variant: 'destructive' })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  return (
+    <>
+      <Section
+        icon={Newspaper} tint={TINT.amber} title="Latest News"
+        description="Articles on the /news page — each gets its own detail page." count={news.data?.length ?? 0}
+        addLabel="New article" onAdd={() => setModal({ open: true, item: null })}
+        loading={news.isLoading} isEmpty={!news.data?.length}
+        empty={{ title: 'No articles yet', description: 'The website shows its built-in articles until you publish one here.' }}
+      >
+        <div className={GRID}>
+          {news.data?.map((n) => (
+            <ContentCard key={n.id} thumb={n.img} title={n.title}
+              subtitle={[n.category, n.date_text].filter(Boolean).join(' · ')} published={n.published}
+              fallbackIcon={Newspaper}
+              onEdit={() => setModal({ open: true, item: n })}
+              onDelete={() => setTarget({ id: n.id, label: n.title })} deleting={deletingId === n.id} />
+          ))}
+        </div>
+      </Section>
+      <NewsModal open={modal.open} item={modal.item} onClose={() => setModal({ open: false, item: null })} />
       <DeleteConfirm target={target} onCancel={() => setTarget(null)} onConfirm={confirm} />
     </>
   )

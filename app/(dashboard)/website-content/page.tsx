@@ -10,7 +10,7 @@ const SITE_URL = 'https://theinternationalfootballgroup.com'
 
 const MODULE_LABEL: Record<CmsModule, string> = {
   content: 'Content', pricing: 'Pricing', courses: 'Courses', staff: 'Staff',
-  faqs: 'FAQs', stories: 'Stories', gallery: 'Gallery', clinics: 'Clinics',
+  faqs: 'FAQs', stories: 'Stories', gallery: 'Gallery', clinics: 'Clinics', news: 'News',
 }
 
 export default function WebsiteContentPage() {

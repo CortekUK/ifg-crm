@@ -90,6 +90,34 @@ export interface PricingSettings {
   updated_at: string
 }
 
+// ── Website News (migration 144) ──────────────────────────────────────────────
+// Mirrors web/lib/data.ts ArticleBlock.
+export type NewsBlock =
+  | { type: 'p'; text: string }
+  | { type: 'h'; text: string }
+  | { type: 'quote'; text: string }
+  | { type: 'img'; src: string; caption?: string }
+  | { type: 'duo'; src: string; src2: string; caption?: string }
+
+export interface WebsiteNews {
+  id: string
+  slug: string
+  category: string
+  title: string
+  date_text: string | null
+  published_at: string
+  excerpt: string | null
+  img: string | null
+  hero_img: string | null
+  lead: string | null
+  body: NewsBlock[]
+  published: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+export type WebsiteNewsInput = Partial<Omit<WebsiteNews, 'created_at' | 'updated_at'>>
+
 // ── Page content overrides (migration 142) ───────────────────────────────────
 export interface WebsitePageRow {
   id: string
