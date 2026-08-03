@@ -758,6 +758,10 @@ export const GAP_YEAR = {
 export const HOME = {
   hero: {
     eyebrow: "Market-leading sports education",
+    // The animated hero headline — one masked line per entry. Any occurrence of
+    // `titleAccent` inside a line renders in the pitch accent colour.
+    titleLines: ["World-class", "football education", "& experiences"],
+    titleAccent: "education",
     subtitle: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities.",
     ctaPrimary: "Apply Now",
     ctaSecondary: "Book a call",
@@ -773,27 +777,17 @@ export const HOME = {
     eyebrow: "Our programmes",
     heading: "Choose your pathway",
     intro: "Three routes into the game — each built around elite football and accredited education, delivered with Macclesfield FC and the University of Lancashire.",
+    // The three tiles. `id` maps to /programmes/macclesfield/<id> — keep it stable.
+    cards: [
+      { id: "summer-residency", name: "Summer Residency", tag: "Macclesfield FC", img: "/maccles/2023-Macclesfield-Fun-2-scaled.jpg" },
+      { id: "university", name: "University", tag: "Undergrad & Postgrad Degrees", img: "/maccles/54661849377_ae6918fc8d_o-scaled.jpg" },
+      { id: "gap-year", name: "Gap Year", tag: "Nine-Month Playing Season", img: "/maccles/54027689695_5d0b16b125_o.jpg" },
+    ],
   },
-  values: {
-    eyebrow: "Group values",
-    heading: "Built around five priorities",
-    intro: "A holistic approach to developing every key stakeholder — the player, the person and the people around them.",
-  },
-  ifgtv: {
-    eyebrow: "IFG TV",
-    heading: "Watch the journey",
-  },
-  about: {
-    eyebrow: "About the group",
-    heading: "Where football and education meet",
-    quote: "We forge collaborations with the foremost names in global football, integrating education and football experience.",
-    body: "Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.",
-    image: "/maccles/DSC01273-Enhanced-NR-scaled.jpg",
-  },
-  news: {
-    eyebrow: "Group news",
-    heading: "Latest from the group",
-  },
+  partners: [
+    { name: "Macclesfield FC", logo: "/assets/logo/partners-logos/maccles.png" },
+    { name: "University of Lancashire", logo: "/assets/logo/partners-logos/lancashire.png" },
+  ],
   introducing: {
     eyebrow: "Introducing",
     heading: "Macclesfield FC Football Education",
@@ -802,12 +796,49 @@ export const HOME = {
       "Using the football methodologies employed at some of the most renowned clubs in the world, The International Football Group gives student-athletes a unique opportunity to fulfil all their dreams out on the pitch.",
     ],
     images: ["/maccles/53046445765_c62d7e60e9_o.jpg", "/maccles/54370125778_fba1a86169_o-scaled.jpg", "/maccles/7.jpg"],
+    ctaPrimary: "Apply Now",
+    ctaSecondary: "View Brochure",
+    ctaTertiary: "Book a Call",
+  },
+  values: {
+    eyebrow: "Group values",
+    heading: "Built around five priorities",
+    intro: "A holistic approach to developing every key stakeholder — the player, the person and the people around them.",
+    cards: [
+      { n: "01", title: "Player", desc: "Develop the athlete through elite methodology and real club environments.", img: "/summer/53283355490_a3b0905c26_o.jpg" },
+      { n: "02", title: "Person", desc: "Grow the individual — education, character and life beyond the game.", img: "/maccles/2023-Macclesfield-Fun-2-scaled.jpg" },
+      { n: "03", title: "Parent", desc: "Keep families informed, supported and part of the journey.", img: "/summer/52647156393_db255d94b5_o.jpg" },
+      { n: "04", title: "Coach", desc: "Learn from, and become, the coaches who shape world-class football.", img: "/summer/53035529767_ab0183f004_o.jpg" },
+      { n: "05", title: "Club", desc: "Connect directly with renowned clubs and their distinctive cultures.", img: "/summer/DJI_20240719121925_0067_D-scaled.jpg" },
+    ],
+  },
+  ifgtv: {
+    eyebrow: "IFG TV",
+    heading: "Watch the journey",
   },
   benefits: {
     eyebrow: "The International Football Group",
     heading: "Benefits of our programmes",
     text: "Discover the unparalleled advantages of our programmes, enriched by our partnership with University of Lancashire, offering a diverse range of Bachelor and Masters programmes alongside exceptional football excellence experiences.",
     img: "/maccles/53036293139_2c50713232_k.jpg",
+    items: MACC_BENEFITS,
+  },
+  about: {
+    eyebrow: "About the group",
+    heading: "Where football and education meet",
+    quote: "We forge collaborations with the foremost names in global football, integrating education and football experience.",
+    body: "Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.",
+    image: "/maccles/DSC01273-Enhanced-NR-scaled.jpg",
+    stats: [
+      { value: "3", label: "Flagship programmes" },
+      { value: "2", label: "Degree levels — BSc & MSc" },
+      { value: "10+", label: "European cities to live in" },
+      { value: "1", label: "Group, worldwide" },
+    ],
+  },
+  news: {
+    eyebrow: "Group news",
+    heading: "Latest from the group",
   },
 };
 

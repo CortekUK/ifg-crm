@@ -1,4 +1,5 @@
 "use client";
+import { Fragment } from "react";
 import Link from "next/link";
 import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
@@ -7,13 +8,22 @@ import { CTABand, StatItem } from "./sections";
 import { YouTubeLite } from "./youtube";
 import { HeroReel } from "./hero-reel";
 import { Accordion } from "./accordion";
-import {
-  VALUES, YT_FEATURED, YT_VIDEOS, ARTICLES, STATS, PARTNERS,
-  MACC_SUBPROGRAMMES, MACC_BENEFITS, HOME,
-} from "@/lib/data";
+import { YT_FEATURED, YT_VIDEOS, ARTICLES, HOME } from "@/lib/data";
 
 const APPLY_HREF = "/programmes/macclesfield/apply";
 const PROG_BASE = "/programmes/macclesfield";
+
+// Render one hero headline line, colouring any occurrence of the accent phrase.
+function accentLine(line: string, accent: string) {
+  if (!accent || !line.includes(accent)) return line;
+  const parts = line.split(accent);
+  return parts.map((p, i) => (
+    <Fragment key={i}>
+      {p}
+      {i < parts.length - 1 && <span style={{ color: "var(--pitch-500)" }}>{accent}</span>}
+    </Fragment>
+  ));
+}
 
 function Hero({ hero }: { hero: typeof HOME.hero }) {
   const down = () => {
@@ -27,9 +37,11 @@ function Hero({ hero }: { hero: typeof HOME.hero }) {
       <div className="wrap hero-in">
         <div data-anim="hero-fade"><Eyebrow style={{ color: "var(--pitch-400)" }}>{hero.eyebrow}</Eyebrow></div>
         <h1 className="t-hero hero-title">
-          <span className="hero-mask"><span className="hero-word" data-anim="hero-line">World-class</span></span>
-          <span className="hero-mask"><span className="hero-word" data-anim="hero-line">football <span style={{ color: "var(--pitch-500)" }}>education</span></span></span>
-          <span className="hero-mask"><span className="hero-word" data-anim="hero-line">&amp; experiences</span></span>
+          {hero.titleLines.map((line, i) => (
+            <span className="hero-mask" key={i}>
+              <span className="hero-word" data-anim="hero-line">{accentLine(line, hero.titleAccent)}</span>
+            </span>
+          ))}
         </h1>
         <p className="hero-sub" data-anim="hero-fade">
           {hero.subtitle}
@@ -59,7 +71,7 @@ function ProgrammeTiles({ copy }: { copy: typeof HOME.programmes }) {
           <p>{copy.intro}</p>
         </div>
         <div className="mh-cards" data-anim="stagger">
-          {MACC_SUBPROGRAMMES.map((s) => (
+          {copy.cards.map((s) => (
             <Link key={s.id} href={`${PROG_BASE}/${s.id}`} className="mh-card">
               <img className="mh-card-img" src={s.img} alt={s.name} loading="lazy" />
               <div className="mh-card-shade" />
@@ -76,10 +88,10 @@ function ProgrammeTiles({ copy }: { copy: typeof HOME.programmes }) {
   );
 }
 
-function PartnersMarquee() {
+function PartnersMarquee({ partners }: { partners: typeof HOME.partners }) {
   // Repeat the partners enough to overflow even a wide viewport, then render
   // two identical halves so the -50% loop is perfectly seamless (no empty gap).
-  const half = Array.from({ length: 6 }).flatMap(() => PARTNERS);
+  const half = Array.from({ length: 6 }).flatMap(() => partners);
   const items = [...half, ...half];
   return (
     <section className="marquee-sec" aria-label="Our partners">
@@ -109,9 +121,9 @@ function Introducing({ copy }: { copy: typeof HOME.introducing }) {
             <p key={i} style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: i ? 16 : 22 }}>{p}</p>
           ))}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
-            <Button variant="primary" iconRight="arrow-right" as="a" href={APPLY_HREF}>Apply Now</Button>
-            <Button variant="ghost" icon="download" as="a" href={`${PROG_BASE}/brochure`}>View Brochure</Button>
-            <Button variant="solid" as="a" href="/contact">Book a Call</Button>
+            <Button variant="primary" iconRight="arrow-right" as="a" href={APPLY_HREF}>{copy.ctaPrimary}</Button>
+            <Button variant="ghost" icon="download" as="a" href={`${PROG_BASE}/brochure`}>{copy.ctaSecondary}</Button>
+            <Button variant="solid" as="a" href="/contact">{copy.ctaTertiary}</Button>
           </div>
         </div>
         <div data-anim="up">
@@ -164,7 +176,7 @@ function Benefits({ copy }: { copy: typeof HOME.benefits }) {
           <p style={{ color: "var(--fg-muted)", fontSize: 16, lineHeight: 1.65, margin: "16px 0 0" }}>{copy.text}</p>
           <img className="mh-benefits-img" src={copy.img} alt="" loading="lazy" />
         </div>
-        <div data-anim="up"><Accordion items={MACC_BENEFITS} /></div>
+        <div data-anim="up"><Accordion items={copy.items} /></div>
       </div>
     </section>
   );
@@ -208,7 +220,7 @@ export function HomeView({ data }: { data?: typeof HOME }) {
     <div>
       <Hero hero={h.hero} />
       <ProgrammeTiles copy={h.programmes} />
-      <PartnersMarquee />
+      <PartnersMarquee partners={h.partners} />
       <Introducing copy={h.introducing} />
 
       <section className="section band-ink">
@@ -220,15 +232,15 @@ export function HomeView({ data }: { data?: typeof HOME }) {
           </div>
           <div data-anim="up">
             <CardCarousel
-              items={VALUES}
-              render={([n, t, desc, img]) => (
+              items={h.values.cards}
+              render={(v) => (
                 <article className="vcard">
-                  <img className="vcard-img" src={img} alt="" loading="lazy" />
+                  <img className="vcard-img" src={v.img} alt="" loading="lazy" />
                   <div className="vcard-shade" />
                   <div className="vcard-body">
-                    <span className="vcard-n">{n}</span>
-                    <h3 className="vcard-t">{t}</h3>
-                    <p className="vcard-d">{desc}</p>
+                    <span className="vcard-n">{v.n}</span>
+                    <h3 className="vcard-t">{v.title}</h3>
+                    <p className="vcard-d">{v.desc}</p>
                   </div>
                 </article>
               )}
@@ -261,7 +273,7 @@ export function HomeView({ data }: { data?: typeof HOME }) {
             </div>
           </div>
           <div className="about-stats" data-anim="up">
-            {STATS.map(([v, l]) => <StatItem key={l} v={v} l={l} />)}
+            {h.about.stats.map((s) => <StatItem key={s.label} v={s.value} l={s.label} />)}
           </div>
         </div>
       </section>

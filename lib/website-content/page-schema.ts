@@ -10,7 +10,19 @@
 // preview. The website's authoritative default is still data.ts — if the two ever
 // drift, the live site stays correct; only this editor's preview would be stale.
 
-export type FieldType = 'text' | 'textarea' | 'list' | 'image' | 'images'
+export type FieldType = 'text' | 'textarea' | 'list' | 'image' | 'images' | 'cards'
+
+// A card = a repeatable object with its own small set of sub-fields (e.g. a value
+// card = number + title + caption + image). Used by the 'cards' field type.
+export interface SubField {
+  key: string             // key within each card object, e.g. 'title'
+  label: string
+  type: 'text' | 'textarea' | 'image'
+  hint?: string
+}
+
+export type CardValue = Record<string, string>
+export type FieldValue = string | string[] | CardValue[]
 
 export interface PageField {
   path: string            // dot-path into the page data object, e.g. 'hero.title'
@@ -18,7 +30,12 @@ export interface PageField {
   type: FieldType
   section: string         // group heading in the editor
   hint?: string
-  default: string | string[]
+  default: FieldValue
+  // 'cards' only ↓
+  itemFields?: SubField[] // the editable sub-fields of each card
+  itemLabel?: string      // singular noun: "Add value", card header "Value 1"
+  itemTitleKey?: string   // sub-field key shown as each card's heading in the editor
+  locked?: boolean        // fixed set — no add / remove / reorder (edit in place)
 }
 
 export interface PageSchema {
@@ -33,8 +50,11 @@ const HOME: PageSchema = {
   title: 'Home',
   route: '/',
   fields: [
+    // 1 — HERO
     { section: 'Hero', path: 'hero.eyebrow', label: 'Eyebrow', type: 'text', default: 'Market-leading sports education' },
-    { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', hint: 'The animated hero headline itself is fixed by design.', default: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities." },
+    { section: 'Hero', path: 'hero.titleLines', label: 'Main heading lines', type: 'list', hint: 'Each line animates in on its own. The accent word below is highlighted wherever it appears.', default: ['World-class', 'football education', '& experiences'] },
+    { section: 'Hero', path: 'hero.titleAccent', label: 'Accent word', type: 'text', hint: 'This word/phrase is shown in the green accent colour inside the heading.', default: 'education' },
+    { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', default: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities." },
     { section: 'Hero', path: 'hero.ctaPrimary', label: 'Primary button', type: 'text', default: 'Apply Now' },
     { section: 'Hero', path: 'hero.ctaSecondary', label: 'Secondary button', type: 'text', default: 'Book a call' },
     { section: 'Hero', path: 'hero.poster', label: 'Background poster image', type: 'image', hint: 'Still shown before the background videos load.', default: 'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto,so_0/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.jpg' },
@@ -45,38 +65,125 @@ const HOME: PageSchema = {
       'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901671/UK_Soccer_SUMMER_RESIDENCY_2023_bwrctr.mp4',
     ] },
 
+    // 2 — PROGRAMMES
     { section: 'Programmes', path: 'programmes.eyebrow', label: 'Eyebrow', type: 'text', default: 'Our programmes' },
     { section: 'Programmes', path: 'programmes.heading', label: 'Heading', type: 'text', default: 'Choose your pathway' },
     { section: 'Programmes', path: 'programmes.intro', label: 'Intro', type: 'textarea', default: 'Three routes into the game — each built around elite football and accredited education, delivered with Macclesfield FC and the University of Lancashire.' },
+    { section: 'Programmes', path: 'programmes.cards', label: 'Programme tiles', type: 'cards', locked: true,
+      itemLabel: 'programme', itemTitleKey: 'name',
+      hint: 'The three tiles that link into each programme page. Edit the label, tag and image — the link stays fixed.',
+      itemFields: [
+        { key: 'name', label: 'Name', type: 'text' },
+        { key: 'tag', label: 'Tag', type: 'text' },
+        { key: 'img', label: 'Image', type: 'image' },
+      ],
+      default: [
+        { id: 'summer-residency', name: 'Summer Residency', tag: 'Macclesfield FC', img: '/maccles/2023-Macclesfield-Fun-2-scaled.jpg' },
+        { id: 'university', name: 'University', tag: 'Undergrad & Postgrad Degrees', img: '/maccles/54661849377_ae6918fc8d_o-scaled.jpg' },
+        { id: 'gap-year', name: 'Gap Year', tag: 'Nine-Month Playing Season', img: '/maccles/54027689695_5d0b16b125_o.jpg' },
+      ] },
 
-    { section: 'Group values', path: 'values.eyebrow', label: 'Eyebrow', type: 'text', default: 'Group values' },
-    { section: 'Group values', path: 'values.heading', label: 'Heading', type: 'text', default: 'Built around five priorities' },
-    { section: 'Group values', path: 'values.intro', label: 'Intro', type: 'textarea', default: 'A holistic approach to developing every key stakeholder — the player, the person and the people around them.' },
+    // 3 — PARTNERS
+    { section: 'Partners', path: 'partners', label: 'Partner logos', type: 'cards',
+      itemLabel: 'partner', itemTitleKey: 'name',
+      hint: 'The scrolling logo strip beneath the programme tiles.',
+      itemFields: [
+        { key: 'name', label: 'Name', type: 'text' },
+        { key: 'logo', label: 'Logo', type: 'image' },
+      ],
+      default: [
+        { name: 'Macclesfield FC', logo: '/assets/logo/partners-logos/maccles.png' },
+        { name: 'University of Lancashire', logo: '/assets/logo/partners-logos/lancashire.png' },
+      ] },
 
-    { section: 'IFG TV', path: 'ifgtv.eyebrow', label: 'Eyebrow', type: 'text', default: 'IFG TV' },
-    { section: 'IFG TV', path: 'ifgtv.heading', label: 'Heading', type: 'text', default: 'Watch the journey' },
-
-    { section: 'About the group', path: 'about.eyebrow', label: 'Eyebrow', type: 'text', default: 'About the group' },
-    { section: 'About the group', path: 'about.heading', label: 'Heading', type: 'text', default: 'Where football and education meet' },
-    { section: 'About the group', path: 'about.quote', label: 'Quote', type: 'textarea', default: 'We forge collaborations with the foremost names in global football, integrating education and football experience.' },
-    { section: 'About the group', path: 'about.body', label: 'Body', type: 'textarea', default: 'Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.' },
-    { section: 'About the group', path: 'about.image', label: 'Image', type: 'image', default: '/maccles/DSC01273-Enhanced-NR-scaled.jpg' },
-
-    { section: 'News', path: 'news.eyebrow', label: 'Eyebrow', type: 'text', default: 'Group news' },
-    { section: 'News', path: 'news.heading', label: 'Heading', type: 'text', default: 'Latest from the group' },
-
+    // 4 — INTRODUCING
     { section: 'Introducing', path: 'introducing.eyebrow', label: 'Eyebrow', type: 'text', default: 'Introducing' },
     { section: 'Introducing', path: 'introducing.heading', label: 'Heading', type: 'text', default: 'Macclesfield FC Football Education' },
     { section: 'Introducing', path: 'introducing.paragraphs', label: 'Paragraphs', type: 'list', default: [
       'In association with some of the most respected organisations in the game, The International Football Group is an industry leader in education & football, providing a platform that offers the very best in football opportunities — together with academic excellence.',
       'Using the football methodologies employed at some of the most renowned clubs in the world, The International Football Group gives student-athletes a unique opportunity to fulfil all their dreams out on the pitch.',
     ] },
-    { section: 'Introducing', path: 'introducing.images', label: 'Images', type: 'images', default: ['/maccles/53046445765_c62d7e60e9_o.jpg', '/maccles/54370125778_fba1a86169_o-scaled.jpg', '/maccles/7.jpg'] },
+    { section: 'Introducing', path: 'introducing.images', label: 'Images', type: 'images', hint: 'Shown in the sliding media panel beside the copy.', default: ['/maccles/53046445765_c62d7e60e9_o.jpg', '/maccles/54370125778_fba1a86169_o-scaled.jpg', '/maccles/7.jpg'] },
+    { section: 'Introducing', path: 'introducing.ctaPrimary', label: 'Button 1 label', type: 'text', default: 'Apply Now' },
+    { section: 'Introducing', path: 'introducing.ctaSecondary', label: 'Button 2 label', type: 'text', default: 'View Brochure' },
+    { section: 'Introducing', path: 'introducing.ctaTertiary', label: 'Button 3 label', type: 'text', default: 'Book a Call' },
 
+    // 5 — GROUP VALUES
+    { section: 'Group values', path: 'values.eyebrow', label: 'Eyebrow', type: 'text', default: 'Group values' },
+    { section: 'Group values', path: 'values.heading', label: 'Heading', type: 'text', default: 'Built around five priorities' },
+    { section: 'Group values', path: 'values.intro', label: 'Intro', type: 'textarea', default: 'A holistic approach to developing every key stakeholder — the player, the person and the people around them.' },
+    { section: 'Group values', path: 'values.cards', label: 'Value cards', type: 'cards',
+      itemLabel: 'value', itemTitleKey: 'title',
+      hint: 'The carousel of value cards — number, title, caption and background image.',
+      itemFields: [
+        { key: 'n', label: 'Number', type: 'text', hint: 'e.g. 01' },
+        { key: 'title', label: 'Title', type: 'text' },
+        { key: 'desc', label: 'Caption', type: 'textarea' },
+        { key: 'img', label: 'Image', type: 'image' },
+      ],
+      default: [
+        { n: '01', title: 'Player', desc: 'Develop the athlete through elite methodology and real club environments.', img: '/summer/53283355490_a3b0905c26_o.jpg' },
+        { n: '02', title: 'Person', desc: 'Grow the individual — education, character and life beyond the game.', img: '/maccles/2023-Macclesfield-Fun-2-scaled.jpg' },
+        { n: '03', title: 'Parent', desc: 'Keep families informed, supported and part of the journey.', img: '/summer/52647156393_db255d94b5_o.jpg' },
+        { n: '04', title: 'Coach', desc: 'Learn from, and become, the coaches who shape world-class football.', img: '/summer/53035529767_ab0183f004_o.jpg' },
+        { n: '05', title: 'Club', desc: 'Connect directly with renowned clubs and their distinctive cultures.', img: '/summer/DJI_20240719121925_0067_D-scaled.jpg' },
+      ] },
+
+    // 6 — IFG TV
+    { section: 'IFG TV', path: 'ifgtv.eyebrow', label: 'Eyebrow', type: 'text', default: 'IFG TV' },
+    { section: 'IFG TV', path: 'ifgtv.heading', label: 'Heading', type: 'text', hint: 'The videos themselves come live from the IFG YouTube channel.', default: 'Watch the journey' },
+
+    // 7 — BENEFITS
     { section: 'Benefits', path: 'benefits.eyebrow', label: 'Eyebrow', type: 'text', default: 'The International Football Group' },
     { section: 'Benefits', path: 'benefits.heading', label: 'Heading', type: 'text', default: 'Benefits of our programmes' },
     { section: 'Benefits', path: 'benefits.text', label: 'Text', type: 'textarea', default: 'Discover the unparalleled advantages of our programmes, enriched by our partnership with University of Lancashire, offering a diverse range of Bachelor and Masters programmes alongside exceptional football excellence experiences.' },
     { section: 'Benefits', path: 'benefits.img', label: 'Image', type: 'image', default: '/maccles/53036293139_2c50713232_k.jpg' },
+    { section: 'Benefits', path: 'benefits.items', label: 'Accordion items', type: 'cards',
+      itemLabel: 'benefit', itemTitleKey: 'title',
+      hint: 'Each row of the expandable benefits list.',
+      itemFields: [
+        { key: 'title', label: 'Title', type: 'text' },
+        { key: 'body', label: 'Body', type: 'textarea' },
+      ],
+      default: [
+        { title: 'Intensive Learning Experience', body: 'Our programme compresses the traditional postgraduate curriculum into a three-year format, ensuring you receive the same education but in a more focused and dynamic setting. This structure allows you to delve into advanced coursework, engage in hands-on projects, and emerge with a thorough understanding of your field.' },
+        { title: 'Cost-Effectiveness & Accelerated Career Entry', body: 'By completing your undergraduate degree in just three years, you not only save on tuition but also accelerate your entry into the professional realm. This not only minimises financial investment but also enables you to start applying your knowledge in real-world scenarios sooner than with the conventional four-year model.' },
+        { title: 'Integrated Football Training Sessions', body: "Recognising the importance of holistic development, we have integrated football training sessions into the programme. Beyond academics, these sessions foster physical fitness, teamwork, and leadership skills. You'll find a perfect balance between intellectual and physical pursuits, creating a well-rounded educational experience." },
+        { title: 'Weekly Matchday Experience', body: 'Weekly competitive matches, where you can apply the strategic thinking and teamwork principles to the football field. This experiential learning approach extends beyond the pitch, cultivating resilience, adaptability, and a winning mindset that will serve you well in any professional setting.' },
+        { title: 'Networking Opportunities', body: 'Our programme offers a unique chance to connect with professionals, alumni, and fellow students through exclusive events, creating a strong network that will be invaluable in your future endeavors. Engage with industry leaders, learn from experienced professionals, and build relationships that extend far beyond the duration of your studies.' },
+        { title: 'Mentorship Programmes', body: "Benefit from personalised mentorship programmes where you'll be guided by experienced faculty and industry professionals. This mentorship goes beyond academic support, providing insights, advice, and real-world perspectives to help shape your career path." },
+        { title: 'Global Exposure & Diversity', body: 'Experience a diversity of cultures within our student body. Engaging with classmates from various backgrounds enhances your global perspective, fostering a rich and inclusive learning environment that prepares you for an interconnected world.' },
+        { title: 'Industry-Relevant Curriculum', body: "Our programme is meticulously designed to meet the demands of modern industries. You'll gain cutting-edge knowledge and skills, ensuring that you graduate not just with a degree but with expertise directly applicable to your chosen field." },
+        { title: 'State-of-the-Art Facilities', body: "Immerse yourself in an environment equipped with world-renowned facilities, including advanced laboratories, libraries, and sports infrastructure. Whether you're conducting research, attending lectures, or refining your football skills, UCLan campus provides the tools for success." },
+        { title: 'Flexible Learning Options', body: 'We understand the importance of accommodating different learning styles. Our programme offers flexibility through a blend of in-person and online learning, allowing you to tailor your educational experience to suit your preferences and lifestyle.' },
+        { title: 'Career Services & Placement Support', body: 'Gain a competitive edge in the job market with our comprehensive career services. From resume building to interview preparation, our dedicated team is committed to supporting your transition from academia to your dream career.' },
+        { title: 'Research Opportunities', body: 'Engage in ground-breaking research projects guided by experienced faculty members. Our commitment to research excellence provides you with opportunities to contribute to advancements in your field and make a lasting impact.' },
+        { title: 'Exclusive Alumni Network', body: 'Join a thriving community of successful alumni who have excelled in various fields. Benefit from networking opportunities, mentorship programmes, and exclusive events that connect you with accomplished professionals around the globe.' },
+      ] },
+
+    // 8 — ABOUT THE GROUP
+    { section: 'About the group', path: 'about.eyebrow', label: 'Eyebrow', type: 'text', default: 'About the group' },
+    { section: 'About the group', path: 'about.heading', label: 'Heading', type: 'text', default: 'Where football and education meet' },
+    { section: 'About the group', path: 'about.quote', label: 'Quote', type: 'textarea', default: 'We forge collaborations with the foremost names in global football, integrating education and football experience.' },
+    { section: 'About the group', path: 'about.body', label: 'Body', type: 'textarea', default: 'Participants explore and live in major European cities while engaging in the distinctive methodologies of world-renowned clubs — graduating with accredited degrees and real-world experience.' },
+    { section: 'About the group', path: 'about.image', label: 'Image', type: 'image', default: '/maccles/DSC01273-Enhanced-NR-scaled.jpg' },
+    { section: 'About the group', path: 'about.stats', label: 'Stats', type: 'cards',
+      itemLabel: 'stat', itemTitleKey: 'label',
+      hint: 'The row of big numbers beneath the About block.',
+      itemFields: [
+        { key: 'value', label: 'Number', type: 'text', hint: 'e.g. 10+' },
+        { key: 'label', label: 'Label', type: 'text' },
+      ],
+      default: [
+        { value: '3', label: 'Flagship programmes' },
+        { value: '2', label: 'Degree levels — BSc & MSc' },
+        { value: '10+', label: 'European cities to live in' },
+        { value: '1', label: 'Group, worldwide' },
+      ] },
+
+    // 9 — NEWS
+    { section: 'News', path: 'news.eyebrow', label: 'Eyebrow', type: 'text', default: 'Group news' },
+    { section: 'News', path: 'news.heading', label: 'Heading', type: 'text', hint: 'The articles come from the Latest News collection.', default: 'Latest from the group' },
   ],
 }
 
