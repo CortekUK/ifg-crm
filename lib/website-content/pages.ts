@@ -7,12 +7,12 @@
 
 import {
   Home, Sun, GraduationCap, Compass, Trophy, Images, Users, HelpCircle, CalendarClock,
-  Info, Mail, Youtube, Building2, Newspaper, Shield,
+  Info, Mail, Youtube, Building2, Newspaper, Shield, PoundSterling, BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 import type { ProgrammeKey } from '@/lib/types/website-content'
 
-export type CmsModule = 'content' | 'pricing' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news'
+export type CmsModule = 'content' | 'pricing' | 'pricing-all' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news'
 
 export interface CmsPage {
   slug: string              // registry id + content-schema slug + URL param
@@ -25,14 +25,20 @@ export interface CmsPage {
 }
 
 export const CMS_PAGES: CmsPage[] = [
+  // Money-critical + structured data — managed separately from page content, shown first.
+  { slug: 'pricing', title: 'Programme Pricing', route: '/programmes/macclesfield/summer-residency', icon: PoundSterling,
+    description: 'Packages, deposits and card fees for every programme.', modules: ['pricing-all'] },
+  { slug: 'university-courses', title: 'University Courses', route: '/programmes/macclesfield/university', icon: BookOpen,
+    description: 'Degree courses shown on the University page, by School.', modules: ['courses'] },
+
   { slug: 'home', title: 'Home', route: '/', icon: Home,
     description: 'Hero, highlights and calls to action.', modules: ['content'] },
   { slug: 'summer-residency', title: 'Summer Residency', route: '/programmes/macclesfield/summer-residency', icon: Sun,
-    description: 'Programme content, media and package pricing.', programme: 'residency', modules: ['content', 'pricing'] },
+    description: 'Programme content and media.', modules: ['content'] },
   { slug: 'university', title: 'University', route: '/programmes/macclesfield/university', icon: GraduationCap,
-    description: 'Content, pricing and degree courses.', programme: 'university', modules: ['content', 'pricing', 'courses'] },
+    description: 'Programme content and media.', modules: ['content'] },
   { slug: 'gap-year', title: 'Gap Year', route: '/programmes/macclesfield/gap-year', icon: Compass,
-    description: 'Programme content, media and package pricing.', programme: 'gapyear', modules: ['content', 'pricing'] },
+    description: 'Programme content and media.', modules: ['content'] },
   { slug: 'success-stories', title: 'Success Stories', route: '/success-stories', icon: Trophy,
     description: 'Player journeys featured on the website.', modules: ['stories'] },
   { slug: 'gallery', title: 'Gallery', route: '/gallery', icon: Images,

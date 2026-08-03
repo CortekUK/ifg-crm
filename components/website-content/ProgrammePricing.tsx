@@ -129,3 +129,29 @@ export function ProgrammePricingEditor({ programme }: { programme: ProgrammeKey 
     </section>
   )
 }
+
+const PROGRAMME_LABELS: Record<ProgrammeKey, string> = {
+  residency: 'Summer Residency',
+  university: 'University',
+  gapyear: 'Gap Year',
+}
+
+// The dedicated Programme Pricing page — packages + deposit/fees for every
+// programme in one place. Pricing is money-critical and managed separately
+// from page content.
+export function AllProgrammePricing() {
+  const programmes: ProgrammeKey[] = ['residency', 'university', 'gapyear']
+  return (
+    <div className="space-y-8">
+      {programmes.map((p) => (
+        <section key={p} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="h-5 w-1.5 rounded-full bg-emerald-500" />
+            <h2 className="font-oswald text-xl font-semibold uppercase tracking-tight text-slate-900 dark:text-white">{PROGRAMME_LABELS[p]}</h2>
+          </div>
+          <ProgrammePricingEditor programme={p} />
+        </section>
+      ))}
+    </div>
+  )
+}

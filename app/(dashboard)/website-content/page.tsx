@@ -9,7 +9,7 @@ import { CMS_PAGES, type CmsModule } from '@/lib/website-content/pages'
 const SITE_URL = 'https://theinternationalfootballgroup.com'
 
 const MODULE_LABEL: Record<CmsModule, string> = {
-  content: 'Content', pricing: 'Pricing', courses: 'Courses', staff: 'Staff',
+  content: 'Content', pricing: 'Pricing', 'pricing-all': 'Pricing', courses: 'Courses', staff: 'Staff',
   faqs: 'FAQs', stories: 'Stories', gallery: 'Gallery', clinics: 'Clinics', news: 'News',
 }
 
