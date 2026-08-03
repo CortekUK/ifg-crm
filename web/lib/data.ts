@@ -904,7 +904,7 @@ export const CONTACT = {
   calendlyUrl: "https://calendly.com/nathan-9394/15min",
 };
 
-// ---- IFG TV page (CMS-editable copy) ----
+// ---- IFG TV page (CMS-editable copy + YouTube videos) ----
 export const IFG_TV = {
   hero: {
     eyebrow: "The International Football Group",
@@ -912,13 +912,34 @@ export const IFG_TV = {
     subtitle: "Match footage, player stories and behind-the-scenes films from inside world-class football education.",
   },
   featured: {
+    id: "7ezDdQM_gbI",
+    tag: "Featured film",
+    title: "Summer Residency in the UK | My IFG Experience",
     text: "Go inside the IFG experience — life in the UK, daily training, and the moments that make the journey. New films land on our YouTube channel every week.",
+  },
+  channel: {
+    handle: "@Footballinternational",
+    url: "https://www.youtube.com/@Footballinternational",
+    subscribeUrl: "https://www.youtube.com/@Footballinternational?sub_confirmation=1",
   },
   grid: {
     eyebrow: "Latest uploads",
     heading: "From the IFG channel",
     intro: "Match days, development squads and the stories behind the programme — straight from our YouTube.",
   },
+  // Each video is a YouTube id + title + tag. The id is what comes after
+  // watch?v= (or youtu.be/) in the URL.
+  videos: [
+    { id: "ebGCnPSAKUs", title: "Mic'd Up: Goalkeeper Edition", tag: "Inside IFG" },
+    { id: "PlgebMz7DSM", title: "Macclesfield FC International vs Lancaster", tag: "Match" },
+    { id: "sTprLeYyilk", title: "Macclesfield FC U19 NFYL vs Fleetwood", tag: "Match" },
+    { id: "dgQexfvCxKY", title: "IFG Macclesfield FC U20 vs Barnsley", tag: "Match" },
+    { id: "Vza_gwGznh0", title: "Macclesfield FC U21 vs Tottington United", tag: "Match" },
+    { id: "w_deZdFVX5Q", title: "IFG Macclesfield FC U20 vs Bradford Park Avenue", tag: "Match" },
+    { id: "wMpF4OH6KVQ", title: "Macclesfield FC U19 NFYL vs Lancaster", tag: "Match" },
+    { id: "0pkNIzzOQUw", title: "Macclesfield FC Reserves vs Heywood", tag: "Match" },
+    { id: "tbEgRUdkpv0", title: "Macclesfield FC U19 NFYL vs Stockport County", tag: "Match" },
+  ],
 };
 
 // ---- Facilities page (CMS-editable copy) ----

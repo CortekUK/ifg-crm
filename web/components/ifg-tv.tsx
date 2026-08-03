@@ -3,7 +3,7 @@ import { Eyebrow } from "./primitives";
 import { Icon, SocialIcon } from "./icons";
 import { CTABand } from "./sections";
 import { YouTubeLite } from "./youtube";
-import { YT_CHANNEL, YT_FEATURED, YT_VIDEOS, VIDEO_SRC, VIDEO_POSTER, IFG_TV } from "@/lib/data";
+import { VIDEO_SRC, VIDEO_POSTER, IFG_TV } from "@/lib/data";
 
 export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
   const t = data ?? IFG_TV;
@@ -28,11 +28,11 @@ export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
         <div className="wrap">
           <div className="tv-feature-row">
             <div className="tv-feature-player" data-anim="clip">
-              <YouTubeLite id={YT_FEATURED.id} title={YT_FEATURED.title} eager />
+              <YouTubeLite id={t.featured.id} title={t.featured.title} eager />
             </div>
             <div className="tv-feature-meta" data-anim="up">
-              <span className="tv-pill"><span className="tv-pill-live"><i />{YT_FEATURED.tag}</span></span>
-              <h2 className="t-h2 tv-feature-title">{YT_FEATURED.title}</h2>
+              <span className="tv-pill"><span className="tv-pill-live"><i />{t.featured.tag}</span></span>
+              <h2 className="t-h2 tv-feature-title">{t.featured.title}</h2>
               <p className="tv-feature-text">
                 {t.featured.text}
               </p>
@@ -40,9 +40,9 @@ export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
                 <span className="tv-channel-ic"><SocialIcon name="youtube" size={26} /></span>
                 <div className="tv-channel-info">
                   <strong>IFG on YouTube</strong>
-                  <span>{YT_CHANNEL.handle}</span>
+                  <span>{t.channel.handle}</span>
                 </div>
-                <a className="btn btn-primary btn-sm tv-sub" href={YT_CHANNEL.subscribeUrl} target="_blank" rel="noreferrer">
+                <a className="btn btn-primary btn-sm tv-sub" href={t.channel.subscribeUrl} target="_blank" rel="noreferrer">
                   Subscribe<Icon name="arrow-up-right" className="ic" size={16} />
                 </a>
               </div>
@@ -60,7 +60,7 @@ export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
             <p>{t.grid.intro}</p>
           </div>
           <div className="tv-grid" data-anim="stagger">
-            {YT_VIDEOS.map((v) => (
+            {t.videos.map((v) => (
               <article className="tv-card" key={v.id}>
                 <YouTubeLite id={v.id} title={v.title} />
                 <div className="tv-card-body">
@@ -71,7 +71,7 @@ export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
             ))}
           </div>
           <div className="tv-more" data-anim="up">
-            <a className="btn btn-ghost btn-lg" href={YT_CHANNEL.url} target="_blank" rel="noreferrer">
+            <a className="btn btn-ghost btn-lg" href={t.channel.url} target="_blank" rel="noreferrer">
               Visit the channel<Icon name="arrow-up-right" className="ic" size={20} />
             </a>
           </div>

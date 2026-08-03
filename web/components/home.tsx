@@ -8,7 +8,7 @@ import { CTABand, StatItem } from "./sections";
 import { YouTubeLite } from "./youtube";
 import { HeroReel } from "./hero-reel";
 import { Accordion } from "./accordion";
-import { YT_FEATURED, YT_VIDEOS, ARTICLES, HOME } from "@/lib/data";
+import { IFG_TV, ARTICLES, HOME } from "@/lib/data";
 
 const APPLY_HREF = "/programmes/macclesfield/apply";
 const PROG_BASE = "/programmes/macclesfield";
@@ -134,7 +134,7 @@ function Introducing({ copy }: { copy: typeof HOME.introducing }) {
   );
 }
 
-function IFGTV({ copy }: { copy: typeof HOME.ifgtv }) {
+function IFGTV({ copy, videos }: { copy: typeof HOME.ifgtv; videos: typeof IFG_TV.videos }) {
   return (
     <section className="section">
       <div className="wrap">
@@ -147,7 +147,7 @@ function IFGTV({ copy }: { copy: typeof HOME.ifgtv }) {
         </div>
         <div data-anim="up">
           <CardCarousel
-            items={[YT_FEATURED, ...YT_VIDEOS]}
+            items={videos}
             auto={4500}
             render={(v) => (
               <article className="tv-card">
@@ -214,8 +214,9 @@ function NewsGrid({ copy }: { copy: typeof HOME.news }) {
   );
 }
 
-export function HomeView({ data }: { data?: typeof HOME }) {
+export function HomeView({ data, tvVideos }: { data?: typeof HOME; tvVideos?: typeof IFG_TV.videos }) {
   const h = data ?? HOME;
+  const videos = tvVideos ?? [IFG_TV.featured, ...IFG_TV.videos];
   return (
     <div>
       <Hero hero={h.hero} />
@@ -249,7 +250,7 @@ export function HomeView({ data }: { data?: typeof HOME }) {
         </div>
       </section>
 
-      <IFGTV copy={h.ifgtv} />
+      <IFGTV copy={h.ifgtv} videos={videos} />
       <Benefits copy={h.benefits} />
 
       <section className="section band-bone">

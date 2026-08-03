@@ -520,10 +520,38 @@ const IFG_TV: PageSchema = {
     { section: 'Hero', path: 'hero.eyebrow', label: 'Eyebrow', type: 'text', default: 'The International Football Group' },
     { section: 'Hero', path: 'hero.heading', label: 'Heading', type: 'text', default: 'IFG TV' },
     { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', default: 'Match footage, player stories and behind-the-scenes films from inside world-class football education.' },
-    { section: 'Featured', path: 'featured.text', label: 'Featured text', type: 'textarea', default: 'Go inside the IFG experience — life in the UK, daily training, and the moments that make the journey. New films land on our YouTube channel every week.' },
+
+    { section: 'Featured film', path: 'featured.id', label: 'YouTube ID', type: 'text', hint: 'The id after watch?v= (or youtu.be/) in the URL.', default: '7ezDdQM_gbI' },
+    { section: 'Featured film', path: 'featured.tag', label: 'Tag', type: 'text', default: 'Featured film' },
+    { section: 'Featured film', path: 'featured.title', label: 'Title', type: 'text', default: 'Summer Residency in the UK | My IFG Experience' },
+    { section: 'Featured film', path: 'featured.text', label: 'Description', type: 'textarea', default: 'Go inside the IFG experience — life in the UK, daily training, and the moments that make the journey. New films land on our YouTube channel every week.' },
+
+    { section: 'YouTube channel', path: 'channel.handle', label: 'Channel handle', type: 'text', default: '@Footballinternational' },
+    { section: 'YouTube channel', path: 'channel.url', label: 'Channel URL', type: 'text', default: 'https://www.youtube.com/@Footballinternational' },
+    { section: 'YouTube channel', path: 'channel.subscribeUrl', label: 'Subscribe URL', type: 'text', default: 'https://www.youtube.com/@Footballinternational?sub_confirmation=1' },
+
     { section: 'Latest uploads', path: 'grid.eyebrow', label: 'Eyebrow', type: 'text', default: 'Latest uploads' },
     { section: 'Latest uploads', path: 'grid.heading', label: 'Heading', type: 'text', default: 'From the IFG channel' },
     { section: 'Latest uploads', path: 'grid.intro', label: 'Intro', type: 'textarea', default: 'Match days, development squads and the stories behind the programme — straight from our YouTube.' },
+    { section: 'Latest uploads', path: 'videos', label: 'Videos', type: 'cards',
+      itemLabel: 'video', itemTitleKey: 'title',
+      hint: 'Add or remove the videos in the grid. Each is a YouTube id + title + tag. This list also feeds the IFG TV strip on the home page.',
+      itemFields: [
+        { key: 'id', label: 'YouTube ID', type: 'text', hint: 'The id after watch?v= (or youtu.be/) in the URL.' },
+        { key: 'title', label: 'Title', type: 'text' },
+        { key: 'tag', label: 'Tag', type: 'text', hint: 'e.g. Match, Inside IFG' },
+      ],
+      default: [
+        { id: 'ebGCnPSAKUs', title: "Mic'd Up: Goalkeeper Edition", tag: 'Inside IFG' },
+        { id: 'PlgebMz7DSM', title: 'Macclesfield FC International vs Lancaster', tag: 'Match' },
+        { id: 'sTprLeYyilk', title: 'Macclesfield FC U19 NFYL vs Fleetwood', tag: 'Match' },
+        { id: 'dgQexfvCxKY', title: 'IFG Macclesfield FC U20 vs Barnsley', tag: 'Match' },
+        { id: 'Vza_gwGznh0', title: 'Macclesfield FC U21 vs Tottington United', tag: 'Match' },
+        { id: 'w_deZdFVX5Q', title: 'IFG Macclesfield FC U20 vs Bradford Park Avenue', tag: 'Match' },
+        { id: 'wMpF4OH6KVQ', title: 'Macclesfield FC U19 NFYL vs Lancaster', tag: 'Match' },
+        { id: '0pkNIzzOQUw', title: 'Macclesfield FC Reserves vs Heywood', tag: 'Match' },
+        { id: 'tbEgRUdkpv0', title: 'Macclesfield FC U19 NFYL vs Stockport County', tag: 'Match' },
+      ] },
   ],
 }
 
