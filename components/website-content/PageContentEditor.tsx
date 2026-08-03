@@ -27,6 +27,7 @@ function CardsField({ field, value, onChange }: {
   const items = Array.isArray(value) ? value : []
   const sub = field.itemFields ?? []
   const noun = field.itemLabel ?? 'item'
+  const blank = (t: string) => (t === 'list' || t === 'images' ? [] : '')
 
   const update = (i: number, patch: CardValue) =>
     onChange(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)))
@@ -38,12 +39,14 @@ function CardsField({ field, value, onChange }: {
     ;[next[i], next[j]] = [next[j], next[i]]
     onChange(next)
   }
-  const add = () => onChange([...items, Object.fromEntries(sub.map((s) => [s.key, ''])) as CardValue])
+  const add = () => onChange([...items, Object.fromEntries(sub.map((s) => [s.key, blank(s.type)])) as CardValue])
+  const str = (v: string | string[] | undefined) => (typeof v === 'string' ? v : '')
+  const arr = (v: string | string[] | undefined) => (Array.isArray(v) ? v : [])
 
   return (
     <div className="space-y-3">
       {items.map((item, i) => {
-        const heading = (field.itemTitleKey && item[field.itemTitleKey]) || `${noun} ${i + 1}`
+        const heading = (field.itemTitleKey && str(item[field.itemTitleKey])) || `${noun} ${i + 1}`
         return (
           <div key={i} className="rounded-lg border border-border/70 bg-muted/20 p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -70,18 +73,36 @@ function CardsField({ field, value, onChange }: {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {sub.map((s) => {
-                const wide = s.type === 'textarea' || s.type === 'image'
+                const wide = s.type === 'textarea' || s.type === 'image' || s.type === 'list' || s.type === 'images'
+                const list = arr(item[s.key])
                 return (
                   <div key={s.key} className={cn('space-y-1.5', wide && 'sm:col-span-2')}>
                     <span className="text-xs font-medium text-muted-foreground">{s.label}</span>
                     {s.type === 'image' ? (
-                      <ImageField label="" hint={s.hint} value={item[s.key] ?? ''} onChange={(v) => update(i, { [s.key]: v })} />
+                      <ImageField label="" hint={s.hint} value={str(item[s.key])} onChange={(v) => update(i, { [s.key]: v })} />
+                    ) : s.type === 'images' ? (
+                      <MultiImageField label="" value={list} onChange={(v) => update(i, { [s.key]: v })} />
+                    ) : s.type === 'list' ? (
+                      <div className="space-y-2">
+                        {list.map((it, li) => (
+                          <div key={li} className="flex items-start gap-2">
+                            <Textarea rows={2} value={it} className="min-h-0"
+                              onChange={(e) => update(i, { [s.key]: list.map((v, x) => (x === li ? e.target.value : v)) })} />
+                            <Button type="button" variant="outline" size="icon" onClick={() => update(i, { [s.key]: list.filter((_, x) => x !== li) })} aria-label="Remove">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => update(i, { [s.key]: [...list, ''] })}>
+                          <Plus className="mr-2 h-4 w-4" />Add item
+                        </Button>
+                      </div>
                     ) : s.type === 'textarea' ? (
-                      <Textarea rows={2} value={item[s.key] ?? ''} onChange={(e) => update(i, { [s.key]: e.target.value })} />
+                      <Textarea rows={2} value={str(item[s.key])} onChange={(e) => update(i, { [s.key]: e.target.value })} />
                     ) : (
-                      <Input value={item[s.key] ?? ''} onChange={(e) => update(i, { [s.key]: e.target.value })} />
+                      <Input value={str(item[s.key])} onChange={(e) => update(i, { [s.key]: e.target.value })} />
                     )}
-                    {s.type !== 'image' && s.hint && <p className="text-[11px] text-muted-foreground">{s.hint}</p>}
+                    {(s.type === 'text' || s.type === 'textarea' || s.type === 'list' || s.type === 'images') && s.hint && <p className="text-[11px] text-muted-foreground">{s.hint}</p>}
                   </div>
                 )
               })}

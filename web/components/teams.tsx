@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
 import { CTABand } from "./sections";
-import { MACC_TEAMS, MACCLESFIELD, TEAMS } from "@/lib/data";
+import { MACCLESFIELD, TEAMS } from "@/lib/data";
 
 export function TeamsView({ data }: { data?: typeof TEAMS }) {
   const tm = data ?? TEAMS;
@@ -33,7 +33,7 @@ export function TeamsView({ data }: { data?: typeof TEAMS }) {
             <p>{tm.intro.intro}</p>
           </div>
           <div className="teams-grid" data-anim="stagger">
-            {MACC_TEAMS.map((t) => {
+            {tm.tiles.map((t) => {
               const inner = (
                 <>
                   <img src={t.img} alt={t.name} loading="lazy" />

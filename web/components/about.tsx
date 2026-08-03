@@ -1,6 +1,6 @@
 import { Eyebrow, PhotoPlate } from "./primitives";
 import { CTABand } from "./sections";
-import { VALUES, PARTNERS, ABOUT } from "@/lib/data";
+import { ABOUT } from "@/lib/data";
 
 export function AboutView({ data }: { data?: typeof ABOUT }) {
   const a = data ?? ABOUT;
@@ -36,13 +36,13 @@ export function AboutView({ data }: { data?: typeof ABOUT }) {
             <h2 className="t-h2" style={{ marginTop: 12 }}>{a.guides.heading}</h2>
           </div>
           <div className="values">
-            {VALUES.map(([n, t, d, vimg]) => (
-              <div className="value" key={n}>
-                <img className="value-bg" src={vimg} alt="" loading="lazy" />
+            {a.guides.cards.map((v) => (
+              <div className="value" key={v.n}>
+                <img className="value-bg" src={v.img} alt="" loading="lazy" />
                 <div className="value-in">
-                  <div className="vn">{n}</div>
-                  <h4>{t}</h4>
-                  <p>{d}</p>
+                  <div className="vn">{v.n}</div>
+                  <h4>{v.title}</h4>
+                  <p>{v.desc}</p>
                 </div>
               </div>
             ))}
@@ -56,7 +56,7 @@ export function AboutView({ data }: { data?: typeof ABOUT }) {
             <Eyebrow>{a.partnersEyebrow}</Eyebrow>
           </div>
           <div className="partners">
-            {PARTNERS.map((p) => (
+            {a.partners.map((p) => (
               <div className="partner" key={p.name} title={p.name}>
                 <img className="partner-logo" src={p.logo} alt={p.name} loading="lazy" />
               </div>

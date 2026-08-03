@@ -854,6 +854,7 @@ export const TEAMS = {
     heading: "Meet the committed players & teams of IFG",
     intro: "A comprehensive list of the committed players and teams who have joined The International Football Group, representing us across our programmes.",
   },
+  tiles: MACC_TEAMS,
 };
 
 // ---- About page (CMS-editable copy) ----
@@ -873,8 +874,19 @@ export const ABOUT = {
   guides: {
     eyebrow: "What guides us",
     heading: "The player, person, parent, coach & club",
+    cards: [
+      { n: "01", title: "Player", desc: "Develop the athlete through elite methodology and real club environments.", img: "/summer/53283355490_a3b0905c26_o.jpg" },
+      { n: "02", title: "Person", desc: "Grow the individual — education, character and life beyond the game.", img: "/maccles/2023-Macclesfield-Fun-2-scaled.jpg" },
+      { n: "03", title: "Parent", desc: "Keep families informed, supported and part of the journey.", img: "/summer/52647156393_db255d94b5_o.jpg" },
+      { n: "04", title: "Coach", desc: "Learn from, and become, the coaches who shape world-class football.", img: "/summer/53035529767_ab0183f004_o.jpg" },
+      { n: "05", title: "Club", desc: "Connect directly with renowned clubs and their distinctive cultures.", img: "/summer/DJI_20240719121925_0067_D-scaled.jpg" },
+    ],
   },
   partnersEyebrow: "In collaboration with",
+  partners: [
+    { name: "Macclesfield FC", logo: "/assets/logo/partners-logos/maccles.png" },
+    { name: "University of Lancashire", logo: "/assets/logo/partners-logos/lancashire.png" },
+  ],
 };
 
 // ---- Contact page (CMS-editable copy) ----
@@ -921,6 +933,7 @@ export const FACILITIES = {
     heading: "Everything you need to develop",
     intro: "From a professional stadium and elite all-weather pitches to a dedicated gym, university campus and modern student halls — our environment is built to develop the complete athlete, on and off the pitch.",
   },
+  blocks: MACC_FACILITIES,
 };
 
 // ---- Success stories ----

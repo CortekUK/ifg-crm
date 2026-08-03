@@ -2,7 +2,7 @@
 import { Eyebrow } from "./primitives";
 import { MediaCarousel } from "./carousels";
 import { CTABand } from "./sections";
-import { MACC_FACILITIES, MACCLESFIELD, FACILITIES } from "@/lib/data";
+import { MACCLESFIELD, FACILITIES } from "@/lib/data";
 
 export function FacilitiesView({ data }: { data?: typeof FACILITIES }) {
   const f = data ?? FACILITIES;
@@ -32,7 +32,7 @@ export function FacilitiesView({ data }: { data?: typeof FACILITIES }) {
         </div>
 
         <div className="wrap fac-list">
-          {MACC_FACILITIES.map((b, i) => (
+          {f.blocks.map((b, i) => (
             <div className={"fac-row" + (i % 2 === 0 ? " flip" : "")} key={b.title}>
               <div className="fac-media" data-anim="clip">
                 <MediaCarousel images={b.images} className="fac-carousel" interval={3600} />
