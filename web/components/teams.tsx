@@ -3,22 +3,23 @@ import Link from "next/link";
 import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
 import { CTABand } from "./sections";
-import { MACC_TEAMS, MACCLESFIELD } from "@/lib/data";
+import { MACC_TEAMS, MACCLESFIELD, TEAMS } from "@/lib/data";
 
-export function TeamsView() {
+export function TeamsView({ data }: { data?: typeof TEAMS }) {
+  const tm = data ?? TEAMS;
   return (
     <div>
       {/* hero */}
       <section className="c-hero mh-hero">
-        <img className="hero-video" data-hero-video src="/summer/DJI_20240719121925_0067_D-scaled.jpg" alt="" />
+        <img className="hero-video" data-hero-video src={tm.hero.image} alt="" />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
           <div className="mh-logos" data-anim="hero-fade">
             {MACCLESFIELD.hero.logos.map((l) => <img key={l.alt} src={l.src} alt={l.alt} />)}
           </div>
-          <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 18 }}>Macclesfield FC Teams</h1>
+          <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 18 }}>{tm.hero.heading}</h1>
           <p className="mh-sub" data-anim="hero-fade">
-            The International Football Group in partnership with Macclesfield FC &amp; University of Lancashire.
+            {tm.hero.subtitle}
           </p>
         </div>
       </section>
@@ -27,12 +28,9 @@ export function TeamsView() {
       <section className="section">
         <div className="wrap">
           <div className="section-head teams-head" data-anim="up">
-            <Eyebrow style={{ justifyContent: "center" }}>Our teams</Eyebrow>
-            <h2 data-anim="reveal-title">Meet the committed players &amp; teams of IFG</h2>
-            <p>
-              A comprehensive list of the committed players and teams who have joined The International Football Group,
-              representing us across our programmes.
-            </p>
+            <Eyebrow style={{ justifyContent: "center" }}>{tm.intro.eyebrow}</Eyebrow>
+            <h2 data-anim="reveal-title">{tm.intro.heading}</h2>
+            <p>{tm.intro.intro}</p>
           </div>
           <div className="teams-grid" data-anim="stagger">
             {MACC_TEAMS.map((t) => {

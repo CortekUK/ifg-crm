@@ -794,6 +794,35 @@ export const HOME = {
     eyebrow: "Group news",
     heading: "Latest from the group",
   },
+  introducing: {
+    eyebrow: "Introducing",
+    heading: "Macclesfield FC Football Education",
+    paragraphs: [
+      "In association with some of the most respected organisations in the game, The International Football Group is an industry leader in education & football, providing a platform that offers the very best in football opportunities — together with academic excellence.",
+      "Using the football methodologies employed at some of the most renowned clubs in the world, The International Football Group gives student-athletes a unique opportunity to fulfil all their dreams out on the pitch.",
+    ],
+    images: ["/maccles/53046445765_c62d7e60e9_o.jpg", "/maccles/54370125778_fba1a86169_o-scaled.jpg", "/maccles/7.jpg"],
+  },
+  benefits: {
+    eyebrow: "The International Football Group",
+    heading: "Benefits of our programmes",
+    text: "Discover the unparalleled advantages of our programmes, enriched by our partnership with University of Lancashire, offering a diverse range of Bachelor and Masters programmes alongside exceptional football excellence experiences.",
+    img: "/maccles/53036293139_2c50713232_k.jpg",
+  },
+};
+
+// ---- Teams page (CMS-editable copy; team tiles come from MACC_TEAMS) ----
+export const TEAMS = {
+  hero: {
+    heading: "Macclesfield FC Teams",
+    subtitle: "The International Football Group in partnership with Macclesfield FC & University of Lancashire.",
+    image: "/summer/DJI_20240719121925_0067_D-scaled.jpg",
+  },
+  intro: {
+    eyebrow: "Our teams",
+    heading: "Meet the committed players & teams of IFG",
+    intro: "A comprehensive list of the committed players and teams who have joined The International Football Group, representing us across our programmes.",
+  },
 };
 
 // ---- About page (CMS-editable copy) ----

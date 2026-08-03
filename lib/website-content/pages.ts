@@ -7,7 +7,7 @@
 
 import {
   Home, Sun, GraduationCap, Compass, Trophy, Images, Users, HelpCircle, CalendarClock,
-  Info, Mail, Youtube, Building2, Newspaper,
+  Info, Mail, Youtube, Building2, Newspaper, Shield,
   type LucideIcon,
 } from 'lucide-react'
 import type { ProgrammeKey } from '@/lib/types/website-content'
@@ -53,6 +53,8 @@ export const CMS_PAGES: CmsPage[] = [
     description: 'IFG TV page copy (videos come from YouTube).', modules: ['content'] },
   { slug: 'facilities', title: 'Facilities', route: '/programmes/macclesfield/facilities', icon: Building2,
     description: 'Facilities page hero and intro copy.', modules: ['content'] },
+  { slug: 'teams', title: 'Teams', route: '/programmes/macclesfield/teams', icon: Shield,
+    description: 'Teams page hero and intro copy.', modules: ['content'] },
 ]
 
 export function getCmsPage(slug: string): CmsPage | undefined {

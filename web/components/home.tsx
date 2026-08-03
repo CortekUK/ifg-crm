@@ -9,7 +9,7 @@ import { HeroReel } from "./hero-reel";
 import { Accordion } from "./accordion";
 import {
   VALUES, YT_FEATURED, YT_VIDEOS, ARTICLES, STATS, PARTNERS,
-  MACC_SUBPROGRAMMES, MACCLESFIELD, MACC_BENEFITS, HOME,
+  MACC_SUBPROGRAMMES, MACC_BENEFITS, HOME,
 } from "@/lib/data";
 
 const APPLY_HREF = "/programmes/macclesfield/apply";
@@ -98,15 +98,14 @@ function PartnersMarquee() {
 }
 
 // Editorial "introducing" block from the education page.
-function Introducing() {
-  const m = MACCLESFIELD;
+function Introducing({ copy }: { copy: typeof HOME.introducing }) {
   return (
     <section className="section">
       <div className="wrap grid-2 mh-intro" style={{ gap: 64, alignItems: "center" }}>
         <div data-anim="up">
-          <Eyebrow>Introducing</Eyebrow>
-          <h2 className="t-h1" style={{ marginTop: 14 }}>{m.introducing.heading}</h2>
-          {m.introducing.paragraphs.map((p, i) => (
+          <Eyebrow>{copy.eyebrow}</Eyebrow>
+          <h2 className="t-h1" style={{ marginTop: 14 }}>{copy.heading}</h2>
+          {copy.paragraphs.map((p, i) => (
             <p key={i} style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: i ? 16 : 22 }}>{p}</p>
           ))}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
@@ -116,7 +115,7 @@ function Introducing() {
           </div>
         </div>
         <div data-anim="up">
-          <MediaCarousel images={m.introducing.images} className="mh-intro-media" />
+          <MediaCarousel images={copy.images} className="mh-intro-media" />
         </div>
       </div>
     </section>
@@ -155,16 +154,15 @@ function IFGTV({ copy }: { copy: typeof HOME.ifgtv }) {
 }
 
 // Benefits accordion from the education page.
-function Benefits() {
-  const m = MACCLESFIELD;
+function Benefits({ copy }: { copy: typeof HOME.benefits }) {
   return (
     <section className="section">
       <div className="wrap grid-2 mh-benefits" style={{ gap: 48, alignItems: "start" }}>
         <div data-anim="up">
-          <Eyebrow>The International Football Group</Eyebrow>
-          <h2 className="t-h2" style={{ margin: "12px 0 0" }}>{m.benefitsIntro.heading}</h2>
-          <p style={{ color: "var(--fg-muted)", fontSize: 16, lineHeight: 1.65, margin: "16px 0 0" }}>{m.benefitsIntro.text}</p>
-          <img className="mh-benefits-img" src={m.benefitsIntro.img} alt="" loading="lazy" />
+          <Eyebrow>{copy.eyebrow}</Eyebrow>
+          <h2 className="t-h2" style={{ margin: "12px 0 0" }}>{copy.heading}</h2>
+          <p style={{ color: "var(--fg-muted)", fontSize: 16, lineHeight: 1.65, margin: "16px 0 0" }}>{copy.text}</p>
+          <img className="mh-benefits-img" src={copy.img} alt="" loading="lazy" />
         </div>
         <div data-anim="up"><Accordion items={MACC_BENEFITS} /></div>
       </div>
@@ -211,7 +209,7 @@ export function HomeView({ data }: { data?: typeof HOME }) {
       <Hero hero={h.hero} />
       <ProgrammeTiles copy={h.programmes} />
       <PartnersMarquee />
-      <Introducing />
+      <Introducing copy={h.introducing} />
 
       <section className="section band-ink">
         <div className="wrap">
@@ -240,7 +238,7 @@ export function HomeView({ data }: { data?: typeof HOME }) {
       </section>
 
       <IFGTV copy={h.ifgtv} />
-      <Benefits />
+      <Benefits copy={h.benefits} />
 
       <section className="section band-bone">
         <div className="wrap">

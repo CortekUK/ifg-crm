@@ -64,6 +64,33 @@ const HOME: PageSchema = {
 
     { section: 'News', path: 'news.eyebrow', label: 'Eyebrow', type: 'text', default: 'Group news' },
     { section: 'News', path: 'news.heading', label: 'Heading', type: 'text', default: 'Latest from the group' },
+
+    { section: 'Introducing', path: 'introducing.eyebrow', label: 'Eyebrow', type: 'text', default: 'Introducing' },
+    { section: 'Introducing', path: 'introducing.heading', label: 'Heading', type: 'text', default: 'Macclesfield FC Football Education' },
+    { section: 'Introducing', path: 'introducing.paragraphs', label: 'Paragraphs', type: 'list', default: [
+      'In association with some of the most respected organisations in the game, The International Football Group is an industry leader in education & football, providing a platform that offers the very best in football opportunities — together with academic excellence.',
+      'Using the football methodologies employed at some of the most renowned clubs in the world, The International Football Group gives student-athletes a unique opportunity to fulfil all their dreams out on the pitch.',
+    ] },
+    { section: 'Introducing', path: 'introducing.images', label: 'Images', type: 'images', default: ['/maccles/53046445765_c62d7e60e9_o.jpg', '/maccles/54370125778_fba1a86169_o-scaled.jpg', '/maccles/7.jpg'] },
+
+    { section: 'Benefits', path: 'benefits.eyebrow', label: 'Eyebrow', type: 'text', default: 'The International Football Group' },
+    { section: 'Benefits', path: 'benefits.heading', label: 'Heading', type: 'text', default: 'Benefits of our programmes' },
+    { section: 'Benefits', path: 'benefits.text', label: 'Text', type: 'textarea', default: 'Discover the unparalleled advantages of our programmes, enriched by our partnership with University of Lancashire, offering a diverse range of Bachelor and Masters programmes alongside exceptional football excellence experiences.' },
+    { section: 'Benefits', path: 'benefits.img', label: 'Image', type: 'image', default: '/maccles/53036293139_2c50713232_k.jpg' },
+  ],
+}
+
+const TEAMS: PageSchema = {
+  slug: 'teams',
+  title: 'Teams',
+  route: '/programmes/macclesfield/teams',
+  fields: [
+    { section: 'Hero', path: 'hero.heading', label: 'Heading', type: 'text', default: 'Macclesfield FC Teams' },
+    { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', default: 'The International Football Group in partnership with Macclesfield FC & University of Lancashire.' },
+    { section: 'Hero', path: 'hero.image', label: 'Background image', type: 'image', default: '/summer/DJI_20240719121925_0067_D-scaled.jpg' },
+    { section: 'Introduction', path: 'intro.eyebrow', label: 'Eyebrow', type: 'text', default: 'Our teams' },
+    { section: 'Introduction', path: 'intro.heading', label: 'Heading', type: 'text', default: 'Meet the committed players & teams of IFG' },
+    { section: 'Introduction', path: 'intro.intro', label: 'Intro', type: 'textarea', default: 'A comprehensive list of the committed players and teams who have joined The International Football Group, representing us across our programmes.' },
   ],
 }
 
@@ -241,7 +268,7 @@ const FACILITIES: PageSchema = {
   ],
 }
 
-export const PAGE_SCHEMAS: PageSchema[] = [HOME, SUMMER, UNIVERSITY, GAP_YEAR, ABOUT, CONTACT, IFG_TV, FACILITIES]
+export const PAGE_SCHEMAS: PageSchema[] = [HOME, SUMMER, UNIVERSITY, GAP_YEAR, ABOUT, CONTACT, IFG_TV, FACILITIES, TEAMS]
 
 export function getPageSchema(slug: string): PageSchema | undefined {
   return PAGE_SCHEMAS.find((p) => p.slug === slug)
