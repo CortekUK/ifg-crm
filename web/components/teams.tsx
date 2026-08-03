@@ -3,10 +3,21 @@ import Link from "next/link";
 import { Eyebrow } from "./primitives";
 import { Icon } from "./icons";
 import { CTABand } from "./sections";
-import { MACCLESFIELD, TEAMS } from "@/lib/data";
+import { MACCLESFIELD, TEAMS, type Squad } from "@/lib/data";
 
-export function TeamsView({ data }: { data?: typeof TEAMS }) {
+type Tile = { name: string; img: string; href: string };
+
+export function TeamsView({ data, squads }: { data?: typeof TEAMS; squads?: Squad[] }) {
   const tm = data ?? TEAMS;
+  // Coaches & Staff tile first, then one tile per CMS-managed squad.
+  const tiles: Tile[] = [
+    { name: tm.staffTile.name, img: tm.staffTile.img, href: tm.staffTile.href },
+    ...(squads ?? []).map((s) => ({
+      name: s.name,
+      img: s.photo,
+      href: `/programmes/macclesfield/teams/${s.slug}`,
+    })),
+  ];
   return (
     <div>
       {/* hero */}
@@ -33,23 +44,16 @@ export function TeamsView({ data }: { data?: typeof TEAMS }) {
             <p>{tm.intro.intro}</p>
           </div>
           <div className="teams-grid" data-anim="stagger">
-            {tm.tiles.map((t) => {
-              const inner = (
-                <>
-                  <img src={t.img} alt={t.name} loading="lazy" />
-                  <div className="team-shade" />
-                  <div className="team-body">
-                    <h3>{t.name}</h3>
-                    <span className="team-hint">{t.href ? "Find out more" : "View squad"} <Icon name="arrow-right" size={15} /></span>
-                  </div>
-                </>
-              );
-              return t.href ? (
-                <Link className="team-card" href={t.href} key={t.name}>{inner}</Link>
-              ) : (
-                <article className="team-card" key={t.name}>{inner}</article>
-              );
-            })}
+            {tiles.map((t) => (
+              <Link className="team-card" href={t.href} key={t.href}>
+                <img src={t.img} alt={t.name} loading="lazy" />
+                <div className="team-shade" />
+                <div className="team-body">
+                  <h3>{t.name}</h3>
+                  <span className="team-hint">View squad <Icon name="arrow-right" size={15} /></span>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>

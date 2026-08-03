@@ -118,6 +118,29 @@ export interface WebsiteNews {
 }
 export type WebsiteNewsInput = Partial<Omit<WebsiteNews, 'created_at' | 'updated_at'>>
 
+// ── Squads (Teams page) ──────────────────────────────────────────────────────
+export interface RosterPlayer {
+  name: string
+  pos: string
+}
+
+export interface WebsiteSquad {
+  id: string
+  slug: string
+  name: string
+  title: string
+  hero_img: string | null
+  photo: string | null
+  intro: string[]
+  league_url: string | null
+  roster: RosterPlayer[]
+  published: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+export type WebsiteSquadInput = Partial<Omit<WebsiteSquad, 'created_at' | 'updated_at'>>
+
 // ── Page content overrides (migration 142) ───────────────────────────────────
 export interface WebsitePageRow {
   id: string

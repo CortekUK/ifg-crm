@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TeamsView } from "@/components/teams";
-import { TEAMS } from "@/lib/data";
-import { getPage } from "@/lib/content";
+import { TEAMS, SQUADS } from "@/lib/data";
+import { getPage, getSquads } from "@/lib/content";
 import { mergePage } from "@/lib/cms";
 
 export const metadata: Metadata = {
@@ -11,5 +11,11 @@ export const metadata: Metadata = {
 };
 
 export default async function Page() {
-  return <TeamsView data={mergePage(TEAMS, await getPage("teams"))} />;
+  const [page, squads] = await Promise.all([getPage("teams"), getSquads()]);
+  return (
+    <TeamsView
+      data={mergePage(TEAMS, page)}
+      squads={squads ?? Object.values(SQUADS)}
+    />
+  );
 }

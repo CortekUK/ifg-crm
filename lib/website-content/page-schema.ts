@@ -200,22 +200,8 @@ const TEAMS: PageSchema = {
     { section: 'Introduction', path: 'intro.heading', label: 'Heading', type: 'text', default: 'Meet the committed players & teams of IFG' },
     { section: 'Introduction', path: 'intro.intro', label: 'Intro', type: 'textarea', default: 'A comprehensive list of the committed players and teams who have joined The International Football Group, representing us across our programmes.' },
 
-    { section: 'Team tiles', path: 'tiles', label: 'Team tiles', type: 'cards', locked: true,
-      itemLabel: 'tile', itemTitleKey: 'name',
-      hint: 'Each tile links to its squad page — edit the name and image; the link stays fixed.',
-      itemFields: [
-        { key: 'name', label: 'Name', type: 'text' },
-        { key: 'img', label: 'Image', type: 'image' },
-      ],
-      default: [
-        { name: 'Coaches & Staff', img: '/teams/IFG-Staff-pic-1-scaled.jpg', href: '/programmes/macclesfield/teams/staff' },
-        { name: 'U19 Squad', img: '/teams/IFG-U19-scaled.jpg', href: '/programmes/macclesfield/teams/u19' },
-        { name: 'U20 Squad', img: '/teams/IFG-U20-scaled.jpg', href: '/programmes/macclesfield/teams/u20' },
-        { name: 'U21 Squad', img: '/teams/u21.jpg', href: '/programmes/macclesfield/teams/u21' },
-        { name: 'U23 Squad', img: '/teams/u23.jpg', href: '/programmes/macclesfield/teams/u23' },
-        { name: 'U23 Shadow Youth Squad', img: '/teams/u23%20shadow%20youth.jpg', href: '/programmes/macclesfield/teams/u23-shadow-youth' },
-        { name: "U23 Women's Squad", img: '/teams/u23%20women.jpg', href: '/programmes/macclesfield/teams/u23-women' },
-      ] },
+    { section: 'Coaches & Staff tile', path: 'staffTile.name', label: 'Tile label', type: 'text', hint: 'The fixed first tile that links to the Coaches & Staff page. The squad tiles after it come from the Squads list below.', default: 'Coaches & Staff' },
+    { section: 'Coaches & Staff tile', path: 'staffTile.img', label: 'Tile image', type: 'image', default: '/teams/IFG-Staff-pic-1-scaled.jpg' },
   ],
 }
 

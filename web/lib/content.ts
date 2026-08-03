@@ -5,7 +5,7 @@
 // minute without a redeploy. Every fetcher returns null on any failure so the
 // caller can fall back to the bundled content in lib/data.ts.
 
-import type { SuccessStory, GalleryCategory, Article, ArticleBlock } from "./data";
+import type { SuccessStory, GalleryCategory, Article, ArticleBlock, Squad, SquadPlayer } from "./data";
 
 const REVALIDATE_SECONDS = 60;
 
@@ -119,6 +119,39 @@ export async function getNewsArticle(slug: string): Promise<Article | null> {
   );
   if (!rows || rows.length === 0) return null;
   return mapNews(rows[0]);
+}
+
+// ── Squads (Teams page) ──────────────────────────────────────────────────────
+type SquadRow = {
+  slug: string; name: string; title: string | null;
+  hero_img: string | null; photo: string | null;
+  intro: string[] | null; league_url: string | null;
+  roster: SquadPlayer[] | null;
+};
+
+function mapSquad(r: SquadRow): Squad {
+  return {
+    slug: r.slug, name: r.name, title: r.title ?? "",
+    heroImg: r.hero_img ?? "", photo: r.photo ?? "",
+    intro: r.intro ?? [], leagueUrl: r.league_url ?? undefined,
+    roster: r.roster ?? [],
+  };
+}
+
+export async function getSquads(): Promise<Squad[] | null> {
+  const rows = await rest<SquadRow>(
+    "website_squads?select=*&published=eq.true&order=sort_order.asc,created_at.asc",
+  );
+  if (!rows || rows.length === 0) return null;
+  return rows.map(mapSquad);
+}
+
+export async function getSquad(slug: string): Promise<Squad | null> {
+  const rows = await rest<SquadRow>(
+    `website_squads?select=*&published=eq.true&slug=eq.${encodeURIComponent(slug)}&limit=1`,
+  );
+  if (!rows || rows.length === 0) return null;
+  return mapSquad(rows[0]);
 }
 
 // ── Site Content (ID Clinics etc.) ───────────────────────────────────────────

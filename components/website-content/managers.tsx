@@ -1,13 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { GraduationCap, Users, HelpCircle, CalendarClock, Trophy, Images, ImageOff, Newspaper } from 'lucide-react'
+import { GraduationCap, Users, HelpCircle, CalendarClock, Trophy, Images, ImageOff, Newspaper, Shield } from 'lucide-react'
 import { toast } from '@/lib/hooks/use-toast'
+import { cn } from '@/lib/utils'
 import {
   useSuccessStories, useGalleryCategories, useSiteContent, useDeleteContent,
 } from '@/lib/hooks/useWebsiteContent'
 import { useNews, useDeleteNews } from '@/lib/hooks/useWebsiteNews'
-import type { SuccessStory, GalleryCategory, SiteContentItem, WebsiteNews } from '@/lib/types/website-content'
+import { useSquads, useDeleteSquad } from '@/lib/hooks/useWebsiteSquads'
+import type { SuccessStory, GalleryCategory, SiteContentItem, WebsiteNews, WebsiteSquad } from '@/lib/types/website-content'
 import { StoryModal } from './StoryModal'
 import { GalleryModal } from './GalleryModal'
 import { SiteContentModal } from './SiteContentModal'
@@ -15,6 +17,7 @@ import { FaqModal } from './FaqModal'
 import { CourseModal } from './CourseModal'
 import { StaffModal } from './StaffModal'
 import { NewsModal } from './NewsModal'
+import { SquadModal } from './SquadModal'
 import { Section, ContentCard, FaqCard, DeleteConfirm, GRID, TINT } from './_shared'
 
 type ContentTable = 'website_success_stories' | 'website_gallery_categories' | 'website_site_content'
@@ -156,10 +159,31 @@ function useSiteCollection(type: string) {
   return { items, loading: site.isLoading }
 }
 
+// Preferred School order on the website; any other School names follow.
+const SCHOOL_ORDER = ['Sport', 'Business', 'Arts']
+
 export function CoursesManager() {
   const { items, loading } = useSiteCollection('course')
   const { deletingId, target, setTarget, confirm } = useDeleter('website_site_content')
   const [modal, setModal] = React.useState<{ open: boolean; item: SiteContentItem | null }>({ open: false, item: null })
+  const [school, setSchool] = React.useState<string | null>(null) // null = All
+
+  // Distinct Schools present (location = School), ordered.
+  const schools = React.useMemo(() => {
+    const present = Array.from(new Set(items.map((i) => i.location).filter(Boolean))) as string[]
+    return present.sort((a, b) => {
+      const ia = SCHOOL_ORDER.indexOf(a), ib = SCHOOL_ORDER.indexOf(b)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
+    })
+  }, [items])
+
+  const visible = school ? items.filter((i) => i.location === school) : items
+  const chip = (active: boolean) =>
+    cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+      active
+        ? 'border-blue-500 bg-blue-500 text-white'
+        : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground')
+
   return (
     <>
       <Section
@@ -169,14 +193,33 @@ export function CoursesManager() {
         loading={loading} isEmpty={!items.length}
         empty={{ title: 'No courses added yet', description: 'The website shows a placeholder list until you add courses. Group each degree by School (Sport, Business, Arts).' }}
       >
-        <div className={GRID}>
-          {items.map((it) => (
-            <ContentCard key={it.id} thumb={it.image} title={it.title} subtitle={it.summary || ''} badge={it.location}
-              published={it.published} fallbackIcon={GraduationCap}
-              onEdit={() => setModal({ open: true, item: it })}
-              onDelete={() => setTarget({ id: it.id, label: it.title })} deleting={deletingId === it.id} />
-          ))}
-        </div>
+        {schools.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Filter by School:</span>
+            <button type="button" className={chip(school === null)} onClick={() => setSchool(null)}>
+              All <span className="opacity-70">{items.length}</span>
+            </button>
+            {schools.map((s) => (
+              <button key={s} type="button" className={chip(school === s)} onClick={() => setSchool(s)}>
+                {s} <span className="opacity-70">{items.filter((i) => i.location === s).length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {visible.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+            No courses in {school}.
+          </p>
+        ) : (
+          <div className={GRID}>
+            {visible.map((it) => (
+              <ContentCard key={it.id} thumb={it.image} title={it.title} subtitle={it.summary || ''} badge={it.location}
+                published={it.published} fallbackIcon={GraduationCap}
+                onEdit={() => setModal({ open: true, item: it })}
+                onDelete={() => setTarget({ id: it.id, label: it.title })} deleting={deletingId === it.id} />
+            ))}
+          </div>
+        )}
       </Section>
       <CourseModal open={modal.open} item={modal.item} onClose={() => setModal({ open: false, item: null })} />
       <DeleteConfirm target={target} onCancel={() => setTarget(null)} onConfirm={confirm} />
@@ -263,6 +306,53 @@ export function ClinicsManager() {
         </div>
       </Section>
       <SiteContentModal open={modal.open} item={modal.item} onClose={() => setModal({ open: false, item: null })} />
+      <DeleteConfirm target={target} onCancel={() => setTarget(null)} onConfirm={confirm} />
+    </>
+  )
+}
+
+export function SquadsManager() {
+  const squads = useSquads()
+  const del = useDeleteSquad()
+  const [modal, setModal] = React.useState<{ open: boolean; item: WebsiteSquad | null }>({ open: false, item: null })
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [target, setTarget] = React.useState<{ id: string; label: string } | null>(null)
+
+  async function confirm() {
+    if (!target) return
+    const id = target.id
+    setTarget(null)
+    setDeletingId(id)
+    try {
+      await del.mutateAsync(id)
+      toast({ title: 'Squad deleted', description: 'Removed from the website.' })
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e instanceof Error ? e.message : '', variant: 'destructive' })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  return (
+    <>
+      <Section
+        icon={Shield} tint={TINT.blue} title="Squads"
+        description="Playing squads on the Teams page — each gets its own page with a roster." count={squads.data?.length ?? 0}
+        addLabel="Add squad" onAdd={() => setModal({ open: true, item: null })}
+        loading={squads.isLoading} isEmpty={!squads.data?.length}
+        empty={{ title: 'No squads yet', description: 'The website shows its built-in squads until you add one here.' }}
+      >
+        <div className={GRID}>
+          {squads.data?.map((s) => (
+            <ContentCard key={s.id} thumb={s.photo} title={s.name}
+              subtitle={[s.title, `${s.roster?.length ?? 0} players`].filter(Boolean).join(' · ')} published={s.published}
+              fallbackIcon={Shield}
+              onEdit={() => setModal({ open: true, item: s })}
+              onDelete={() => setTarget({ id: s.id, label: s.name })} deleting={deletingId === s.id} />
+          ))}
+        </div>
+      </Section>
+      <SquadModal open={modal.open} item={modal.item} onClose={() => setModal({ open: false, item: null })} />
       <DeleteConfirm target={target} onCancel={() => setTarget(null)} onConfirm={confirm} />
     </>
   )

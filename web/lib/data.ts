@@ -854,7 +854,13 @@ export const TEAMS = {
     heading: "Meet the committed players & teams of IFG",
     intro: "A comprehensive list of the committed players and teams who have joined The International Football Group, representing us across our programmes.",
   },
-  tiles: MACC_TEAMS,
+  // Fixed first tile linking to the Coaches & Staff page; the squad tiles that
+  // follow come from the Squads collection (CMS-managed).
+  staffTile: {
+    name: "Coaches & Staff",
+    img: "/teams/IFG-Staff-pic-1-scaled.jpg",
+    href: "/programmes/macclesfield/teams/staff",
+  },
 };
 
 // ---- About page (CMS-editable copy) ----

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { ProgrammeKey } from '@/lib/types/website-content'
 
-export type CmsModule = 'content' | 'pricing' | 'pricing-all' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news'
+export type CmsModule = 'content' | 'pricing' | 'pricing-all' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news' | 'squads'
 
 export interface CmsPage {
   slug: string              // registry id + content-schema slug + URL param
@@ -60,7 +60,7 @@ export const CMS_PAGES: CmsPage[] = [
   { slug: 'facilities', title: 'Facilities', route: '/programmes/macclesfield/facilities', icon: Building2,
     description: 'Facilities page hero and intro copy.', modules: ['content'] },
   { slug: 'teams', title: 'Teams', route: '/programmes/macclesfield/teams', icon: Shield,
-    description: 'Teams page hero and intro copy.', modules: ['content'] },
+    description: 'Teams page copy, plus the squads and their rosters.', modules: ['content', 'squads'] },
 ]
 
 export function getCmsPage(slug: string): CmsPage | undefined {
