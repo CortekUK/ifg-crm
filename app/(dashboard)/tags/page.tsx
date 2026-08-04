@@ -76,6 +76,10 @@ const CATEGORIES = [
   { value: 'priority', label: 'Priority' },
   { value: 'location', label: 'Location' },
   { value: 'source', label: 'Source' },
+  { value: 'gender', label: 'Gender' },
+  { value: 'year', label: 'Year' },
+  { value: 'programme', label: 'Programme' },
+  { value: 'position', label: 'Position' },
   { value: 'other', label: 'Other' },
   { value: 'none', label: 'Uncategorised' },
 ]

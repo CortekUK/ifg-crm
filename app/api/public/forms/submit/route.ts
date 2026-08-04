@@ -92,12 +92,19 @@ export async function POST(request: NextRequest) {
     // and let the form's automation create a deal in its own pipeline. This is
     // how one person can apply to several programmes (e.g. Summer then Gap Year)
     // and land in each pipeline while keeping a single contact record.
+    // The inline chat application posts the same body plus `source: 'chatbot'`,
+    // so those leads are labelled Website Chatbot (source + tag) rather than a
+    // plain Website Form. Everything else runs through the identical pipeline.
+    const isChatbot = str(body.source) === 'chatbot'
+
     const result = await processFormSubmission({
       formId: mapping.formId,
       formName: mapping.formName,
-      formSource: 'website',
+      formSource: isChatbot ? 'chatbot' : 'website',
       contact,
       rawPayload: body,
+      contactSource: isChatbot ? 'website_chatbot' : undefined,
+      tags: isChatbot ? [{ name: 'Chatbot', category: 'source' }] : undefined,
       supabase,
     })
 

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { assignTag, computeApplicationRouting, applyRouting } from './lead-routing'
 
 /**
  * Shared form-submission processor.
@@ -192,10 +193,23 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
       contactId = newContact.id
     }
 
-    // 1b. State → location tag (find-or-create, then attach) -----------------
-    if (contact.state) {
-      await assignTag(supabase, contactId, contact.state, 'location')
-    }
+    // 1b. Automatic lead routing --------------------------------------------
+    // Deterministically sort the lead into the right lists + tags from their
+    // attributes (gender → ALL/{year} MENS/WOMENS, programme → season list,
+    // plus gender/year/programme/position/location tags). Find-or-create, so
+    // existing lists/tags are reused and missing ones are made — no manual
+    // per-value automation rules needed. The "Website Enquiries" master list is
+    // added only for website/chatbot-origin submissions.
+    const fromWebsite = formSource === 'website' || formSource === 'chatbot'
+    const routing = computeApplicationRouting({
+      formId,
+      gender: normalizedGender,
+      graduationYear,
+      state: contact.state,
+      position: contact.position,
+      includeMaster: fromWebsite,
+    })
+    await applyRouting(supabase, contactId, routing)
 
     // 1c. Caller-supplied tags (e.g. a "Chatbot" source tag) -----------------
     for (const t of args.tags ?? []) {
@@ -394,38 +408,6 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
     const message = error instanceof Error ? error.message : 'Unknown error'
     await safeLogFailure(supabase, formId, formSource, rawPayload, message, email)
     return { ok: false, error: message }
-  }
-}
-
-/**
- * Find-or-create a tag by name and attach it to the contact.
- * Best-effort: a failure here must never fail the whole submission.
- */
-async function assignTag(supabase: SupabaseClient, contactId: string, rawName: string, category: string) {
-  const name = rawName.trim()
-  if (!name) return
-  try {
-    let { data: tag } = await supabase.from('tags').select('id').eq('name', name).maybeSingle()
-    if (!tag) {
-      const { data: created } = await supabase
-        .from('tags')
-        .insert({ name, category })
-        .select('id')
-        .single()
-      tag = created ?? null
-      // Lost a create race against a concurrent submission — re-read by name.
-      if (!tag) {
-        const { data: refetched } = await supabase.from('tags').select('id').eq('name', name).maybeSingle()
-        tag = refetched ?? null
-      }
-    }
-    if (tag) {
-      await supabase
-        .from('contact_tags')
-        .upsert({ contact_id: contactId, tag_id: tag.id }, { onConflict: 'contact_id,tag_id', ignoreDuplicates: true })
-    }
-  } catch (err) {
-    console.error('Failed to assign location tag:', err)
   }
 }
 

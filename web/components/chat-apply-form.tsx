@@ -111,7 +111,9 @@ export function ChatApplyForm({
       const res = await fetch("/api/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ form: form!.id, ...values }),
+        // `source: chatbot` tells the CRM to label this lead as Website Chatbot
+        // (not a plain Website Form) — it's collected inside the chat widget.
+        body: JSON.stringify({ form: form!.id, source: "chatbot", ...values }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

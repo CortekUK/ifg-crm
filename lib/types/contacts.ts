@@ -9,7 +9,7 @@ export interface ContactTag {
   id: string
   name: string
   color: string
-  category: 'tournament' | 'skill' | 'priority' | 'location' | 'source' | 'other' | null
+  category: 'tournament' | 'skill' | 'priority' | 'location' | 'source' | 'other' | 'gender' | 'year' | 'programme' | 'position' | null
   description?: string | null
 }
 

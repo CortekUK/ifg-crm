@@ -10,7 +10,27 @@ const SCHOOLS: { key: UniSchool; blurb: string }[] = [
   { key: "Arts", blurb: "Creative degrees spanning design, media and music." },
 ];
 
-const CAPTURED_KEY = "ifg_uni_captured"; // sessionStorage flag — capture once per visit
+const CAPTURED_KEY = "ifg_uni_captured"; // sessionStorage flag — details captured this visit
+const LEAD_KEY = "ifg_uni_lead"; // the captured details, reused to silently log later course clicks
+
+type StoredLead = { name?: string; email: string; phone?: string };
+
+// Post an enquiry for a specific course. Shared by the modal submit and the
+// silent capture on later clicks so the CRM always gets the exact course.
+function postEnquiry(c: UniCourse, lead: StoredLead) {
+  return fetch("/api/enquiry", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: lead.email,
+      name: lead.name || undefined,
+      phone: lead.phone || undefined,
+      interest: `${c.name} (${c.school} · University)`,
+      course: c.name,
+      source: "university_course",
+    }),
+  });
+}
 
 export function UniversityCourses({ courses }: { courses?: UniCourse[] }) {
   const list = courses && courses.length ? courses : UNIVERSITY_COURSES;
@@ -26,15 +46,25 @@ export function UniversityCourses({ courses }: { courses?: UniCourse[] }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const captured = () => {
-    try { return sessionStorage.getItem(CAPTURED_KEY) === "1"; } catch { return false; }
+  const storedLead = (): StoredLead | null => {
+    try {
+      if (sessionStorage.getItem(CAPTURED_KEY) !== "1") return null;
+      const raw = sessionStorage.getItem(LEAD_KEY);
+      const l = raw ? (JSON.parse(raw) as StoredLead) : null;
+      return l?.email ? l : null;
+    } catch {
+      return null;
+    }
   };
 
   // Tile click: if we've already captured this visit, go straight to UCLan
-  // (this handler is a real user gesture, so the new tab isn't blocked).
+  // (this handler is a real user gesture, so the new tab isn't blocked) AND
+  // silently record which course this click was for, so every enquiry is logged.
   function openCourse(c: UniCourse) {
-    if (captured()) {
+    const lead = storedLead();
+    if (lead) {
       window.open(c.url, "_blank", "noopener,noreferrer");
+      void postEnquiry(c, lead).catch(() => {});
       return;
     }
     setActive(c);
@@ -58,25 +88,20 @@ export function UniversityCourses({ courses }: { courses?: UniCourse[] }) {
     }
     setError(null);
     setStatus("loading");
+    const lead: StoredLead = { email: addr, name: name.trim() || undefined, phone: phone.trim() || undefined };
     try {
-      const res = await fetch("/api/enquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: addr,
-          name: name.trim() || undefined,
-          phone: phone.trim() || undefined,
-          interest: `${active.name} (${active.school} · University)`,
-          source: "university_course",
-        }),
-      });
+      const res = await postEnquiry(active, lead);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Something went wrong. Please try again.");
         setStatus("error");
         return;
       }
-      try { sessionStorage.setItem(CAPTURED_KEY, "1"); } catch { /* ignore */ }
+      // Remember the details so later course clicks are captured silently too.
+      try {
+        sessionStorage.setItem(CAPTURED_KEY, "1");
+        sessionStorage.setItem(LEAD_KEY, JSON.stringify(lead));
+      } catch { /* ignore */ }
       setStatus("done");
     } catch {
       setError("Could not send. Please try again.");

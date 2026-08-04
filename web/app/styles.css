@@ -1525,6 +1525,14 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .aw-msg.user .aw-bubble{background:var(--pitch-500);color:#fff;border-bottom-right-radius:4px}
 .aw-bubble a{color:inherit;text-decoration:underline;font-weight:600}
 .aw-msg.assistant .aw-bubble a{color:var(--pitch-500)}
+/* Light markdown inside assistant bubbles */
+.aw-bubble .aw-p{margin:0}
+.aw-bubble .aw-p + .aw-p,.aw-bubble .aw-p + .aw-list,.aw-bubble .aw-list + .aw-p{margin-top:8px}
+.aw-bubble .aw-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.aw-bubble .aw-list li{position:relative;padding-left:18px;line-height:1.45}
+.aw-bubble .aw-list li::before{content:"";position:absolute;left:2px;top:.5em;width:6px;height:6px;border-radius:50%;background:var(--pitch-500);box-shadow:0 0 0 3px rgba(190,22,35,.14)}
+.aw-msg.assistant .aw-bubble strong{color:var(--pitch-500);font-weight:800}
+.aw-msg.user .aw-bubble strong{font-weight:800}
 
 /* Inline application form inside the chat (ChatApplyForm) */
 .caf{width:100%;background:var(--bg);border:1px solid var(--hairline);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
@@ -1539,6 +1547,16 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .caf.caf-done{flex-direction:row;align-items:center;gap:10px}
 .caf-tick{flex:none;width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:var(--pitch-500);color:#fff}
 .caf-done p{margin:0;font-size:13px;line-height:1.45}
+
+/* Opening lead-capture gate (name + email before the chat unlocks) */
+.aw-gate{display:flex;flex-direction:column;gap:14px;padding:4px 2px}
+.aw-gate-lead{margin:0;font-family:var(--f-archivo);font-size:16px;font-weight:800;line-height:1.3}
+.aw-gate-sub{margin:-6px 0 2px;font-size:13px;line-height:1.45;color:var(--fg-subtle)}
+.aw-gate .field{margin-bottom:0}
+.aw-gate .field label{font-size:11px;letter-spacing:.08em;margin-bottom:6px}
+.aw-gate .field input{padding:11px 13px;font-size:14px}
+.aw-gate-submit{width:100%;justify-content:center;margin-top:2px}
+.aw-gate-consent{margin:0;font-size:11px;line-height:1.4;color:var(--fg-subtle)}
 
 .aw-typing{display:inline-flex;gap:4px;align-items:center}
 .aw-typing span{width:6px;height:6px;border-radius:50%;background:var(--fg);opacity:.4;animation:awblink 1.2s infinite}

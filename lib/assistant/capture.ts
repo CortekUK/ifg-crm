@@ -1,11 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { assignTag, findOrCreateList, addContactToLists, MASTER_LIST } from '@/lib/forms/lead-routing'
 
 /**
- * Shared enquiry-capture used by BOTH the website assistant (capture_enquiry
- * tool) and the exit-intent popup (direct submit). "List only" routing: upsert
- * the contact and add them to the "Website Enquiries" list — no deal/pipeline —
- * plus an audit row in form_submissions.
+ * Shared enquiry-capture used by the website assistant (capture_enquiry tool),
+ * the chatbot lead gate, the university-course gate and the exit-intent popup.
+ * "List only" routing: upsert the contact and add them to a source-specific
+ * list PLUS the "Website Enquiries" master (everyone from the website flows
+ * through the master) — no deal/pipeline — plus an audit row in form_submissions.
  */
+
+// Re-exported for existing importers (e.g. the deposit route).
+export { findOrCreateList }
 
 export interface EnquiryArgs {
   email?: string
@@ -15,25 +20,8 @@ export interface EnquiryArgs {
   message?: string
   /** Where it came from, e.g. 'chatbot' | 'exit_intent'. Stored on the submission. */
   source?: string
-}
-
-/** Find-or-create a marketing list by name, returning its id (or null). */
-export async function findOrCreateList(
-  supabase: SupabaseClient,
-  name: string,
-  description = 'Leads captured from the website',
-): Promise<string | null> {
-  const { data: existing } = await supabase.from('lists').select('id').eq('name', name).maybeSingle()
-  if (existing?.id) return existing.id as string
-  const { data: created } = await supabase
-    .from('lists')
-    .insert({ name, description, sport: 'football', is_dynamic: false })
-    .select('id')
-    .single()
-  if (created?.id) return created.id as string
-  // Lost a create race — re-read.
-  const { data: refetched } = await supabase.from('lists').select('id').eq('name', name).maybeSingle()
-  return (refetched?.id as string) ?? null
+  /** The specific university course the visitor enquired about (its clean name). */
+  course?: string
 }
 
 /** Land an enquiry as a contact + add to the "Website Enquiries" list (list-only). */
@@ -42,19 +30,25 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false }
 
   const parts = (args.name ?? '').trim().split(/\s+/).filter(Boolean)
+  const hasName = parts.length > 0
   const firstName = parts[0] || 'Website'
-  const lastName = parts.slice(1).join(' ') || 'Enquiry'
+  // Only synthesise a placeholder surname when NO name was given at all (e.g. a
+  // bare exit-intent email). A real single-word name keeps an empty surname
+  // rather than an odd "Enquiry" filler after it.
+  const lastName: string | null = hasName ? parts.slice(1).join(' ') || null : 'Enquiry'
 
   const { data: existing } = await supabase.from('contacts').select('id').eq('email', email).maybeSingle()
   let contactId: string | null = existing?.id ?? null
 
   if (contactId) {
     const updates: Record<string, unknown> = {}
-    if (parts.length) {
+    if (hasName) {
       updates.first_name = firstName
-      updates.last_name = lastName
+      if (lastName) updates.last_name = lastName
     }
     if (args.phone) updates.phone = args.phone
+    // Record the specific course they enquired about on the contact itself.
+    if (args.course) updates.degree_choice = args.course
     if (Object.keys(updates).length) await supabase.from('contacts').update(updates).eq('id', contactId)
   } else {
     const sourceMap: Record<string, string> = {
@@ -69,6 +63,7 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
         last_name: lastName,
         phone: args.phone ?? null,
         source: (args.source && sourceMap[args.source]) || 'website_chatbot',
+        degree_choice: args.course ?? null,
       })
       .select('id')
       .single()
@@ -77,9 +72,20 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
 
   if (!contactId) return { ok: false }
 
-  // University course enquiries go to their own list for easy follow-up.
-  const listName = args.source === 'university_course' ? 'University Enquiries' : 'Website Enquiries'
-  const listId = await findOrCreateList(supabase, listName)
+  // Route leads to a source-specific list for easy follow-up. The chatbot gate
+  // (name + email captured before the chat starts) lands every visitor in a
+  // dedicated "Chatbot Leads" list so nobody is lost even if they never finish
+  // the conversation.
+  let listName = 'Website Enquiries'
+  let listDescription = 'Leads captured from the website'
+  if (args.source === 'university_course') {
+    listName = 'University Course Enquiries'
+    listDescription = 'Visitors who enquired about a specific university course before heading to the UCLan course page'
+  } else if (args.source === 'chatbot') {
+    listName = 'Chatbot Leads'
+    listDescription = 'Visitors who started the website chat — name & email captured up-front'
+  }
+  const listId = await findOrCreateList(supabase, listName, listDescription)
   if (listId) {
     await supabase
       .from('contact_lists')
@@ -88,6 +94,15 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
         { onConflict: 'contact_id,list_id' },
       )
   }
+
+  // Everyone who comes through the website also flows into the master catch-all
+  // list (the "divvying up" then happens via the specific lists above/tags).
+  if (listName !== MASTER_LIST) await addContactToLists(supabase, contactId, [MASTER_LIST])
+
+  // Tag the enquired course so it's visible and filterable on the contact/list.
+  // Tags accumulate, so a visitor who enquires about several courses in one
+  // visit ends up tagged with each of them.
+  if (args.course) await assignTag(supabase, contactId, args.course, 'interest')
 
   // Audit log so these leads appear under Form Submissions like other captures.
   await supabase.from('form_submissions').insert({

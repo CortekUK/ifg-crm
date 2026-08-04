@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     interest: str(body.interest),
     message: str(body.message),
     source: str(body.source) || 'exit_intent',
+    course: str(body.course),
   }
 
   try {
