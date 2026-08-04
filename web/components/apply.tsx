@@ -1,109 +1,13 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { isValidPhoneNumber } from "libphonenumber-js";
 import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { Select } from "./select";
 import { DatePicker } from "./datepicker";
 import { PhoneInput } from "./phone-input";
-import {
-  COUNTRIES,
-  FOOTBALL_POSITIONS,
-  GENDER_OPTIONS,
-  LENGTH_OF_STAY_OPTIONS,
-  YEAR_OF_ENTRY_OPTIONS,
-  VIDEO_SRC,
-  VIDEO_POSTER,
-} from "@/lib/data";
-
-// Field definitions drive each form, so the three forms stay DRY and share
-// styling, validation and the custom Select primitive.
-type FieldDef = {
-  key: string;
-  label: string;
-  type: "text" | "email" | "tel" | "phone" | "date" | "select" | "country" | "state";
-  required?: boolean;
-  placeholder?: string;
-  hint?: string;
-  options?: string[];
-  searchable?: boolean;
-  full?: boolean; // span both columns
-};
-
-const FIRST: FieldDef = { key: "firstName", label: "First name", type: "text", required: true, placeholder: "Marco" };
-const LAST: FieldDef = { key: "lastName", label: "Last name", type: "text", required: true, placeholder: "Rossi" };
-const DOB: FieldDef = { key: "dob", label: "Date of birth", type: "date", required: true };
-const PHONE: FieldDef = { key: "phone", label: "Phone", type: "phone", required: true };
-const EMAIL: FieldDef = { key: "email", label: "Email", type: "email", required: true, placeholder: "you@email.com", full: true };
-const GENDER: FieldDef = { key: "gender", label: "Gender", type: "select", required: true, options: GENDER_OPTIONS };
-const COUNTRY: FieldDef = { key: "country", label: "Country", type: "country", required: true };
-const STATE: FieldDef = { key: "state", label: "State / Region", type: "state", required: true };
-const POSITION: FieldDef = { key: "position", label: "Football position", type: "select", required: true, options: FOOTBALL_POSITIONS };
-const LENGTH: FieldDef = { key: "lengthOfStay", label: "Length of stay", type: "select", required: true, options: LENGTH_OF_STAY_OPTIONS };
-const YEAR: FieldDef = { key: "yearOfEntry", label: "Expected year of entry", type: "select", required: true, options: YEAR_OF_ENTRY_OPTIONS };
-
-type FormDef = { id: string; tab: string; title: string; blurb: string; fields: FieldDef[] };
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// Single source of truth for field validity — covers the custom Select,
-// DatePicker and PhoneInput too (which the browser can't validate natively).
-// `statesAvailable` makes the state field required only when the chosen country
-// actually has a list of states/regions to pick from.
-function validateField(f: FieldDef, raw: string, statesAvailable = false): string | null {
-  const v = (raw || "").trim();
-  if (f.type === "state") {
-    if (!v) return statesAvailable ? `${f.label} is required` : null;
-    return null;
-  }
-  if (!v) return f.required ? `${f.label} is required` : null;
-  if (f.type === "email" && !EMAIL_RE.test(v)) return "Enter a valid email address";
-  if (f.type === "phone") {
-    if (!isValidPhoneNumber(v)) return "Enter a valid phone number";
-    return null;
-  }
-  if (f.type === "tel") {
-    const digits = v.replace(/[^\d]/g, "");
-    if (digits.length < 7) return "Enter a valid phone number";
-  }
-  if (f.type === "date") {
-    const d = new Date(v);
-    if (isNaN(d.getTime())) return "Enter a valid date";
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (d > today) return "Date of birth can't be in the future";
-    if (d.getFullYear() < 1900) return "Enter a valid date";
-  }
-  return null;
-}
-
-const FORMS: FormDef[] = [
-  {
-    id: "training",
-    tab: "Training Experience",
-    title: "Summer Residency Application",
-    blurb: "An intensive summer residency training within the Macclesfield FC environment.",
-    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, POSITION, LENGTH],
-  },
-  {
-    id: "university",
-    tab: "University Programme",
-    title: "University Application",
-    blurb: "Accredited Bachelor's & Master's degrees awarded by the University of Lancashire.",
-    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, YEAR, POSITION],
-  },
-  {
-    id: "gap-year",
-    tab: "Gap Year Programme",
-    title: "Gap Year Application",
-    blurb: "A nine-month playing season combining football development with life experience.",
-    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, YEAR, POSITION],
-  },
-];
-
-// Apply form tab id → deposit programme key (Gap Year has no deposit).
-const DEPOSIT_PROGRAMME: Record<string, string> = { training: "residency", university: "university" };
+import { COUNTRIES, VIDEO_SRC, VIDEO_POSTER } from "@/lib/data";
+import { type FieldDef, type FormDef, FORMS, DEPOSIT_PROGRAMME, validateField } from "@/lib/apply-fields";
 
 interface DepositCtx { on: boolean; mode: string; amount?: string; email?: string; depositAmount?: string }
 

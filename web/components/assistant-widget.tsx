@@ -1,8 +1,10 @@
 "use client";
 import { useState, useRef, useEffect, Fragment } from "react";
 import { Icon } from "./icons";
+import { ChatApplyForm } from "./chat-apply-form";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type FormDirective = { programme: string; prefill?: Record<string, string> };
+type Msg = { role: "user" | "assistant"; content: string; form?: FormDirective };
 
 const GREETING =
   "Hi! I'm the IFG assistant. I can help with our football programmes, applications, or booking a call. What are you looking for?";
@@ -79,7 +81,10 @@ export function AssistantWidget() {
         setLoading(false);
         return;
       }
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "" }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.reply || "", form: data.form as FormDirective | undefined },
+      ]);
     } catch {
       setError("Could not reach the assistant. Please try again.");
     } finally {
@@ -122,7 +127,19 @@ export function AssistantWidget() {
         <div className="aw-body" ref={scrollRef} data-lenis-prevent>
           {messages.map((m, i) => (
             <div key={i} className={"aw-msg " + m.role}>
-              <div className="aw-bubble">{renderContent(m.content)}</div>
+              {m.content && <div className="aw-bubble">{renderContent(m.content)}</div>}
+              {m.form && (
+                <ChatApplyForm
+                  programme={m.form.programme}
+                  prefill={m.form.prefill}
+                  onSubmitted={() =>
+                    setMessages((prev) => [
+                      ...prev,
+                      { role: "assistant", content: "Thanks! Your application is in — the IFG team will review it and follow up soon." },
+                    ])
+                  }
+                />
+              )}
             </div>
           ))}
           {loading && (

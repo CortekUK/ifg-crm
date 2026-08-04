@@ -1516,7 +1516,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .aw-body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
 .aw-msg{display:flex}
 .aw-msg.user{justify-content:flex-end}
-.aw-msg.assistant{justify-content:flex-start}
+.aw-msg.assistant{justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:8px}
 .aw-bubble{
   max-width:84%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;
   font-family:var(--f-archivo);white-space:pre-wrap;word-wrap:break-word;
@@ -1525,6 +1525,20 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .aw-msg.user .aw-bubble{background:var(--pitch-500);color:#fff;border-bottom-right-radius:4px}
 .aw-bubble a{color:inherit;text-decoration:underline;font-weight:600}
 .aw-msg.assistant .aw-bubble a{color:var(--pitch-500)}
+
+/* Inline application form inside the chat (ChatApplyForm) */
+.caf{width:100%;background:var(--bg);border:1px solid var(--hairline);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.caf-title{margin:0;font-family:var(--f-archivo);font-size:14px;font-weight:800}
+.caf-fields{display:flex;flex-direction:column;gap:12px}
+.caf .field{margin-bottom:0}
+.caf .field label{font-size:11px;letter-spacing:.08em;margin-bottom:6px}
+.caf .field input,.caf .field .sel-btn,.caf .field .dp-btn{padding:10px 12px;font-size:14px}
+.caf-submit{width:100%;justify-content:center;margin-top:2px}
+.caf-consent{margin:0;font-size:11px;line-height:1.4;color:var(--fg-subtle)}
+.caf-err-top{margin:0}
+.caf.caf-done{flex-direction:row;align-items:center;gap:10px}
+.caf-tick{flex:none;width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:var(--pitch-500);color:#fff}
+.caf-done p{margin:0;font-size:13px;line-height:1.45}
 
 .aw-typing{display:inline-flex;gap:4px;align-items:center}
 .aw-typing span{width:6px;height:6px;border-radius:50%;background:var(--fg);opacity:.4;animation:awblink 1.2s infinite}

@@ -103,6 +103,43 @@ interface ApplicationArgs {
   lengthOfStay?: string
 }
 
+// Renders an inline application form INSIDE the chat, prefilled with whatever
+// the visitor has already given. Preferred over asking every field one by one:
+// the visitor completes a compact structured form (date picker, dropdowns) in
+// one go, which is faster and far more accurate than free-text collection.
+const OPEN_FORM_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'open_application_form',
+    description:
+      "Show the visitor an inline application form to complete inside the chat. Call this AS SOON AS the visitor wants to apply/enrol and a specific programme is known — do NOT ask for each field one by one in the chat. Put a short warm one-line lead-in in `message`, and include every detail the visitor has already mentioned so it's prefilled and they don't retype it.",
+    parameters: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'A short, friendly one-line lead-in shown above the form.' },
+        programme: {
+          type: 'string',
+          enum: ['training', 'university', 'gap-year'],
+          description: "'training' = Summer Residency, 'university' = University, 'gap-year' = Gap Year.",
+        },
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        email: { type: 'string' },
+        phone: { type: 'string' },
+        dob: { type: 'string', description: 'Date of birth in YYYY-MM-DD format' },
+        gender: { type: 'string' },
+        country: { type: 'string' },
+        region: { type: 'string', description: 'State / region / county' },
+        position: { type: 'string' },
+        yearOfEntry: { type: 'string' },
+        lengthOfStay: { type: 'string' },
+      },
+      required: ['programme'],
+      additionalProperties: false,
+    },
+  },
+}
+
 /** Run a chatbot-collected application through the shared form pipeline. */
 async function submitApplication(
   supabase: NonNullable<ReturnType<typeof getServiceClient>>,
@@ -203,7 +240,7 @@ export async function POST(request: NextRequest) {
       const completion = await openai.chat.completions.create({
         model,
         messages,
-        tools: [CAPTURE_TOOL, SUBMIT_APPLICATION_TOOL],
+        tools: [CAPTURE_TOOL, SUBMIT_APPLICATION_TOOL, OPEN_FORM_TOOL],
         max_tokens: 600,
         temperature: 0.4,
       })
@@ -220,6 +257,29 @@ export async function POST(request: NextRequest) {
       const toolCalls = choice.tool_calls ?? []
       if (toolCalls.length === 0) {
         return NextResponse.json({ reply: choice.content ?? '', captured })
+      }
+
+      // open_application_form short-circuits the loop: we hand a form directive
+      // back to the widget, which renders the inline application form. No CRM
+      // write happens here — submission runs through the normal /apply pipeline.
+      const formCall = toolCalls.find(
+        (c) => c.type === 'function' && c.function.name === 'open_application_form',
+      )
+      if (formCall && formCall.type === 'function') {
+        let parsed: ApplicationArgs & { message?: string } = {}
+        try {
+          parsed = JSON.parse(formCall.function.arguments || '{}')
+        } catch {
+          parsed = {}
+        }
+        const { message, programme, ...prefill } = parsed
+        return NextResponse.json({
+          reply:
+            (typeof message === 'string' && message.trim()) ||
+            "Great — let's get your application started. Fill in the details below and I'll submit it for you.",
+          form: { programme, prefill },
+          captured,
+        })
       }
 
       // Execute tool calls, append results, loop for the final reply.
