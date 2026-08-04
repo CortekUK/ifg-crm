@@ -22,15 +22,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export const MASTER_LIST = 'Website Enquiries'
 /** The everyone list, used alongside the master for full applications. */
 export const EVERYONE_LIST = 'ALL CONTACTS EVERYONE'
-/** Fallback season for programme lists when the lead has no year (e.g. Summer). */
-export const CURRENT_INTAKE_SEASON = 2027
 
-/** form_id → programme list prefix (list becomes "<PREFIX> <season>"). */
-const PROGRAMME_LIST_PREFIX: Record<string, string> = {
-  summer: 'SUMMER RESIDENCY',
-  gapyear: 'UK GAP',
-  university: 'UNIVERSITY',
-}
+// NOTE: the per-programme/season lists (e.g. "UK GAP 2027") are NOT handled
+// here. They are linked to a pipeline (lists.source_pipeline_id) and populated
+// automatically by the `deal_sync_to_pipeline_list` trigger when the
+// deal-creation automation makes the deal — so they always track the current
+// campaign pipeline. Generating them here would duplicate that and use the
+// wrong year (the applicant's entry year vs. the campaign season). We keep only
+// the programme TAG below.
+
 /** form_id → clean programme tag label. */
 const PROGRAMME_TAG_LABEL: Record<string, string> = {
   summer: 'Summer Residency',
@@ -74,9 +74,7 @@ export function computeApplicationRouting(input: RoutingInput): Routing {
   // Graduation year tag.
   if (input.graduationYear) tags.push({ name: String(input.graduationYear), category: 'year' })
 
-  // Programme → "<PREFIX> <season>" list + clean programme tag.
-  const prefix = PROGRAMME_LIST_PREFIX[input.formId]
-  if (prefix) lists.push(`${prefix} ${input.graduationYear ?? CURRENT_INTAKE_SEASON}`)
+  // Programme tag (the programme/season LIST is handled by the pipeline trigger).
   const progLabel = PROGRAMME_TAG_LABEL[input.formId]
   if (progLabel) tags.push({ name: progLabel, category: 'programme' })
 
