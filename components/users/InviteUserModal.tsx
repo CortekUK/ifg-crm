@@ -25,7 +25,7 @@ import { Loader2, Send, Briefcase, GitBranch, Copy, Check } from 'lucide-react'
 import { useInviteUser } from '@/lib/hooks/useUsers'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { toast } from '@/lib/hooks/use-toast'
-import { VERIFIED_EMAIL_DOMAIN, isVerifiedDomainEmail } from '@/lib/config/email-domain'
+import { VERIFIED_EMAIL_DOMAIN, VERIFIED_EMAIL_DOMAINS_LABEL, isVerifiedDomainEmail } from '@/lib/config/email-domain'
 
 interface InviteUserModalProps {
   isOpen: boolean
@@ -234,12 +234,12 @@ export function InviteUserModal({ isOpen, onClose }: InviteUserModalProps) {
                     <p className="text-xs text-red-500">Please enter a valid email address.</p>
                   ) : wrongDomain ? (
                     <p className="text-xs text-red-500">
-                      Must be an <span className="font-semibold">@{VERIFIED_EMAIL_DOMAIN}</span> address.
-                      Team emails are sent from this domain, so other addresses can&apos;t send.
+                      Must be a <span className="font-semibold">{VERIFIED_EMAIL_DOMAINS_LABEL}</span> address.
+                      Team emails are sent from these domains, so other addresses can&apos;t send.
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Must be a company <span className="font-medium">@{VERIFIED_EMAIL_DOMAIN}</span> address.
+                      Must be a company <span className="font-medium">{VERIFIED_EMAIL_DOMAINS_LABEL}</span> address.
                     </p>
                   )}
                 </div>

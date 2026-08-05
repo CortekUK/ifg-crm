@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { VERIFIED_EMAIL_DOMAIN, isVerifiedDomainEmail } from '@/lib/config/email-domain'
+import { VERIFIED_EMAIL_DOMAINS_LABEL, isVerifiedDomainEmail } from '@/lib/config/email-domain'
 
 /**
  * Email the new team member their password-setup link via Resend.
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     if (!isVerifiedDomainEmail(String(email))) {
       return NextResponse.json(
         {
-          error: `Team members must use an @${VERIFIED_EMAIL_DOMAIN} email address. The CRM sends emails from this domain, so other addresses can't send.`,
+          error: `Team members must use a ${VERIFIED_EMAIL_DOMAINS_LABEL} email address. The CRM sends emails from these domains, so other addresses can't send.`,
         },
         { status: 400 },
       )

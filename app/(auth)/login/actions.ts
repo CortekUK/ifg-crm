@@ -45,27 +45,16 @@ export async function login(formData: FormData) {
   redirect(destination)
 }
 
-export async function signup(formData: FormData) {
-  const supabase = await createClient()
-
-  const data = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-    options: {
-      data: {
-        full_name: formData.get('fullName') as string,
-      }
-    }
+// Public self-registration is DISABLED — the CRM is invite-only. This is kept
+// as a hard stop (defense in depth) in case the /register page is ever restored:
+// staff are created via the Users invite flow (professional-domain email
+// required) and players via the portal invite flow, both using the service-role
+// admin API. Signups are also turned off at the Supabase project level and the
+// handle_new_user trigger rejects staff roles from non-professional domains.
+export async function signup(_formData: FormData) {
+  return {
+    error: 'Public sign-up is disabled. Please ask an administrator to invite you.',
   }
-
-  const { error } = await supabase.auth.signUp(data)
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath('/', 'layout')
-  redirect('/dashboard')
 }
 
 export async function logout() {
