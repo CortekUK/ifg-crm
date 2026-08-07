@@ -10,7 +10,7 @@ import { UNIVERSITY, type UniCourse } from "@/lib/data";
 import type { UniversityPricing } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=university";
-const BROCHURE = "/programmes/macclesfield/brochure";
+const BROCHURE = "/programmes/macclesfield/brochure/university";
 
 export function UniversityView({ courses, pricing, content }: { courses?: UniCourse[]; pricing?: UniversityPricing | null; content?: typeof UNIVERSITY }) {
   const router = useRouter();

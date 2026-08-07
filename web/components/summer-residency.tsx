@@ -10,7 +10,7 @@ import { SUMMER_RESIDENCY, type ScheduleDay } from "@/lib/data";
 import type { SummerOption } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=training";
-const BROCHURE = "/programmes/macclesfield/brochure";
+const BROCHURE = "/programmes/macclesfield/brochure/summer";
 
 export function SummerResidencyView({ options, data }: { options?: SummerOption[]; data?: typeof SUMMER_RESIDENCY }) {
   const router = useRouter();

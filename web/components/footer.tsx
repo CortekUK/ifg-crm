@@ -36,7 +36,7 @@ export function Footer() {
           <div>
             <h5>Group</h5>
             <Link href="/faq">FAQs</Link>
-            <a href="https://publuu.com/flip-book/448626/2075544" target="_blank" rel="noreferrer">Brochure</a>
+            <Link href="/programmes/macclesfield/brochure">Brochures</Link>
             <Link href="/contact">Get in touch</Link>
             <Link href="/contact">Contact</Link>
           </div>

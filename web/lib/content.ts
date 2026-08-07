@@ -178,6 +178,47 @@ export async function getSiteContent(type: string): Promise<SiteContent[]> {
   }));
 }
 
+// ── Brochures (self-hosted flipbooks, one per programme) ─────────────────────
+// Program keys ('summer' | 'university' | 'gap-year') are the stable identifiers
+// the viewer routes on and lead capture uses. Only published rows with a PDF
+// are exposed; RLS already limits to published.
+export type Brochure = {
+  program: string;
+  title: string;
+  description: string;
+  pdfUrl: string;
+  coverImage: string;
+  pageCount: number | null;
+};
+
+type BrochureRow = {
+  program: string; title: string; description: string | null;
+  pdf_url: string | null; cover_image: string | null; page_count: number | null;
+};
+
+function mapBrochure(r: BrochureRow): Brochure {
+  return {
+    program: r.program, title: r.title, description: r.description ?? "",
+    pdfUrl: r.pdf_url ?? "", coverImage: r.cover_image ?? "", pageCount: r.page_count,
+  };
+}
+
+export async function getBrochures(): Promise<Brochure[]> {
+  const rows = await rest<BrochureRow>(
+    "website_brochures?select=*&published=eq.true&order=sort_order.asc,created_at.asc",
+  );
+  if (!rows) return [];
+  return rows.map(mapBrochure).filter((b) => b.pdfUrl);
+}
+
+export async function getBrochure(program: string): Promise<Brochure | null> {
+  const rows = await rest<BrochureRow>(
+    `website_brochures?select=*&published=eq.true&program=eq.${encodeURIComponent(program)}&limit=1`,
+  );
+  const b = rows?.[0] ? mapBrochure(rows[0]) : null;
+  return b && b.pdfUrl ? b : null;
+}
+
 // ── Page content overrides (page-by-page CMS) ─────────────────────────────────
 // Returns the raw overrides doc for a page (partial; only edited fields), or null
 // when unpublished / missing / on any error. Callers deep-merge it onto their

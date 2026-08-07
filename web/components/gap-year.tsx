@@ -8,7 +8,7 @@ import { GAP_YEAR } from "@/lib/data";
 import type { GapCost } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=gap-year";
-const BROCHURE = "/programmes/macclesfield/brochure";
+const BROCHURE = "/programmes/macclesfield/brochure/gap-year";
 
 export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: typeof GAP_YEAR }) {
   const router = useRouter();
