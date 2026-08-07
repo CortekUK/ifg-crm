@@ -141,6 +141,32 @@ export interface WebsiteSquad {
 }
 export type WebsiteSquadInput = Partial<Omit<WebsiteSquad, 'created_at' | 'updated_at'>>
 
+// ── Brochures (migration 154) — self-hosted flipbooks, one per programme ──────
+// `program` is the stable key used by lead capture (label → list/tag) and by the
+// website viewer route; it is UNIQUE in the table.
+export type BrochureProgram = 'summer' | 'university' | 'gap-year'
+
+export const BROCHURE_PROGRAMS: { key: BrochureProgram; label: string }[] = [
+  { key: 'summer', label: 'Summer Residency' },
+  { key: 'university', label: 'University' },
+  { key: 'gap-year', label: 'Gap Year' },
+]
+
+export interface WebsiteBrochure {
+  id: string
+  program: BrochureProgram
+  title: string
+  description: string | null
+  pdf_url: string | null
+  cover_image: string | null
+  page_count: number | null
+  published: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+export type WebsiteBrochureInput = Partial<Omit<WebsiteBrochure, 'created_at' | 'updated_at'>>
+
 // ── Page content overrides (migration 142) ───────────────────────────────────
 export interface WebsitePageRow {
   id: string

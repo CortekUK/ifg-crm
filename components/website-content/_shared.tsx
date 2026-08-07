@@ -159,8 +159,8 @@ export function Section({
   title: string
   description: string
   count: number
-  addLabel: string
-  onAdd: () => void
+  addLabel?: string
+  onAdd?: () => void
   loading: boolean
   isEmpty: boolean
   empty: { title: string; description: string; list?: boolean }
@@ -181,10 +181,12 @@ export function Section({
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
         </div>
-        <Button onClick={onAdd} className="shrink-0"><Plus className="mr-2 h-4 w-4" />{addLabel}</Button>
+        {addLabel && onAdd && (
+          <Button onClick={onAdd} className="shrink-0"><Plus className="mr-2 h-4 w-4" />{addLabel}</Button>
+        )}
       </div>
       {loading ? <GridSkeleton list={empty.list} /> : isEmpty ? (
-        <EmptyState icon={Icon} tint={tint} title={empty.title} description={empty.description} addLabel={addLabel} onAdd={onAdd} />
+        <EmptyState icon={Icon} tint={tint} title={empty.title} description={empty.description} addLabel={addLabel ?? 'Add'} onAdd={onAdd ?? (() => {})} />
       ) : children}
     </div>
   )

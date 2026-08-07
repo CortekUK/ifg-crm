@@ -28,3 +28,34 @@ export async function uploadWebsiteImage(file: File): Promise<string> {
   } = supabase.storage.from('uploads').getPublicUrl(filePath)
   return publicUrl
 }
+
+const MAX_PDF_BYTES = 50 * 1024 * 1024
+
+/**
+ * Upload a brochure PDF to the public `uploads` bucket under `brochures/`,
+ * returning the public URL. Validates the file is a PDF and within size.
+ * Used by the CMS Brochures manager (replacing the external Publu flipbooks).
+ */
+export async function uploadBrochurePdf(file: File): Promise<string> {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+  if (!isPdf) {
+    throw new Error('Please choose a PDF file.')
+  }
+  if (file.size > MAX_PDF_BYTES) {
+    throw new Error('Please choose a PDF smaller than 50MB.')
+  }
+
+  const supabase = createClient()
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}.pdf`
+  const filePath = `brochures/${fileName}`
+
+  const { error } = await supabase.storage
+    .from('uploads')
+    .upload(filePath, file, { contentType: 'application/pdf' })
+  if (error) throw new Error(error.message || 'Upload failed. Please try again.')
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('uploads').getPublicUrl(filePath)
+  return publicUrl
+}

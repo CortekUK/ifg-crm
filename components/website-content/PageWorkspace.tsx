@@ -6,7 +6,7 @@ import { getCmsPage } from '@/lib/website-content/pages'
 import { PageContentEditor } from './PageContentEditor'
 import { ProgrammePricingEditor, AllProgrammePricing } from './ProgrammePricing'
 import {
-  CoursesManager, StaffManager, FaqsManager, ClinicsManager, StoriesManager, GalleryManager, NewsManager, SquadsManager,
+  CoursesManager, StaffManager, FaqsManager, ClinicsManager, StoriesManager, GalleryManager, NewsManager, SquadsManager, BrochuresManager,
 } from './managers'
 
 const SITE_ORIGIN = 'https://theinternationalfootballgroup.com'
@@ -62,6 +62,7 @@ export function PageWorkspace({ slug }: { slug: string }) {
         {has('gallery') && <GalleryManager />}
         {has('news') && <NewsManager />}
         {has('squads') && <SquadsManager />}
+        {has('brochures') && <BrochuresManager />}
         {has('clinics') && <ClinicsManager />}
       </div>
     </div>
