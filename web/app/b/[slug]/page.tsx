@@ -17,9 +17,14 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   if (!brochure) notFound();
   return (
     <section className="section bro-section">
-      {/* Start fetching the PDF during HTML parse — before JS hydrates — so it's
-          already downloading (and often cached) by the time the viewer renders it. */}
-      <link rel="preload" as="fetch" href={brochure.pdfUrl} crossOrigin="anonymous" />
+      {/* Warm the cache during HTML parse — before JS hydrates. Prefer the first
+          pre-rendered page image (tiny) so the book paints fast; fall back to the
+          PDF for brochures that haven't been pre-rendered yet. */}
+      {brochure.pageImages[0] ? (
+        <link rel="preload" as="image" href={brochure.pageImages[0]} />
+      ) : (
+        <link rel="preload" as="fetch" href={brochure.pdfUrl} crossOrigin="anonymous" />
+      )}
       <BrochureViewer brochure={brochure} />
     </section>
   );

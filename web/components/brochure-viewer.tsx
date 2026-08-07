@@ -52,10 +52,11 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Start downloading + rendering the PDF immediately on mount — while the gate
-  // form is still on screen — so the book is (usually) ready by the time the
-  // visitor submits their details. This is the big perceived-speed win.
-  const render = useBrochureRender(brochure.pdfUrl, brochure.pageCount || 0);
+  // Prepare the pages immediately on mount — while the gate form is still on
+  // screen — so the book is ready by the time the visitor submits. When the
+  // brochure has pre-rendered page images we use those (fast: small images, no
+  // PDF download); otherwise we fall back to rendering the PDF client-side.
+  const render = useBrochureRender(brochure);
 
   // On mount: skip the gate for a known lead arriving from a follow-up email
   // (link carries ?v=1) — they've already given their details. Otherwise, if
@@ -214,7 +215,11 @@ type RenderState = {
   progress: number;
 };
 
-function useBrochureRender(pdfUrl: string, pageCountHint: number): RenderState {
+function useBrochureRender(brochure: Brochure): RenderState {
+  const pdfUrl = brochure.pdfUrl;
+  const pageCountHint = brochure.pageCount || 0;
+  // Stable key for the pre-rendered images so the effect re-runs if they change.
+  const pageImagesKey = brochure.pageImages.join("|");
   const [state, setState] = useState<RenderState>({
     images: null,
     ratio: 1.414,
@@ -226,7 +231,29 @@ function useBrochureRender(pdfUrl: string, pageCountHint: number): RenderState {
 
   useEffect(() => {
     let cancelled = false;
-    setState({ images: null, ratio: 1.414, total: pageCountHint || 0, status: "loading", phase: "download", progress: 0 });
+    const pageImages = pageImagesKey ? pageImagesKey.split("|") : [];
+    setState({ images: null, ratio: 1.414, total: (pageImages.length || pageCountHint) || 0, status: "loading", phase: pageImages.length ? "render" : "download", progress: 0 });
+
+    // ── Fast path: pre-rendered page images. Just measure the first image's
+    //    aspect ratio, then hand the URLs straight to page-flip (small images,
+    //    loaded progressively by the browser — no big PDF download/render). ──
+    if (pageImages.length) {
+      (async () => {
+        const first = new Image();
+        first.src = pageImages[0];
+        await new Promise<void>((res) => {
+          if (first.complete) return res();
+          first.onload = () => res();
+          first.onerror = () => res();
+        });
+        if (cancelled) return;
+        const ratio = first.naturalWidth && first.naturalHeight ? first.naturalHeight / first.naturalWidth : 1.414;
+        setState({ images: pageImages, ratio, total: pageImages.length, status: "ready", phase: "render", progress: 100 });
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
 
     (async () => {
       try {
@@ -310,7 +337,7 @@ function useBrochureRender(pdfUrl: string, pageCountHint: number): RenderState {
     return () => {
       cancelled = true;
     };
-  }, [pdfUrl, pageCountHint]);
+  }, [pdfUrl, pageCountHint, pageImagesKey]);
 
   return state;
 }

@@ -13,8 +13,8 @@ import {
 } from '@/components/ui/select'
 import { ContentDialog, Field, FieldRow, FormSection, PublishControls } from '@/components/website-content/_form'
 import { PdfField } from '@/components/website-content/PdfField'
-import { renderPdfFirstPage } from '@/lib/website-content/pdf'
-import { uploadWebsiteImage } from '@/lib/website-content/upload'
+import { renderPdfAllPages } from '@/lib/website-content/pdf'
+import { uploadBrochurePageImage } from '@/lib/website-content/upload'
 import { useSaveBrochure, slugifyBrochure } from '@/lib/hooks/useWebsiteBrochures'
 import { toast } from '@/lib/hooks/use-toast'
 import { BROCHURE_PROGRAMS } from '@/lib/types/website-content'
@@ -29,6 +29,7 @@ type Draft = {
   pdf_url: string
   cover_image: string
   page_count: number | null
+  page_images: string[]
   program: BrochureProgram | null
   published: boolean
   sort_order: string
@@ -42,6 +43,7 @@ function emptyDraft(): Draft {
     pdf_url: '',
     cover_image: '',
     page_count: null,
+    page_images: [],
     program: null,
     published: false,
     sort_order: '0',
@@ -56,6 +58,7 @@ function fromBrochure(b: WebsiteBrochure): Draft {
     pdf_url: b.pdf_url ?? '',
     cover_image: b.cover_image ?? '',
     page_count: b.page_count,
+    page_images: b.page_images ?? [],
     program: b.program,
     published: b.published,
     sort_order: String(b.sort_order ?? 0),
@@ -76,6 +79,7 @@ export function BrochureModal({
   // Track whether the user has hand-edited the slug so we stop auto-syncing it.
   const [slugTouched, setSlugTouched] = React.useState(false)
   const [generating, setGenerating] = React.useState(false)
+  const [genProgress, setGenProgress] = React.useState<string | null>(null)
 
   // Re-seed the form each time the dialog opens or the target changes.
   React.useEffect(() => {
@@ -97,23 +101,46 @@ export function BrochureModal({
   }
 
   async function handleUploaded(file: File) {
-    // Auto-derive the cover image + page count from the PDF's first page.
+    // Pre-render every page to a small image so the website loads images instead
+    // of the whole PDF (much faster to open). The cover is the first page. This
+    // runs once here in the admin's browser; visitors never render the PDF.
     setGenerating(true)
+    setGenProgress(null)
     try {
-      const { blob, pageCount } = await renderPdfFirstPage(file)
-      const cover = await uploadWebsiteImage(
-        new File([blob], 'cover.jpg', { type: 'image/jpeg' }),
+      const { blobs, pageCount, ext } = await renderPdfAllPages(file, (done, total) => {
+        setGenProgress(`Rendering pages ${done}/${total}`)
+      })
+      // Upload the page images (order preserved), with a small concurrency pool.
+      const urls: string[] = new Array(blobs.length)
+      let idx = 0
+      let uploaded = 0
+      const POOL = 4
+      await Promise.all(
+        Array.from({ length: Math.min(POOL, blobs.length) }, async () => {
+          while (idx < blobs.length) {
+            const my = idx++
+            urls[my] = await uploadBrochurePageImage(blobs[my], ext)
+            uploaded++
+            setGenProgress(`Uploading pages ${uploaded}/${blobs.length}`)
+          }
+        }),
       )
-      setDraft((d) => ({ ...d, cover_image: cover, page_count: pageCount }))
-      toast({ title: 'Cover generated', description: `${pageCount} page${pageCount === 1 ? '' : 's'} detected.` })
+      setDraft((d) => ({
+        ...d,
+        page_images: urls,
+        cover_image: urls[0] ?? d.cover_image,
+        page_count: pageCount,
+      }))
+      toast({ title: 'Brochure processed', description: `${pageCount} page${pageCount === 1 ? '' : 's'} ready for fast viewing.` })
     } catch (err) {
       toast({
-        title: 'Could not generate a cover',
-        description: err instanceof Error ? err.message : 'You can still save; add a cover later.',
+        title: 'Could not process the PDF',
+        description: err instanceof Error ? err.message : 'You can still save; the viewer will fall back to the PDF.',
         variant: 'destructive',
       })
     } finally {
       setGenerating(false)
+      setGenProgress(null)
     }
   }
 
@@ -144,6 +171,7 @@ export function BrochureModal({
         pdf_url: draft.pdf_url || null,
         cover_image: draft.cover_image || null,
         page_count: draft.page_count,
+        page_images: draft.page_images,
         program: draft.program,
         published: draft.published,
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
@@ -214,7 +242,7 @@ export function BrochureModal({
           value={draft.pdf_url}
           onChange={(url) => set('pdf_url', url)}
           onUploaded={handleUploaded}
-          hint="A cover image and page count are generated automatically."
+          hint="Pages are pre-rendered for fast viewing; the cover + page count are automatic."
         />
 
         {(generating || draft.cover_image) && (
@@ -231,13 +259,13 @@ export function BrochureModal({
             </div>
             <div className="min-w-0 text-sm">
               <p className="font-medium text-foreground">
-                {generating ? 'Generating cover…' : 'Cover ready'}
+                {generating ? 'Processing brochure…' : 'Ready for fast viewing'}
               </p>
               <p className="text-xs text-muted-foreground">
                 {generating
-                  ? 'Rendering the first page of your PDF.'
+                  ? genProgress ?? 'Rendering pages…'
                   : draft.page_count
-                    ? `${draft.page_count} page${draft.page_count === 1 ? '' : 's'}`
+                    ? `${draft.page_count} page${draft.page_count === 1 ? '' : 's'}${draft.page_images.length ? ' · fast images ready' : ''}`
                     : 'Auto-generated from the first page.'}
               </p>
             </div>

@@ -24,7 +24,11 @@ export default async function Page({ params }: { params: Promise<{ program: stri
   if (!brochure) notFound();
   return (
     <section className="section bro-section">
-      <link rel="preload" as="fetch" href={brochure.pdfUrl} crossOrigin="anonymous" />
+      {brochure.pageImages[0] ? (
+        <link rel="preload" as="image" href={brochure.pageImages[0]} />
+      ) : (
+        <link rel="preload" as="fetch" href={brochure.pdfUrl} crossOrigin="anonymous" />
+      )}
       <BrochureViewer brochure={brochure} />
     </section>
   );

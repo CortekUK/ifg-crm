@@ -29,6 +29,24 @@ export async function uploadWebsiteImage(file: File): Promise<string> {
   return publicUrl
 }
 
+/**
+ * Upload one pre-rendered brochure page image (a Blob) to the public uploads
+ * bucket under `brochures/pages/`, returning the public URL. Used by the CMS to
+ * store per-page images so the website loads small images instead of the PDF.
+ */
+export async function uploadBrochurePageImage(blob: Blob, ext: 'webp' | 'jpg'): Promise<string> {
+  const supabase = createClient()
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}.${ext}`
+  const filePath = `brochures/pages/${fileName}`
+  const contentType = ext === 'webp' ? 'image/webp' : 'image/jpeg'
+  const { error } = await supabase.storage.from('uploads').upload(filePath, blob, { contentType })
+  if (error) throw new Error(error.message || 'Upload failed. Please try again.')
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('uploads').getPublicUrl(filePath)
+  return publicUrl
+}
+
 const MAX_PDF_BYTES = 200 * 1024 * 1024
 
 /**

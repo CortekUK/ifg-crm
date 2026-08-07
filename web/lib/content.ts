@@ -191,17 +191,20 @@ export type Brochure = {
   pdfUrl: string;
   coverImage: string;
   pageCount: number | null;
+  pageImages: string[];   // pre-rendered per-page images (fast path); [] = render PDF
 };
 
 type BrochureRow = {
   id: string; slug: string; program: string | null; title: string; description: string | null;
   pdf_url: string | null; cover_image: string | null; page_count: number | null;
+  page_images: string[] | null;
 };
 
 function mapBrochure(r: BrochureRow): Brochure {
   return {
     id: r.id, slug: r.slug, program: r.program, title: r.title, description: r.description ?? "",
     pdfUrl: r.pdf_url ?? "", coverImage: r.cover_image ?? "", pageCount: r.page_count,
+    pageImages: Array.isArray(r.page_images) ? r.page_images : [],
   };
 }
 

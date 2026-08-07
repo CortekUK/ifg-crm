@@ -165,6 +165,7 @@ export interface WebsiteBrochure {
   sort_order: number
   views_count: number
   download_count: number
+  page_images: string[]   // pre-rendered per-page image URLs (fast viewer path)
   created_at: string
   updated_at: string
 }
