@@ -398,8 +398,16 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
         </div>
       )}
 
-      {/* The book mounts regardless so page-flip has its container; hidden until ready. */}
-      <div className={`bro-book-wrap${status === "ready" ? " is-ready" : ""}`}>
+      {/* The book mounts regardless so page-flip has its container; hidden until
+          ready. On the cover (first) and back (last) pages the book is a single
+          leaf, so we recentre it (and blank its empty facing leaf via CSS). */}
+      <div
+        className={
+          `bro-book-wrap${status === "ready" ? " is-ready" : ""}` +
+          (total > 1 && page <= 0 ? " is-cover" : "") +
+          (total > 1 && page >= total - 1 ? " is-back" : "")
+        }
+      >
         <div ref={bookRef} className="bro-book" />
       </div>
 
