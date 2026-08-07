@@ -76,6 +76,8 @@ import {
 } from '@/lib/hooks/useCampaignRecipientSources'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Campaign, CreateCampaignInput } from '@/lib/types/campaigns'
+import type { WebsiteBrochure } from '@/lib/types/website-content'
+import { BrochureInsertPopover, brochureButtonHtml } from '@/components/campaigns/BrochureInsertPopover'
 
 interface CreateCampaignModalProps {
   isOpen: boolean
@@ -131,6 +133,8 @@ export function CreateCampaignModal({
   const [emailContentMode, setEmailContentMode] = useState<'template' | 'compose'>('template')
   const [emailBodyText, setEmailBodyText] = useState('')
   const [emailBodyHtml, setEmailBodyHtml] = useState('')
+  // Brochures attached during this compose/edit session (recorded once a campaign id exists)
+  const [attachedBrochureIds, setAttachedBrochureIds] = useState<string[]>([])
 
   // SMS fields
   const [smsContent, setSmsContent] = useState('')
@@ -223,6 +227,7 @@ export function CreateCampaignModal({
       setTemplateId(editCampaign.email_template_id || '')
       setEmailBodyText(editCampaign.body_text || '')
       setEmailBodyHtml(editCampaign.body_html || '')
+      setAttachedBrochureIds([])
       setEmailContentMode(editCampaign.email_template_id ? 'template' : 'compose')
       setSmsContent(editCampaign.sms_content || '')
       // Pipeline selection — mode is derived from whether pipeline is set
@@ -260,6 +265,7 @@ export function CreateCampaignModal({
       setEmailContentMode('template')
       setEmailBodyText('')
       setEmailBodyHtml('')
+      setAttachedBrochureIds([])
       setSmsContent('')
       setIsScheduled(false)
       setScheduledDate(undefined)
@@ -300,6 +306,36 @@ export function CreateCampaignModal({
       setEmailSubject((prev) => prev + tag)
     } else {
       setEmailBodyText((prev) => prev + tag)
+    }
+  }
+
+  // Upsert (brochure_id, campaign_id) rows for every brochure attached this session.
+  // Composite PK is (brochure_id, campaign_id); upsert ignores duplicates.
+  const recordBrochureAssociations = async (campaignId: string, brochureIds: string[]) => {
+    if (brochureIds.length === 0) return
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('brochure_campaigns')
+        .upsert(
+          brochureIds.map((brochure_id) => ({ brochure_id, campaign_id: campaignId })),
+          { onConflict: 'brochure_id,campaign_id', ignoreDuplicates: true }
+        )
+      if (error) throw error
+    } catch (err) {
+      // Non-fatal: the link is already in the email body. Surface a soft warning only.
+      console.error('Failed to record brochure/campaign association', err)
+    }
+  }
+
+  const handleInsertBrochure = (brochure: WebsiteBrochure) => {
+    // Always insert the branded button into the body immediately.
+    setEmailContentMode('compose')
+    setEmailBodyText((prev) => `${prev}${prev && !prev.endsWith('\n') ? '\n\n' : ''}${brochureButtonHtml(brochure)}`)
+    setAttachedBrochureIds((prev) => (prev.includes(brochure.id) ? prev : [...prev, brochure.id]))
+    // If the campaign already exists, record the association right away.
+    if (editCampaign?.id) {
+      void recordBrochureAssociations(editCampaign.id, [brochure.id])
     }
   }
 
@@ -351,6 +387,9 @@ export function CreateCampaignModal({
           ...campaignData,
         })
 
+        // Record any brochures attached during this session.
+        await recordBrochureAssociations(editCampaign.id, attachedBrochureIds)
+
         // If sending now (not scheduled), trigger the send for existing campaign
         if (sendNow && !isScheduled) {
           await sendCampaign.mutateAsync(editCampaign.id)
@@ -371,6 +410,11 @@ export function CreateCampaignModal({
       } else {
         // Create the campaign first
         const newCampaign = await createCampaign.mutateAsync(campaignData)
+
+        // Record any brochures attached during this session (campaign id now exists).
+        if (newCampaign?.id) {
+          await recordBrochureAssociations(newCampaign.id, attachedBrochureIds)
+        }
 
         // If sending now (not scheduled), trigger the send
         if (sendNow && !isScheduled && newCampaign?.id) {
@@ -1014,7 +1058,7 @@ export function CreateCampaignModal({
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Body</Label>
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap gap-1">
                               {EMAIL_MERGE_TAGS.map((item) => (
                                 <Button
                                   key={item.tag}
@@ -1027,6 +1071,7 @@ export function CreateCampaignModal({
                                   {item.label}
                                 </Button>
                               ))}
+                              <BrochureInsertPopover onInsert={handleInsertBrochure} />
                             </div>
                           </div>
                           <Textarea

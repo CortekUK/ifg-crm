@@ -199,6 +199,28 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
   const bookRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flipRef = useRef<any>(null);
+  const viewPinged = useRef(false);
+
+  // Fire-and-forget tracking pings (best-effort; never block the viewer).
+  const pingView = useCallback(() => {
+    if (viewPinged.current) return;
+    viewPinged.current = true;
+    fetch("/api/brochure-view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: brochure.slug }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [brochure.slug]);
+
+  const pingDownload = useCallback(() => {
+    fetch("/api/brochure-download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: brochure.slug }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [brochure.slug]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [phase, setPhase] = useState<"download" | "render">("download");
   const [progress, setProgress] = useState(0);
@@ -322,6 +344,7 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
         if (!cancelled) {
           setTotal(num);
           setStatus("ready");
+          pingView();
         }
       } catch (err) {
         console.error("Brochure render error:", err);
@@ -339,7 +362,7 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
       }
       flipRef.current = null;
     };
-  }, [brochure.pdfUrl]);
+  }, [brochure.pdfUrl, pingView]);
 
   const prev = useCallback(() => flipRef.current?.flipPrev?.(), []);
   const next = useCallback(() => flipRef.current?.flipNext?.(), []);
@@ -369,7 +392,7 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
       {status === "error" && (
         <div className="bro-stage bro-stage--error">
           <p>We couldn&apos;t display this brochure in the viewer.</p>
-          <a href={brochure.pdfUrl} target="_blank" rel="noreferrer" className="btn btn-primary">
+          <a href={brochure.pdfUrl} target="_blank" rel="noreferrer" className="btn btn-primary" onClick={pingDownload}>
             <Icon name="download" className="ic" size={18} /> Open the PDF
           </a>
         </div>
@@ -397,6 +420,7 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
             rel="noreferrer"
             className="bro-download"
             aria-label="Download PDF"
+            onClick={pingDownload}
           >
             <Icon name="download" size={18} /> <span>Download</span>
           </a>

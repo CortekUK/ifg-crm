@@ -190,6 +190,17 @@ export function useSetBrochurePipelines() {
           .insert(rows.map((r) => ({ brochure_id: brochureId, pipeline_id: r.pipeline_id, stage_id: r.stage_id })))
         if (error) throw error
       }
+      // Reconcile the "send brochure when a deal enters this stage" automations
+      // to match the new attachments (server-side, service role).
+      try {
+        await fetch('/api/brochures/sync-automations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ brochureId }),
+        })
+      } catch {
+        /* non-fatal — attachments are saved; sending sync can be retried */
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brochure-stats'] }),
   })
