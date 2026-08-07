@@ -13,8 +13,10 @@ import {
   type WebsiteBrochureInput,
 } from '@/lib/types/website-content'
 import { ContentDialog, FormSection, Field, FieldRow, PublishControls } from './_form'
-import { ImageField } from './ImageField'
 import { PdfField } from './PdfField'
+import { renderPdfFirstPage } from '@/lib/website-content/pdf'
+import { uploadWebsiteImage } from '@/lib/website-content/upload'
+import { Loader2 } from 'lucide-react'
 
 const DEFAULT_TITLE: Record<BrochureProgram, string> = {
   summer: 'Summer Residency Brochure',
@@ -47,6 +49,7 @@ export function BrochureModal({
   const [pageCount, setPageCount] = React.useState('')
   const [published, setPublished] = React.useState(true)
   const [sortOrder, setSortOrder] = React.useState('0')
+  const [coverBusy, setCoverBusy] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
@@ -60,8 +63,30 @@ export function BrochureModal({
     setPageCount(item?.page_count != null ? String(item.page_count) : '')
     setPublished(item?.published ?? true)
     setSortOrder(String(item?.sort_order ?? 0))
+    setCoverBusy(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item])
+
+  // When a PDF is uploaded, derive the cover from its first page and the page
+  // count automatically — no separate cover upload needed.
+  async function handlePdfUploaded(file: File) {
+    setCoverBusy(true)
+    try {
+      const { blob, pageCount: pages } = await renderPdfFirstPage(file)
+      const coverFile = new File([blob], 'brochure-cover.jpg', { type: 'image/jpeg' })
+      const url = await uploadWebsiteImage(coverFile)
+      setCoverImage(url)
+      setPageCount(String(pages))
+    } catch (e) {
+      toast({
+        title: 'Could not generate the cover',
+        description: e instanceof Error ? e.message : 'The PDF was uploaded, but the cover image could not be created.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCoverBusy(false)
+    }
+  }
 
   // Default the title from the programme until the user edits it (add mode only).
   React.useEffect(() => {
@@ -142,8 +167,24 @@ export function BrochureModal({
       </FormSection>
 
       <FormSection title="Files">
-        <PdfField label="Brochure PDF" value={pdfUrl} onChange={setPdfUrl} hint="Required to publish. Max 50MB." />
-        <ImageField label="Cover image" value={coverImage} onChange={setCoverImage} hint="Optional — thumbnail on the programme page." />
+        <PdfField
+          label="Brochure PDF"
+          value={pdfUrl}
+          onChange={setPdfUrl}
+          onUploaded={handlePdfUploaded}
+          hint="Required to publish. Max 50MB. The cover is taken from the first page automatically."
+        />
+        {coverBusy ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Generating cover from the first page…
+          </div>
+        ) : coverImage ? (
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={coverImage} alt="" className="h-24 w-auto rounded-md border border-border object-cover" />
+            <span className="text-xs text-muted-foreground">Cover — taken from the first page of the PDF.</span>
+          </div>
+        ) : null}
       </FormSection>
 
       <FormSection title="Visibility">

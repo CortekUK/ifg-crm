@@ -18,11 +18,15 @@ export function PdfField({
   hint,
   value,
   onChange,
+  onUploaded,
 }: {
   label: string
   hint?: string
   value: string
   onChange: (url: string) => void
+  /** Fired with the original File right after a successful upload (e.g. to
+   *  derive a cover image / page count from the PDF). */
+  onUploaded?: (file: File) => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -34,6 +38,7 @@ export function PdfField({
     try {
       const url = await uploadBrochurePdf(file)
       onChange(url)
+      onUploaded?.(file)
       toast({ title: 'PDF uploaded', description: 'Saved to storage. Remember to save the brochure.' })
     } catch (err) {
       toast({

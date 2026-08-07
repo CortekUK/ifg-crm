@@ -254,15 +254,21 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
           ? first.naturalHeight / first.naturalWidth
           : 1.414;
 
-        const baseW = 550;
+        const baseW = 900;
+        // Single page at a time (like Publu): page-flip only uses its two-page
+        // spread when blockWidth >= 2*minWidth, so a high minWidth + usePortrait
+        // forces single-page — no blank facing page next to the cover/back page,
+        // and it suits landscape brochure pages.
         flip = new PageFlip(bookRef.current, {
           width: baseW,
           height: Math.round(baseW * ratio),
           size: "stretch",
-          minWidth: 280,
-          maxWidth: 1000,
-          minHeight: Math.round(280 * ratio),
-          maxHeight: Math.round(1000 * ratio),
+          minWidth: 2000,
+          maxWidth: 1100,
+          minHeight: Math.round(2000 * ratio),
+          maxHeight: Math.round(1100 * ratio),
+          usePortrait: true,
+          autoSize: true,
           maxShadowOpacity: 0.5,
           showCover: true,
           mobileScrollSupport: false,

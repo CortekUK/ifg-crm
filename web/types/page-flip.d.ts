@@ -16,6 +16,7 @@ declare module "page-flip" {
     drawShadow?: boolean;
     flippingTime?: number;
     usePortrait?: boolean;
+    autoSize?: boolean;
   }
 
   export class PageFlip {
