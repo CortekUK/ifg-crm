@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { GraduationCap, Users, HelpCircle, CalendarClock, Trophy, Images, ImageOff, Newspaper, Shield, BookOpen } from 'lucide-react'
+import { GraduationCap, Users, HelpCircle, CalendarClock, Trophy, Images, ImageOff, Newspaper, Shield } from 'lucide-react'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import {
@@ -9,9 +9,7 @@ import {
 } from '@/lib/hooks/useWebsiteContent'
 import { useNews, useDeleteNews } from '@/lib/hooks/useWebsiteNews'
 import { useSquads, useDeleteSquad } from '@/lib/hooks/useWebsiteSquads'
-import { useBrochures, useDeleteBrochure } from '@/lib/hooks/useWebsiteBrochures'
-import type { SuccessStory, GalleryCategory, SiteContentItem, WebsiteNews, WebsiteSquad, WebsiteBrochure } from '@/lib/types/website-content'
-import { BROCHURE_PROGRAMS } from '@/lib/types/website-content'
+import type { SuccessStory, GalleryCategory, SiteContentItem, WebsiteNews, WebsiteSquad } from '@/lib/types/website-content'
 import { StoryModal } from './StoryModal'
 import { GalleryModal } from './GalleryModal'
 import { SiteContentModal } from './SiteContentModal'
@@ -20,10 +18,7 @@ import { CourseModal } from './CourseModal'
 import { StaffModal } from './StaffModal'
 import { NewsModal } from './NewsModal'
 import { SquadModal } from './SquadModal'
-import { BrochureModal } from './BrochureModal'
 import { Section, ContentCard, FaqCard, DeleteConfirm, GRID, TINT } from './_shared'
-
-const BROCHURE_LABEL = Object.fromEntries(BROCHURE_PROGRAMS.map((p) => [p.key, p.label]))
 
 type ContentTable = 'website_success_stories' | 'website_gallery_categories' | 'website_site_content'
 
@@ -311,59 +306,6 @@ export function ClinicsManager() {
         </div>
       </Section>
       <SiteContentModal open={modal.open} item={modal.item} onClose={() => setModal({ open: false, item: null })} />
-      <DeleteConfirm target={target} onCancel={() => setTarget(null)} onConfirm={confirm} />
-    </>
-  )
-}
-
-// ── Brochures (own table, one per programme, PDF in storage) ─────────────────
-export function BrochuresManager() {
-  const brochures = useBrochures()
-  const del = useDeleteBrochure()
-  const [modal, setModal] = React.useState<{ open: boolean; item: WebsiteBrochure | null }>({ open: false, item: null })
-  const [deletingId, setDeletingId] = React.useState<string | null>(null)
-  const [target, setTarget] = React.useState<{ id: string; label: string } | null>(null)
-
-  const taken = (brochures.data ?? []).map((b) => b.program)
-  const allTaken = taken.length >= BROCHURE_PROGRAMS.length
-
-  async function confirm() {
-    if (!target) return
-    const id = target.id
-    setTarget(null)
-    setDeletingId(id)
-    try {
-      await del.mutateAsync(id)
-      toast({ title: 'Brochure deleted', description: 'Removed from the website.' })
-    } catch (e) {
-      toast({ title: 'Delete failed', description: e instanceof Error ? e.message : '', variant: 'destructive' })
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
-  return (
-    <>
-      <Section
-        icon={BookOpen} tint={TINT.blue} title="Brochures"
-        description="One flipbook brochure per programme — upload the PDF, publish, and the website serves it (no Publu)." count={brochures.data?.length ?? 0}
-        addLabel={allTaken ? undefined : 'Add brochure'}
-        onAdd={allTaken ? undefined : () => setModal({ open: true, item: null })}
-        loading={brochures.isLoading} isEmpty={!brochures.data?.length}
-        empty={{ title: 'No brochures yet', description: 'Add a brochure for Summer Residency, University or Gap Year — upload the PDF and publish.' }}
-      >
-        <div className={GRID}>
-          {brochures.data?.map((b) => (
-            <ContentCard key={b.id} thumb={b.cover_image} title={b.title}
-              subtitle={[BROCHURE_LABEL[b.program] ?? b.program, b.pdf_url ? 'PDF attached' : 'No PDF'].join(' · ')}
-              badge={b.pdf_url ? undefined : 'No PDF'}
-              published={b.published} fallbackIcon={BookOpen}
-              onEdit={() => setModal({ open: true, item: b })}
-              onDelete={() => setTarget({ id: b.id, label: b.title })} deleting={deletingId === b.id} />
-          ))}
-        </div>
-      </Section>
-      <BrochureModal open={modal.open} item={modal.item} takenPrograms={taken} onClose={() => setModal({ open: false, item: null })} />
       <DeleteConfirm target={target} onCancel={() => setTarget(null)} onConfirm={confirm} />
     </>
   )

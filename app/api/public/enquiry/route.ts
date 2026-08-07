@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
     source: str(body.source) || 'exit_intent',
     course: str(body.course),
     program: str(body.program),
+    brochureSlug: str(body.brochure_slug),
   }
 
   try {

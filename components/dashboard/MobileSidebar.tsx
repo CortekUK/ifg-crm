@@ -31,6 +31,7 @@ import {
   LogOut,
   Menu,
   ListIcon,
+  BookOpen,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 
@@ -58,6 +59,7 @@ const navSections = [
     adminOnly: true,
     items: [
       { href: '/campaigns', label: 'Campaigns', icon: Send },
+      { href: '/brochures', label: 'Brochures', icon: BookOpen },
       { href: '/lists', label: 'Lists', icon: ListIcon },
       { href: '/templates', label: 'Templates', icon: FileText },
     ],

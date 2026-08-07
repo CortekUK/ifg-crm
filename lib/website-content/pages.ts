@@ -7,12 +7,12 @@
 
 import {
   Home, Sun, GraduationCap, Compass, Trophy, Images, Users, HelpCircle, CalendarClock,
-  Info, Mail, Youtube, Building2, Newspaper, Shield, PoundSterling, BookOpen, FileText,
+  Info, Mail, Youtube, Building2, Newspaper, Shield, PoundSterling, BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 import type { ProgrammeKey } from '@/lib/types/website-content'
 
-export type CmsModule = 'content' | 'pricing' | 'pricing-all' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news' | 'squads' | 'brochures'
+export type CmsModule = 'content' | 'pricing' | 'pricing-all' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news' | 'squads'
 
 export interface CmsPage {
   slug: string              // registry id + content-schema slug + URL param
@@ -30,8 +30,6 @@ export const CMS_PAGES: CmsPage[] = [
     description: 'Packages, deposits and card fees for every programme.', modules: ['pricing-all'] },
   { slug: 'university-courses', title: 'University Courses', route: '/programmes/macclesfield/university', icon: BookOpen,
     description: 'Degree courses shown on the University page, by School.', modules: ['courses'] },
-  { slug: 'brochures', title: 'Brochures', route: '/programmes/macclesfield/summer-residency', icon: FileText,
-    description: 'Programme brochures shown as flipbooks on the website.', modules: ['brochures'] },
 
   { slug: 'home', title: 'Home', route: '/', icon: Home,
     description: 'Hero, highlights and calls to action.', modules: ['content'] },

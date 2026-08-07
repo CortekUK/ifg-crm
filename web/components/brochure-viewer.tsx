@@ -67,7 +67,7 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
       /* ignore */
     }
     const store = readStore();
-    if (store.unlocked?.includes(brochure.program)) {
+    if (store.unlocked?.includes(brochure.slug)) {
       setGated(false);
     } else {
       const l = store.lead || {};
@@ -90,7 +90,7 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
       }
     }
     setChecking(false);
-  }, [brochure.program]);
+  }, [brochure.slug]);
 
   async function submitGate(e: React.FormEvent) {
     e.preventDefault();
@@ -110,7 +110,7 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
     const store = readStore();
     writeStore({
       lead,
-      unlocked: Array.from(new Set([...(store.unlocked || []), brochure.program])),
+      unlocked: Array.from(new Set([...(store.unlocked || []), brochure.slug])),
     });
 
     try {
@@ -122,7 +122,8 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
           email: addr,
           phone: tel,
           source: "brochure",
-          program: brochure.program,
+          program: brochure.program ?? undefined,
+          brochure_slug: brochure.slug,
           interest: brochure.title,
         }),
       });

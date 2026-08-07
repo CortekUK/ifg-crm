@@ -38,7 +38,7 @@ export default async function Page() {
         ) : (
           <div className="bro-grid">
             {brochures.map((b) => (
-              <Link key={b.program} href={`/programmes/macclesfield/brochure/${b.program}`} className="bro-card">
+              <Link key={b.slug} href={`/b/${b.slug}`} className="bro-card">
                 <div className="bro-card-cover">
                   {b.coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -48,7 +48,7 @@ export default async function Page() {
                   )}
                 </div>
                 <div className="bro-card-body">
-                  <span className="bro-card-kicker">{LABEL[b.program] ?? b.program}</span>
+                  {b.program && <span className="bro-card-kicker">{LABEL[b.program] ?? b.program}</span>}
                   <h3 className="bro-card-title">{b.title}</h3>
                   {b.description && <p className="bro-card-sub">{b.description}</p>}
                   <span className="bro-card-cta">View brochure <Icon name="arrow-right" className="ic" size={16} /></span>

@@ -11,7 +11,6 @@ const SITE_URL = 'https://theinternationalfootballgroup.com'
 const MODULE_LABEL: Record<CmsModule, string> = {
   content: 'Content', pricing: 'Pricing', 'pricing-all': 'Pricing', courses: 'Courses', staff: 'Staff',
   faqs: 'FAQs', stories: 'Stories', gallery: 'Gallery', clinics: 'Clinics', news: 'News', squads: 'Squads',
-  brochures: 'Brochures',
 }
 
 export default function WebsiteContentPage() {

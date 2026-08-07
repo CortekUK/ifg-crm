@@ -154,7 +154,8 @@ export const BROCHURE_PROGRAMS: { key: BrochureProgram; label: string }[] = [
 
 export interface WebsiteBrochure {
   id: string
-  program: BrochureProgram
+  slug: string
+  program: BrochureProgram | null   // optional programme association
   title: string
   description: string | null
   pdf_url: string | null
@@ -162,10 +163,41 @@ export interface WebsiteBrochure {
   page_count: number | null
   published: boolean
   sort_order: number
+  views_count: number
+  download_count: number
   created_at: string
   updated_at: string
 }
 export type WebsiteBrochureInput = Partial<Omit<WebsiteBrochure, 'created_at' | 'updated_at'>>
+
+// A brochure attached to a pipeline stage (send the brochure when a deal enters
+// that stage). stage_id null = the pipeline's default (Follow Up) stage.
+export interface BrochurePipeline {
+  id: string
+  brochure_id: string
+  pipeline_id: string
+  stage_id: string | null
+  created_at: string
+}
+
+// Per-brochure stats + associations, assembled for the management page.
+export interface BrochureStats {
+  brochure_id: string
+  views: number
+  downloads: number
+  leads: number
+  list_ids: string[]
+  campaign_ids: string[]
+  pipelines: { pipeline_id: string; stage_id: string | null }[]
+}
+
+export interface BrochureLead {
+  contact_id: string
+  first_name: string
+  last_name: string
+  email: string
+  created_at: string
+}
 
 // ── Page content overrides (migration 142) ───────────────────────────────────
 export interface WebsitePageRow {

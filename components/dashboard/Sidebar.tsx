@@ -39,6 +39,7 @@ import {
   Tag,
   Sparkles,
   Globe,
+  BookOpen,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import { useSidebar } from '@/components/providers/SidebarProvider'
@@ -67,6 +68,7 @@ const navSections = [
     adminOnly: true,
     items: [
       { href: '/campaigns', label: 'Campaigns', icon: Send },
+      { href: '/brochures', label: 'Brochures', icon: BookOpen },
       { href: '/lists', label: 'Lists', icon: ListIcon },
       { href: '/tags', label: 'Tags', icon: Tag },
       { href: '/templates', label: 'Templates', icon: FileText, ai: true },

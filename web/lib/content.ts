@@ -183,7 +183,9 @@ export async function getSiteContent(type: string): Promise<SiteContent[]> {
 // the viewer routes on and lead capture uses. Only published rows with a PDF
 // are exposed; RLS already limits to published.
 export type Brochure = {
-  program: string;
+  id: string;
+  slug: string;
+  program: string | null;
   title: string;
   description: string;
   pdfUrl: string;
@@ -192,13 +194,13 @@ export type Brochure = {
 };
 
 type BrochureRow = {
-  program: string; title: string; description: string | null;
+  id: string; slug: string; program: string | null; title: string; description: string | null;
   pdf_url: string | null; cover_image: string | null; page_count: number | null;
 };
 
 function mapBrochure(r: BrochureRow): Brochure {
   return {
-    program: r.program, title: r.title, description: r.description ?? "",
+    id: r.id, slug: r.slug, program: r.program, title: r.title, description: r.description ?? "",
     pdfUrl: r.pdf_url ?? "", coverImage: r.cover_image ?? "", pageCount: r.page_count,
   };
 }
@@ -211,9 +213,19 @@ export async function getBrochures(): Promise<Brochure[]> {
   return rows.map(mapBrochure).filter((b) => b.pdfUrl);
 }
 
+// By slug — the public shareable link identity (/b/<slug>).
+export async function getBrochureBySlug(slug: string): Promise<Brochure | null> {
+  const rows = await rest<BrochureRow>(
+    `website_brochures?select=*&published=eq.true&slug=eq.${encodeURIComponent(slug)}&limit=1`,
+  );
+  const b = rows?.[0] ? mapBrochure(rows[0]) : null;
+  return b && b.pdfUrl ? b : null;
+}
+
+// By programme association — kept so the programme pages can link "their" brochure.
 export async function getBrochure(program: string): Promise<Brochure | null> {
   const rows = await rest<BrochureRow>(
-    `website_brochures?select=*&published=eq.true&program=eq.${encodeURIComponent(program)}&limit=1`,
+    `website_brochures?select=*&published=eq.true&program=eq.${encodeURIComponent(program)}&order=sort_order.asc&limit=1`,
   );
   const b = rows?.[0] ? mapBrochure(rows[0]) : null;
   return b && b.pdfUrl ? b : null;
