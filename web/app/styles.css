@@ -1658,7 +1658,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 @media(max-width:560px){.dep-status-cta{flex-direction:column}.dep-status-cta .btn{width:100%}}
 
 /* ── Brochures (self-hosted flipbook + gate + library) ─────────────────────── */
-.bro-section{min-height:70vh}
+.bro-section{min-height:70vh;overflow-x:hidden}
 
 /* Loading / error stage */
 .bro-stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:60vh;text-align:center;color:var(--fg-muted)}
@@ -1687,11 +1687,13 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .bro-gate-consent{color:var(--fg-subtle);font-size:12px;margin:14px 0 0;text-align:center}
 
 /* Viewer */
-.bro-viewer{display:flex;flex-direction:column;align-items:center;gap:22px;padding:8px 0 8px}
+.bro-viewer{display:flex;flex-direction:column;align-items:center;gap:22px;padding:8px 0 8px;max-width:100%}
 .bro-book-wrap{width:100%;max-width:1100px;margin:0 auto;opacity:0;transition:opacity .4s ease}
 .bro-book-wrap.is-ready{opacity:1}
 .bro-book{margin:0 auto;touch-action:pan-y}
-.bro-book .page{background:var(--white);box-shadow:0 0 0 1px rgba(0,0,0,.06)}
+/* Transparent leaf background so the empty side next to the single cover/back
+   page reads as the dark surface, not a jarring white blank. */
+.bro-book .page{background:transparent}
 .bro-book img{width:100%;height:100%;display:block}
 
 /* Controls */

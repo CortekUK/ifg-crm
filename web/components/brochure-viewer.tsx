@@ -313,21 +313,21 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
           ? first.naturalHeight / first.naturalWidth
           : 1.414;
 
-        const baseW = 900;
-        // Single page at a time (like Publu): page-flip only uses its two-page
-        // spread when blockWidth >= 2*minWidth, so a high minWidth + usePortrait
-        // forces single-page — no blank facing page next to the cover/back page,
-        // and it suits landscape brochure pages.
+        const baseW = 500;
+        // Real book: two-page spread on desktop, with showCover so the FRONT
+        // cover and BACK cover show as a single page (page 1 and the last page),
+        // and interior pages open left/right. usePortrait falls back to a single
+        // page on narrow/mobile screens. maxWidth keeps the spread a sensible
+        // size (no giant full-screen page).
         flip = new PageFlip(bookRef.current, {
           width: baseW,
           height: Math.round(baseW * ratio),
           size: "stretch",
-          minWidth: 2000,
-          maxWidth: 1100,
-          minHeight: Math.round(2000 * ratio),
-          maxHeight: Math.round(1100 * ratio),
+          minWidth: 315,
+          maxWidth: 820,
+          minHeight: Math.round(315 * ratio),
+          maxHeight: Math.round(820 * ratio),
           usePortrait: true,
-          autoSize: true,
           maxShadowOpacity: 0.5,
           showCover: true,
           mobileScrollSupport: false,
