@@ -1691,16 +1691,6 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .bro-book-wrap{width:100%;max-width:1100px;margin:0 auto;opacity:0;transition:opacity .4s ease}
 .bro-book-wrap.is-ready{opacity:1}
 .bro-book{margin:0 auto;touch-action:pan-y}
-/* page-flip leaves have no image on the blank side; force them transparent so
-   the empty leaf beside the single cover/back page shows the dark surface, not a
-   white blank. */
-.bro-book .stf__item,
-.bro-book .stf__block{background:transparent!important}
-/* Recentre the lone cover/back page (it renders as one leaf of a 2-page spread,
-   so shift the book by half a page); the empty leaf is transparent + clipped. */
-.bro-book-wrap .stf__parent{transition:transform .45s ease}
-.bro-book-wrap.is-cover .stf__parent{transform:translateX(-25%)!important}
-.bro-book-wrap.is-back .stf__parent{transform:translateX(25%)!important}
 .bro-book img{width:100%;height:100%;display:block}
 
 /* Controls */

@@ -314,11 +314,11 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
           : 1.414;
 
         const baseW = 500;
-        // Real book: two-page spread on desktop, with showCover so the FRONT
-        // cover and BACK cover show as a single page (page 1 and the last page),
-        // and interior pages open left/right. usePortrait falls back to a single
-        // page on narrow/mobile screens. maxWidth keeps the spread a sensible
-        // size (no giant full-screen page).
+        // Two-page spread on desktop, single page on mobile (usePortrait).
+        // showCover is OFF on purpose: hard cover pages reserve an empty facing
+        // leaf that page-flip paints white (an un-removable blank next to the
+        // cover/back). With it off there are no hard pages and no blank leaf;
+        // pages simply pair up (1-2, 3-4, …). maxWidth keeps the size sensible.
         flip = new PageFlip(bookRef.current, {
           width: baseW,
           height: Math.round(baseW * ratio),
@@ -329,7 +329,7 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
           maxHeight: Math.round(820 * ratio),
           usePortrait: true,
           maxShadowOpacity: 0.5,
-          showCover: true,
+          showCover: false,
           mobileScrollSupport: false,
           useMouseEvents: true,
           drawShadow: true,
@@ -398,16 +398,8 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
         </div>
       )}
 
-      {/* The book mounts regardless so page-flip has its container; hidden until
-          ready. On the cover (first) and back (last) pages the book is a single
-          leaf, so we recentre it (and blank its empty facing leaf via CSS). */}
-      <div
-        className={
-          `bro-book-wrap${status === "ready" ? " is-ready" : ""}` +
-          (total > 1 && page <= 0 ? " is-cover" : "") +
-          (total > 1 && page >= total - 1 ? " is-back" : "")
-        }
-      >
+      {/* The book mounts regardless so page-flip has its container; hidden until ready. */}
+      <div className={`bro-book-wrap${status === "ready" ? " is-ready" : ""}`}>
         <div ref={bookRef} className="bro-book" />
       </div>
 
