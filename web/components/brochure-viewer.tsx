@@ -52,6 +52,11 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Start downloading + rendering the PDF immediately on mount — while the gate
+  // form is still on screen — so the book is (usually) ready by the time the
+  // visitor submits their details. This is the big perceived-speed win.
+  const render = useBrochureRender(brochure.pdfUrl, brochure.pageCount || 0);
+
   // On mount: skip the gate for a known lead arriving from a follow-up email
   // (link carries ?v=1) — they've already given their details. Otherwise, if
   // this programme was already unlocked in this browser, skip; else prefill from
@@ -191,15 +196,135 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
     );
   }
 
-  return <Flipbook brochure={brochure} />;
+  return <Flipbook brochure={brochure} render={render} />;
 }
 
-// ── The flipbook itself (pdf.js → images → page-flip) ────────────────────────
-function Flipbook({ brochure }: { brochure: Brochure }) {
+// ── PDF → images renderer ────────────────────────────────────────────────────
+// Runs as soon as the viewer mounts so the heavy work (download + render every
+// page) happens IN THE BACKGROUND while the gate form is on screen. By the time
+// the visitor submits their details the pages are usually already rendered, so
+// the book opens (near-)instantly. Kept separate from page-flip so it can run
+// before the flipbook DOM even exists.
+type RenderState = {
+  images: string[] | null;
+  ratio: number;
+  total: number;
+  status: "loading" | "ready" | "error";
+  phase: "download" | "render";
+  progress: number;
+};
+
+function useBrochureRender(pdfUrl: string, pageCountHint: number): RenderState {
+  const [state, setState] = useState<RenderState>({
+    images: null,
+    ratio: 1.414,
+    total: pageCountHint || 0,
+    status: "loading",
+    phase: "download",
+    progress: 0,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ images: null, ratio: 1.414, total: pageCountHint || 0, status: "loading", phase: "download", progress: 0 });
+
+    (async () => {
+      try {
+        const pdfjs = await import("pdfjs-dist");
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.min.mjs",
+          import.meta.url,
+        ).toString();
+
+        const task = pdfjs.getDocument({ url: pdfUrl });
+        task.onProgress = (p: { loaded: number; total: number }) => {
+          if (!cancelled && p.total) setState((s) => ({ ...s, progress: Math.round((p.loaded / p.total) * 100) }));
+        };
+        const doc = await task.promise;
+        if (cancelled) return;
+        const num = doc.numPages;
+        setState((s) => ({ ...s, total: num, phase: "render", progress: 0 }));
+
+        // Crisp on high-DPR screens: target ~2× the widest the page is shown.
+        const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+        const targetWidth = Math.min(2200, Math.round(1100 * dpr));
+        const canWebp =
+          typeof document !== "undefined" &&
+          document.createElement("canvas").toDataURL("image/webp").startsWith("data:image/webp");
+        const mime = canWebp ? "image/webp" : "image/jpeg";
+        const quality = canWebp ? 0.9 : 0.88;
+
+        const renderPage = async (i: number): Promise<string> => {
+          const pdfPage = await doc.getPage(i);
+          const base = pdfPage.getViewport({ scale: 1 });
+          const scale = targetWidth / base.width;
+          const viewport = pdfPage.getViewport({ scale });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("Canvas unsupported");
+          await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+          const url = canvas.toDataURL(mime, quality);
+          canvas.width = 0;
+          canvas.height = 0;
+          return url;
+        };
+
+        // Render pages concurrently with a small pool so wall-time is the slowest
+        // few pages, not the sum of all of them.
+        const images: string[] = new Array(num);
+        let done = 0;
+        let next = 0;
+        const POOL = 4;
+        await Promise.all(
+          Array.from({ length: Math.min(POOL, num) }, async () => {
+            while (true) {
+              const i = next++;
+              if (i >= num || cancelled) return;
+              images[i] = await renderPage(i + 1);
+              done++;
+              if (!cancelled) setState((s) => ({ ...s, progress: Math.round((done / num) * 100) }));
+            }
+          }),
+        );
+        if (cancelled) return;
+
+        // Aspect ratio from the first rendered page.
+        const first = new Image();
+        first.src = images[0];
+        await new Promise<void>((res) => {
+          if (first.complete) return res();
+          first.onload = () => res();
+          first.onerror = () => res();
+        });
+        const ratio = first.naturalWidth && first.naturalHeight ? first.naturalHeight / first.naturalWidth : 1.414;
+
+        if (!cancelled) setState({ images, ratio, total: num, status: "ready", phase: "render", progress: 100 });
+      } catch (err) {
+        console.error("Brochure render error:", err);
+        if (!cancelled) setState((s) => ({ ...s, status: "error" }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfUrl, pageCountHint]);
+
+  return state;
+}
+
+// ── The flipbook (mounts page-flip from the already-rendered images) ──────────
+function Flipbook({ brochure, render }: { brochure: Brochure; render: RenderState }) {
   const bookRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flipRef = useRef<any>(null);
   const viewPinged = useRef(false);
+  const [mounted, setMounted] = useState(false);
+  const [page, setPage] = useState(0);
+
+  const { images, ratio, total, status, phase, progress } = render;
 
   // Fire-and-forget tracking pings (best-effort; never block the viewer).
   const pingView = useCallback(() => {
@@ -221,137 +346,47 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
       keepalive: true,
     }).catch(() => {});
   }, [brochure.slug]);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [phase, setPhase] = useState<"download" | "render">("download");
-  const [progress, setProgress] = useState(0);
-  const [page, setPage] = useState(0);
-  const [total, setTotal] = useState(brochure.pageCount || 0);
 
+  // Mount page-flip once the images are ready and the container exists. This is
+  // cheap (images are already rendered), so revealing the book is near-instant.
   useEffect(() => {
+    if (!images || !bookRef.current) return;
     let cancelled = false;
     let flip: unknown = null;
-
     (async () => {
-      try {
-        const pdfjs = await import("pdfjs-dist");
-        // Bundle the worker locally (no CDN).
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-          "pdfjs-dist/build/pdf.worker.min.mjs",
-          import.meta.url,
-        ).toString();
-
-        const task = pdfjs.getDocument({ url: brochure.pdfUrl });
-        task.onProgress = (p: { loaded: number; total: number }) => {
-          if (!cancelled && p.total) setProgress(Math.round((p.loaded / p.total) * 100));
-        };
-        const doc = await task.promise;
-        if (cancelled) return;
-        const num = doc.numPages;
-        setTotal(num);
-        setPhase("render");
-        setProgress(0);
-
-        // Render for a crisp result on high-DPR screens: target ~2× the widest
-        // the page is ever shown (the viewer caps at ~1100 CSS px), so text stays
-        // sharp. PDFs are vector, so a higher scale is genuinely crisper.
-        const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
-        const targetWidth = Math.min(2200, Math.round(1100 * dpr));
-        // WebP keeps text sharp at a smaller size than JPEG; fall back to JPEG.
-        const canWebp =
-          typeof document !== "undefined" &&
-          document.createElement("canvas").toDataURL("image/webp").startsWith("data:image/webp");
-        const mime = canWebp ? "image/webp" : "image/jpeg";
-        const quality = canWebp ? 0.9 : 0.88;
-
-        const renderPage = async (i: number): Promise<string> => {
-          const pdfPage = await doc.getPage(i);
-          const base = pdfPage.getViewport({ scale: 1 });
-          const scale = targetWidth / base.width;
-          const viewport = pdfPage.getViewport({ scale });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) throw new Error("Canvas unsupported");
-          await pdfPage.render({ canvasContext: ctx, viewport }).promise;
-          const url = canvas.toDataURL(mime, quality);
-          // Free the canvas backing store promptly (helps on big brochures).
-          canvas.width = 0;
-          canvas.height = 0;
-          return url;
-        };
-
-        // Render pages concurrently with a small pool so wall-time is the slowest
-        // few pages, not the sum of all of them — much faster on multi-page PDFs.
-        const images: string[] = new Array(num);
-        let done = 0;
-        let next = 0;
-        const POOL = 4;
-        await Promise.all(
-          Array.from({ length: Math.min(POOL, num) }, async () => {
-            while (true) {
-              const i = next++;
-              if (i >= num || cancelled) return;
-              images[i] = await renderPage(i + 1);
-              done++;
-              if (!cancelled) setProgress(Math.round((done / num) * 100));
-            }
-          }),
-        );
-        if (cancelled || !bookRef.current) return;
-
-        const { PageFlip } = await import("page-flip");
-        // Aspect ratio from the first rendered page.
-        const first = new Image();
-        first.src = images[0];
-        await new Promise<void>((res) => {
-          if (first.complete) return res();
-          first.onload = () => res();
-          first.onerror = () => res();
-        });
-        const ratio = first.naturalWidth && first.naturalHeight
-          ? first.naturalHeight / first.naturalWidth
-          : 1.414;
-
-        const baseW = 500;
-        // Two-page spread on desktop, single page on mobile (usePortrait).
-        // showCover is OFF on purpose: hard cover pages reserve an empty facing
-        // leaf that page-flip paints white (an un-removable blank next to the
-        // cover/back). With it off there are no hard pages and no blank leaf;
-        // pages simply pair up (1-2, 3-4, …). maxWidth keeps the size sensible.
-        flip = new PageFlip(bookRef.current, {
-          width: baseW,
-          height: Math.round(baseW * ratio),
-          size: "stretch",
-          minWidth: 315,
-          maxWidth: 820,
-          minHeight: Math.round(315 * ratio),
-          maxHeight: Math.round(820 * ratio),
-          usePortrait: true,
-          maxShadowOpacity: 0.5,
-          showCover: false,
-          mobileScrollSupport: false,
-          useMouseEvents: true,
-          drawShadow: true,
-        });
-        flipRef.current = flip;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (flip as any).loadFromImages(images);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (flip as any).on("flip", (e: { data: number }) => {
-          if (!cancelled) setPage(e.data);
-        });
-        if (!cancelled) {
-          setTotal(num);
-          setStatus("ready");
-          pingView();
-        }
-      } catch (err) {
-        console.error("Brochure render error:", err);
-        if (!cancelled) setStatus("error");
+      const { PageFlip } = await import("page-flip");
+      if (cancelled || !bookRef.current) return;
+      const baseW = 500;
+      // Two-page spread on desktop, single page on mobile (usePortrait).
+      // showCover OFF so page-flip doesn't reserve a white blank leaf next to the
+      // cover/back; pages simply pair up (1-2, 3-4, …).
+      flip = new PageFlip(bookRef.current, {
+        width: baseW,
+        height: Math.round(baseW * ratio),
+        size: "stretch",
+        minWidth: 315,
+        maxWidth: 820,
+        minHeight: Math.round(315 * ratio),
+        maxHeight: Math.round(820 * ratio),
+        usePortrait: true,
+        maxShadowOpacity: 0.5,
+        showCover: false,
+        mobileScrollSupport: false,
+        useMouseEvents: true,
+        drawShadow: true,
+      });
+      flipRef.current = flip;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (flip as any).loadFromImages(images);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (flip as any).on("flip", (e: { data: number }) => {
+        if (!cancelled) setPage(e.data);
+      });
+      if (!cancelled) {
+        setMounted(true);
+        pingView();
       }
     })();
-
     return () => {
       cancelled = true;
       try {
@@ -362,33 +397,24 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
       }
       flipRef.current = null;
     };
-  }, [brochure.pdfUrl, pingView]);
+  }, [images, ratio, pingView]);
 
   const prev = useCallback(() => flipRef.current?.flipPrev?.(), []);
   const next = useCallback(() => flipRef.current?.flipNext?.(), []);
 
   // Keyboard navigation
   useEffect(() => {
-    if (status !== "ready") return;
+    if (!mounted) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") prev();
       if (e.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [status, prev, next]);
+  }, [mounted, prev, next]);
 
   return (
     <div className="bro-viewer" data-lenis-prevent>
-      {status === "loading" && (
-        <div className="bro-stage bro-stage--loading">
-          <div className="bro-spinner" aria-hidden />
-          <p className="bro-loading-text">
-            {phase === "download" ? "Downloading your brochure" : "Preparing pages"} · {progress}%
-          </p>
-        </div>
-      )}
-
       {status === "error" && (
         <div className="bro-stage bro-stage--error">
           <p>We couldn&apos;t display this brochure in the viewer.</p>
@@ -398,12 +424,21 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
         </div>
       )}
 
-      {/* The book mounts regardless so page-flip has its container; hidden until ready. */}
-      <div className={`bro-book-wrap${status === "ready" ? " is-ready" : ""}`}>
+      {status !== "error" && !mounted && (
+        <div className="bro-stage bro-stage--loading">
+          <div className="bro-spinner" aria-hidden />
+          <p className="bro-loading-text">
+            {phase === "download" ? "Downloading your brochure" : "Preparing pages"} · {progress}%
+          </p>
+        </div>
+      )}
+
+      {/* The book mounts as soon as images are ready; hidden (opacity 0) until then. */}
+      <div className={`bro-book-wrap${mounted ? " is-ready" : ""}`}>
         <div ref={bookRef} className="bro-book" />
       </div>
 
-      {status === "ready" && (
+      {mounted && (
         <div className="bro-controls">
           <button className="bro-nav" onClick={prev} aria-label="Previous page">
             <Icon name="arrow-right" size={20} style={{ transform: "rotate(180deg)" }} />

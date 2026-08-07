@@ -17,6 +17,9 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   if (!brochure) notFound();
   return (
     <section className="section bro-section">
+      {/* Start fetching the PDF during HTML parse — before JS hydrates — so it's
+          already downloading (and often cached) by the time the viewer renders it. */}
+      <link rel="preload" as="fetch" href={brochure.pdfUrl} crossOrigin="anonymous" />
       <BrochureViewer brochure={brochure} />
     </section>
   );
