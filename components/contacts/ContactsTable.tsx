@@ -94,6 +94,7 @@ export function ContactsTable({
     'instagram': 'Instagram',
     'website_deposit': 'Website Deposit',
     'website_chatbot': 'Website Chatbot',
+    'website_brochure': 'Brochure',
     'website_exit_intent': 'Website Exit Popup',
     'website_university': 'University Enquiry',
   }

@@ -31,7 +31,7 @@ export interface Contact {
   parent_name: string | null
   parent_email: string | null
   parent_phone: string | null
-  source: 'website_form' | 'sms_reply' | 'email_reply' | 'manual' | 'csv_import' | 'referral' | 'google_ads' | 'instagram' | 'facebook' | 'email_campaign' | 'event' | null
+  source: 'website_form' | 'sms_reply' | 'email_reply' | 'manual' | 'csv_import' | 'referral' | 'google_ads' | 'instagram' | 'facebook' | 'email_campaign' | 'event' | 'website_brochure' | null
   source_detail: string | null
   sport: 'football' | 'basketball'
   subscription_status: 'subscribed' | 'unsubscribed'

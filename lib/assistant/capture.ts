@@ -12,6 +12,13 @@ import { assignTag, findOrCreateList, addContactToLists, MASTER_LIST } from '@/l
 // Re-exported for existing importers (e.g. the deposit route).
 export { findOrCreateList }
 
+// Programme key → clean label used for per-brochure lists/tags.
+const BROCHURE_LABEL: Record<string, string> = {
+  summer: 'Summer Residency',
+  university: 'University',
+  'gap-year': 'Gap Year',
+}
+
 export interface EnquiryArgs {
   email?: string
   name?: string
@@ -22,6 +29,8 @@ export interface EnquiryArgs {
   source?: string
   /** The specific university course the visitor enquired about (its clean name). */
   course?: string
+  /** For brochure captures: which programme's brochure ('summer'|'university'|'gap-year'). */
+  program?: string
 }
 
 /** Land an enquiry as a contact + add to the "Website Enquiries" list (list-only). */
@@ -54,6 +63,7 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
     const sourceMap: Record<string, string> = {
       exit_intent: 'website_exit_intent',
       university_course: 'website_university',
+      brochure: 'website_brochure',
     }
     const { data: created } = await supabase
       .from('contacts')
@@ -84,6 +94,10 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
   } else if (args.source === 'chatbot') {
     listName = 'Chatbot Leads'
     listDescription = 'Visitors who started the website chat — name & email captured up-front'
+  } else if (args.source === 'brochure') {
+    const label = BROCHURE_LABEL[args.program ?? ''] ?? 'Brochure'
+    listName = `${label} Brochure Leads`
+    listDescription = `Visitors who opened the ${label} brochure on the website`
   }
   const listId = await findOrCreateList(supabase, listName, listDescription)
   if (listId) {
@@ -103,6 +117,13 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
   // Tags accumulate, so a visitor who enquires about several courses in one
   // visit ends up tagged with each of them.
   if (args.course) await assignTag(supabase, contactId, args.course, 'interest')
+
+  // Tag brochure leads with the programme brochure they opened — accumulates, so
+  // one contact ends up tagged with each programme brochure they've viewed.
+  if (args.source === 'brochure') {
+    const label = BROCHURE_LABEL[args.program ?? ''] ?? 'Brochure'
+    await assignTag(supabase, contactId, `${label} Brochure`, 'source')
+  }
 
   // Audit log so these leads appear under Form Submissions like other captures.
   await supabase.from('form_submissions').insert({
