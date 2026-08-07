@@ -52,9 +52,20 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // On mount: if this programme was already unlocked, skip the gate. Otherwise
-  // prefill from any saved lead (brochure or chat).
+  // On mount: skip the gate for a known lead arriving from a follow-up email
+  // (link carries ?v=1) — they've already given their details. Otherwise, if
+  // this programme was already unlocked in this browser, skip; else prefill from
+  // any saved lead (brochure or chat).
   useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get("v") === "1") {
+        setGated(false);
+        setChecking(false);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
     const store = readStore();
     if (store.unlocked?.includes(brochure.program)) {
       setGated(false);
