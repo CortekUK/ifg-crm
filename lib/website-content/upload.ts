@@ -29,7 +29,7 @@ export async function uploadWebsiteImage(file: File): Promise<string> {
   return publicUrl
 }
 
-const MAX_PDF_BYTES = 50 * 1024 * 1024
+const MAX_PDF_BYTES = 200 * 1024 * 1024
 
 /**
  * Upload a brochure PDF to the public `uploads` bucket under `brochures/`,
@@ -42,7 +42,7 @@ export async function uploadBrochurePdf(file: File): Promise<string> {
     throw new Error('Please choose a PDF file.')
   }
   if (file.size > MAX_PDF_BYTES) {
-    throw new Error('Please choose a PDF smaller than 50MB.')
+    throw new Error('Please choose a PDF smaller than 200MB.')
   }
 
   const supabase = createClient()

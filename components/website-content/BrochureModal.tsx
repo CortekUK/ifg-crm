@@ -172,7 +172,7 @@ export function BrochureModal({
           value={pdfUrl}
           onChange={setPdfUrl}
           onUploaded={handlePdfUploaded}
-          hint="Required to publish. Max 50MB. The cover is taken from the first page automatically."
+          hint="Required to publish. Max 200MB. The cover is taken from the first page automatically."
         />
         {coverBusy ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
