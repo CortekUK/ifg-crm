@@ -145,7 +145,7 @@ export function BrochureViewer({ brochure }: { brochure: Brochure }) {
   if (gated) {
     return (
       <div className="bro-gate" data-lenis-prevent>
-        <div className="bro-gate-card">
+        <div className={`bro-gate-card${brochure.coverImage ? "" : " bro-gate-card--single"}`}>
           {brochure.coverImage && (
             // eslint-disable-next-line @next/next/no-img-element
             <img className="bro-gate-cover" src={brochure.coverImage} alt="" />
@@ -199,6 +199,7 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flipRef = useRef<any>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [phase, setPhase] = useState<"download" | "render">("download");
   const [progress, setProgress] = useState(0);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(brochure.pageCount || 0);
@@ -216,19 +217,33 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
           import.meta.url,
         ).toString();
 
-        const doc = await pdfjs.getDocument({ url: brochure.pdfUrl }).promise;
+        const task = pdfjs.getDocument({ url: brochure.pdfUrl });
+        task.onProgress = (p: { loaded: number; total: number }) => {
+          if (!cancelled && p.total) setProgress(Math.round((p.loaded / p.total) * 100));
+        };
+        const doc = await task.promise;
         if (cancelled) return;
         const num = doc.numPages;
         setTotal(num);
+        setPhase("render");
+        setProgress(0);
 
-        // Render each page to a JPEG data URL. Scale is capped for memory.
-        const images: string[] = [];
-        for (let i = 1; i <= num; i++) {
-          if (cancelled) return;
+        // Render for a crisp result on high-DPR screens: target ~2× the widest
+        // the page is ever shown (the viewer caps at ~1100 CSS px), so text stays
+        // sharp. PDFs are vector, so a higher scale is genuinely crisper.
+        const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
+        const targetWidth = Math.min(2200, Math.round(1100 * dpr));
+        // WebP keeps text sharp at a smaller size than JPEG; fall back to JPEG.
+        const canWebp =
+          typeof document !== "undefined" &&
+          document.createElement("canvas").toDataURL("image/webp").startsWith("data:image/webp");
+        const mime = canWebp ? "image/webp" : "image/jpeg";
+        const quality = canWebp ? 0.9 : 0.88;
+
+        const renderPage = async (i: number): Promise<string> => {
           const pdfPage = await doc.getPage(i);
-          const baseViewport = pdfPage.getViewport({ scale: 1 });
-          const targetWidth = Math.min(1400, Math.max(900, baseViewport.width * 2));
-          const scale = targetWidth / baseViewport.width;
+          const base = pdfPage.getViewport({ scale: 1 });
+          const scale = targetWidth / base.width;
           const viewport = pdfPage.getViewport({ scale });
           const canvas = document.createElement("canvas");
           canvas.width = viewport.width;
@@ -236,9 +251,30 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
           const ctx = canvas.getContext("2d");
           if (!ctx) throw new Error("Canvas unsupported");
           await pdfPage.render({ canvasContext: ctx, viewport }).promise;
-          images.push(canvas.toDataURL("image/jpeg", 0.82));
-          if (!cancelled) setProgress(Math.round((i / num) * 100));
-        }
+          const url = canvas.toDataURL(mime, quality);
+          // Free the canvas backing store promptly (helps on big brochures).
+          canvas.width = 0;
+          canvas.height = 0;
+          return url;
+        };
+
+        // Render pages concurrently with a small pool so wall-time is the slowest
+        // few pages, not the sum of all of them — much faster on multi-page PDFs.
+        const images: string[] = new Array(num);
+        let done = 0;
+        let next = 0;
+        const POOL = 4;
+        await Promise.all(
+          Array.from({ length: Math.min(POOL, num) }, async () => {
+            while (true) {
+              const i = next++;
+              if (i >= num || cancelled) return;
+              images[i] = await renderPage(i + 1);
+              done++;
+              if (!cancelled) setProgress(Math.round((done / num) * 100));
+            }
+          }),
+        );
         if (cancelled || !bookRef.current) return;
 
         const { PageFlip } = await import("page-flip");
@@ -324,7 +360,7 @@ function Flipbook({ brochure }: { brochure: Brochure }) {
         <div className="bro-stage bro-stage--loading">
           <div className="bro-spinner" aria-hidden />
           <p className="bro-loading-text">
-            Preparing your brochure{total ? ` · ${progress}%` : "…"}
+            {phase === "download" ? "Downloading your brochure" : "Preparing pages"} · {progress}%
           </p>
         </div>
       )}
