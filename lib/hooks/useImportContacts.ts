@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
-import { buildContactFromRow, extractTagsFromRow, buildCustomFields } from '@/lib/utils/csv'
+import { detectDateOrder } from '@/lib/utils/csv'
 
 export type DuplicateStrategy = 'skip' | 'update'
 
@@ -23,227 +22,114 @@ export interface ImportResult {
   errors: { row: number; message: string }[]
 }
 
-const BATCH_SIZE = 50
+/**
+ * Rows per request. Each chunk costs a fixed handful of queries server-side
+ * (one contact upsert, one list upsert, one tag pass), so larger chunks mean
+ * proportionally fewer round trips — bounded by the route's maxDuration and by
+ * how granular we want the progress bar to be.
+ */
+const CHUNK_SIZE = 500
 
+/** Columns whose values are worth sampling to work out the file's date format. */
+const DATE_HEADER_RE = /date|dob|birth/i
+
+/**
+ * Work out whether this file writes dates day-first or month-first.
+ *
+ * Detection runs over the whole file rather than the first chunk, because the
+ * early rows may all be ambiguous (both components 12 or under) while later
+ * ones settle it. Falls back to day-first, the previous behaviour.
+ */
+function detectFileDateOrder(headers: string[], rows: string[][]) {
+  const dateColumns = headers
+    .map((header, index) => ({ header, index }))
+    .filter(({ header }) => DATE_HEADER_RE.test(header))
+    .map(({ index }) => index)
+
+  if (dateColumns.length === 0) return 'DMY' as const
+
+  function* values() {
+    for (const row of rows) {
+      for (const index of dateColumns) yield row[index]
+    }
+  }
+
+  return detectDateOrder(values()) ?? ('DMY' as const)
+}
+
+/**
+ * Import contacts via the batched server-side endpoint.
+ *
+ * This used to issue two HTTP requests per row from the browser, which put the
+ * 105k-row historic migration at roughly eight hours of an open tab. The work
+ * now happens in /api/contacts/bulk-import, which lands a whole chunk in a few
+ * queries; the client's only job is to slice the rows and report progress.
+ */
 export function useImportContacts() {
-  const supabase = createClient()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (options: ImportOptions): Promise<ImportResult> => {
-      const { rows, mapping, headers, skippedColumns = [], listId, tagId, duplicateStrategy, onProgress } = options
-      const result: ImportResult = { total: rows.length, created: 0, updated: 0, skipped: 0, errors: [] }
-      let processed = 0
+      const {
+        rows,
+        mapping,
+        headers,
+        skippedColumns = [],
+        listId,
+        tagId,
+        duplicateStrategy,
+        onProgress,
+      } = options
 
-      // Find the "All Contacts Everyone" list (case-insensitive to handle naming variations)
-      const { data: allContactsList } = await supabase
-        .from('lists')
-        .select('id')
-        .ilike('name', '%all contacts%everyone%')
-        .limit(1)
-        .single()
+      const result: ImportResult = {
+        total: rows.length,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [],
+      }
 
-      const allContactIds: string[] = []
-      // Track which contact ID corresponds to which row (for tag assignment)
-      const contactRowMap: { contactId: string; rowIndex: number }[] = []
+      const dateOrder = detectFileDateOrder(headers, rows)
 
-      // Check if tags column is mapped
-      const hasTagsMapping = Object.values(mapping).includes('__tags__')
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        const chunk = rows.slice(i, i + CHUNK_SIZE)
 
-      // Process in batches
-      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-        const batch = rows.slice(i, i + BATCH_SIZE)
+        const response = await fetch('/api/contacts/bulk-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rows: chunk,
+            mapping,
+            headers,
+            skippedColumns,
+            listId,
+            tagId,
+            duplicateStrategy,
+            dateOrder,
+            rowOffset: i,
+          }),
+        })
 
-        if (duplicateStrategy === 'update') {
-          // Upsert individually to track which row produced which contact ID
-          for (let j = 0; j < batch.length; j++) {
-            const rowIdx = i + j
-            const contactFields = buildContactFromRow(batch[j], mapping)
-            const customFields = buildCustomFields(batch[j], headers, mapping, skippedColumns)
-            const record: Record<string, unknown> = {
-              ...contactFields,
-              ...(customFields ? { custom_fields: customFields } : {}),
-              source: 'csv_import' as const,
-              sport: 'football' as const,
-            }
-
-            // Merge custom_fields with existing on update
-            if (customFields) {
-              const email = contactFields.email as string
-              if (email) {
-                const { data: existing } = await supabase
-                  .from('contacts')
-                  .select('custom_fields')
-                  .eq('email', email)
-                  .single()
-                if (existing?.custom_fields) {
-                  record.custom_fields = { ...existing.custom_fields, ...customFields }
-                }
-              }
-            }
-
-            const { data: single, error: singleErr } = await supabase
-              .from('contacts')
-              .upsert(record, { onConflict: 'email' })
-              .select('id')
-              .single()
-
-            if (singleErr) {
-              result.errors.push({ row: rowIdx + 1, message: singleErr.message })
-            } else if (single) {
-              result.updated++
-              allContactIds.push(single.id)
-              if (hasTagsMapping) {
-                contactRowMap.push({ contactId: single.id, rowIndex: rowIdx })
-              }
-            }
-
-            processed++
-            onProgress?.(processed, rows.length)
+        if (!response.ok) {
+          // Record the failure against this chunk and keep going — one bad
+          // batch shouldn't cost the caller the other hundred thousand rows.
+          let message = `Request failed (${response.status})`
+          try {
+            const body = await response.json()
+            if (body?.error) message = body.error
+          } catch {
+            // Response wasn't JSON — keep the status-code message.
           }
+          result.errors.push({ row: i + 1, message })
         } else {
-          // Skip strategy: insert individually, catch duplicate errors
-          for (let j = 0; j < batch.length; j++) {
-            const rowIdx = i + j
-            const contactFields = buildContactFromRow(batch[j], mapping)
-            const customFields = buildCustomFields(batch[j], headers, mapping, skippedColumns)
-            const record = {
-              ...contactFields,
-              ...(customFields ? { custom_fields: customFields } : {}),
-              source: 'csv_import' as const,
-              sport: 'football' as const,
-            }
-
-            const { data, error } = await supabase
-              .from('contacts')
-              .insert(record)
-              .select('id')
-              .single()
-
-            if (error) {
-              if (error.code === '23505' || error.message?.toLowerCase().includes('duplicate')) {
-                result.skipped++
-                // Look up the existing contact so it still gets added to lists
-                const email = contactFields.email as string | undefined
-                if (email) {
-                  const { data: existing } = await supabase
-                    .from('contacts')
-                    .select('id')
-                    .eq('email', email)
-                    .single()
-                  if (existing) {
-                    allContactIds.push(existing.id)
-                    if (hasTagsMapping) {
-                      contactRowMap.push({ contactId: existing.id, rowIndex: rowIdx })
-                    }
-                  }
-                }
-              } else {
-                result.errors.push({ row: rowIdx + 1, message: error.message })
-              }
-            } else if (data) {
-              result.created++
-              allContactIds.push(data.id)
-              if (hasTagsMapping) {
-                contactRowMap.push({ contactId: data.id, rowIndex: rowIdx })
-              }
-            }
-
-            processed++
-            onProgress?.(processed, rows.length)
-          }
-        }
-      }
-
-      // Process tags if mapped
-      if (hasTagsMapping && contactRowMap.length > 0) {
-        // Collect all unique tag names from the imported rows
-        const allTagNames = new Set<string>()
-        for (const { rowIndex } of contactRowMap) {
-          const tagNames = extractTagsFromRow(rows[rowIndex], mapping)
-          tagNames.forEach((t) => allTagNames.add(t))
+          const data = (await response.json()) as Omit<ImportResult, 'total'>
+          result.created += data.created ?? 0
+          result.updated += data.updated ?? 0
+          result.skipped += data.skipped ?? 0
+          if (data.errors?.length) result.errors.push(...data.errors)
         }
 
-        if (allTagNames.size > 0) {
-          // Find existing tags
-          const { data: existingTags } = await supabase
-            .from('tags')
-            .select('id, name')
-            .in('name', [...allTagNames])
-
-          const tagNameToId = new Map<string, string>()
-          existingTags?.forEach((t) => tagNameToId.set(t.name.toLowerCase(), t.id))
-
-          // Create missing tags
-          const missingNames = [...allTagNames].filter((n) => !tagNameToId.has(n.toLowerCase()))
-          if (missingNames.length > 0) {
-            const { data: newTags } = await supabase
-              .from('tags')
-              .insert(missingNames.map((name) => ({ name, color: '#6B7280', category: 'other' as const })))
-              .select('id, name')
-
-            newTags?.forEach((t) => tagNameToId.set(t.name.toLowerCase(), t.id))
-          }
-
-          // Insert contact_tags associations
-          const contactTagRecords: { contact_id: string; tag_id: string }[] = []
-          for (const { contactId, rowIndex } of contactRowMap) {
-            const tagNames = extractTagsFromRow(rows[rowIndex], mapping)
-            for (const tagName of tagNames) {
-              const tagId = tagNameToId.get(tagName.toLowerCase())
-              if (tagId) {
-                contactTagRecords.push({ contact_id: contactId, tag_id: tagId })
-              }
-            }
-          }
-
-          // Insert in batches, ignoring duplicates
-          for (let i = 0; i < contactTagRecords.length; i += BATCH_SIZE) {
-            const batch = contactTagRecords.slice(i, i + BATCH_SIZE)
-            await supabase
-              .from('contact_tags')
-              .upsert(batch, { onConflict: 'contact_id,tag_id', ignoreDuplicates: true })
-          }
-        }
-      }
-
-      // Add to selected list
-      if (listId && allContactIds.length > 0) {
-        for (let i = 0; i < allContactIds.length; i += BATCH_SIZE) {
-          const batch = allContactIds.slice(i, i + BATCH_SIZE)
-          await supabase
-            .from('contact_lists')
-            .upsert(
-              batch.map((contactId) => ({ list_id: listId, contact_id: contactId })),
-              { onConflict: 'contact_id,list_id' }
-            )
-        }
-      }
-
-      // Add to "All Contacts Everyone" list
-      if (allContactsList && allContactIds.length > 0) {
-        for (let i = 0; i < allContactIds.length; i += BATCH_SIZE) {
-          const batch = allContactIds.slice(i, i + BATCH_SIZE)
-          await supabase
-            .from('contact_lists')
-            .upsert(
-              batch.map((contactId) => ({ list_id: allContactsList.id, contact_id: contactId })),
-              { onConflict: 'contact_id,list_id' }
-            )
-        }
-      }
-
-      // Add to selected tag (additive — existing tags preserved)
-      if (tagId && allContactIds.length > 0) {
-        for (let i = 0; i < allContactIds.length; i += BATCH_SIZE) {
-          const batch = allContactIds.slice(i, i + BATCH_SIZE)
-          await supabase
-            .from('contact_tags')
-            .upsert(
-              batch.map((contactId) => ({ contact_id: contactId, tag_id: tagId })),
-              { onConflict: 'contact_id,tag_id', ignoreDuplicates: true }
-            )
-        }
+        onProgress?.(Math.min(i + CHUNK_SIZE, rows.length), rows.length)
       }
 
       return result

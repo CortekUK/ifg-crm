@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalisePositions } from '@/lib/utils/import-normalise'
 
 /**
  * Automatic lead routing — the single source of truth for which lists and tags
@@ -79,7 +80,21 @@ export function computeApplicationRouting(input: RoutingInput): Routing {
   if (progLabel) tags.push({ name: progLabel, category: 'programme' })
 
   // Football position tag (very useful for filtering / squad planning).
-  if (input.position?.trim()) tags.push({ name: input.position.trim(), category: 'position' })
+  //
+  // Normalised through the same folding the historic import uses, so a lead who
+  // types "CAM", "Attacking Midfielder" or "AttackingMidfielder" lands on one
+  // tag rather than three. A form that offers several positions yields one tag
+  // each. Anything unrecognised falls back to the raw value so a position we
+  // haven't seen before is still recorded rather than dropped.
+  const rawPosition = input.position?.trim()
+  if (rawPosition) {
+    const normalised = normalisePositions(rawPosition)
+    if (normalised.length > 0) {
+      for (const position of normalised) tags.push({ name: position, category: 'position' })
+    } else {
+      tags.push({ name: rawPosition, category: 'position' })
+    }
+  }
 
   // Location tag (state), preserving prior behaviour.
   if (input.state?.trim()) tags.push({ name: input.state.trim(), category: 'location' })

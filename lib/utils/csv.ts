@@ -384,7 +384,8 @@ function splitFullName(fullName: string): { first_name: string; last_name: strin
  */
 export function buildContactFromRow(
   row: string[],
-  mapping: Record<number, string>
+  mapping: Record<number, string>,
+  dateOrder: DateOrder = 'DMY'
 ): Record<string, unknown> {
   const contact: Record<string, unknown> = {}
 
@@ -434,7 +435,7 @@ export function buildContactFromRow(
         break
       }
       case 'date_of_birth': {
-        const parsed = parseDateValue(value)
+        const parsed = parseDateValue(value, dateOrder)
         if (parsed) contact[fieldKey] = parsed
         break
       }
@@ -450,31 +451,82 @@ export function buildContactFromRow(
   return contact
 }
 
+/** Which component comes first in a numeric date: day or month. */
+export type DateOrder = 'DMY' | 'MDY'
+
+const NUMERIC_DATE_RE = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/
+
 /**
- * Try to parse a date string into YYYY-MM-DD format.
- * Handles: DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, DD-MM-YYYY, etc.
+ * Work out whether a set of date strings is day-first or month-first.
+ *
+ * A value is only evidence when one component exceeds 12 and so can only be a
+ * day — "24/01/2023" proves day-first, "2/24/2023" proves month-first. Values
+ * where both components are 12 or under tell us nothing on their own.
+ *
+ * This matters because a single export can't be assumed consistent with the
+ * next: IFG's master ActiveCampaign file is day-first while all sixteen
+ * per-list exports are month-first. Guessing wrong turns "3/4/2023" into
+ * 3 April instead of 4 March with no error to notice.
+ *
+ * Returns null when there's no evidence either way.
  */
-function parseDateValue(value: string): string | null {
+export function detectDateOrder(values: Iterable<string | undefined>): DateOrder | null {
+  let dayFirst = 0
+  let monthFirst = 0
+
+  for (const value of values) {
+    const match = NUMERIC_DATE_RE.exec((value ?? '').trim())
+    if (!match) continue
+
+    const first = parseInt(match[1], 10)
+    const second = parseInt(match[2], 10)
+
+    if (first > 12 && second <= 12) dayFirst++
+    else if (second > 12 && first <= 12) monthFirst++
+  }
+
+  if (dayFirst === 0 && monthFirst === 0) return null
+  if (monthFirst === 0) return 'DMY'
+  if (dayFirst === 0) return 'MDY'
+  // A file with evidence both ways is malformed; follow the weight of it.
+  return dayFirst >= monthFirst ? 'DMY' : 'MDY'
+}
+
+/**
+ * Parse a date string into YYYY-MM-DD.
+ * Handles ISO, plus numeric dates in either order — `order` decides only the
+ * genuinely ambiguous ones, since a component over 12 speaks for itself.
+ */
+function parseDateValue(value: string, order: DateOrder = 'DMY'): string | null {
   // Already in ISO format
   if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
     return value.slice(0, 10)
   }
 
-  // DD/MM/YYYY or DD-MM-YYYY (common in UK/EU)
-  const ddmmyyyy = value.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
-  if (ddmmyyyy) {
-    const [, a, b, year] = ddmmyyyy
-    const day = parseInt(a, 10)
-    const month = parseInt(b, 10)
-    // If first number > 12, it must be DD/MM
-    if (day > 12) {
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const match = value.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
+  if (match) {
+    const [, a, b, year] = match
+    const first = parseInt(a, 10)
+    const second = parseInt(b, 10)
+
+    let day: number
+    let month: number
+
+    if (first > 12) {
+      day = first
+      month = second
+    } else if (second > 12) {
+      month = first
+      day = second
+    } else if (order === 'MDY') {
+      month = first
+      day = second
+    } else {
+      day = first
+      month = second
     }
-    // If second number > 12, it must be MM/DD
-    if (month > 12) {
-      return `${year}-${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}`
-    }
-    // Ambiguous — assume DD/MM (UK format, more common for football)
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
