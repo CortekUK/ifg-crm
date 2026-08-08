@@ -38,16 +38,18 @@ export function useTagsWithCounts() {
       if (error) throw error
       if (!tags || tags.length === 0) return []
 
-      // Get contact counts per tag
-      const { data: contactTags, error: countError } = await supabase
-        .from('contact_tags')
-        .select('tag_id')
+      // Count in the database, not here. Reading every contact_tags row to
+      // count it client-side stopped being merely slow once there were 350k of
+      // them: PostgREST caps a response at 1000 rows, so the counts silently
+      // came from a fraction of the table.
+      const { data: counts, error: countError } = await supabase
+        .rpc('get_tag_contact_counts')
 
       if (countError) throw countError
 
       const countMap = new Map<string, number>()
-      contactTags?.forEach((ct) => {
-        countMap.set(ct.tag_id, (countMap.get(ct.tag_id) || 0) + 1)
+      counts?.forEach((c: { tag_id: string; contact_count: number }) => {
+        countMap.set(c.tag_id, Number(c.contact_count))
       })
 
       return tags.map((tag) => ({

@@ -80,35 +80,30 @@ export function ContactFilters({
     },
   })
 
-  // Fetch distinct countries from contacts
-  const { data: countries = [] } = useQuery({
-    queryKey: ['contacts-countries'],
+  // Distinct filter values, aggregated in the database.
+  //
+  // These used to read every contact and de-duplicate here — one full-table
+  // fetch per dropdown. Past 1000 contacts that quietly truncated: PostgREST
+  // caps the response, so the dropdowns only ever offered the values that
+  // happened to appear in the first 1000 rows.
+  const { data: filterOptions } = useQuery({
+    queryKey: ['contacts-filter-options'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('country')
-        .not('country', 'is', null)
-        .not('country', 'eq', '')
+      const { data, error } = await supabase.rpc('get_contact_filter_options')
       if (error) throw error
-      const uniqueCountries = [...new Set(data?.map(c => c.country).filter(Boolean))]
-      return uniqueCountries.sort() as string[]
+
+      const grouped: Record<string, string[]> = { position: [], state: [], country: [] }
+      for (const row of (data ?? []) as { kind: string; value: string }[]) {
+        grouped[row.kind]?.push(row.value)
+      }
+      return grouped
     },
+    staleTime: 5 * 60 * 1000,
   })
 
-  // Fetch distinct states from contacts
-  const { data: states = [] } = useQuery({
-    queryKey: ['contacts-states'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('state')
-        .not('state', 'is', null)
-        .not('state', 'eq', '')
-      if (error) throw error
-      const uniqueStates = [...new Set(data?.map(c => c.state).filter(Boolean))]
-      return uniqueStates.sort() as string[]
-    },
-  })
+  const countries = filterOptions?.country ?? []
+  const states = filterOptions?.state ?? []
+  const positions = filterOptions?.position ?? []
 
   // Fetch tags
   const { data: tags = [] } = useQuery({
@@ -133,21 +128,6 @@ export function ContactFilters({
         .order('full_name')
       if (error) throw error
       return data || []
-    },
-  })
-
-  // Fetch distinct positions
-  const { data: positions = [] } = useQuery({
-    queryKey: ['contacts-positions'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('position')
-        .not('position', 'is', null)
-        .not('position', 'eq', '')
-      if (error) throw error
-      const unique = [...new Set(data?.map(c => c.position).filter(Boolean))]
-      return unique.sort() as string[]
     },
   })
 

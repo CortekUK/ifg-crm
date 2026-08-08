@@ -139,8 +139,7 @@ export function useImportContacts() {
       queryClient.invalidateQueries({ queryKey: ['contact-stats'] })
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['list-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['contacts-positions'] })
-      queryClient.invalidateQueries({ queryKey: ['contacts-countries'] })
+      queryClient.invalidateQueries({ queryKey: ['contacts-filter-options'] })
       queryClient.invalidateQueries({ queryKey: ['tags'] })
     },
   })
