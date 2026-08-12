@@ -574,7 +574,6 @@ export function DealDetailSheet({
                       value={deal.deal_owner_id}
                       onChange={handleSaveOwner}
                       placeholder="Select deal owner"
-                      recruitersOnly
                     />
                     <Button variant="outline" size="sm" className="w-full" onClick={() => setIsEditingOwner(false)}>
                       Cancel

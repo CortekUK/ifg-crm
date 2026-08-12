@@ -186,7 +186,6 @@ export function AddDealModal({
                   value={selectedOwnerId}
                   onChange={setSelectedOwnerId}
                   placeholder="Select deal owner"
-                  recruitersOnly
                 />
                 <p className="text-xs text-muted-foreground">
                   The deal owner will receive automated emails and notifications for this deal.

@@ -18,13 +18,6 @@ interface OwnerSelectProps {
   disabled?: boolean
   allowClear?: boolean
   className?: string
-  // When true, the dropdown lists only role='recruiter' users. Used for
-  // deal owner pickers (manual deal create, deal detail sheet) where the
-  // client wants admins and super_admins excluded — those roles exist for
-  // platform management, not for owning leads. Default keeps the
-  // historical behaviour (any active non-player user) for non-deal
-  // contexts like contact owner pickers.
-  recruitersOnly?: boolean
 }
 
 function getInitials(name: string | null | undefined): string {
@@ -56,18 +49,18 @@ export function OwnerSelect({
   disabled = false,
   allowClear = false,
   className,
-  recruitersOnly = false,
 }: OwnerSelectProps) {
   const { data: users = [], isLoading } = useUsers()
 
-  // Filter to active staff users. With `recruitersOnly` we further
-  // restrict to role='recruiter' so deal pickers don't surface admins
-  // or super_admins as candidate deal owners.
-  const activeUsers = users.filter((u) => {
-    if (!u.is_active || u.role === 'player') return false
-    if (recruitersOnly) return u.role === 'recruiter'
-    return true
-  })
+  // Any active staff member can own a deal — recruiter, admin or super_admin.
+  //
+  // The deal pickers used to restrict this to role='recruiter', but nothing
+  // else did: round_robin_next takes an explicit user list with no role filter,
+  // so a super_admin could be assigned a deal automatically and then not appear
+  // in the very dropdown meant to change it. On such a deal the Select had no
+  // matching option and fell back to its placeholder, showing the deal as
+  // unowned when it wasn't.
+  const activeUsers = users.filter((u) => u.is_active && u.role !== 'player')
 
   if (isLoading) {
     return <Skeleton className={`h-10 w-full ${className}`} />
