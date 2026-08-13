@@ -1411,11 +1411,9 @@ export const US_STATES: string[] = [
 // [label, lucide brand icon key, emoji, href]
 export type Social = [string, string, string, string];
 export const SOCIALS: Social[] = [
-  ["Instagram", "instagram", "📸", "https://www.instagram.com/ifgmacclesfieldfc"],
-  ["Facebook", "facebook", "👍", "https://www.facebook.com/MFCIntAcademy"],
-  ["LinkedIn", "linkedin", "💼", "https://www.linkedin.com/company/the-international-football-group/"],
-  ["YouTube", "youtube", "▶️", "https://www.youtube.com/channel/UCtWiv0xv-YbIykIejNScogQ"],
-  ["Flickr", "flickr", "📷", "https://www.flickr.com/people/198618797@N03/"],
+  ["Instagram", "instagram", "📸", "https://www.instagram.com/ifgmacclesfieldfc?igsh=NTc4MTIwNjQ2YQ==&igsi=NTc4MTIwNjQ2YQ=="],
+  ["Facebook", "facebook", "👍", "https://www.facebook.com/IFGmacclesfieldfc?mibextid=wwXIfr&mibextid=wwXIfr"],
+  ["TikTok", "tiktok", "♪", "https://www.tiktok.com/@ifgmacclesfieldfc?_r=1&_t=ZT-98rIBEJCd2c"],
 ];
 
 // Footer legal documents (PDFs in /public).

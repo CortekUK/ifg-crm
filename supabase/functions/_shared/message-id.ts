@@ -49,12 +49,21 @@ export function extractTrackingUuids(headerBlob: string | null | undefined): str
 // caller should fall back to whatever reply_to it would have used previously.
 export function buildReplyToAddress(
   trackingId: string,
+  displayName?: string | null,
   domainEnvVar = 'INBOUND_REPLY_DOMAIN'
 ): string | null {
   const raw = (Deno.env.get(domainEnvVar) ?? '').trim().replace(/^@+/, '')
   if (!raw) return null
   const replyDomain = raw.startsWith('reply.') ? raw : `reply.${raw}`
-  return `replies+${trackingId}@${replyDomain}`
+  const address = `replies+${trackingId}@${replyDomain}`
+
+  // Keep the VERP address intact for CRM matching while presenting a human
+  // identity in mail clients. Strip header-breaking characters and quote the
+  // name so punctuation in staff names remains valid mailbox syntax.
+  const safeName = displayName?.replace(/[\r\n]+/g, ' ').trim()
+  if (!safeName) return address
+  const quotedName = safeName.replace(/(["\\])/g, '\\$1')
+  return `"${quotedName}" <${address}>`
 }
 
 // Recover the tracking_id from an inbound email's `To:` value. Accepts the

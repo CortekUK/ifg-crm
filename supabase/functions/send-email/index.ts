@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
     // to find the originating email_sends row.
     const trackingId = body.tracking_id || crypto.randomUUID()
     const messageIdHeader = buildOutboundMessageId(trackingId)
-    const trackingReplyTo = buildReplyToAddress(trackingId)
+    const trackingReplyTo = buildReplyToAddress(trackingId, `${fromName} at IFG`)
 
     // Send email via Resend
     const { data, error: resendError } = await resend.emails.send({

@@ -734,7 +734,7 @@ async function sendEmail(
     // the inbound webhook recovers it from the To: header — no Message-ID
     // guessing needed even if SES rewrites our custom header.
     const trackingId = crypto.randomUUID()
-    const trackingReplyTo = buildReplyToAddress(trackingId)
+    const trackingReplyTo = buildReplyToAddress(trackingId, `${params.from_name} at IFG`)
 
     // Send via Resend directly
     const resend = new Resend(resendApiKey)

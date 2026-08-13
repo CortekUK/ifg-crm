@@ -1143,7 +1143,7 @@ async function processEmailStep(
     // of the Reply-To we set below (so the inbound webhook can recover it from
     // the contact's reply), and once as the email_sends.tracking_id value.
     const trackingId = crypto.randomUUID()
-    const trackingReplyTo = buildReplyToAddress(trackingId)
+    const trackingReplyTo = buildReplyToAddress(trackingId, `${fromName} at IFG`)
     const replyTo: string | undefined = trackingReplyTo ?? owner?.email ?? undefined
 
     // Get Resend API key and send email directly
