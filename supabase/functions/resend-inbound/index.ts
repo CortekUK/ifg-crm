@@ -173,6 +173,19 @@ Deno.serve(async (req) => {
     // was contacted under. Done here (rather than in the trigger) so the
     // values are present from the very first read of the row.
     const replySourceMeta = await deriveReplySourceMeta(supabase, linkedEmailSendId)
+    let linkedDealId = replySourceMeta.dealId
+    if (!linkedDealId && contactId && replySourceMeta.pipelineId) {
+      const { data: linkedDeal } = await supabase
+        .from('deals')
+        .select('id')
+        .eq('contact_id', contactId)
+        .eq('pipeline_id', replySourceMeta.pipelineId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      linkedDealId = linkedDeal?.id ?? null
+    }
 
     // ============================================
     // 3. CREATE EMAIL REPLY RECORD (idempotent on message_id)
@@ -205,6 +218,7 @@ Deno.serve(async (req) => {
       .from('email_replies')
       .insert({
         contact_id: contactId,
+        deal_id: linkedDealId,
         email_send_id: linkedEmailSendId,
         campaign_id: replySourceMeta.campaignId,
         pipeline_id: replySourceMeta.pipelineId,
@@ -358,8 +372,8 @@ Deno.serve(async (req) => {
 async function deriveReplySourceMeta(
   supabase: ReturnType<typeof createClient>,
   emailSendId: string | null
-): Promise<{ campaignId: string | null; pipelineId: string | null }> {
-  if (!emailSendId) return { campaignId: null, pipelineId: null }
+): Promise<{ campaignId: string | null; pipelineId: string | null; dealId: string | null }> {
+  if (!emailSendId) return { campaignId: null, pipelineId: null, dealId: null }
 
   const { data: send, error } = await supabase
     .from('email_sends')
@@ -369,7 +383,7 @@ async function deriveReplySourceMeta(
 
   if (error || !send) {
     if (error) console.error('deriveReplySourceMeta: email_sends lookup failed:', error)
-    return { campaignId: null, pipelineId: null }
+    return { campaignId: null, pipelineId: null, dealId: null }
   }
 
   // Campaign path — the simpler of the two.
@@ -382,6 +396,7 @@ async function deriveReplySourceMeta(
     return {
       campaignId: send.campaign_id,
       pipelineId: campaign?.pipeline_id ?? null,
+      dealId: null,
     }
   }
 
@@ -389,7 +404,7 @@ async function deriveReplySourceMeta(
   if (send.automation_log_id) {
     const { data: log } = await supabase
       .from('automation_logs')
-      .select('enrollment:automation_enrollments(automation:automations(pipeline_id))')
+      .select('deal_id, enrollment:automation_enrollments(automation:automations(pipeline_id))')
       .eq('id', send.automation_log_id)
       .single()
 
@@ -399,10 +414,11 @@ async function deriveReplySourceMeta(
     return {
       campaignId: null,
       pipelineId: enrollment?.automation?.pipeline_id ?? null,
+      dealId: (log as { deal_id?: string | null } | null)?.deal_id ?? null,
     }
   }
 
-  return { campaignId: null, pipelineId: null }
+  return { campaignId: null, pipelineId: null, dealId: null }
 }
 
 /**

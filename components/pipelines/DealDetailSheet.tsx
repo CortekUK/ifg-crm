@@ -49,6 +49,7 @@ import {
   ChevronDown,
   Eye,
   MousePointerClick,
+  Reply,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
@@ -68,7 +69,8 @@ import {
 import { Trash2 } from 'lucide-react'
 import { formatDate, formatDateTime, formatRelativeTime, formatCurrency, formatTimeAgo } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
-import { useDealActivities, useDealEmailActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
+import { useDealActivities, useDealEmailActivities, useDealEmailReplyActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
+import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useMoveDeal } from '@/lib/hooks/useDeals'
 import { useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
@@ -122,6 +124,7 @@ export function DealDetailSheet({
   const [isAddTagOpen, setIsAddTagOpen] = useState(false)
   const [tagSearchQuery, setTagSearchQuery] = useState('')
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null)
+  const [expandedReplyId, setExpandedReplyId] = useState<string | null>(null)
 
   const { data: currentUser } = useCurrentUser()
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
@@ -130,6 +133,11 @@ export function DealDetailSheet({
   const contactId = deal?.contact_id || null
   const { data: activities = [], isLoading: activitiesLoading } = useDealActivities(deal?.id || null)
   const { data: emailActivities = [], isLoading: emailsLoading } = useDealEmailActivities(contactId)
+  const { data: emailReplies = [], isLoading: repliesLoading } = useDealEmailReplyActivities(
+    deal?.id || null,
+    contactId,
+    deal?.pipeline_id || null
+  )
   const { data: stages = [] } = usePipelineStages(deal?.pipeline_id || null)
   const { data: upcomingCalendlyEvent } = useUpcomingCalendlyEvent(deal?.contact_id || null)
   const { data: contactLists = [], isLoading: listsLoading } = useContactLists(contactId)
@@ -181,6 +189,7 @@ export function DealDetailSheet({
       setIsAddTagOpen(false)
       setTagSearchQuery('')
       setExpandedEmailId(null)
+      setExpandedReplyId(null)
     }
   }, [isOpen, deal?.id, deal?.win_probability, deal?.description])
 
@@ -444,6 +453,12 @@ export function DealDetailSheet({
       id: email.id,
       timestamp: email.sent_at || '',
       email,
+    })),
+    ...emailReplies.map((reply) => ({
+      kind: 'reply' as const,
+      id: reply.id,
+      timestamp: reply.received_at || reply.created_at || '',
+      reply,
     })),
   ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
@@ -1086,7 +1101,7 @@ export function DealDetailSheet({
 
             {/* Activity Tab */}
             <TabsContent value="activity" className="px-6 py-6 mt-0">
-              {activitiesLoading || emailsLoading ? (
+              {activitiesLoading || emailsLoading || repliesLoading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-12 w-full" />
                   <Skeleton className="h-12 w-full" />
@@ -1107,6 +1122,86 @@ export function DealDetailSheet({
                               {formatRelativeTime(activity.created_at)}
                               {activity.performed_by && ` by ${activity.performed_by.full_name || activity.performed_by.email}`}
                             </p>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    if (item.kind === 'reply') {
+                      const reply = item.reply
+                      const isExpanded = expandedReplyId === reply.id
+                      const receivedAt = reply.received_at || reply.created_at
+                      const intent = reply.ai_intent && reply.ai_intent !== 'unknown'
+                        ? reply.ai_intent
+                        : null
+                      const intentStyle = intent === 'positive'
+                        ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300'
+                        : intent === 'negative'
+                          ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300'
+                          : intent === 'question'
+                            ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-300'
+                            : 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                      const fullText = reply.body || reply.body_preview || ''
+                      const replyText = trimQuotedContent(fullText) || fullText
+
+                      return (
+                        <div key={`reply-${reply.id}`} className="border-l-2 border-emerald-500 pl-3 py-1">
+                          <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/70 overflow-hidden">
+                            <button
+                              type="button"
+                              className="w-full p-3 text-left hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
+                              onClick={() => setExpandedReplyId(isExpanded ? null : reply.id)}
+                              aria-expanded={isExpanded}
+                            >
+                              <div className="flex items-start gap-3">
+                                <Reply className="h-4 w-4 mt-0.5 text-emerald-600 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="font-medium text-sm truncate">Reply: {reply.subject || '(No subject)'}</p>
+                                    <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', isExpanded && 'rotate-180')} />
+                                  </div>
+                                  <p className="text-xs text-slate-500 mt-1 truncate">
+                                    From: {reply.from_name ? `${reply.from_name} <${reply.from_email || ''}>` : reply.from_email || 'Unknown sender'}
+                                  </p>
+                                  {replyText && <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 line-clamp-2 whitespace-pre-wrap">{replyText}</p>}
+                                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                                    {intent && (
+                                      <Badge variant="outline" className={cn('capitalize text-[11px]', intentStyle)}>
+                                        Intent: {intent}
+                                      </Badge>
+                                    )}
+                                    <span className="text-xs text-slate-400">
+                                      {receivedAt ? `Received ${formatRelativeTime(receivedAt)} · ${formatDateTime(receivedAt)}` : 'Received time unavailable'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="border-t border-emerald-200 dark:border-emerald-900/70 p-3 space-y-3 bg-slate-50/60 dark:bg-slate-900/40">
+                                <dl className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 text-xs">
+                                  <dt className="text-slate-500">From</dt><dd className="break-all">{reply.from_email || 'Unknown'}</dd>
+                                  {reply.to_email && <><dt className="text-slate-500">To</dt><dd className="break-all">{reply.to_email}</dd></>}
+                                  <dt className="text-slate-500">Received</dt><dd>{receivedAt ? formatDateTime(receivedAt) : 'Unavailable'}</dd>
+                                  <dt className="text-slate-500">Intent</dt><dd className="capitalize">{intent || 'Not classified'}</dd>
+                                </dl>
+                                <div>
+                                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Reply message</p>
+                                  <div className="text-sm whitespace-pre-wrap rounded-md border bg-white dark:bg-slate-950 p-3">{replyText || '(No content)'}</div>
+                                </div>
+                                {(reply.html_body || fullText !== replyText) && (
+                                  <details className="text-xs">
+                                    <summary className="cursor-pointer font-medium text-blue-600 dark:text-blue-400">Show full email thread</summary>
+                                    {reply.html_body ? (
+                                      <iframe title={`Reply thread: ${reply.subject || 'Email reply'}`} srcDoc={reply.html_body} sandbox="" className="w-full h-80 rounded-md border bg-white mt-2" />
+                                    ) : (
+                                      <pre className="whitespace-pre-wrap rounded-md border bg-white dark:bg-slate-950 p-3 mt-2">{fullText}</pre>
+                                    )}
+                                  </details>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )

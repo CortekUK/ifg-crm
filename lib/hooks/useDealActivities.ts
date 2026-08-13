@@ -47,6 +47,25 @@ export interface DealEmailActivity {
   } | null
 }
 
+export interface DealEmailReplyActivity {
+  id: string
+  contact_id: string | null
+  deal_id: string | null
+  pipeline_id: string | null
+  email_send_id: string | null
+  from_email: string | null
+  from_name: string | null
+  to_email: string | null
+  subject: string | null
+  body: string | null
+  body_preview: string | null
+  html_body: string | null
+  ai_intent: string | null
+  match_status: string | null
+  received_at: string | null
+  created_at: string | null
+}
+
 export function useDealActivities(dealId: string | null) {
   const supabase = createClient()
 
@@ -102,6 +121,41 @@ export function useDealEmailActivities(contactId: string | null) {
 
       if (error) throw error
       return (data || []) as DealEmailActivity[]
+    },
+    enabled: !!contactId,
+    refetchInterval: 30_000,
+  })
+}
+
+export function useDealEmailReplyActivities(
+  dealId: string | null,
+  contactId: string | null,
+  pipelineId: string | null
+) {
+  const supabase = createClient()
+
+  return useQuery<DealEmailReplyActivity[]>({
+    queryKey: ['deal-email-reply-activities', dealId, contactId, pipelineId],
+    queryFn: async () => {
+      if (!contactId) return []
+
+      const { data, error } = await supabase
+        .from('email_replies')
+        .select('*')
+        .eq('contact_id', contactId)
+        .neq('match_status', 'spam')
+        .order('received_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+
+      // Prefer an explicit deal link. Older inbound rows generally predate
+      // deal_id population, so retain replies linked to this deal's pipeline;
+      // replies with no pipeline metadata are still useful contact history.
+      return ((data || []) as DealEmailReplyActivity[]).filter((reply) =>
+        reply.deal_id === dealId ||
+        (!reply.deal_id && (!reply.pipeline_id || reply.pipeline_id === pipelineId))
+      )
     },
     enabled: !!contactId,
     refetchInterval: 30_000,
