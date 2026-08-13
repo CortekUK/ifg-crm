@@ -27,6 +27,7 @@ import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 import { OwnerSelect } from '@/components/ui/owner-select'
+import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 
 interface CreateContactModalProps {
   isOpen: boolean
@@ -160,6 +161,8 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Reset transient form state each time the modal opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(initialFormData)
       setSelectedTags([])
       setSelectedListIds([])
@@ -322,13 +325,32 @@ export function CreateContactModal({ isOpen, onClose }: CreateContactModalProps)
           .single()
 
         if (firstStage) {
+          let dealOwnerId = user.id
+          if (isExcludedDealOwnerEmail(user.email)) {
+            const { data: eligibleOwners, error: ownerError } = await supabase
+              .from('profiles')
+              .select('id, email')
+              .in('role', ['recruiter', 'admin', 'super_admin'])
+              .eq('is_active', true)
+              .order('created_at', { ascending: true })
+
+            if (ownerError) throw ownerError
+            const fallbackOwner = eligibleOwners?.find(
+              (owner) => !isExcludedDealOwnerEmail(owner.email)
+            )
+            if (!fallbackOwner) {
+              throw new Error('No eligible deal owner is available. Add an active recruiter first.')
+            }
+            dealOwnerId = fallbackOwner.id
+          }
+
           const { data: deal, error: dealError } = await supabase
             .from('deals')
             .insert({
               contact_id: contact.id,
               pipeline_id: selectedPipelineId,
               current_stage_id: firstStage.id,
-              deal_owner_id: user.id,
+              deal_owner_id: dealOwnerId,
               title: `${formData.first_name} ${formData.last_name}`,
               source: 'manual',
             })

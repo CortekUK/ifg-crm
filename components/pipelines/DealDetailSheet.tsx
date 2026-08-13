@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/select'
 import {
   Mail,
-  Phone,
   Calendar,
   ExternalLink,
   Loader2,
@@ -33,7 +32,6 @@ import {
   XCircle,
   Clock,
   Send,
-  CalendarClock,
   Pencil,
   Video,
   Plus,
@@ -47,6 +45,10 @@ import {
   CheckCircle2,
   StopCircle,
   Archive,
+  AlertCircle,
+  ChevronDown,
+  Eye,
+  MousePointerClick,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
@@ -64,9 +66,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Trash2 } from 'lucide-react'
-import { formatDate, formatRelativeTime, formatCurrency, formatTimeAgo } from '@/lib/utils/format'
+import { formatDate, formatDateTime, formatRelativeTime, formatCurrency, formatTimeAgo } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
-import { useDealActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
+import { useDealActivities, useDealEmailActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useMoveDeal } from '@/lib/hooks/useDeals'
 import { useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
@@ -119,6 +121,7 @@ export function DealDetailSheet({
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [isAddTagOpen, setIsAddTagOpen] = useState(false)
   const [tagSearchQuery, setTagSearchQuery] = useState('')
+  const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null)
 
   const { data: currentUser } = useCurrentUser()
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
@@ -126,6 +129,7 @@ export function DealDetailSheet({
 
   const contactId = deal?.contact_id || null
   const { data: activities = [], isLoading: activitiesLoading } = useDealActivities(deal?.id || null)
+  const { data: emailActivities = [], isLoading: emailsLoading } = useDealEmailActivities(contactId)
   const { data: stages = [] } = usePipelineStages(deal?.pipeline_id || null)
   const { data: upcomingCalendlyEvent } = useUpcomingCalendlyEvent(deal?.contact_id || null)
   const { data: contactLists = [], isLoading: listsLoading } = useContactLists(contactId)
@@ -163,6 +167,8 @@ export function DealDetailSheet({
 
   useEffect(() => {
     if (isOpen) {
+      // Reset the drawer's transient form/navigation state for the new deal.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('overview')
       setNewNote('')
       setIsEditingProbability(false)
@@ -174,6 +180,7 @@ export function DealDetailSheet({
       setListSearchQuery('')
       setIsAddTagOpen(false)
       setTagSearchQuery('')
+      setExpandedEmailId(null)
     }
   }, [isOpen, deal?.id, deal?.win_probability, deal?.description])
 
@@ -425,6 +432,20 @@ export function DealDetailSheet({
   if (!deal) return null
 
   const notes = activities.filter((a) => a.activity_type === 'note_added')
+  const timelineItems = [
+    ...activities.map((activity) => ({
+      kind: 'activity' as const,
+      id: activity.id,
+      timestamp: activity.created_at,
+      activity,
+    })),
+    ...emailActivities.map((email) => ({
+      kind: 'email' as const,
+      id: email.id,
+      timestamp: email.sent_at || '',
+      email,
+    })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -1065,27 +1086,119 @@ export function DealDetailSheet({
 
             {/* Activity Tab */}
             <TabsContent value="activity" className="px-6 py-6 mt-0">
-              {activitiesLoading ? (
+              {activitiesLoading || emailsLoading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-12 w-full" />
                   <Skeleton className="h-12 w-full" />
                 </div>
-              ) : activities.length === 0 ? (
+              ) : timelineItems.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">No activities recorded yet.</div>
               ) : (
                 <div className="space-y-3">
-                  {activities.map((activity) => (
-                    <div key={activity.id} className="flex gap-3 text-sm border-l-2 border-slate-200 dark:border-slate-700 pl-3 py-1">
-                      <div className="flex-1">
-                        <p className="font-medium capitalize">{activity.activity_type.replace(/_/g, ' ')}</p>
-                        {activity.description && <p className="text-slate-500">{activity.description}</p>}
-                        <p className="text-xs text-slate-400 mt-1">
-                          {formatRelativeTime(activity.created_at)}
-                          {activity.performed_by && ` by ${activity.performed_by.full_name || activity.performed_by.email}`}
-                        </p>
+                  {timelineItems.map((item) => {
+                    if (item.kind === 'activity') {
+                      const activity = item.activity
+                      return (
+                        <div key={`activity-${activity.id}`} className="flex gap-3 text-sm border-l-2 border-slate-200 dark:border-slate-700 pl-3 py-1">
+                          <div className="flex-1">
+                            <p className="font-medium capitalize">{activity.activity_type.replace(/_/g, ' ')}</p>
+                            {activity.description && <p className="text-slate-500">{activity.description}</p>}
+                            <p className="text-xs text-slate-400 mt-1">
+                              {formatRelativeTime(activity.created_at)}
+                              {activity.performed_by && ` by ${activity.performed_by.full_name || activity.performed_by.email}`}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    const email = item.email
+                    const isExpanded = expandedEmailId === email.id
+                    const historicalTemplate = !email.body_html
+                      ? email.automation_log?.step?.email_template?.body_html || email.campaign?.body_html || null
+                      : null
+                    const displayHtml = email.body_html || historicalTemplate
+                    const status = email.status || 'sent'
+                    const statusStyle = status === 'failed' || status === 'bounced' || status === 'complained'
+                      ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300'
+                      : status === 'delivered' || status === 'opened' || status === 'clicked'
+                        ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300'
+                        : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300'
+                    const StatusIcon = status === 'failed' || status === 'bounced' || status === 'complained'
+                      ? AlertCircle
+                      : status === 'opened'
+                        ? Eye
+                        : status === 'clicked'
+                          ? MousePointerClick
+                          : status === 'delivered'
+                            ? CheckCircle2
+                            : Send
+
+                    return (
+                      <div key={`email-${email.id}`} className="border-l-2 border-blue-500 pl-3 py-1">
+                        <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                          <button
+                            type="button"
+                            className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                            onClick={() => setExpandedEmailId(isExpanded ? null : email.id)}
+                            aria-expanded={isExpanded}
+                          >
+                            <div className="flex items-start gap-3">
+                              <Mail className="h-4 w-4 mt-0.5 text-blue-500 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="font-medium text-sm truncate">Email: {email.subject}</p>
+                                  <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', isExpanded && 'rotate-180')} />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1 truncate">To: {email.recipient_email}</p>
+                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                  <Badge variant="outline" className={cn('gap-1 capitalize text-[11px]', statusStyle)}>
+                                    <StatusIcon className="h-3 w-3" /> {status.replace(/_/g, ' ')}
+                                  </Badge>
+                                  <span className="text-xs text-slate-400" title={email.sent_at ? formatDateTime(email.sent_at) : undefined}>
+                                    {email.sent_at ? `Sent ${formatRelativeTime(email.sent_at)} · ${formatDateTime(email.sent_at)}` : 'Send time unavailable'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="border-t border-slate-200 dark:border-slate-700 p-3 space-y-3 bg-slate-50/60 dark:bg-slate-900/40">
+                              <dl className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 text-xs">
+                                {email.from_email && <><dt className="text-slate-500">From</dt><dd className="break-all">{email.from_name ? `${email.from_name} <${email.from_email}>` : email.from_email}</dd></>}
+                                <dt className="text-slate-500">Sent</dt><dd>{email.sent_at ? formatDateTime(email.sent_at) : 'Unavailable'}</dd>
+                                {email.delivered_at && <><dt className="text-slate-500">Delivered</dt><dd>{formatDateTime(email.delivered_at)}</dd></>}
+                                {email.opened_at && <><dt className="text-slate-500">Opened</dt><dd>{formatDateTime(email.opened_at)}</dd></>}
+                                {email.clicked_at && <><dt className="text-slate-500">Clicked</dt><dd>{formatDateTime(email.clicked_at)}</dd></>}
+                                {email.bounced_at && <><dt className="text-slate-500">Bounced</dt><dd>{formatDateTime(email.bounced_at)}</dd></>}
+                              </dl>
+                              {email.error_message && (
+                                <p className="text-xs rounded-md bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 p-2">{email.error_message}</p>
+                              )}
+                              {historicalTemplate && (
+                                <p className="text-xs rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 p-2">
+                                  Historical email: the exact rendered copy was not archived. This preview is the associated template and personalisation may differ.
+                                </p>
+                              )}
+                              {displayHtml ? (
+                                <iframe
+                                  title={`Email preview: ${email.subject}`}
+                                  srcDoc={displayHtml}
+                                  sandbox=""
+                                  className="w-full h-80 rounded-md border bg-white"
+                                />
+                              ) : email.body_text ? (
+                                <pre className="text-xs whitespace-pre-wrap rounded-md border bg-white dark:bg-slate-950 p-3">{email.body_text}</pre>
+                              ) : (
+                                <p className="text-xs text-slate-500 py-3 text-center">Email content was not archived for this historical send.</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </TabsContent>

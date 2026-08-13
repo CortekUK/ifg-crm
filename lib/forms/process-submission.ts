@@ -341,6 +341,7 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
               .select('id')
               .in('role', ['recruiter', 'admin', 'super_admin'])
               .eq('is_active', true)
+              .neq('email', 'superadmin@theinternationalfootballgroup.com')
               .order('created_at', { ascending: true })
             roundRobinUsers = (staff ?? []).map((r) => r.id as string)
           }

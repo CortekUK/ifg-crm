@@ -61,6 +61,7 @@ import { usePipelines } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
 import { useTemplates } from '@/lib/hooks/useTemplates'
 import { useUsers } from '@/lib/hooks/useUsers'
+import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 import { useLists } from '@/lib/hooks/useLists'
 import { DynamicListRulesEditor } from './DynamicListRulesEditor'
 import { ListMultiSelect } from './ListMultiSelect'
@@ -147,13 +148,16 @@ export function ConfigureAutomationModal({
   // Round-robin candidates for deal_creation. Only role='recruiter' —
   // admins and super_admins exist to manage the platform, not to own
   // leads, so the client doesn't want them surfacing as candidates here.
-  const recruiters = users.filter((u) => u.role === 'recruiter')
+  const recruiters = users.filter(
+    (u) => u.role === 'recruiter' && !isExcludedDealOwnerEmail(u.email)
+  )
 
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       if (editingAutomation) {
         // Editing existing automation
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setStep('configure')
         const template = AUTOMATION_TEMPLATES.find(
           (t) => t.type === editingAutomation.automation_type

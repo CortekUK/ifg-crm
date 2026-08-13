@@ -166,7 +166,10 @@ Deno.serve(async (req) => {
           recipient_contact_id: body.contact_id,
           campaign_id: body.campaign_id,
           automation_log_id: body.automation_log_id,
-          subject: body.subject,
+          subject: processedSubject,
+          body_html: processedBody,
+          from_name: fromName,
+          from_email: body.from_email,
           status: 'failed',
           error_message: resendError.message,
         })
@@ -188,7 +191,10 @@ Deno.serve(async (req) => {
         recipient_contact_id: body.contact_id,
         campaign_id: body.campaign_id,
         automation_log_id: body.automation_log_id,
-        subject: body.subject,
+        subject: processedSubject,
+        body_html: processedBody,
+        from_name: fromName,
+        from_email: body.from_email,
         status: 'sent',
         resend_message_id: messageId,
       })
@@ -221,6 +227,9 @@ async function logEmailSend(params: {
   campaign_id?: string
   automation_log_id?: string
   subject: string
+  body_html?: string
+  from_name?: string
+  from_email?: string
   status: 'sent' | 'failed'
   resend_message_id?: string | null
   error_message?: string
@@ -243,6 +252,9 @@ async function logEmailSend(params: {
       campaign_id: params.campaign_id || null,
       automation_log_id: params.automation_log_id || null,
       subject: params.subject,
+      body_html: params.body_html || null,
+      from_name: params.from_name || null,
+      from_email: params.from_email || null,
       status: params.status,
       resend_message_id: params.resend_message_id || null,
       error_message: params.error_message || null,

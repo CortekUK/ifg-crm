@@ -46,6 +46,8 @@ import { toast } from '@/lib/hooks/use-toast'
 import { OwnerSelect } from '@/components/ui/owner-select'
 import type { Contact } from '@/lib/types/contacts'
 import type { PipelineStage } from '@/lib/types/pipelines'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
+import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 
 interface AddDealModalProps {
   isOpen: boolean
@@ -96,15 +98,19 @@ export function AddDealModal({
   const debouncedSearch = useDebouncedValue(contactSearch, 300)
   const { data: contacts = [], isLoading: isSearching } = useSearchContacts(debouncedSearch)
   const createDeal = useCreateDeal()
+  const { data: currentUser } = useCurrentUser()
+  const defaultOwnerId = isExcludedDealOwnerEmail(currentUser?.email) ? null : userId
 
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Reset transient form state each time the sheet opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setContactSearch('')
       setSelectedContact(null)
       setSelectedStageId(stage.id)
       setDealValue(defaultDealValue.toString())
-      setSelectedOwnerId(userId)
+      setSelectedOwnerId(defaultOwnerId)
       setNotes('')
       setDescription('')
       setWinProbability(null)
@@ -113,7 +119,7 @@ export function AddDealModal({
       setInterviewDate(undefined)
       setArrivalDate(undefined)
     }
-  }, [isOpen, defaultDealValue, userId, stage.id])
+  }, [isOpen, defaultDealValue, defaultOwnerId, stage.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

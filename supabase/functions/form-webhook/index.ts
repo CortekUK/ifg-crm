@@ -257,6 +257,7 @@ Deno.serve(async (req) => {
           .select('id')
           .in('role', ['recruiter', 'admin', 'super_admin'])
           .eq('is_active', true)
+          .neq('email', 'superadmin@theinternationalfootballgroup.com')
           .order('created_at', { ascending: true })
         roundRobinUsers = (fallbackUsers ?? []).map((u: { id: string }) => u.id)
       }

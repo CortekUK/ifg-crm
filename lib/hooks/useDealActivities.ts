@@ -17,6 +17,36 @@ export interface DealActivity {
   } | null
 }
 
+export interface DealEmailActivity {
+  id: string
+  recipient_email: string
+  subject: string
+  body_html: string | null
+  body_text: string | null
+  sent_at: string | null
+  delivered_at: string | null
+  opened_at: string | null
+  clicked_at: string | null
+  bounced_at: string | null
+  complained_at: string | null
+  status: string | null
+  error_message: string | null
+  from_name: string | null
+  from_email: string | null
+  campaign?: {
+    name: string
+    body_html: string | null
+  } | null
+  automation_log?: {
+    deal_id: string
+    step?: {
+      email_template?: {
+        body_html: string
+      } | null
+    } | null
+  } | null
+}
+
 export function useDealActivities(dealId: string | null) {
   const supabase = createClient()
 
@@ -38,6 +68,43 @@ export function useDealActivities(dealId: string | null) {
       return data || []
     },
     enabled: !!dealId,
+  })
+}
+
+/**
+ * Email history belongs to the contact, not just one automation enrollment.
+ * This lets a recruiter see every campaign/manual/automation email the lead
+ * received while viewing any of that contact's deals.
+ */
+export function useDealEmailActivities(contactId: string | null) {
+  const supabase = createClient()
+
+  return useQuery<DealEmailActivity[]>({
+    queryKey: ['deal-email-activities', contactId],
+    queryFn: async () => {
+      if (!contactId) return []
+
+      const { data, error } = await supabase
+        .from('email_sends')
+        .select(`
+          *,
+          campaign:campaigns(name, body_html),
+          automation_log:automation_logs(
+            deal_id,
+            step:automation_steps(
+              email_template:email_templates(body_html)
+            )
+          )
+        `)
+        .eq('recipient_contact_id', contactId)
+        .order('sent_at', { ascending: false })
+        .limit(100)
+
+      if (error) throw error
+      return (data || []) as DealEmailActivity[]
+    },
+    enabled: !!contactId,
+    refetchInterval: 30_000,
   })
 }
 

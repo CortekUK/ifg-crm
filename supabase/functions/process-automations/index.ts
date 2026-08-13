@@ -1196,6 +1196,9 @@ async function processEmailStep(
         recipient_contact_id: contact.id,
         automation_log_id: logEntryId,
         subject: subject,
+        body_html: htmlBody,
+        from_name: fromName,
+        from_email: fromEmail,
         status: 'failed',
         error_message: resendError.message,
         sent_at: new Date().toISOString(),
@@ -1219,6 +1222,9 @@ async function processEmailStep(
       recipient_contact_id: contact.id,
       automation_log_id: logEntryId,
       subject: subject,
+      body_html: htmlBody,
+      from_name: fromName,
+      from_email: fromEmail,
       status: 'sent',
       resend_message_id: messageId,
       sent_at: new Date().toISOString(),
@@ -1244,7 +1250,7 @@ async function processEmailStep(
       if (notifyParent && contact.parent_email) {
         const parentSubject = `[Parent Copy] ${subject}`
         const parentTrackingId = crypto.randomUUID()
-        const { error: parentSendError } = await resend.emails.send({
+        const { data: parentEmailData, error: parentSendError } = await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
           to: [contact.parent_email],
           reply_to: replyTo,
@@ -1266,7 +1272,11 @@ async function processEmailStep(
             recipient_contact_id: contact.id,
             automation_log_id: logEntryId,
             subject: parentSubject,
+            body_html: htmlBody,
+            from_name: fromName,
+            from_email: fromEmail,
             status: 'sent',
+            resend_message_id: parentEmailData?.id || null,
             sent_at: new Date().toISOString(),
           })
           console.log(`notify_parent: copy delivered to ${contact.parent_email}`)

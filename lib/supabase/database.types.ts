@@ -1181,6 +1181,8 @@ export type Database = {
       email_sends: {
         Row: {
           automation_log_id: string | null
+          body_html: string | null
+          body_text: string | null
           campaign_id: string | null
           click_count: number | null
           clicked_at: string | null
@@ -1201,6 +1203,8 @@ export type Database = {
         }
         Insert: {
           automation_log_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
           campaign_id?: string | null
           click_count?: number | null
           clicked_at?: string | null
@@ -1221,6 +1225,8 @@ export type Database = {
         }
         Update: {
           automation_log_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
           campaign_id?: string | null
           click_count?: number | null
           clicked_at?: string | null

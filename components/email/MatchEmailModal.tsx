@@ -34,6 +34,9 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
+import { OwnerSelect } from '@/components/ui/owner-select'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
+import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 
 interface MatchEmailModalProps {
   reply: EmailReply | null
@@ -60,6 +63,7 @@ export function MatchEmailModal({
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
   const [createDeal, setCreateDeal] = useState(false)
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(userId)
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300)
   const { data: contacts = [], isLoading: contactsLoading } = useSearchContacts(
@@ -67,16 +71,21 @@ export function MatchEmailModal({
   )
   const { data: pipelines = [] } = usePipelines()
   const matchReply = useMatchEmailReply()
+  const { data: currentUser } = useCurrentUser()
+  const defaultOwnerId = isExcludedDealOwnerEmail(currentUser?.email) ? null : userId
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Reset transient matching state each time the modal opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchQuery('')
       setSelectedContactId(null)
       setCreateDeal(false)
       setSelectedPipelineId(pipelines[0]?.id || null)
+      setSelectedOwnerId(defaultOwnerId)
     }
-  }, [isOpen, pipelines])
+  }, [isOpen, pipelines, defaultOwnerId])
 
   const handleMatch = async () => {
     if (!reply || !selectedContactId) return
@@ -90,7 +99,7 @@ export function MatchEmailModal({
       })
 
       // Optionally create a deal
-      if (createDeal && selectedPipelineId) {
+      if (createDeal && selectedPipelineId && selectedOwnerId) {
         const supabase = createClient()
         const selectedContact = contacts.find((c) => c.id === selectedContactId)
 
@@ -107,7 +116,7 @@ export function MatchEmailModal({
             contact_id: selectedContactId,
             pipeline_id: selectedPipelineId,
             current_stage_id: stages[0].id,
-            deal_owner_id: userId,
+            deal_owner_id: selectedOwnerId,
             title: `${selectedContact.first_name} ${selectedContact.last_name}`,
             deal_value: 0,
             source: 'email_reply',
@@ -305,6 +314,8 @@ export function MatchEmailModal({
                       ))}
                     </SelectContent>
                   </Select>
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Deal owner</Label>
+                  <OwnerSelect value={selectedOwnerId} onChange={setSelectedOwnerId} />
                 </div>
               )}
             </div>
@@ -317,7 +328,7 @@ export function MatchEmailModal({
           </Button>
           <Button
             onClick={handleMatch}
-            disabled={!selectedContactId || matchReply.isPending}
+            disabled={!selectedContactId || matchReply.isPending || (createDeal && (!selectedPipelineId || !selectedOwnerId))}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             {matchReply.isPending ? (

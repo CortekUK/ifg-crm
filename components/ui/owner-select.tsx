@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useUsers } from '@/lib/hooks/useUsers'
+import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 
 interface OwnerSelectProps {
   value: string | null | undefined
@@ -60,7 +61,9 @@ export function OwnerSelect({
   // in the very dropdown meant to change it. On such a deal the Select had no
   // matching option and fell back to its placeholder, showing the deal as
   // unowned when it wasn't.
-  const activeUsers = users.filter((u) => u.is_active && u.role !== 'player')
+  const activeUsers = users.filter(
+    (u) => u.is_active && u.role !== 'player' && !isExcludedDealOwnerEmail(u.email)
+  )
 
   if (isLoading) {
     return <Skeleton className={`h-10 w-full ${className}`} />

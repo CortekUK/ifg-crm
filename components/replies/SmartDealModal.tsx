@@ -513,6 +513,7 @@ export function SmartDealModal({
               .select('id')
               .contains('pipeline_assignments', [pipelineIdForDeal])
               .eq('is_active', true)
+              .neq('email', 'superadmin@theinternationalfootballgroup.com')
 
             const userIds = pipelineUsers?.map((u) => u.id) || []
 

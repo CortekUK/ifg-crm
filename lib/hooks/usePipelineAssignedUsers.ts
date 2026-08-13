@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 
 export interface AssignedUser {
   id: string
@@ -35,7 +36,7 @@ export function usePipelineAssignedUsers(pipelineId: string | null) {
 
       // If users are specifically assigned, return them
       if (assignedUsers && assignedUsers.length > 0) {
-        return assignedUsers
+        return assignedUsers.filter((user) => !isExcludedDealOwnerEmail(user.email))
       }
 
       // Fallback: return all active recruiters and admins
@@ -51,7 +52,7 @@ export function usePipelineAssignedUsers(pipelineId: string | null) {
         throw allError
       }
 
-      return allUsers || []
+      return (allUsers || []).filter((user) => !isExcludedDealOwnerEmail(user.email))
     },
     enabled: !!pipelineId,
   })
