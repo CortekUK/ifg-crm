@@ -43,7 +43,6 @@ import {
   Minus,
   Square,
   Play,
-  Share2,
   Code,
   Plus,
   Edit3,
@@ -52,8 +51,6 @@ import {
   AlignRight,
   Columns,
   GitBranch,
-  UserCircle,
-  Building2,
   Paperclip,
   Save,
   Trash2,
@@ -80,15 +77,17 @@ const blockItems: { type: BlockType; icon: React.ElementType; label: string; sec
   { type: 'divider', icon: Minus, label: 'Divider', section: 'basic' },
   { type: 'spacer', icon: Square, label: 'Spacer', section: 'basic' },
   { type: 'video', icon: Play, label: 'Video', section: 'basic' },
-  { type: 'social', icon: Share2, label: 'Social', section: 'basic' },
   { type: 'html', icon: Code, label: 'HTML', section: 'basic' },
   { type: 'file', icon: Paperclip, label: 'File', section: 'basic' },
   // Layout blocks
   { type: 'columns', icon: Columns, label: 'Columns', section: 'layout' },
   // Advanced blocks
   { type: 'conditional', icon: GitBranch, label: 'Conditional', section: 'advanced' },
-  { type: 'recruiter_signature', icon: UserCircle, label: 'Sender Details', section: 'advanced' },
-  { type: 'company_signature', icon: Building2, label: 'Company Footer', section: 'advanced' },
+  // NOTE: 'social', 'recruiter_signature' and 'company_signature' are no
+  // longer offered here. They became the global email footer (Settings →
+  // Email Branding) so every template stays in sync; adding per-template
+  // copies is exactly the drift that change was made to end. The renderer
+  // still handles the block types so any straggler row keeps rendering.
 ]
 
 const basicBlocks = blockItems.filter(b => b.section === 'basic')

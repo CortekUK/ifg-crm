@@ -6,6 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
+import { fetchBrandingSlots, applyBranding } from '../_shared/branding.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -120,13 +121,18 @@ Deno.serve(async (req) => {
       mergeData = { ...contactData, ...mergeData }
     }
 
+    // Stitch in the global header/footer before merge tags run, so the
+    // signature's {{deal_owner_*}} tags resolve against this send's data.
+    const brandingSlots = await fetchBrandingSlots(supabase)
+    const brandedBody = applyBranding(body.html_body, brandingSlots)
+
     // Apply merge tags to subject and body
     let processedSubject = body.subject
-    let processedBody = body.html_body
+    let processedBody = brandedBody
 
     if (shouldApplyMergeTags) {
       processedSubject = replaceMergeTags(body.subject, mergeData)
-      processedBody = replaceMergeTags(body.html_body, mergeData)
+      processedBody = replaceMergeTags(brandedBody, mergeData)
     }
 
     // Initialize Resend client

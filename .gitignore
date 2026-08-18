@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Client data exports — contains personal data, never commit
 /real data/
+
+# Template backups written by scripts/migrate-template-branding.mjs
+/scripts/backups/

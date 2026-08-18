@@ -345,7 +345,7 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
   // template (e.g. drop in a different university crest).
   company_signature: {
     logos: [
-      { src: '/signatures/uclan.png', alt: 'UCLan' },
+      { src: '/signatures/lancashire.png', alt: 'University of Lancashire' },
       { src: '/signatures/ifg.png', alt: 'The International Football Group' },
       { src: '/signatures/macclesfield-fc.png', alt: 'Macclesfield FC' },
     ],

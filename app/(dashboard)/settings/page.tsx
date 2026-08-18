@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
@@ -14,6 +15,7 @@ import { PipelineManagementSettings } from '@/components/settings/PipelineManage
 import { IntegrationsSettings } from '@/components/settings/IntegrationsSettings'
 import { CalendlySettings } from '@/components/settings/CalendlySettings'
 import { EmailSettingsSection } from '@/components/settings/EmailSettingsSection'
+import { EmailBrandingSettings } from '@/components/settings/EmailBrandingSettings'
 import { SMSSettingsSection } from '@/components/settings/SMSSettingsSection'
 import { NotificationsSettings } from '@/components/settings/NotificationsSettings'
 import { CustomFieldsSettings } from '@/components/settings/CustomFieldsSettings'
@@ -25,8 +27,14 @@ import type { SettingsSection } from '@/lib/types/settings'
 // org/admin configuration.
 const RECRUITER_SECTIONS: SettingsSection[] = ['profile', 'calendly', 'notifications']
 
-export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('profile')
+function SettingsPageContent() {
+  // Deep-link support, e.g. /settings?section=email-branding — the template
+  // editor links straight to the branding screen from its locked header and
+  // footer regions.
+  const requestedSection = useSearchParams().get('section') as SettingsSection | null
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    requestedSection ?? 'profile',
+  )
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
@@ -53,6 +61,8 @@ export default function SettingsPage() {
         return <CalendlySettings />
       case 'email':
         return <EmailSettingsSection />
+      case 'email-branding':
+        return <EmailBrandingSettings />
       case 'sms':
         return <SMSSettingsSection />
       case 'notifications':
@@ -124,5 +134,21 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// useSearchParams needs a Suspense boundary above it so the route can still
+// be prerendered.
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        </div>
+      }
+    >
+      <SettingsPageContent />
+    </Suspense>
   )
 }

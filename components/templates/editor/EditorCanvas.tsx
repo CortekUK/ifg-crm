@@ -1,10 +1,46 @@
 'use client'
 
+import Link from 'next/link'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { CanvasBlock } from './CanvasBlock'
-import { LayoutGrid } from 'lucide-react'
+import { LayoutGrid, Lock, Settings2 } from 'lucide-react'
 import type { EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
 import { resolveTheme } from '@/lib/templates/render-html'
+import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
+import { previewMergeTags } from '@/lib/utils/mergeTags'
+
+// The header and footer are global, not part of this template. Rendering
+// the real branding HTML here (rather than a hand-maintained mock-up) means
+// the canvas can't drift from what actually gets sent — it IS the same
+// markup. It's shown read-only with a route through to the one place it can
+// be changed.
+function LockedGlobalRegion({
+  html,
+  label,
+}: {
+  html: string
+  label: string
+}) {
+  if (!html) return null
+  return (
+    <div className="group relative">
+      <div
+        className="pointer-events-none select-none"
+        dangerouslySetInnerHTML={{ __html: previewMergeTags(html, {}) }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-slate-900/0 transition-colors group-hover:bg-slate-900/5" />
+      <Link
+        href="/settings?section=email-branding"
+        className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md bg-slate-900/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+        title="This section is shared by every template"
+      >
+        <Lock className="h-3 w-3" />
+        {label}
+        <Settings2 className="h-3 w-3" />
+      </Link>
+    </div>
+  )
+}
 
 interface EditorCanvasProps {
   blocks: EditorBlock[]
@@ -31,6 +67,9 @@ export function EditorCanvas({
   onDuplicateBlock,
 }: EditorCanvasProps) {
   const t = resolveTheme(theme)
+  const { data: branding } = useEmailBrandingConfig()
+  const slots = branding?.rendered ?? { header: '', footer: '', legal: '' }
+
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
     if (result.destination.index === result.source.index) return
@@ -65,21 +104,8 @@ export function EditorCanvas({
           className="overflow-hidden rounded-lg shadow-sm"
           style={{ backgroundColor: t.bodyBgColor }}
         >
-          {/* Email Header — colour comes from the theme. */}
-          <div style={{ backgroundColor: t.headerBgColor }} className="px-5 py-5 text-center">
-            <table cellPadding={0} cellSpacing={0} border={0} className="mx-auto">
-              <tbody>
-                <tr>
-                  <td style={{ verticalAlign: 'middle' }}>
-                    <span style={{ color: t.headerTextColor, fontSize: 24, fontWeight: 700 }}>IFG</span>
-                  </td>
-                  <td style={{ verticalAlign: 'middle', paddingLeft: 10 }}>
-                    <span style={{ color: t.headerTextColor, fontSize: 16 }}>International Football Group</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {/* Global header — shared by every template, edited in Settings. */}
+          <LockedGlobalRegion html={slots.header} label="Global header" />
 
           {/* Canvas Content — 20px padding to match renderer */}
           <div className="p-5">
@@ -135,19 +161,14 @@ export function EditorCanvas({
                 )}
               </Droppable>
             </DragDropContext>
+
+            {/* Global signature / social / partner logos. Sits inside the
+                content cell, exactly where the renderer puts it. */}
+            <LockedGlobalRegion html={slots.footer} label="Global signature & footer" />
           </div>
 
-          {/* Email Footer — colours come from the theme. */}
-          <div
-            style={{ backgroundColor: t.footerBgColor, color: t.footerTextColor, fontSize: 12 }}
-            className="px-5 py-5 text-center"
-          >
-            <p style={{ margin: '0 0 10px 0' }}>International Football Group</p>
-            <p style={{ margin: '0 0 10px 0' }}>Macclesfield FC, United Kingdom</p>
-            <a href="#" style={{ color: t.footerLinkColor, textDecoration: 'underline' }}>
-              Unsubscribe
-            </a>
-          </div>
+          {/* Global footer — shared by every template, edited in Settings. */}
+          <LockedGlobalRegion html={slots.legal} label="Global footer" />
         </div>
       </div>
     </div>

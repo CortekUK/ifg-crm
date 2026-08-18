@@ -13,6 +13,7 @@ import {
 import { Monitor, Smartphone, Send, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
+import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
 import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
 import { previewMergeTags } from '@/lib/utils/mergeTags'
 import { toast } from '@/lib/hooks/use-toast'
@@ -30,6 +31,9 @@ export function EditorPreview({ blocks, settings, onClose }: EditorPreviewProps)
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  // Global header/footer come from settings, not the template, so the
+  // preview has to pull them in to match what actually gets sent.
+  const { data: branding } = useEmailBrandingConfig()
 
   const selectedContact = sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
 
@@ -46,7 +50,7 @@ export function EditorPreview({ blocks, settings, onClose }: EditorPreviewProps)
     last_name: selectedContact.last_name,
     email: selectedContact.email,
   }
-  const rawHtml = renderBlocksToHTML(blocks, settings.theme)
+  const rawHtml = renderBlocksToHTML(blocks, settings.theme, branding?.rendered)
   const previewHtml = previewMergeTags(rawHtml, contactOverrides)
 
   // Update iframe content when HTML changes

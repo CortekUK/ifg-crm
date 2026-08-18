@@ -6,6 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { sendSMS } from '../_shared/clicksend.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
+import { fetchBrandingSlots, applyBranding } from '../_shared/branding.ts'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
 
 const corsHeaders = {
@@ -421,6 +422,15 @@ async function processCampaign(
     console.log(`Campaign ${campaign.id} failed: no email content`)
     return
   }
+
+  // Stitch in the global header/footer once for the whole batch — branding is
+  // recipient-independent, and the {{deal_owner_*}} / {{unsubscribe_url}} tags
+  // it contains are resolved per recipient further down by replaceMergeTags.
+  //
+  // Deliberately AFTER the empty-body guard above: branding would make an
+  // otherwise-empty body non-empty and mask a misconfigured campaign.
+  const brandingSlots = await fetchBrandingSlots(supabase)
+  emailBody = applyBranding(emailBody, brandingSlots)
 
   // From email — always use FROM_EMAIL env var or Resend test domain
   // Campaign's from_email is stored for display/record but actual sending

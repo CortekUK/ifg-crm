@@ -6,7 +6,9 @@
     "dev": "node scripts/free-ports.mjs 3016-3020 && next dev -p 3016",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "publish-branding": "node scripts/publish-branding.mjs",
+    "check-branding": "node scripts/publish-branding.mjs --check"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

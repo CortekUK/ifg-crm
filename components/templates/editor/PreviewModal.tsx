@@ -30,6 +30,7 @@ import {
 import { Monitor, Smartphone, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderBlocksToHTML, replaceVariables } from '@/lib/templates/render-html'
+import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
 import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
 
 interface PreviewModalProps {
@@ -43,12 +44,13 @@ export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModal
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const { data: branding } = useEmailBrandingConfig()
 
   const selectedContact =
     sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
 
   // Generate HTML with sample data
-  const rawHtml = renderBlocksToHTML(blocks, settings.theme)
+  const rawHtml = renderBlocksToHTML(blocks, settings.theme, branding?.rendered)
   const previewHtml = replaceVariables(rawHtml, {
     first_name: selectedContact.first_name,
     last_name: selectedContact.last_name,

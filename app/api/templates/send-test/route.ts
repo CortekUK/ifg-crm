@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
+import { getBrandingSlots } from '@/lib/templates/branding-server'
 import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
 import type { EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
 
@@ -99,7 +100,9 @@ export async function POST(request: NextRequest) {
       schedule_link: ownerCalendly,
     }
 
-    const rawHtml = renderBlocksToHTML(blocks, theme)
+    // Test sends go through the same branding as production, so what the
+    // tester receives is what a lead would receive.
+    const rawHtml = renderBlocksToHTML(blocks, theme, await getBrandingSlots())
     const html = replaceMergeTags(rawHtml, data)
     const renderedSubject = replaceMergeTags(subject, data)
 

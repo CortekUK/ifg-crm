@@ -40,36 +40,48 @@ export function resolveTheme(theme?: TemplateTheme | null): Required<TemplateThe
   return { ...DEFAULT_THEME, ...(theme ?? {}) }
 }
 
+/**
+ * Placeholders the shell emits in place of the globally-branded regions.
+ * A saved `email_templates.body_html` keeps these markers verbatim; the
+ * send path swaps them for the current branding HTML immediately before
+ * running merge tags (see `lib/templates/render-branding.ts` and the Deno
+ * mirror `supabase/functions/_shared/branding.ts`).
+ *
+ * Keeping them as HTML comments means a template whose branding is never
+ * substituted still renders as valid, sane email — the regions are simply
+ * absent rather than showing raw placeholder text to a recipient.
+ */
+export const BRANDING_MARKERS = {
+  header: '<!--IFG_GLOBAL_HEADER-->',
+  footer: '<!--IFG_GLOBAL_FOOTER-->',
+  legal: '<!--IFG_GLOBAL_LEGAL-->',
+} as const
+
+/** Rendered HTML for each globally-branded region. */
+export interface BrandingSlots {
+  header: string
+  footer: string
+  legal: string
+}
+
+/**
+ * Render the email shell around a template's blocks.
+ *
+ * `slots` is optional and deliberately takes already-rendered HTML rather
+ * than the branding config: `render-branding.ts` imports `renderBlock`
+ * from this module, so accepting the config here would create an import
+ * cycle. Omit it (the save path) to bake in the markers; pass rendered
+ * slots (previews, test sends) to see the finished email.
+ */
 export function renderBlocksToHTML(
   blocks: EditorBlock[],
   theme?: TemplateTheme | null,
+  slots?: BrandingSlots,
 ): string {
   const t = resolveTheme(theme)
-
-  const header = `
-    <div style="background-color: ${t.headerBgColor}; padding: 20px; text-align: center;">
-      <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
-        <tr>
-          <td style="vertical-align: middle;">
-            <span style="color: ${t.headerTextColor}; font-size: 24px; font-weight: bold;">IFG</span>
-          </td>
-          <td style="vertical-align: middle; padding-left: 10px;">
-            <span style="color: ${t.headerTextColor}; font-size: 16px;">International Football Group</span>
-          </td>
-        </tr>
-      </table>
-    </div>
-  `
+  const s: BrandingSlots = slots ?? BRANDING_MARKERS
 
   const body = blocks.map((block) => renderBlock(block)).join('')
-
-  const footer = `
-    <div style="background-color: ${t.footerBgColor}; padding: 20px; text-align: center; font-size: 12px; color: ${t.footerTextColor};">
-      <p style="margin: 0 0 10px 0;">International Football Group</p>
-      <p style="margin: 0 0 10px 0;">Macclesfield FC, United Kingdom</p>
-      <p style="margin: 0;"><a href="{{unsubscribe_url}}" style="color: ${t.footerLinkColor};">Unsubscribe</a></p>
-    </div>
-  `
 
   return `
 <!DOCTYPE html>
@@ -114,17 +126,17 @@ export function renderBlocksToHTML(
         <table class="ifg-shell" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: ${t.bodyBgColor};">
           <tr>
             <td>
-              ${header}
+              ${s.header}
             </td>
           </tr>
           <tr>
             <td class="ifg-content-cell" style="padding: 20px;">
-              ${body}
+              ${body}${s.footer}
             </td>
           </tr>
           <tr>
             <td>
-              ${footer}
+              ${s.legal}
             </td>
           </tr>
         </table>
@@ -140,7 +152,10 @@ export function renderBlocksToHTML(
   `.trim()
 }
 
-function renderBlock(block: EditorBlock): string {
+// Exported so `render-branding.ts` can render the global signature, divider,
+// social and company sections through these exact renderers rather than
+// keeping a second copy of the markup in sync.
+export function renderBlock(block: EditorBlock): string {
   switch (block.type) {
     case 'text':
       return renderTextBlock(block.content as TextBlockContent)
@@ -390,52 +405,12 @@ function renderConditionalBlock(content: ConditionalBlockContent): string {
   `
 }
 
-// Static IFG signature footer baked into every recruiter_signature
-// block — the logo and company / confidentiality copy are required on
-// all outgoing IFG email so we render them by default rather than
-// asking the user (or the AI) to opt in. The variable bits above
-// (name/title/email/phone/Calendly toggles) still flex per-template.
+// Partner logos and the legal disclaimer are no longer rendered here.
+// They moved into the global branding record (see render-branding.ts) so a
+// single edit updates every template at once.
 
-// Resolve the right `src` for the Macclesfield crest:
-//   * Browser (canvas / modal iframe preview) → use the page's own
-//     origin so localhost dev finds /public/signature-logo.png
-//     without depending on the deployed site.
-//   * Server (the email-send code path) → embed the file as a base64
-//     data URL. Sent emails are then self-contained: they render the
-//     logo whether or not the asset has been deployed to
-//     NEXT_PUBLIC_APP_URL. Falls back to the public URL if the file
-//     can't be read for some reason (e.g. edge runtime, missing file).
-//
-// Cached so we don't hit the disk on every render call. The logo is
-// ~few KB so the cost of reading it once is negligible.
-let cachedLogoDataUrl: string | null = null
-function signatureLogoUrl(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/signature-logo.png`
-  }
-  if (cachedLogoDataUrl) return cachedLogoDataUrl
-  try {
-    // require (not import) — keeps `fs` out of client bundles. Next.js
-    // doesn't include this branch in the browser build because the
-    // window check above short-circuits before we reach it.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs') as typeof import('fs')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('path') as typeof import('path')
-    const filePath = path.join(process.cwd(), 'public', 'signature-logo.png')
-    if (fs.existsSync(filePath)) {
-      const buf = fs.readFileSync(filePath)
-      cachedLogoDataUrl = `data:image/png;base64,${buf.toString('base64')}`
-      return cachedLogoDataUrl
-    }
-  } catch {
-    /* fall through to URL fallback */
-  }
-  return `${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}/signature-logo.png`
-}
-
-// Generalised version of signatureLogoUrl for the company_signature
-// block. Handles arbitrary paths under /public so the user can drop a
+// Resolves an asset path for the company_signature and branding-header
+// logos. Handles arbitrary paths under /public so the user can drop a
 // new partner logo into public/signatures/ (or anywhere) and have it
 // inlined automatically without code changes.
 //
@@ -452,7 +427,7 @@ function signatureLogoUrl(): string {
 //   * window.location.origin-prefixed URL when running in the browser
 //     (canvas + preview iframe paths — same domain as the dev/prod app)
 //   * NEXT_PUBLIC_APP_URL-prefixed URL otherwise (server-side renders)
-function resolveAssetUrl(src: string): string {
+export function resolveAssetUrl(src: string): string {
   if (!src) return ''
   if (/^(https?:|data:|cid:)/i.test(src)) return src
 
@@ -461,31 +436,6 @@ function resolveAssetUrl(src: string): string {
   }
 
   return `${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}${src.startsWith('/') ? src : '/' + src}`
-}
-
-// inline-block (not block) on the logo so the parent's text-align
-// actually positions it. With display:block the image would always sit
-// flush-left regardless of the signature's `alignment` setting.
-//
-// `textColor` is an optional override for the text inside this block.
-// When undefined (the common case) we keep the original tasteful
-// greys; when set, both the company line and disclaimer take that
-// colour so the user can brand the whole signature.
-function buildSignatureCompanyBlock(
-  companyTextColor?: string | null,
-  confidentialityColor?: string | null,
-): string {
-  const companyColor = companyTextColor || '#4b5563'
-  const disclaimerColor = confidentialityColor || '#6b7280'
-  return `
-    <img src="${signatureLogoUrl()}" alt="Macclesfield FC" style="display: inline-block; width: 110px; height: auto; margin-top: 16px; border: 0;" />
-    <p style="margin: 14px 0 0 0; font-size: 12px; line-height: 1.5; color: ${companyColor};">
-      Macc Football Club Limited, a company registered in England. Company number 12931817. Registered office address: The Leasing.com Stadium, London Rd, Macclesfield, SK11 7SP.
-    </p>
-    <p style="margin: 8px 0 0 0; font-size: 11px; line-height: 1.5; color: ${disclaimerColor};">
-      <strong>Confidentiality:</strong> Privileged / Confidential information may be contained in this message and may be subject to legal privilege. Access to this email by anyone other than the intended is unauthorised. If you are not the intended recipient (or responsible for delivery of the message to such person), you may not use, copy, distribute or deliver to anyone this message (or any part of its contents) or take any action in reliance on it. In such case, you should destroy this message, and notify us immediately. If you have received this email in error, please notify us immediately by email or telephone and delete the email from any company. All reasonable precautions have been taken to ensure no viruses are present in this email. As our company cannot accept responsibility for any loss or damage arising from the use of this email or attachments we recommend that you subject these to your virus checking procedures prior to use.
-    </p>
-  `
 }
 
 // Photo support intentionally removed — IFG signatures use the
