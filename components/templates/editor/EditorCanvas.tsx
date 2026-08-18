@@ -1,46 +1,26 @@
 'use client'
 
-import Link from 'next/link'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { CanvasBlock } from './CanvasBlock'
-import { LayoutGrid, Lock, Settings2 } from 'lucide-react'
+import { GlobalRegion } from './GlobalRegion'
+import {
+  HeaderSectionEditor,
+  HeaderPreview,
+  LegalSectionEditor,
+  LegalPreview,
+} from './GlobalSectionEditors'
+import { SocialBlock } from './blocks/SocialBlock'
+import { CompanySignatureBlock } from './blocks/CompanySignatureBlock'
+import { RecruiterSignatureBlock } from './blocks/RecruiterSignatureBlock'
+import { LayoutGrid } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import type { EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
+import type { EmailBranding } from '@/lib/templates/branding-types'
 import { resolveTheme } from '@/lib/templates/render-html'
-import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
-import { previewMergeTags } from '@/lib/utils/mergeTags'
+import { useBrandingDraft } from '@/lib/hooks/useEmailBranding'
 
-// The header and footer are global, not part of this template. Rendering
-// the real branding HTML here (rather than a hand-maintained mock-up) means
-// the canvas can't drift from what actually gets sent — it IS the same
-// markup. It's shown read-only with a route through to the one place it can
-// be changed.
-function LockedGlobalRegion({
-  html,
-  label,
-}: {
-  html: string
-  label: string
-}) {
-  if (!html) return null
-  return (
-    <div className="group relative">
-      <div
-        className="pointer-events-none select-none"
-        dangerouslySetInnerHTML={{ __html: previewMergeTags(html, {}) }}
-      />
-      <div className="pointer-events-none absolute inset-0 bg-slate-900/0 transition-colors group-hover:bg-slate-900/5" />
-      <Link
-        href="/settings?section=email-branding"
-        className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md bg-slate-900/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
-        title="This section is shared by every template"
-      >
-        <Lock className="h-3 w-3" />
-        {label}
-        <Settings2 className="h-3 w-3" />
-      </Link>
-    </div>
-  )
-}
+/** Which globally-branded region is open for editing, if any. */
+export type GlobalSection = 'header' | 'signature' | 'social' | 'company' | 'legal'
 
 interface EditorCanvasProps {
   blocks: EditorBlock[]
@@ -54,6 +34,10 @@ interface EditorCanvasProps {
   onUpdateBlock: (id: string, updates: Partial<EditorBlock['content']>) => void
   onDeleteBlock: (id: string) => void
   onDuplicateBlock: (id: string) => void
+  /** The open global region. Kept alongside selectedBlockId so selecting
+      one always clears the other — only ever one settings panel is open. */
+  selectedGlobalSection: GlobalSection | null
+  onSelectGlobalSection: (section: GlobalSection | null) => void
 }
 
 export function EditorCanvas({
@@ -65,10 +49,35 @@ export function EditorCanvas({
   onUpdateBlock,
   onDeleteBlock,
   onDuplicateBlock,
+  selectedGlobalSection,
+  onSelectGlobalSection,
 }: EditorCanvasProps) {
   const t = resolveTheme(theme)
-  const { data: branding } = useEmailBrandingConfig()
-  const slots = branding?.rendered ?? { header: '', footer: '', legal: '' }
+  const { branding, isDirty, isSaving, updateSection, discard, publish } =
+    useBrandingDraft()
+
+  // Shared plumbing for every global region: selecting one, and the
+  // publish / discard controls that appear once it's open.
+  const regionProps = (section: GlobalSection, label: string, hint?: string) => ({
+    label,
+    hint,
+    isSelected: selectedGlobalSection === section,
+    onSelect: () => onSelectGlobalSection(section),
+    isDirty,
+    isSaving,
+    onPublish: () => {
+      void publish()
+    },
+    onDiscard: discard,
+  })
+
+  // The block-typed regions hand back loose patches; merge into the section.
+  const patchSection =
+    <K extends 'signature' | 'social' | 'company'>(key: K) =>
+    (updates: Record<string, unknown>) => {
+      if (!branding) return
+      updateSection(key, { ...branding[key], ...updates } as EmailBranding[K])
+    }
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
@@ -81,6 +90,7 @@ export function EditorCanvas({
     // Deselect if clicking on canvas background
     if (e.target === e.currentTarget) {
       onSelectBlock(null)
+      onSelectGlobalSection(null)
     }
   }
 
@@ -104,8 +114,25 @@ export function EditorCanvas({
           className="overflow-hidden rounded-lg shadow-sm"
           style={{ backgroundColor: t.bodyBgColor }}
         >
-          {/* Global header — shared by every template, edited in Settings. */}
-          <LockedGlobalRegion html={slots.header} label="Global header" />
+          {/* Global header — click to edit; applies to every template. */}
+          {branding && branding.showHeader && (
+            <GlobalRegion
+              {...regionProps('header', 'Header', 'The band at the top of every email. Editing it changes all templates.')}
+              preview={<HeaderPreview header={branding.header} />}
+            >
+              <>
+                <HeaderSectionEditor
+                  header={branding.header}
+                  onUpdate={(patch) =>
+                    updateSection('header', { ...branding.header, ...patch })
+                  }
+                />
+                <div className="mt-3 overflow-hidden rounded">
+                  <HeaderPreview header={branding.header} />
+                </div>
+              </>
+            </GlobalRegion>
+          )}
 
           {/* Canvas Content — 20px padding to match renderer */}
           <div className="p-5">
@@ -162,13 +189,98 @@ export function EditorCanvas({
               </Droppable>
             </DragDropContext>
 
-            {/* Global signature / social / partner logos. Sits inside the
-                content cell, exactly where the renderer puts it. */}
-            <LockedGlobalRegion html={slots.footer} label="Global signature & footer" />
+            {/* Global signature / social / partner logos. These sit inside
+                the content cell, exactly where the renderer places them. */}
+            {branding && (
+              <div className="mt-2 space-y-2">
+                {branding.showSignature && (
+                  <GlobalRegion
+                    {...regionProps('signature', 'Sender signature', 'Filled in per deal owner when the email is sent. Editing it changes all templates.')}
+                    preview={
+                      <RecruiterSignatureBlock
+                        content={branding.signature as unknown as Record<string, unknown>}
+                        isSelected={false}
+                        onUpdate={() => {}}
+                      />
+                    }
+                  >
+                    <RecruiterSignatureBlock
+                      content={branding.signature as unknown as Record<string, unknown>}
+                      isSelected
+                      onUpdate={patchSection('signature')}
+                    />
+                  </GlobalRegion>
+                )}
+
+                {branding.showSocial && (
+                  <GlobalRegion
+                    {...regionProps('social', 'Social channels')}
+                    preview={
+                      <SocialBlock
+                        content={branding.social as unknown as Record<string, unknown>}
+                        isSelected={false}
+                        onUpdate={() => {}}
+                      />
+                    }
+                  >
+                    <div className="mb-2 flex items-center gap-2">
+                      <Switch
+                        checked={branding.showDivider}
+                        onCheckedChange={(v) => updateSection('showDivider', v)}
+                      />
+                      <span className="text-[11px] text-muted-foreground">
+                        Divider line above the social row
+                      </span>
+                    </div>
+                    <SocialBlock
+                      content={branding.social as unknown as Record<string, unknown>}
+                      isSelected
+                      onUpdate={patchSection('social')}
+                    />
+                  </GlobalRegion>
+                )}
+
+                {branding.showCompany && (
+                  <GlobalRegion
+                    {...regionProps('company', 'Partner logos & disclaimer')}
+                    preview={
+                      <CompanySignatureBlock
+                        content={branding.company as unknown as Record<string, unknown>}
+                        isSelected={false}
+                        onUpdate={() => {}}
+                      />
+                    }
+                  >
+                    <CompanySignatureBlock
+                      content={branding.company as unknown as Record<string, unknown>}
+                      isSelected
+                      onUpdate={patchSection('company')}
+                    />
+                  </GlobalRegion>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Global footer — shared by every template, edited in Settings. */}
-          <LockedGlobalRegion html={slots.legal} label="Global footer" />
+          {/* Global unsubscribe / legal strip. */}
+          {branding && branding.showLegal && (
+            <GlobalRegion
+              {...regionProps('legal', 'Unsubscribe strip', 'The grey band at the very bottom of every email.')}
+              preview={<LegalPreview legal={branding.legal} />}
+            >
+              <>
+                <LegalSectionEditor
+                  legal={branding.legal}
+                  onUpdate={(patch) =>
+                    updateSection('legal', { ...branding.legal, ...patch })
+                  }
+                />
+                <div className="mt-3 overflow-hidden rounded">
+                  <LegalPreview legal={branding.legal} />
+                </div>
+              </>
+            </GlobalRegion>
+          )}
         </div>
       </div>
     </div>

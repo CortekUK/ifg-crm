@@ -5,7 +5,6 @@ export type SettingsSection =
   | 'integrations'
   | 'calendly'
   | 'email'
-  | 'email-branding'
   | 'sms'
   | 'notifications'
   | 'custom-fields'

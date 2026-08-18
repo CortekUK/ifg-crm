@@ -32,7 +32,7 @@ import { PanelLeft, Eye, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { EditorHeader } from './EditorHeader'
 import { EditorSidebar } from './EditorSidebar'
-import { EditorCanvas } from './EditorCanvas'
+import { EditorCanvas, type GlobalSection } from './EditorCanvas'
 import { EditorPreview } from './EditorPreview'
 import { PreviewModal } from './PreviewModal'
 import { AiPromptPanel } from './AiPromptPanel'
@@ -50,6 +50,10 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
   const router = useRouter()
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'canvas' | 'sidebar'>('canvas')
+  // Which global (cross-template) region is open for editing. Mutually
+  // exclusive with selectedBlockId so only one settings panel is ever open.
+  const [selectedGlobalSection, setSelectedGlobalSection] =
+    useState<GlobalSection | null>(null)
   // Editor mode — manual (drag-and-drop) is the existing UX; ai swaps the
   // left sidebar for the AI prompt panel. Only super_admins see the toggle.
   const [editorMode, setEditorMode] = useState<'manual' | 'ai'>('manual')
@@ -260,11 +264,19 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
               blocks={blocks}
               selectedBlockId={selectedBlockId}
               theme={settings.theme}
-              onSelectBlock={setSelectedBlockId}
+              onSelectBlock={(id) => {
+                setSelectedBlockId(id)
+                if (id) setSelectedGlobalSection(null)
+              }}
               onMoveBlock={moveBlock}
               onUpdateBlock={updateBlock}
               onDeleteBlock={deleteBlock}
               onDuplicateBlock={duplicateBlock}
+              selectedGlobalSection={selectedGlobalSection}
+              onSelectGlobalSection={(section) => {
+                setSelectedGlobalSection(section)
+                if (section) setSelectedBlockId(null)
+              }}
             />
           </div>
 

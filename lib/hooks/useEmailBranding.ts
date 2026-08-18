@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { EmailBranding } from '@/lib/templates/branding-types'
 import type { BrandingSlots } from '@/lib/templates/render-html'
@@ -79,4 +80,51 @@ export function useEmailBrandingConfig() {
     },
     staleTime: 5 * 60 * 1000,
   })
+}
+
+/**
+ * Draft editing for the global branding, used by the template editor.
+ *
+ * Pending edits are held as a shallow patch over the server config rather
+ * than copied into state, so there is no effect syncing a local copy — the
+ * draft simply falls out of `{...serverConfig, ...patch}`. That keeps the
+ * server as the source of truth (a save by someone else shows up on the
+ * next refetch) and makes "dirty" a plain key count.
+ *
+ * Saving is explicit on purpose. Every other edit in the template editor
+ * auto-saves, but this one rewrites the header and footer of EVERY
+ * template, so it should never happen as a side effect of clicking around.
+ */
+export function useBrandingDraft() {
+  const { data, isLoading, save, isSaving } = useEmailBranding()
+  const [patch, setPatch] = useState<Partial<EmailBranding>>({})
+
+  const config = data?.config
+  const branding = useMemo(
+    () => (config ? { ...config, ...patch } : null),
+    [config, patch],
+  )
+
+  const updateSection = <K extends keyof EmailBranding>(
+    key: K,
+    value: EmailBranding[K],
+  ) => setPatch((prev) => ({ ...prev, [key]: value }))
+
+  const discard = () => setPatch({})
+
+  const publish = async () => {
+    if (!branding) return
+    await save(branding)
+    setPatch({})
+  }
+
+  return {
+    branding,
+    isLoading,
+    isDirty: Object.keys(patch).length > 0,
+    isSaving,
+    updateSection,
+    discard,
+    publish,
+  }
 }

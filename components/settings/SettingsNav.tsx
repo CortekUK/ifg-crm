@@ -12,7 +12,6 @@ import {
   Calendar,
   GitBranch,
   SlidersHorizontal,
-  Palette,
 } from 'lucide-react'
 import type { SettingsSection } from '@/lib/types/settings'
 
@@ -33,7 +32,6 @@ export const navItems: SettingsNavItem[] = [
   { id: 'integrations', label: 'Integrations', icon: Plug },
   { id: 'calendly', label: 'Calendly', icon: Calendar },
   { id: 'email', label: 'Email Settings', icon: Mail },
-  { id: 'email-branding', label: 'Email Branding', icon: Palette },
   { id: 'sms', label: 'SMS Settings', icon: MessageSquare },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'custom-fields', label: 'Custom Fields', icon: SlidersHorizontal },
