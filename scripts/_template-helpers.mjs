@@ -1,3 +1,14 @@
+// DEPRECATED (2026-08-18): the recruiter signature, divider, social row,
+// partner logos and disclaimer are no longer per-template. They live in one
+// global record edited at Settings -> Email Branding and are stitched into
+// every email at send time (see lib/templates/render-branding.ts).
+//
+// The create-*.mjs scripts that import from here are historical one-offs
+// that have already run. DO NOT re-run them as-is: they append footer blocks
+// to body_json, and the send path would then add the global footer underneath
+// — the recipient gets two signatures and two disclaimers. Strip the footer
+// blocks from any script you revive.
+
 // Shared building blocks for IFG email-template scripts. Every per-template
 // script under /scripts/create-*.mjs imports from here so the polished
 // "Follow up 1" frame (padding rhythm, dynamic recruiter sig, thick black
@@ -53,8 +64,11 @@ export const FALLBACK_RECRUITER = {
 export const STANDARD_DISCLAIMER =
   'Macc Football Club Limited, a company registered in England. Company number 12931817. Registered office address: The Leasing.com Stadium, London Rd, Macclesfield, SK11 7SP. **Confidentiality:** Privileged / Confidential information may be contained in this message and may be subject to legal privilege. Access to this email by anyone other than the intended is unauthorised. If you are not the intended recipient (or responsible for delivery of the message to such person), you may not use, copy, distribute or deliver to anyone this message (or any part of its contents) or take any action in reliance on it. In such case, you should destroy this message, and notify us immediately. If you have received this email in error, please notify us immediately by email or telephone and delete the email from any company. All reasonable precautions have been taken to ensure no viruses are present in this email. As our company cannot accept responsibility for any loss or damage arising from the use of this email or attachments we recommend that you subject these to your virus checking procedures prior to use.'
 
+// DEPRECATED — see the note at STANDARD_FOOTER_BLOCKS usage below. Kept so
+// the historical create-*.mjs scripts still parse; updated to the current
+// University of Lancashire mark so a re-run can't resurrect the retired crest.
 export const STANDARD_LOGOS = [
-  { src: '/signatures/uclan.png', alt: 'UCLan' },
+  { src: '/signatures/lancashire.png', alt: 'University of Lancashire' },
   { src: '/signatures/ifg.png', alt: 'The International Football Group' },
   { src: '/signatures/macclesfield-fc.png', alt: 'Macclesfield FC' },
 ]
