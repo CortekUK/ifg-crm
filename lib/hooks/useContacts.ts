@@ -1,9 +1,44 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Contact, ContactTag, UseContactsParams } from '@/lib/types/contacts'
+import { fetchRankedContactIds, orderByIds } from '@/lib/contacts/search'
 
-// PostgREST has URL length limits; chunk .in() to avoid exceeding them
-const IN_CHUNK_SIZE = 200
+/**
+ * Batch-fetch tags for a page of contacts and attach them in place.
+ *
+ * Shared by both read paths — the filtered list and the ranked search — so
+ * a contact's tags are assembled the same way regardless of how the rows
+ * were found.
+ */
+async function attachTags(
+  supabase: ReturnType<typeof createClient>,
+  contacts: Contact[],
+): Promise<Contact[]> {
+  if (contacts.length === 0) return contacts
+
+  const { data: tagData } = await supabase
+    .from('contact_tags')
+    .select('contact_id, tag:tags(id, name, color, category)')
+    .in('contact_id', contacts.map((c) => c.id))
+
+  if (tagData) {
+    const tagsByContact = new Map<string, ContactTag[]>()
+    for (const row of tagData) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tag = (row as any).tag as ContactTag | null
+      if (tag) {
+        const existing = tagsByContact.get(row.contact_id) || []
+        existing.push(tag)
+        tagsByContact.set(row.contact_id, existing)
+      }
+    }
+    for (const contact of contacts) {
+      contact.tags = tagsByContact.get(contact.id) || []
+    }
+  }
+
+  return contacts
+}
 
 export function useContacts(params?: UseContactsParams) {
   const supabase = createClient()
@@ -68,6 +103,41 @@ export function useContacts(params?: UseContactsParams) {
         }
       }
 
+      // Searching takes a different route: matching and relevance ranking
+      // happen in the `search_contacts_ranked` database function, which
+      // returns a page of ids. Everything else — the column list, the tag
+      // join below — stays shared, so the two paths can't diverge.
+      const searchTerm = params?.search?.trim() ?? ''
+
+      if (searchTerm) {
+        const pageSize = params?.pageSize ?? 25
+        const page = params?.page ?? 1
+
+        const { ids, total } = await fetchRankedContactIds(supabase, {
+          search: searchTerm,
+          contactIds: contactIdsFromDeals,
+          filters: params?.filters,
+          sortBy: params?.sortBy,
+          sortOrder: params?.sortOrder,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+        })
+
+        if (ids.length === 0) return { contacts: [], total }
+
+        const { data: rows, error: rowsError } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids)
+
+        if (rowsError) throw rowsError
+
+        return {
+          contacts: await attachTags(supabase, orderByIds(rows || [], ids)),
+          total,
+        }
+      }
+
       let query = supabase
         .from('contacts')
         .select('*', { count: 'exact' })
@@ -75,13 +145,6 @@ export function useContacts(params?: UseContactsParams) {
       // Filter by contact IDs if we have pipeline/recruiter filters
       if (contactIdsFromDeals) {
         query = query.in('id', contactIdsFromDeals)
-      }
-
-      // Apply search
-      if (params?.search) {
-        query = query.or(
-          `first_name.ilike.%${params.search}%,last_name.ilike.%${params.search}%,email.ilike.%${params.search}%,phone.ilike.%${params.search}%`
-        )
       }
 
       // Apply filters
@@ -144,34 +207,7 @@ export function useContacts(params?: UseContactsParams) {
 
       if (error) throw error
 
-      const contacts = data || []
-
-      // Batch-fetch tags for all returned contacts
-      if (contacts.length > 0) {
-        const ids = contacts.map((c) => c.id)
-        const { data: tagData } = await supabase
-          .from('contact_tags')
-          .select('contact_id, tag:tags(id, name, color, category)')
-          .in('contact_id', ids)
-
-        if (tagData) {
-          const tagsByContact = new Map<string, ContactTag[]>()
-          for (const row of tagData) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tag = (row as any).tag as ContactTag | null
-            if (tag) {
-              const existing = tagsByContact.get(row.contact_id) || []
-              existing.push(tag)
-              tagsByContact.set(row.contact_id, existing)
-            }
-          }
-          for (const contact of contacts) {
-            contact.tags = tagsByContact.get(contact.id) || []
-          }
-        }
-      }
-
-      return { contacts, total: count || 0 }
+      return { contacts: await attachTags(supabase, data || []), total: count || 0 }
     },
   })
 }

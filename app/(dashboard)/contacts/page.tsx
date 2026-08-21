@@ -16,6 +16,7 @@ import { BulkEditModal } from '@/components/contacts/BulkEditModal'
 import { useContacts, useBulkDeleteContacts, useBulkUpdateContactSubscription } from '@/lib/hooks/useContacts'
 import { useContactStats } from '@/lib/hooks/useContactStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { fetchRankedContactIds, orderByIds, IN_CHUNK_SIZE } from '@/lib/contacts/search'
 import { useAddContactsToList, useLists } from '@/lib/hooks/useLists'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { createClient } from '@/lib/supabase/client'
@@ -263,15 +264,42 @@ function ContactsPageContent() {
       if (contactIdsFromDeals.length === 0) return []
     }
 
+    // When searching, go through the same ranked database function the list
+    // uses. Building the predicate a second time here is how this drifted
+    // before: select-all and export silently disagreed with what was on
+    // screen, because both copies had the same full-name bug.
+    const searchTerm = debouncedSearch.trim()
+    if (searchTerm) {
+      const { ids } = await fetchRankedContactIds(supabase, {
+        search: searchTerm,
+        contactIds: contactIdsFromDeals,
+        filters,
+        sortBy,
+        sortOrder,
+        // Export covers the whole result set rather than one page. The cap
+        // is a guard against an accidental unbounded fetch, not a limit
+        // anyone is expected to reach.
+        limit: 50000,
+        offset: 0,
+      })
+      if (ids.length === 0) return []
+
+      const rows: Contact[] = []
+      for (let i = 0; i < ids.length; i += IN_CHUNK_SIZE) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids.slice(i, i + IN_CHUNK_SIZE))
+        if (error) throw error
+        rows.push(...((data || []) as Contact[]))
+      }
+      return orderByIds(rows, ids)
+    }
+
     let query = supabase.from('contacts').select('*')
 
     if (contactIdsFromDeals) {
       query = query.in('id', contactIdsFromDeals)
-    }
-    if (debouncedSearch) {
-      query = query.or(
-        `first_name.ilike.%${debouncedSearch}%,last_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,phone.ilike.%${debouncedSearch}%`
-      )
     }
     if (filters.graduation_year) query = query.eq('graduation_year', filters.graduation_year)
     if (filters.gender) query = query.eq('gender', filters.gender)
