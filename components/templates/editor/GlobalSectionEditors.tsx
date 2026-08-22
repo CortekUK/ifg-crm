@@ -65,6 +65,72 @@ const READY_MADE_LOGOS: BrandingHeaderLogo[] = [
   { src: '/signatures/macclesfield-fc-white.png', alt: 'Macclesfield FC', width: 60 },
 ]
 
+type Arrangement = BrandingHeader['arrangement']
+
+/**
+ * Little visual of each arrangement. A worded list ("logos-left") tells you
+ * nothing at a glance; a picture of where the logo and the text end up is
+ * self-explanatory, which is the whole point of this control.
+ */
+function ArrangementGlyph({ value }: { value: Arrangement }) {
+  const logo = <span className="block h-1.5 w-5 rounded-sm bg-current opacity-90" />
+  const text = <span className="block text-[7px] font-bold leading-none">Aa</span>
+  const stacked = value === 'logos-top' || value === 'text-top'
+  const logoFirst = value === 'logos-top' || value === 'logos-left'
+
+  return (
+    <span
+      className={cn(
+        'flex items-center justify-center gap-1',
+        stacked ? 'flex-col' : 'flex-row',
+      )}
+    >
+      {logoFirst ? logo : text}
+      {logoFirst ? text : logo}
+    </span>
+  )
+}
+
+const ARRANGEMENTS: { value: Arrangement; label: string }[] = [
+  { value: 'logos-top', label: 'Logo on top' },
+  { value: 'text-top', label: 'Text on top' },
+  { value: 'logos-left', label: 'Logo left' },
+  { value: 'text-left', label: 'Text left' },
+]
+
+function ArrangementPicker({
+  value,
+  onChange,
+}: {
+  value: Arrangement
+  onChange: (next: Arrangement) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px]">Arrangement</Label>
+      <div className="grid grid-cols-4 gap-1.5">
+        {ARRANGEMENTS.map((a) => (
+          <button
+            key={a.value}
+            type="button"
+            onClick={() => onChange(a.value)}
+            title={a.label}
+            className={cn(
+              'flex flex-col items-center gap-1 rounded-md border px-1.5 py-2 text-[9px] transition-colors',
+              value === a.value
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                : 'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400',
+            )}
+          >
+            <ArrangementGlyph value={a.value} />
+            <span className="leading-tight">{a.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function HeaderSectionEditor({
   header,
   onUpdate,
@@ -119,6 +185,13 @@ export function HeaderSectionEditor({
           </Button>
         ))}
       </div>
+
+      {header.mode === 'both' && logos.length > 0 && (
+        <ArrangementPicker
+          value={header.arrangement ?? 'logos-top'}
+          onChange={(v) => onUpdate({ arrangement: v })}
+        />
+      )}
 
       {showLogos && (
         <div className="space-y-2">
@@ -286,42 +359,73 @@ export function HeaderSectionEditor({
 export function HeaderPreview({ header }: { header: BrandingHeader }) {
   const logos = (header.logos ?? []).filter((l) => l.src)
   const gap = Math.round((header.logoGap ?? 24) / 2)
-  const showLogos = (header.mode === 'logos' || header.mode === 'both') && logos.length > 0
-  const showText = header.mode === 'text' || header.mode === 'both' || !showLogos
+  const hasLogos = (header.mode === 'logos' || header.mode === 'both') && logos.length > 0
+  const hasText = header.mode === 'text' || header.mode === 'both' || !hasLogos
+  const arrangement = header.arrangement ?? 'logos-top'
+  const both = hasLogos && hasText && header.mode === 'both'
+
+  const logoRow = hasLogos ? (
+    <div style={{ lineHeight: 0 }}>
+      {logos.map((l, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={i}
+          src={l.src}
+          alt={l.alt || ''}
+          style={{
+            display: 'inline-block',
+            width: l.width,
+            maxWidth: '100%',
+            height: 'auto',
+            margin: `0 ${gap}px`,
+            verticalAlign: 'middle',
+          }}
+        />
+      ))}
+    </div>
+  ) : null
+
+  const wordmark = hasText ? (
+    <span className="inline-flex items-center gap-2.5">
+      <span style={{ color: header.textColor, fontSize: 24, fontWeight: 700 }}>
+        {header.text}
+      </span>
+      {header.subtext && (
+        <span style={{ color: header.textColor, fontSize: 16 }}>{header.subtext}</span>
+      )}
+    </span>
+  ) : null
+
+  let content: React.ReactNode
+  if (!both) {
+    content = (
+      <>
+        {logoRow}
+        {wordmark}
+      </>
+    )
+  } else if (arrangement === 'logos-left' || arrangement === 'text-left') {
+    content = (
+      <div
+        className="flex items-center justify-center"
+        style={{ gap: Math.max(header.logoGap ?? 24, 8) }}
+      >
+        {arrangement === 'logos-left' ? logoRow : wordmark}
+        {arrangement === 'logos-left' ? wordmark : logoRow}
+      </div>
+    )
+  } else {
+    content = (
+      <div className="flex flex-col items-center" style={{ gap: 14 }}>
+        {arrangement === 'text-top' ? wordmark : logoRow}
+        {arrangement === 'text-top' ? logoRow : wordmark}
+      </div>
+    )
+  }
 
   return (
     <div style={{ backgroundColor: header.bgColor }} className="px-5 py-5 text-center">
-      {showLogos && (
-        <div style={{ lineHeight: 0 }}>
-          {logos.map((l, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={i}
-              src={l.src}
-              alt={l.alt || ''}
-              style={{
-                display: 'inline-block',
-                width: l.width,
-                maxWidth: '100%',
-                height: 'auto',
-                margin: `0 ${gap}px`,
-                verticalAlign: 'middle',
-              }}
-            />
-          ))}
-        </div>
-      )}
-      {showLogos && showText && <div style={{ height: 14 }} />}
-      {showText && (
-        <span className="inline-flex items-center gap-2.5">
-          <span style={{ color: header.textColor, fontSize: 24, fontWeight: 700 }}>
-            {header.text}
-          </span>
-          {header.subtext && (
-            <span style={{ color: header.textColor, fontSize: 16 }}>{header.subtext}</span>
-          )}
-        </span>
-      )}
+      {content}
     </div>
   )
 }

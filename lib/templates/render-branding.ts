@@ -85,13 +85,38 @@ function renderHeader(b: EmailBranding): string {
         </tr>
       </table>`
 
+  // Vertical gap between the two elements when stacked.
+  const stackGap = '<div style="height: 14px; line-height: 14px;">&nbsp;</div>'
+
+  // One line: a centred two-cell table. Tables (not flexbox or inline-block
+  // alone) are what hold up across Outlook.
+  const sideBySide = (left: string, right: string) => `
+      <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+        <tr>
+          <td style="vertical-align: middle;">${left}</td>
+          <td style="vertical-align: middle; padding-left: ${Math.max(gap, 8)}px;">${right}</td>
+        </tr>
+      </table>`
+
   let inner: string
   if (h.mode === 'logos') {
     // Fall back to the wordmark rather than rendering an empty band if the
     // logo row is set but has no usable images.
     inner = logoRow || wordmark
-  } else if (h.mode === 'both') {
-    inner = logoRow ? `${logoRow}<div style="height: 14px; line-height: 14px;">&nbsp;</div>${wordmark}` : wordmark
+  } else if (h.mode === 'both' && logoRow) {
+    switch (h.arrangement) {
+      case 'text-top':
+        inner = `${wordmark}${stackGap}${logoRow}`
+        break
+      case 'logos-left':
+        inner = sideBySide(logoRow, wordmark)
+        break
+      case 'text-left':
+        inner = sideBySide(wordmark, logoRow)
+        break
+      default:
+        inner = `${logoRow}${stackGap}${wordmark}`
+    }
   } else {
     inner = wordmark
   }

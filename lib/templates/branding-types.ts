@@ -61,6 +61,17 @@ export interface BrandingHeader {
    * 'both'  — logo row, with the wordmark beneath it
    */
   mode: 'text' | 'logos' | 'both'
+  /**
+   * How the logo row and the wordmark sit together when both are shown.
+   * Split from `mode` so the two decisions stay separate: what to show,
+   * then how to arrange it.
+   *
+   *   logos-top  — logo row, wordmark beneath
+   *   text-top   — wordmark, logo row beneath
+   *   logos-left — one line, logos then wordmark
+   *   text-left  — one line, wordmark then logos
+   */
+  arrangement: 'logos-top' | 'text-top' | 'logos-left' | 'text-left'
   /** Large bold wordmark (modes: 'text', 'both'). */
   text: string
   /** Lighter strapline beside the wordmark. Blank to hide. */
@@ -129,6 +140,7 @@ export const DEFAULT_EMAIL_BRANDING: EmailBranding = {
   showHeader: true,
   header: {
     mode: 'text',
+    arrangement: 'logos-top',
     text: 'IFG',
     subtext: 'International Football Group',
     // Shipped empty; the header editor offers the ready-made white marks.
@@ -234,6 +246,7 @@ function normaliseHeader(
     ]
   }
   if (!Array.isArray(merged.logos)) merged.logos = []
+  if (!merged.arrangement) merged.arrangement = 'logos-top'
 
   // The retired 'image' mode maps onto the new logo row.
   if ((merged.mode as string) === 'image') {
@@ -305,4 +318,4 @@ export interface EmailBrandingRecord {
   renderer_version: number
 }
 
-export const BRANDING_RENDERER_VERSION = 2
+export const BRANDING_RENDERER_VERSION = 3
