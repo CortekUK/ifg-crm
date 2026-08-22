@@ -12,11 +12,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { Upload, Loader2 } from 'lucide-react'
+import { Upload, Loader2, Plus, Trash2, AlertTriangle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/hooks/use-toast'
 import { uploadEmailImage } from '@/lib/templates/upload-image'
-import type { BrandingHeader, BrandingLegal } from '@/lib/templates/branding-types'
+import type {
+  BrandingHeader,
+  BrandingHeaderLogo,
+  BrandingLegal,
+} from '@/lib/templates/branding-types'
 
 /** Colour swatch + hex input, sized for the narrow canvas column. */
 function ColorField({
@@ -50,6 +54,17 @@ function ColorField({
 
 // ---------------------------------------------------------------- header
 
+/**
+ * The marks that already exist in /public as transparent PNGs sized for
+ * email. Offered as one-click adds because the most common way to get this
+ * wrong is uploading a logo with a white background, which renders as a
+ * visible box on the dark header.
+ */
+const READY_MADE_LOGOS: BrandingHeaderLogo[] = [
+  { src: '/signatures/ifg-white.png', alt: 'The International Football Group', width: 170 },
+  { src: '/signatures/macclesfield-fc-white.png', alt: 'Macclesfield FC', width: 60 },
+]
+
 export function HeaderSectionEditor({
   header,
   onUpdate,
@@ -57,16 +72,26 @@ export function HeaderSectionEditor({
   header: BrandingHeader
   onUpdate: (patch: Partial<BrandingHeader>) => void
 }) {
-  const [uploading, setUploading] = useState(false)
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
+  const logos = header.logos ?? []
+  const showLogos = header.mode === 'logos' || header.mode === 'both'
+  const showText = header.mode === 'text' || header.mode === 'both'
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setLogos = (next: BrandingHeaderLogo[]) => onUpdate({ logos: next })
+  const updateLogo = (idx: number, patch: Partial<BrandingHeaderLogo>) =>
+    setLogos(logos.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
+  const removeLogo = (idx: number) => setLogos(logos.filter((_, i) => i !== idx))
+  const addLogo = (logo?: BrandingHeaderLogo) =>
+    setLogos([...logos, logo ?? { src: '', alt: '', width: 150 }])
+
+  const handleUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setUploading(true)
+    setUploadingIdx(idx)
     try {
       const url = await uploadEmailImage(file)
-      onUpdate({ logoUrl: url, mode: 'image' })
+      updateLogo(idx, { src: url })
       toast({ title: 'Logo uploaded', description: 'Header logo updated.' })
     } catch (err) {
       toast({
@@ -75,32 +100,143 @@ export function HeaderSectionEditor({
         variant: 'destructive',
       })
     } finally {
-      setUploading(false)
+      setUploadingIdx(null)
     }
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-1.5">
-        <Button
-          size="sm"
-          variant={header.mode === 'text' ? 'default' : 'outline'}
-          className="h-7 text-xs"
-          onClick={() => onUpdate({ mode: 'text' })}
-        >
-          Wordmark
-        </Button>
-        <Button
-          size="sm"
-          variant={header.mode === 'image' ? 'default' : 'outline'}
-          className="h-7 text-xs"
-          onClick={() => onUpdate({ mode: 'image' })}
-        >
-          Logo image
-        </Button>
+      <div className="flex flex-wrap gap-1.5">
+        {(['text', 'logos', 'both'] as const).map((m) => (
+          <Button
+            key={m}
+            size="sm"
+            variant={header.mode === m ? 'default' : 'outline'}
+            className="h-7 text-xs"
+            onClick={() => onUpdate({ mode: m })}
+          >
+            {m === 'text' ? 'Wordmark' : m === 'logos' ? 'Logos' : 'Logos + wordmark'}
+          </Button>
+        ))}
       </div>
 
-      {header.mode === 'text' ? (
+      {showLogos && (
+        <div className="space-y-2">
+          <div className="flex items-start gap-2 rounded-md bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Logos need a <strong>transparent background</strong>. A logo saved
+              with white behind it shows as a white square on the dark header.
+            </span>
+          </div>
+
+          {logos.map((logo, i) => (
+            <div
+              key={i}
+              className="space-y-1.5 rounded-md border p-2 dark:border-slate-700"
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  value={logo.src}
+                  placeholder="Logo URL, or upload →"
+                  onChange={(e) => updateLogo(i, { src: e.target.value })}
+                  className="h-7 flex-1 text-xs"
+                  disabled={uploadingIdx === i}
+                />
+                <label>
+                  <input
+                    type="file"
+                    accept="image/png,image/gif,image/webp"
+                    className="hidden"
+                    disabled={uploadingIdx !== null}
+                    onChange={(e) => handleUpload(i, e)}
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={uploadingIdx !== null}
+                    title="Upload a transparent PNG"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      ;(e.currentTarget.previousElementSibling as HTMLInputElement)?.click()
+                    }}
+                  >
+                    {uploadingIdx === i ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-500 hover:text-red-600"
+                  onClick={() => removeLogo(i)}
+                  title="Remove logo"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={logo.alt}
+                  placeholder="Alt text"
+                  onChange={(e) => updateLogo(i, { alt: e.target.value })}
+                  className="h-7 flex-1 text-xs"
+                />
+                <Label className="text-[11px] text-muted-foreground">Width</Label>
+                <Input
+                  type="number"
+                  min={20}
+                  max={520}
+                  value={logo.width}
+                  onChange={(e) =>
+                    updateLogo(i, { width: parseInt(e.target.value, 10) || 150 })
+                  }
+                  className="h-7 w-16 text-xs"
+                />
+              </div>
+            </div>
+          ))}
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => addLogo()}>
+              <Plus className="mr-1 h-3 w-3" />
+              Add logo
+            </Button>
+            {READY_MADE_LOGOS.filter((r) => !logos.some((l) => l.src === r.src)).map((r) => (
+              <Button
+                key={r.src}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => addLogo(r)}
+                title="Ready-made transparent version, sized for email"
+              >
+                <Sparkles className="mr-1 h-3 w-3" />
+                {r.alt.replace('The International Football Group', 'IFG')}
+              </Button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-[11px]">Gap between logos</Label>
+            <Input
+              type="number"
+              min={0}
+              max={80}
+              value={header.logoGap ?? 24}
+              onChange={(e) => onUpdate({ logoGap: parseInt(e.target.value, 10) || 0 })}
+              className="h-7 w-16 text-xs"
+            />
+            <span className="text-[11px] text-muted-foreground">px</span>
+          </div>
+        </div>
+      )}
+
+      {showText && (
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label className="text-[11px]">Wordmark</Label>
@@ -116,56 +252,6 @@ export function HeaderSectionEditor({
               value={header.subtext}
               onChange={(e) => onUpdate({ subtext: e.target.value })}
               className="h-7 text-xs"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-[1fr_auto_auto] items-end gap-2">
-          <div className="space-y-1">
-            <Label className="text-[11px]">Logo URL</Label>
-            <Input
-              value={header.logoUrl}
-              onChange={(e) => onUpdate({ logoUrl: e.target.value })}
-              placeholder="https://…"
-              className="h-7 text-xs"
-            />
-          </div>
-          <label>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              className="hidden"
-              disabled={uploading}
-              onChange={handleUpload}
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              disabled={uploading}
-              onClick={(e) => {
-                e.preventDefault()
-                ;(e.currentTarget.previousElementSibling as HTMLInputElement)?.click()
-              }}
-            >
-              {uploading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Upload className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          </label>
-          <div className="space-y-1">
-            <Label className="text-[11px]">Width</Label>
-            <Input
-              type="number"
-              min={40}
-              max={560}
-              value={header.logoWidth}
-              onChange={(e) =>
-                onUpdate({ logoWidth: parseInt(e.target.value, 10) || 160 })
-              }
-              className="h-7 w-20 text-xs"
             />
           </div>
         </div>
@@ -198,28 +284,41 @@ export function HeaderSectionEditor({
 }
 
 export function HeaderPreview({ header }: { header: BrandingHeader }) {
+  const logos = (header.logos ?? []).filter((l) => l.src)
+  const gap = Math.round((header.logoGap ?? 24) / 2)
+  const showLogos = (header.mode === 'logos' || header.mode === 'both') && logos.length > 0
+  const showText = header.mode === 'text' || header.mode === 'both' || !showLogos
+
   return (
-    <div
-      style={{ backgroundColor: header.bgColor }}
-      className="px-5 py-5 text-center"
-    >
-      {header.mode === 'image' && header.logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={header.logoUrl}
-          alt={header.text || 'Logo'}
-          style={{ width: header.logoWidth, maxWidth: '100%' }}
-          className="mx-auto h-auto"
-        />
-      ) : (
+    <div style={{ backgroundColor: header.bgColor }} className="px-5 py-5 text-center">
+      {showLogos && (
+        <div style={{ lineHeight: 0 }}>
+          {logos.map((l, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={i}
+              src={l.src}
+              alt={l.alt || ''}
+              style={{
+                display: 'inline-block',
+                width: l.width,
+                maxWidth: '100%',
+                height: 'auto',
+                margin: `0 ${gap}px`,
+                verticalAlign: 'middle',
+              }}
+            />
+          ))}
+        </div>
+      )}
+      {showLogos && showText && <div style={{ height: 14 }} />}
+      {showText && (
         <span className="inline-flex items-center gap-2.5">
           <span style={{ color: header.textColor, fontSize: 24, fontWeight: 700 }}>
             {header.text}
           </span>
           {header.subtext && (
-            <span style={{ color: header.textColor, fontSize: 16 }}>
-              {header.subtext}
-            </span>
+            <span style={{ color: header.textColor, fontSize: 16 }}>{header.subtext}</span>
           )}
         </span>
       )}

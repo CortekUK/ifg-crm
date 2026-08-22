@@ -43,14 +43,32 @@ function renderHeader(b: EmailBranding): string {
   if (!b.showHeader) return ''
   const h = b.header
 
-  const inner =
-    h.mode === 'image' && h.logoUrl
-      ? `<img src="${escapeHtml(resolveAssetUrl(h.logoUrl))}" alt="${escapeHtml(
-          h.text || 'Logo',
-        )}" width="${h.logoWidth}" style="display: inline-block; width: ${
-          h.logoWidth
-        }px; max-width: 100%; height: auto; border: 0;" />`
-      : `<table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+  const logos = (h.logos ?? []).filter((l) => l.src)
+  const gap = Math.max(0, h.logoGap ?? 24)
+
+  // Logos sit in one centred row. Width is set on each image (not height) —
+  // the shell's stylesheet forces `height: auto !important`, so a height set
+  // here would be ignored wherever that CSS is honoured.
+  //
+  // A logo needs a transparent background: on a dark header, a mark saved
+  // with white baked in renders as a visible white box.
+  const logoRow =
+    logos.length > 0
+      ? `<div class="ifg-header-logos" style="text-align: center; line-height: 0;">${logos
+          .map(
+            (l) =>
+              `<img class="ifg-header-logo" src="${escapeHtml(
+                resolveAssetUrl(l.src),
+              )}" alt="${escapeHtml(l.alt || '')}" width="${l.width}" style="display: inline-block; width: ${
+                l.width
+              }px; max-width: 100%; height: auto; margin: 0 ${Math.round(
+                gap / 2,
+              )}px; vertical-align: middle; border: 0;" />`,
+          )
+          .join('')}</div>`
+      : ''
+
+  const wordmark = `<table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
         <tr>
           <td style="vertical-align: middle;">
             <span style="color: ${h.textColor}; font-size: 24px; font-weight: bold;">${escapeHtml(
@@ -66,6 +84,17 @@ function renderHeader(b: EmailBranding): string {
           }
         </tr>
       </table>`
+
+  let inner: string
+  if (h.mode === 'logos') {
+    // Fall back to the wordmark rather than rendering an empty band if the
+    // logo row is set but has no usable images.
+    inner = logoRow || wordmark
+  } else if (h.mode === 'both') {
+    inner = logoRow ? `${logoRow}<div style="height: 14px; line-height: 14px;">&nbsp;</div>${wordmark}` : wordmark
+  } else {
+    inner = wordmark
+  }
 
   return `
     <div style="background-color: ${h.bgColor}; padding: 20px; text-align: center;">

@@ -111,6 +111,10 @@ export function renderBlocksToHTML(
         max-width: 30% !important;
         margin: 4px 6px !important;
       }
+      .ifg-header-logo {
+        max-width: 40% !important;
+        margin: 0 6px !important;
+      }
       .ifg-social a { margin: 0 3px !important; }
     }
   </style>

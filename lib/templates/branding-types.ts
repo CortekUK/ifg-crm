@@ -39,18 +39,36 @@ import type {
   CompanySignatureBlockContent,
 } from './editor-types'
 
+/** One logo in the header row. */
+export interface BrandingHeaderLogo {
+  src: string
+  alt: string
+  /**
+   * Rendered width in px. Sized per-logo rather than by a shared height,
+   * because the email shell sets `img { height: auto !important }` — a
+   * height set here would be overridden in any client that honours the
+   * stylesheet. Per-logo width also lets a square crest sit beside a wide
+   * wordmark without one dwarfing the other.
+   */
+  width: number
+}
+
 /** Header strip — the dark band at the very top of every email. */
 export interface BrandingHeader {
-  /** 'text' renders the wordmark pair; 'image' renders an uploaded logo. */
-  mode: 'text' | 'image'
-  /** Large bold wordmark (mode: 'text'). */
+  /**
+   * 'text'  — wordmark + strapline only
+   * 'logos' — a row of logo images only
+   * 'both'  — logo row, with the wordmark beneath it
+   */
+  mode: 'text' | 'logos' | 'both'
+  /** Large bold wordmark (modes: 'text', 'both'). */
   text: string
-  /** Lighter strapline beside the wordmark (mode: 'text'). Blank to hide. */
+  /** Lighter strapline beside the wordmark. Blank to hide. */
   subtext: string
-  /** Absolute URL of the logo image (mode: 'image'). */
-  logoUrl: string
-  /** Rendered logo width in px (mode: 'image'). */
-  logoWidth: number
+  /** Logo row (modes: 'logos', 'both'). Any number, rendered side by side. */
+  logos: BrandingHeaderLogo[]
+  /** Horizontal gap between logos, in px. */
+  logoGap: number
   bgColor: string
   textColor: string
   /** Optional click-through on the whole header. Blank = not a link. */
@@ -113,8 +131,9 @@ export const DEFAULT_EMAIL_BRANDING: EmailBranding = {
     mode: 'text',
     text: 'IFG',
     subtext: 'International Football Group',
-    logoUrl: '',
-    logoWidth: 160,
+    // Shipped empty; the header editor offers the ready-made white marks.
+    logos: [],
+    logoGap: 24,
     bgColor: '#0f172a',
     textColor: '#ffffff',
     linkUrl: '',
@@ -191,6 +210,40 @@ export const DEFAULT_EMAIL_BRANDING: EmailBranding = {
 }
 
 /**
+ * Merge a stored header over the defaults, upgrading the older single-logo
+ * shape on the way.
+ *
+ * The header originally held one `logoUrl` + `logoWidth` and a mode of
+ * 'text' | 'image'. It now holds a row of logos, because a header showing
+ * two partner marks side by side was impossible to express before. A record
+ * written under the old shape is translated rather than dropped, so nobody
+ * loses a logo they had already set.
+ */
+function normaliseHeader(
+  d: BrandingHeader,
+  stored?: Partial<BrandingHeader> & { logoUrl?: string; logoWidth?: number },
+): BrandingHeader {
+  const merged = { ...d, ...(stored ?? {}) }
+
+  const legacyUrl = stored?.logoUrl
+  const hasLogos = Array.isArray(merged.logos) && merged.logos.length > 0
+
+  if (!hasLogos && legacyUrl) {
+    merged.logos = [
+      { src: legacyUrl, alt: merged.text || 'Logo', width: stored?.logoWidth ?? 160 },
+    ]
+  }
+  if (!Array.isArray(merged.logos)) merged.logos = []
+
+  // The retired 'image' mode maps onto the new logo row.
+  if ((merged.mode as string) === 'image') {
+    merged.mode = merged.logos.length > 0 ? 'logos' : 'text'
+  }
+
+  return merged
+}
+
+/**
  * Merge a stored (possibly partial, possibly older) branding record over
  * the defaults. Every nested section is merged one level deep so a record
  * written before a new field existed still renders — the missing field
@@ -202,7 +255,7 @@ export function resolveBranding(stored?: Partial<EmailBranding> | null): EmailBr
 
   return {
     showHeader: stored.showHeader ?? d.showHeader,
-    header: { ...d.header, ...(stored.header ?? {}) },
+    header: normaliseHeader(d.header, stored.header),
 
     showSignature: stored.showSignature ?? d.showSignature,
     signature: { ...d.signature, ...(stored.signature ?? {}) },
@@ -252,4 +305,4 @@ export interface EmailBrandingRecord {
   renderer_version: number
 }
 
-export const BRANDING_RENDERER_VERSION = 1
+export const BRANDING_RENDERER_VERSION = 2
