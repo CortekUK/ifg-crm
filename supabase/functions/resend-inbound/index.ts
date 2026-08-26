@@ -3,6 +3,7 @@
 // Creates email_replies records and triggers automation exit conditions
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Resend } from 'npm:resend@2.0.0'
 import { Webhook } from 'npm:svix@1.15.0'
 import { extractTrackingUuids, extractTrackingIdFromTo } from '../_shared/message-id.ts'
 
@@ -338,6 +339,30 @@ Deno.serve(async (req) => {
     // update of contact_id, so Smart Match and manual match get the same
     // exit behaviour as auto-match without us having to call anything here.
 
+    // ============================================
+    // 4. ALERT THE DEAL OWNER BY EMAIL
+    // ============================================
+    // Replies land in the CRM, not in the recruiter's mailbox — the outbound
+    // Reply-To deliberately points at the tracking address so we can match a
+    // reply to the exact send. The cost is that nobody knows a reply arrived
+    // until they open the CRM. This closes that gap without the recruiter
+    // having to watch the app.
+    //
+    // Deliberately last, and never allowed to throw: the reply is already
+    // safely stored by this point, and a failed alert must not turn into a
+    // webhook error that makes Resend retry the whole delivery.
+    await notifyOwnerOfReply(supabase, {
+      replyId: replyRecord.id,
+      contactId,
+      contactName: contact ? `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() : null,
+      fromEmail,
+      fromName,
+      subject: event.data.subject || null,
+      body: stripQuotedThread(replyText),
+      intent: aiIntent,
+      dealId: linkedDealId,
+    })
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -357,6 +382,167 @@ Deno.serve(async (req) => {
     )
   }
 })
+
+/**
+ * Email the deal owner that a lead has replied.
+ *
+ * Recipient resolution, most specific first:
+ *   1. the deal's owner — the person actually working this player
+ *   2. the contact's owner — for replies with no deal attached yet
+ *   3. nobody — we do not fall back to emailing all staff, which would turn
+ *      every reply into inbox noise for people it has nothing to do with
+ *
+ * Honours Settings -> Notifications -> "Email reply received". That toggle
+ * has existed in the UI for a while but nothing ever read it; it is real now.
+ *
+ * Reply-To is set to the player, so hitting reply in the mail client goes
+ * straight to them. NOTE: a reply sent that way is invisible to the CRM —
+ * it never passes through the tracked address. That is the trade-off of a
+ * notification rather than a synced mailbox.
+ *
+ * Never throws. Every failure path logs and returns.
+ */
+async function notifyOwnerOfReply(
+  supabase: ReturnType<typeof createClient>,
+  reply: {
+    replyId: string
+    contactId: string | null
+    contactName: string | null
+    fromEmail: string
+    fromName: string | null
+    subject: string | null
+    body: string
+    intent: string | null
+    dealId: string | null
+  },
+): Promise<void> {
+  try {
+    const apiKey = Deno.env.get('RESEND_API_KEY')
+    if (!apiKey) {
+      console.warn('Reply alert skipped: RESEND_API_KEY not configured')
+      return
+    }
+
+    // Respect the notification preference. Missing/unreadable settings mean
+    // "on" — the alert is the safer default when someone is waiting on a lead.
+    const { data: settings } = await supabase
+      .from('crm_settings')
+      .select('value')
+      .eq('key', 'notifications')
+      .maybeSingle()
+
+    const enabled =
+      (settings?.value as { emailNotifications?: { emailReply?: boolean } } | null)
+        ?.emailNotifications?.emailReply
+    if (enabled === false) return
+
+    // --- who gets it ---
+    let ownerId: string | null = null
+
+    if (reply.dealId) {
+      const { data: deal } = await supabase
+        .from('deals')
+        .select('deal_owner_id')
+        .eq('id', reply.dealId)
+        .maybeSingle()
+      ownerId = (deal as { deal_owner_id?: string | null } | null)?.deal_owner_id ?? null
+    }
+
+    if (!ownerId && reply.contactId) {
+      const { data: contact } = await supabase
+        .from('contacts')
+        .select('owner_id')
+        .eq('id', reply.contactId)
+        .maybeSingle()
+      ownerId = (contact as { owner_id?: string | null } | null)?.owner_id ?? null
+    }
+
+    if (!ownerId) {
+      console.log(`Reply ${reply.replyId}: no owner to alert, skipping email`)
+      return
+    }
+
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('email, full_name, is_active')
+      .eq('id', ownerId)
+      .maybeSingle()
+
+    const to = (owner as { email?: string } | null)?.email
+    if (!to || (owner as { is_active?: boolean } | null)?.is_active === false) {
+      console.log(`Reply ${reply.replyId}: owner has no usable email, skipping`)
+      return
+    }
+
+    // --- content ---
+    const appUrl = (Deno.env.get('NEXT_PUBLIC_APP_URL') || '').replace(/\/$/, '')
+    const fromEmailAddr = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
+    const who = reply.contactName || reply.fromName || reply.fromEmail
+    const intentLabel = reply.intent && reply.intent !== 'unknown' ? reply.intent : null
+
+    const escape = (t: string) =>
+      t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+    // Long replies are trimmed — this is a nudge to open the CRM, not a
+    // replacement for reading the thread there.
+    const excerpt = reply.body.length > 1200 ? `${reply.body.slice(0, 1200)}…` : reply.body
+    const bodyHtml = escape(excerpt).replace(/\n/g, '<br/>') || '<em>(no message content)</em>'
+
+    const intentChip = intentLabel
+      ? `<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:${
+          intentLabel === 'positive' ? '#dcfce7' : intentLabel === 'negative' ? '#fee2e2' : '#e5e7eb'
+        };color:${
+          intentLabel === 'positive' ? '#166534' : intentLabel === 'negative' ? '#991b1b' : '#374151'
+        };font-size:12px;font-weight:600;text-transform:capitalize;">${escape(intentLabel)}</span>`
+      : ''
+
+    const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;">
+  <div style="background:#0f172a;color:#ffffff;padding:18px 24px;border-radius:8px 8px 0 0;">
+    <p style="margin:0;font-size:16px;font-weight:bold;">New reply from ${escape(who)}</p>
+  </div>
+  <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;padding:24px;">
+    <p style="margin:0 0 4px 0;font-size:13px;color:#64748b;">
+      ${escape(reply.fromEmail)} ${intentChip}
+    </p>
+    ${reply.subject ? `<p style="margin:12px 0 0 0;font-size:14px;color:#0f172a;"><strong>${escape(reply.subject)}</strong></p>` : ''}
+    <div style="margin-top:14px;padding:14px 16px;background:#f8fafc;border-left:3px solid #cbd5e1;font-size:14px;line-height:1.6;color:#1f2937;">
+      ${bodyHtml}
+    </div>
+    ${
+      appUrl
+        ? `<p style="margin:22px 0 0 0;">
+             <a href="${appUrl}/email-replies" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;">Open in the CRM</a>
+           </p>`
+        : ''
+    }
+    <p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">
+      Replying to this email goes straight to ${escape(who)} — but a reply sent that way
+      is not recorded in the CRM. Reply from the CRM to keep the history complete.
+    </p>
+  </div>
+</div>`.trim()
+
+    const resend = new Resend(apiKey)
+    const { error } = await resend.emails.send({
+      from: `IFG CRM <${fromEmailAddr}>`,
+      to: [to],
+      // Straight back to the player, not through the tracked address — this
+      // is an internal alert and must not be threaded as a lead reply.
+      reply_to: reply.fromEmail,
+      subject: `New reply from ${who}${intentLabel ? ` (${intentLabel})` : ''}`,
+      html,
+    })
+
+    if (error) {
+      console.error(`Reply alert to ${to} failed:`, error)
+      return
+    }
+    console.log(`Reply alert sent to ${to} for reply ${reply.replyId}`)
+  } catch (err) {
+    console.error('Reply alert threw (reply itself is unaffected):', err)
+  }
+}
 
 /**
  * Walk back from email_send to figure out which campaign and/or pipeline this
