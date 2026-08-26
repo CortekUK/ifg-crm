@@ -24,6 +24,7 @@ import {
   mergeAiBlocksWithExisting,
   compactBlockForPrompt,
   openAiJsonSchema,
+  stripGlobalBlocks,
 } from '@/lib/templates/ai-schema'
 import type { EditorBlock } from '@/lib/templates/editor-types'
 import type { AiAttachment } from '@/lib/ai/attachments'
@@ -217,15 +218,17 @@ When the user attaches an image and asks you to match it, **actually look at it*
 
 These are GLOBAL, not part of any template. The sender signature, social
 icon row, partner logos, confidentiality disclaimer, masthead and
-unsubscribe strip all come from one shared record (Settings → Email
-Branding) and render on every email automatically.
+unsubscribe strip all come from one shared record and render on every
+email automatically. They are edited by clicking them directly on the
+canvas — they show an indigo dashed border and a "Global" badge.
 
 So if the reference image shows a signature or footer: **do not build one.**
 Don't add blocks for the crest, the disclaimer, the social icons or a
 sign-off — they are already there, below whatever you produce.
 
-Reply (intent: "answer") pointing the user to Settings → Email Branding for
-those, and get on with the part of the reference that IS yours: the body.
+Reply (intent: "answer") telling the user those are the global header and
+footer — clickable directly on the canvas, marked with a "Global" badge —
+and get on with the part of the reference that IS yours: the body.
 
 ## For an EMAIL or DESIGN reference
 
@@ -246,15 +249,15 @@ The \`name\` is the file-name shown in the templates list; the \`subject\` is wh
 # Email chrome
 
 The masthead at the top and the grey unsubscribe strip at the bottom are
-GLOBAL — one shared record used by every template, edited in Settings →
-Email Branding. You cannot change them from here, and neither can the user
-on a per-template basis. That is deliberate: they used to be per-template
-and drifted badly out of sync.
+GLOBAL — one shared record used by every template. You cannot change them
+from here, and neither can the user on a per-template basis. That is
+deliberate: they used to be per-template and drifted badly out of sync.
 
 If the user asks to recolour the header, change the footer, edit the
 unsubscribe line, swap a logo, or add/remove a social channel, reply
-(intent: "answer"): those live in Settings → Email Branding, and a change
-there applies to every template at once. Do not fake it with blocks.
+(intent: "answer"): they click that region directly on the canvas — it is
+outlined in indigo with a "Global" badge — and a change there applies to
+every template at once. Do not fake it with blocks.
 
 You DO still control the two backgrounds behind the email, via the
 top-level \`theme\` field:
@@ -287,7 +290,7 @@ Pick from these and only these:
 - **divider** — horizontal line, used between sections. Knobs: \`style\` (solid/dashed/dotted), \`color\` (hex), \`thickness\` (1-8 px), \`width\` (25/50/75/100 %), \`paddingTop\`, \`paddingBottom\`.
 - **spacer** — vertical whitespace. \`height\` 8-80, defaults to 20.
 - **image** — only emit when the user explicitly provides an image URL or asks for one. Never invent placeholder image URLs. Knobs: \`alt\`, \`alignment\`, \`width\` (full/large/medium/small), \`linkUrl\` (makes the whole image clickable), \`paddingTop\`, \`paddingBottom\`.
-- **recruiter_signature**, **company_signature**, **social** — NOT AVAILABLE. The signature, partner logos, disclaimer and social row are global (Settings → Email Branding) and render automatically below every template. Never emit these block types, and never hand-build a substitute out of text/image/html blocks. End the body with your last real block — no manual sign-off.
+- **recruiter_signature**, **company_signature**, **social** — NOT AVAILABLE. The signature, partner logos, disclaimer and social row are global (clickable on the canvas, marked "Global") and render automatically below every template. Never emit these block types, and never hand-build a substitute out of text/image/html blocks. End the body with your last real block — no manual sign-off.
 - **html** — small custom HTML snippet. Use ONLY when no other block fits (e.g. a coloured callout box, a tiny inline-styled hero). Will be sanitised server-side; \`<script>/<iframe>/<style>/<form>/on*=/javascript:\` are stripped, so don't rely on them. Keep snippets short (< 1KB).
 - **video** — embed a YouTube/Vimeo/Loom URL. Only emit if the user supplied a URL or explicitly asked for a video. If they didn't, leave \`url\` as an empty string and they'll fill it in.
 - **columns** — 2- or 3-column layout for side-by-side content (e.g. "two programme cards", "feature + image"). Children must come from the basic block subset: text, heading, button, divider, spacer, image. Don't nest columns inside columns. Use sparingly — single-column emails feel more personal.
@@ -359,10 +362,45 @@ function deriveFirstName(fullName: string | null | undefined): string {
   return first.replace(/[.,;:!?]+$/, '').trim()
 }
 
+/**
+ * Shared links available to buttons, rendered into the prompt.
+ *
+ * Injected live rather than hardcoded: the list is user-editable, so a
+ * static copy here would go stale the moment someone adds one. Without
+ * this the AI pastes a raw URL into a button, which is exactly the
+ * per-template duplication shared links exist to remove.
+ */
+function buildSharedLinksSection(links: { key: string; label: string; url: string }[]): string {
+  if (links.length === 0) return ''
+
+  const rows = links
+    .map((l) => `- **${l.label}** → use \`{{${l.key}}}\` as the button url (currently points at ${l.url})`)
+    .join('\n')
+
+  return `# Shared links
+
+These destinations are managed centrally. When a button points at one of
+them, use the merge tag as its \`url\` rather than pasting the address —
+the tag follows the shared link, so changing it once updates every button
+across every template.
+
+${rows}
+
+Pick one whenever the user asks for a button to a registration form,
+application form or similar. If none of them fits, a normal URL is fine.
+
+`
+}
+
 // Builds the system prompt with a per-user greeting block prepended.
 // The static SYSTEM_PROMPT below carries everything else.
-function buildSystemPrompt(firstName: string, isFirstTurn: boolean): string {
-  if (!firstName) return SYSTEM_PROMPT
+function buildSystemPrompt(
+  firstName: string,
+  isFirstTurn: boolean,
+  sharedLinks: { key: string; label: string; url: string }[] = [],
+): string {
+  const linksSection = buildSharedLinksSection(sharedLinks)
+  if (!firstName) return linksSection + SYSTEM_PROMPT
 
   const greetingRule = `# Greeting
 
@@ -374,7 +412,7 @@ ${isFirstTurn ? `**THIS IS THE FIRST TURN of the conversation.** Open your \`rep
 
 `
 
-  return greetingRule + SYSTEM_PROMPT
+  return greetingRule + linksSection + SYSTEM_PROMPT
 }
 
 export async function POST(req: NextRequest) {
@@ -553,7 +591,25 @@ export async function POST(req: NextRequest) {
     // opens the first turn of every conversation by name.
     const firstName = deriveFirstName(auth.profile.full_name)
     const isFirstTurn = priorMessages.length === 0
-    const systemPrompt = buildSystemPrompt(firstName, isFirstTurn)
+    // Read the shared links so the AI can reference them by tag. Best
+    // effort — a failure here just means it falls back to plain URLs.
+    let sharedLinks: { key: string; label: string; url: string }[] = []
+    try {
+      const { data: brandingRow } = await admin
+        .from('crm_settings')
+        .select('value')
+        .eq('key', 'email_branding')
+        .maybeSingle()
+      const configured = (brandingRow?.value as { config?: { links?: typeof sharedLinks } } | null)
+        ?.config?.links
+      if (Array.isArray(configured)) {
+        sharedLinks = configured.filter((l) => l?.key && l?.url)
+      }
+    } catch (err) {
+      console.error('Could not load shared links for the AI prompt:', err)
+    }
+
+    const systemPrompt = buildSystemPrompt(firstName, isFirstTurn, sharedLinks)
 
     const messages: ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
@@ -660,10 +716,21 @@ export async function POST(req: NextRequest) {
       // gets reused as-is (preserving custom paddings, colours, and the
       // existing block id). Only blocks the AI actually changed get freshly
       // expanded. Stops "change one word" from regenerating the whole email.
-      blocks =
+      const produced =
         aiIntent === 'enhance' && Array.isArray(body.existingBlocks)
           ? mergeAiBlocksWithExisting(validation.data.blocks, body.existingBlocks)
           : expandAiBlocks(validation.data.blocks)
+
+      // Last line of defence against a duplicated footer: the signature,
+      // social row and partner logos are appended globally at send time, so
+      // a copy inside the template would render them twice.
+      const guarded = stripGlobalBlocks(produced)
+      if (guarded.removed > 0) {
+        console.warn(
+          `AI returned ${guarded.removed} global block(s) (signature/social/company); stripped before saving.`,
+        )
+      }
+      blocks = guarded.blocks
       subject = validation.data.subject
       preheader = validation.data.preheader ?? ''
       name = validation.data.name

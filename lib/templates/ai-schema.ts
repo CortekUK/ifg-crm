@@ -998,6 +998,54 @@ function expandBasicAiBlock(ai: BasicAiBlock): EditorBlock {
   return expandAiBlock(ai as AiBlock)
 }
 
+/**
+ * Block types that moved into the global email branding. The AI is told not
+ * to emit them, but a prompt is advice, not a guarantee — and one slip
+ * would put a second signature, social row or disclaimer inside a template
+ * that already gets those appended globally at send time. The recipient
+ * would see the footer twice.
+ *
+ * Stripped recursively, because blocks nest inside columns and conditionals.
+ */
+const GLOBAL_BLOCK_TYPES = new Set(['recruiter_signature', 'company_signature', 'social'])
+
+export function stripGlobalBlocks(blocks: EditorBlock[]): {
+  blocks: EditorBlock[]
+  removed: number
+} {
+  let removed = 0
+
+  const walk = (list: EditorBlock[]): EditorBlock[] =>
+    list
+      .filter((b) => {
+        if (GLOBAL_BLOCK_TYPES.has(b.type)) {
+          removed++
+          return false
+        }
+        return true
+      })
+      .map((b) => {
+        const content = b.content as Record<string, unknown>
+        const nestedKeys = ['leftBlocks', 'rightBlocks', 'centerBlocks', 'children']
+        let next = b
+
+        for (const key of nestedKeys) {
+          if (Array.isArray(content[key])) {
+            next = {
+              ...next,
+              content: {
+                ...(next.content as Record<string, unknown>),
+                [key]: walk(content[key] as EditorBlock[]),
+              },
+            }
+          }
+        }
+        return next
+      })
+
+  return { blocks: walk(blocks), removed }
+}
+
 export function expandAiBlocks(ai: AiBlock[]): EditorBlock[] {
   return ai.map(expandAiBlock)
 }
