@@ -87,6 +87,7 @@ try {
     .map(([k]) => k)
   console.log('social enabled  :', enabledSocials.join(', ') || '(none)')
   console.log('logos           :', config.company.logos.map((l) => l.src).join(', '))
+  console.log('shared links    :', (config.links ?? []).map((l) => l.key).join(', ') || '(none)')
 
   if (rendered.header.includes('localhost') || rendered.footer.includes('localhost')) {
     console.error('\nREFUSING TO PUBLISH: rendered HTML contains a localhost URL.')
@@ -106,6 +107,9 @@ try {
       value: {
         config,
         rendered,
+        link_values: Object.fromEntries(
+          (config.links ?? []).filter((l) => l.key && l.url).map((l) => [l.key, l.url]),
+        ),
         rendered_at: new Date().toISOString(),
         renderer_version: BRANDING_RENDERER_VERSION,
       },

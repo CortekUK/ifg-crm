@@ -20,6 +20,19 @@ import { renderBrandingSlots } from '@/lib/templates/render-branding'
 
 const SETTINGS_KEY = 'email_branding'
 
+/**
+ * Flatten shared links to { merge_tag_key: url }. Stored next to the
+ * rendered HTML so the send path can fold them straight into merge data —
+ * the Deno functions never have to parse the branding config.
+ */
+function flattenLinks(config: EmailBranding): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const link of config.links ?? []) {
+    if (link.key && link.url) out[link.key] = link.url
+  }
+  return out
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -106,6 +119,7 @@ export async function PUT(request: NextRequest) {
     const record: EmailBrandingRecord = {
       config,
       rendered,
+      link_values: flattenLinks(config),
       rendered_at: new Date().toISOString(),
       renderer_version: BRANDING_RENDERER_VERSION,
     }

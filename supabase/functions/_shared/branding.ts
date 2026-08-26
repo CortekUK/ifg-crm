@@ -33,7 +33,18 @@ const MARKERS: Record<keyof BrandingSlots, string> = {
 // each one is pointless. Cached per isolate with a short TTL so an admin's
 // branding edit goes live within a minute without a redeploy.
 const CACHE_TTL_MS = 60_000
-let cache: { at: number; slots: BrandingSlots | null } | null = null
+let cache: { at: number; slots: BrandingSlots | null; links: Record<string, string> } | null = null
+
+/**
+ * Shared link values from the last branding read, as { merge_tag: url }.
+ * Callers fold these into the merge data so a button whose URL is
+ * `{{academy_registration_url|…}}` resolves to whatever the shared link
+ * currently points at. Empty when branding is unavailable, in which case
+ * the fallback baked into each tag takes over and the button still works.
+ */
+export function getBrandingLinks(): Record<string, string> {
+  return cache?.links ?? {}
+}
 
 /**
  * Read the rendered branding out of crm_settings.
@@ -57,14 +68,20 @@ export async function fetchBrandingSlots(
 
     if (error) {
       console.error('Branding lookup failed, sending unbranded:', error.message)
-      cache = { at: now, slots: null }
+      cache = { at: now, slots: null, links: {} }
       return null
     }
 
-    const rendered = (data?.value as { rendered?: Partial<BrandingSlots> } | null)?.rendered
+    const value = data?.value as {
+      rendered?: Partial<BrandingSlots>
+      link_values?: Record<string, string>
+    } | null
+    const rendered = value?.rendered
+    const links = value?.link_values ?? {}
+
     if (!rendered) {
       console.warn('No rendered email branding found — run scripts/publish-branding.mjs')
-      cache = { at: now, slots: null }
+      cache = { at: now, slots: null, links }
       return null
     }
 
@@ -73,11 +90,11 @@ export async function fetchBrandingSlots(
       footer: rendered.footer ?? '',
       legal: rendered.legal ?? '',
     }
-    cache = { at: now, slots }
+    cache = { at: now, slots, links }
     return slots
   } catch (err) {
     console.error('Branding lookup threw, sending unbranded:', err)
-    cache = { at: now, slots: null }
+    cache = { at: now, slots: null, links: {} }
     return null
   }
 }

@@ -9,7 +9,7 @@ import { sendSMS } from '../_shared/clicksend.ts'
 import type { StepType } from '../_shared/automation-constants.ts'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
-import { fetchBrandingSlots, applyBranding } from '../_shared/branding.ts'
+import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 
 interface ProcessingSummary {
   enrollmentsCreated: number
@@ -1094,13 +1094,18 @@ async function processEmailStep(
       deal_owner_photo: owner?.avatar_url || null,
     }
 
-    const subject = replaceMergeTags(template.subject, mergeData)
+    // Shared links (registration forms and the like) resolve as merge tags,
+    // so a button pointing at {{academy_registration_url}} follows whatever
+    // the shared link currently is rather than a URL pasted per template.
     // Stitch the global header/footer in BEFORE merge tags run — the stored
     // branding HTML carries unresolved {{deal_owner_*}} tags so the signature
     // personalises to this deal's owner. A null slots value (settings missing
     // or unreadable) leaves the template exactly as saved rather than risking
     // a blank email.
     const brandingSlots = await fetchBrandingSlots(supabase)
+    Object.assign(mergeData, getBrandingLinks())
+
+    const subject = replaceMergeTags(template.subject, mergeData)
     const htmlBody = replaceMergeTags(applyBranding(template.body_html, brandingSlots), mergeData)
 
     // Determine from name and reply_to.

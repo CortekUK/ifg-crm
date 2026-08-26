@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,9 +10,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { AlignLeft, AlignCenter, AlignRight, Plus } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight, Plus, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { templateVariables, ButtonBlockContent } from '@/lib/templates/editor-types'
+import { SharedLinksDialog } from '../SharedLinksDialog'
+import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
+import type { BrandingLink } from '@/lib/templates/branding-types'
 
 interface ButtonBlockProps {
   content: Record<string, unknown>
@@ -21,10 +25,26 @@ interface ButtonBlockProps {
 
 export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps) {
   const buttonContent = content as unknown as ButtonBlockContent
+  const [linksOpen, setLinksOpen] = useState(false)
+  const { data: branding } = useEmailBrandingConfig()
+  const sharedLinks = branding?.config.links ?? []
 
   const insertVariable = (variable: string) => {
     onUpdate({ url: (buttonContent.url || '') + variable })
   }
+
+  /**
+   * Point the button at a shared link. The current destination is kept as
+   * the tag's fallback, so the button still works if the shared link is
+   * ever unavailable at send time — the same belt-and-braces the Calendly
+   * buttons already use.
+   */
+  const useSharedLink = (link: BrandingLink) =>
+    onUpdate({ url: `{{${link.key}|${link.url}}}` })
+
+  // Which shared link, if any, this button currently follows.
+  const activeKey = (buttonContent.url || '').match(/^\{\{(\w+)/)?.[1] ?? null
+  const activeLink = sharedLinks.find((l) => l.key === activeKey) ?? null
 
   return (
     <div
@@ -54,6 +74,15 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
               placeholder="https://example.com"
               className="h-8 text-sm flex-1"
             />
+            <Button
+              variant={activeLink ? 'secondary' : 'outline'}
+              size="sm"
+              className="h-8 shrink-0"
+              onClick={() => setLinksOpen(true)}
+              title="Use a shared link — set once, updates every button that uses it"
+            >
+              <Link2 className="h-3 w-3" />
+            </Button>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8">
@@ -76,6 +105,29 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
               </PopoverContent>
             </Popover>
           </div>
+
+          {activeLink ? (
+            <p className="ml-[5.5rem] flex items-center gap-1.5 text-[11px] text-indigo-600 dark:text-indigo-400">
+              <Link2 className="h-3 w-3 shrink-0" />
+              <span>
+                Follows the shared link <strong>{activeLink.label}</strong> —
+                change it once and every button using it updates.
+              </span>
+            </p>
+          ) : (
+            sharedLinks.length > 0 && (
+              <p className="ml-[5.5rem] text-[11px] text-muted-foreground">
+                This URL applies to this button only. Use a shared link to
+                manage it across every template at once.
+              </p>
+            )
+          )}
+
+          <SharedLinksDialog
+            open={linksOpen}
+            onOpenChange={setLinksOpen}
+            onInsert={useSharedLink}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-2">

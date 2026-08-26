@@ -86,6 +86,27 @@ export interface BrandingHeader {
   linkUrl: string
 }
 
+/**
+ * A link that lives in one place and is used by many buttons.
+ *
+ * Buttons reference it as a merge tag — `{{academy_registration_url|…}}` —
+ * rather than holding a pasted URL, so changing the destination here
+ * updates every button that uses it, across every template. This is the
+ * same mechanism the Calendly buttons already rely on; it just wasn't
+ * available for anything else.
+ *
+ * `key` is the merge-tag name and never changes once created, because
+ * templates reference it. `label` is what a human sees and can be renamed
+ * freely.
+ */
+export interface BrandingLink {
+  key: string
+  label: string
+  url: string
+  /** Set when the link points at an uploaded document rather than a page. */
+  fileName?: string
+}
+
 /** The unsubscribe / legal strip below the body. */
 export interface BrandingLegal {
   companyName: string
@@ -120,6 +141,9 @@ export interface EmailBranding {
 
   legal: BrandingLegal
   showLegal: boolean
+
+  /** Shared links available to any button in any template. */
+  links: BrandingLink[]
 }
 
 /**
@@ -209,6 +233,22 @@ export const DEFAULT_EMAIL_BRANDING: EmailBranding = {
     paddingBottom: 16,
   },
 
+  // Seeded from the URLs already hardcoded into the registration buttons,
+  // so switching a button over to a shared link is a like-for-like change
+  // rather than a re-entry job.
+  links: [
+    {
+      key: 'academy_registration_url',
+      label: 'Academy Registration Form',
+      url: 'https://ifg-crm-cvz9.vercel.app/programmes/macclesfield/apply?programme=training',
+    },
+    {
+      key: 'gap_year_registration_url',
+      label: 'Gap Year Registration Form',
+      url: 'https://ifg-crm-cvz9.vercel.app/programmes/macclesfield/apply?programme=gap-year',
+    },
+  ],
+
   showLegal: true,
   legal: {
     companyName: 'International Football Group',
@@ -291,6 +331,11 @@ export function resolveBranding(stored?: Partial<EmailBranding> | null): EmailBr
 
     showLegal: stored.showLegal ?? d.showLegal,
     legal: { ...d.legal, ...(stored.legal ?? {}) },
+
+    // Replaced wholesale, not merged: an admin deleting a shared link must
+    // actually delete it. Falls back to the seeded defaults only when the
+    // record predates the field entirely.
+    links: Array.isArray(stored.links) ? stored.links : d.links,
   }
 }
 
@@ -308,6 +353,12 @@ export interface EmailBrandingRecord {
     footer: string
     legal: string
   }
+  /**
+   * Shared link values, flattened to { key: url }. Sent alongside the
+   * rendered HTML so the Deno senders can fold them into the merge data
+   * without needing to understand the branding config.
+   */
+  link_values?: Record<string, string>
   rendered_at: string
   /**
    * Bumped whenever `render-branding.ts` changes shape. `npm run
@@ -318,4 +369,4 @@ export interface EmailBrandingRecord {
   renderer_version: number
 }
 
-export const BRANDING_RENDERER_VERSION = 3
+export const BRANDING_RENDERER_VERSION = 4

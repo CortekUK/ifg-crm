@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
 import { sendSMS } from '../_shared/clicksend.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
-import { fetchBrandingSlots, applyBranding } from '../_shared/branding.ts'
+import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
 
 const corsHeaders = {
@@ -735,6 +735,11 @@ async function sendEmail(
     // Apply merge tags to subject and body via the canonical engine —
     // supports {{field}}, {{field|fallback}}, {{#if field}}…{{/if}}, etc.
     const mergeData = params.merge_data ?? {}
+    // Shared links resolve as merge tags, so a registration button follows
+    // the shared link rather than a URL pasted into each template. The
+    // values come from the branding read performed before this batch.
+    Object.assign(mergeData, getBrandingLinks())
+
     const processedSubject = replaceMergeTags(params.subject, mergeData)
     const processedBody = replaceMergeTags(params.html_body, mergeData)
 
