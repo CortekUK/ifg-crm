@@ -150,7 +150,15 @@ Deno.serve(async (req) => {
     // (for display + AI classification) and the In-Reply-To / References
     // headers (for thread stitching). Both come from /emails/receiving/{id}.
     const fetched = await fetchInboundBody(event.data.email_id)
-    const replyText = fetched.text || stripHtml(fetched.html || '')
+    // Fall back to whatever the webhook payload itself carried. The API call
+    // above is the reliable source, but if it fails we previously stored an
+    // empty body — losing the reply text entirely for a message we know
+    // arrived. Anything is better than nothing here.
+    const replyText =
+      fetched.text ||
+      stripHtml(fetched.html || '') ||
+      event.data.text ||
+      stripHtml(event.data.html || '')
     const inReplyTo = fetched.inReplyTo || event.data.in_reply_to || null
     const references = fetched.references || null
     const inboundTo = fetched.to ?? (event.data.to as string[] | undefined) ?? null
