@@ -1,5 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { assignTag, computeApplicationRouting, applyRouting } from './lead-routing'
+import {
+  staffAlertEnabled,
+  sendStaffAlert,
+  ownerEmail,
+  adminEmails,
+} from '@/lib/notifications/staff-email'
 
 /**
  * Shared form-submission processor.
@@ -373,6 +379,26 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
           } else {
             if (!firstDeal) {
               firstDeal = { dealId: newDeal.id, automationId: automation.id, ownerId: assignedOwnerId }
+
+              // Alert the recruiter this lead was just assigned to. Only for
+              // the first deal of a submission: one enquiry can fan out into
+              // several pipelines, and the person who has to act on it does
+              // not need the same lead three times.
+              //
+              // Sits here rather than on the contacts insert trigger because
+              // this is where a lead genuinely arrives — the CSV import of
+              // 105k historic contacts never reaches this path, so it cannot
+              // turn into 105k emails.
+              void notifyNewLead(supabase, {
+                dealId: newDeal.id,
+                ownerId: assignedOwnerId,
+                firstName: contact.first_name,
+                lastName: contact.last_name,
+                email: contact.email,
+                phone: contact.phone,
+                programme: automation.name ?? null,
+                source: `${formSource}:${formName}`,
+              })
             }
             const firstStep = automation.steps?.slice().sort((a, b) => a.step_order - b.step_order)?.[0]
             if (firstStep) {
@@ -438,5 +464,55 @@ async function safeLogFailure(
     })
   } catch (err) {
     console.error('Failed to log failed form submission:', err)
+  }
+}
+
+/**
+ * Email the recruiter a lead has just been assigned to.
+ *
+ * Fire-and-forget: awaited nowhere, and swallows its own errors, so a slow
+ * or failing mail provider can never delay or fail a form submission. The
+ * lead is already saved by the time this runs.
+ */
+async function notifyNewLead(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  lead: {
+    dealId: string
+    ownerId: string | null
+    firstName?: string | null
+    lastName?: string | null
+    email?: string | null
+    phone?: string | null
+    programme?: string | null
+    source?: string | null
+  },
+): Promise<void> {
+  try {
+    if (!(await staffAlertEnabled(supabase, 'newLead'))) return
+
+    // The assigned recruiter is the person who has to act. With no owner
+    // nobody is on the hook, so it goes to the admins instead of nowhere.
+    const owner = await ownerEmail(supabase, lead.ownerId)
+    const to = owner ? [owner] : await adminEmails(supabase)
+    if (to.length === 0) return
+
+    const name = `${lead.firstName ?? ''} ${lead.lastName ?? ''}`.trim() || 'A new lead'
+
+    await sendStaffAlert({
+      to,
+      subject: `New lead: ${name}`,
+      heading: `New lead — ${name}`,
+      details: [
+        { label: 'Email', value: lead.email },
+        { label: 'Phone', value: lead.phone },
+        { label: 'Programme', value: lead.programme },
+        { label: 'Source', value: lead.source },
+      ],
+      ctaLabel: 'Open the deal',
+      ctaPath: '/pipelines',
+    })
+  } catch (err) {
+    console.error('New-lead alert failed (submission unaffected):', err)
   }
 }

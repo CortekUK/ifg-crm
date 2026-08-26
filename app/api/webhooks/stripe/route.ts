@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import {
+  staffAlertEnabled,
+  sendStaffAlert,
+  ownerEmail,
+} from '@/lib/notifications/staff-email'
 
 export async function POST(request: NextRequest) {
   const payload = await request.text()
@@ -148,6 +153,42 @@ export async function POST(request: NextRequest) {
           href: '/invoices',
         }))
         await supabase.from('notifications').insert(notifications)
+
+        // ---- EMAIL ALERT ----
+        // Money arriving is org-wide news, so this goes to the admins who
+        // already get the in-app notification, plus the recruiter who owns
+        // the player. sendStaffAlert deduplicates, so an admin who is also
+        // the deal owner gets one email rather than two.
+        if (await staffAlertEnabled(supabase, 'paymentReceived')) {
+          const recipients = adminUsers.map((a) => a.email as string).filter(Boolean)
+
+          if (contactId) {
+            const { data: ownedDeal } = await supabase
+              .from('deals')
+              .select('deal_owner_id')
+              .eq('contact_id', contactId)
+              .eq('status', 'active')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            const owner = await ownerEmail(supabase, ownedDeal?.deal_owner_id ?? null)
+            if (owner) recipients.push(owner)
+          }
+
+          await sendStaffAlert({
+            to: recipients,
+            subject: `Payment received — ${formattedAmount} from ${contactName || 'a player'}`,
+            heading: `Payment received — ${formattedAmount}`,
+            details: [
+              { label: 'From', value: contactName || 'A player' },
+              { label: 'Invoice', value: invoice.invoice_number },
+              { label: 'Amount', value: formattedAmount },
+            ],
+            ctaLabel: 'View the invoice',
+            ctaPath: '/invoices',
+          })
+        }
       }
 
       // Notify the player
