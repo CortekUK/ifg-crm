@@ -31,6 +31,8 @@ interface Campaign {
   email_template_id: string | null
   sms_content: string | null
   recipient_list_ids: string[] | null
+  recipient_tag_ids: string[] | null
+  recipient_stage_ids: string[] | null
   from_user_id: string | null
   created_by_id: string | null
   total_recipients: number
@@ -587,83 +589,40 @@ async function updateCampaignProgress(
   }
 }
 
+// Materialise the campaign's audience into campaign_recipients.
+//
+// This used to select every contact_lists row and de-duplicate in JS. Two
+// problems: it only ever looked at recipient_list_ids (tag- and stage-based
+// audiences were silently empty), and an unbounded PostgREST select returns at
+// most 1,000 rows — contact_lists holds 303,710 — so a campaign to the 105k
+// list expanded to exactly 1,000 people and reported success.
+//
+// expand_campaign_recipients does the union, de-duplication, subscription
+// filter and insert in one statement, and is idempotent on re-run.
 async function expandRecipients(
   supabase: ReturnType<typeof createClient>,
   campaign: Campaign
 ): Promise<number> {
-  const listIds = campaign.recipient_list_ids || []
+  const hasAudience =
+    (campaign.recipient_list_ids?.length ?? 0) > 0 ||
+    (campaign.recipient_tag_ids?.length ?? 0) > 0 ||
+    (campaign.recipient_stage_ids?.length ?? 0) > 0
 
-  if (listIds.length === 0) {
+  if (!hasAudience) {
     return 0
   }
 
-  // Get unique contacts from all lists
-  const { data: contactLists, error } = await supabase
-    .from('contact_lists')
-    .select('contact_id')
-    .in('list_id', listIds)
+  const { data, error } = await supabase.rpc('expand_campaign_recipients', {
+    p_campaign_id: campaign.id,
+  })
 
   if (error) {
-    throw new Error(`Failed to fetch contacts from lists: ${error.message}`)
+    throw new Error(`Failed to expand campaign recipients: ${error.message}`)
   }
 
-  if (!contactLists || contactLists.length === 0) {
-    return 0
-  }
-
-  // Deduplicate contact IDs
-  const uniqueContactIds = [...new Set(contactLists.map(cl => cl.contact_id))]
-
-  // Filter out unsubscribed/bounced contacts
-  // For SMS campaigns, also require sms_subscribed = true
-  let contactQuery = supabase
-    .from('contacts')
-    .select('id')
-    .in('id', uniqueContactIds)
-    .eq('subscription_status', 'subscribed')
-
-  if (campaign.type === 'sms') {
-    contactQuery = contactQuery.eq('sms_subscribed', true)
-  }
-
-  const { data: subscribedContacts, error: subError } = await contactQuery
-
-  if (subError) {
-    throw new Error(`Failed to filter unsubscribed contacts: ${subError.message}`)
-  }
-
-  const subscribedIds = (subscribedContacts || []).map(c => c.id)
-  const filteredOut = uniqueContactIds.length - subscribedIds.length
-  if (filteredOut > 0) {
-    console.log(`Filtered out ${filteredOut} unsubscribed/bounced contacts`)
-  }
-
-  console.log(`Expanding ${subscribedIds.length} subscribed recipients from ${listIds.length} lists`)
-
-  // Insert recipients in batches (Supabase has limits on insert size)
-  const insertBatchSize = 100
-  for (let i = 0; i < subscribedIds.length; i += insertBatchSize) {
-    const batch = subscribedIds.slice(i, i + insertBatchSize)
-    const recipients = batch.map(contactId => ({
-      campaign_id: campaign.id,
-      contact_id: contactId,
-      status: 'pending',
-    }))
-
-    const { error: insertError } = await supabase
-      .from('campaign_recipients')
-      .upsert(recipients, {
-        onConflict: 'campaign_id,contact_id',
-        ignoreDuplicates: true
-      })
-
-    if (insertError) {
-      console.error('Failed to insert recipients batch:', insertError)
-      // Continue with other batches
-    }
-  }
-
-  return subscribedIds.length
+  const total = Number(data ?? 0)
+  console.log(`Expanded ${total} subscribed recipients for campaign ${campaign.id}`)
+  return total
 }
 
 // Shape returned from the campaign sender profile lookup. Kept loose because

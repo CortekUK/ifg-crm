@@ -2,6 +2,91 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Campaign, CampaignFilters, CreateCampaignInput, UpdateCampaignInput } from '@/lib/types/campaigns'
 
+/**
+ * Resolve a campaign's audience ids into display rows.
+ *
+ * Counts come from the aggregate RPCs, not from selecting join rows: both
+ * contact_lists (303k rows) and contact_tags (352k rows) exceed PostgREST's
+ * 1,000-row response cap, which is why list counts here previously flattened
+ * out and tag counts showed as zero.
+ */
+async function hydrateAudience(
+  supabase: ReturnType<typeof createClient>,
+  listIds: string[],
+  tagIds: string[],
+  stageIds: string[]
+) {
+  const [listRes, tagRes, stageRes, listCounts, tagCounts, stageDeals] = await Promise.all([
+    listIds.length
+      ? supabase.from('lists').select('id, name').in('id', listIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    tagIds.length
+      ? supabase.from('tags').select('id, name, color').in('id', tagIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; color: string | null }[] }),
+    stageIds.length
+      ? supabase
+          .from('pipeline_stages')
+          .select('id, name, color, pipeline:pipelines(name)')
+          .in('id', stageIds)
+      : Promise.resolve({ data: [] as never[] }),
+    listIds.length ? supabase.rpc('get_list_contact_counts') : Promise.resolve({ data: null }),
+    tagIds.length ? supabase.rpc('get_tag_contact_counts') : Promise.resolve({ data: null }),
+    // Safe to count client-side: deals is a small table, unlike the contact
+    // join tables above.
+    stageIds.length
+      ? supabase
+          .from('deals')
+          .select('current_stage_id')
+          .in('current_stage_id', stageIds)
+          .is('won_at', null)
+          .is('lost_at', null)
+      : Promise.resolve({ data: null }),
+  ])
+
+  const listCountMap = new Map<string, number>()
+  ;(listCounts.data as { list_id: string; contact_count: number }[] | null)?.forEach((c) =>
+    listCountMap.set(c.list_id, Number(c.contact_count))
+  )
+
+  const tagCountMap = new Map<string, number>()
+  ;(tagCounts.data as { tag_id: string; contact_count: number }[] | null)?.forEach((c) =>
+    tagCountMap.set(c.tag_id, Number(c.contact_count))
+  )
+
+  const stageCountMap = new Map<string, number>()
+  ;(stageDeals.data as { current_stage_id: string }[] | null)?.forEach((d) =>
+    stageCountMap.set(d.current_stage_id, (stageCountMap.get(d.current_stage_id) || 0) + 1)
+  )
+
+  return {
+    recipient_lists: (listRes.data || []).map((l) => ({
+      id: l.id,
+      name: l.name,
+      contact_count: listCountMap.get(l.id) || 0,
+    })),
+    recipient_tags: (tagRes.data || []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      color: t.color ?? null,
+      contact_count: tagCountMap.get(t.id) || 0,
+    })),
+    recipient_stages: (
+      (stageRes.data || []) as unknown as {
+        id: string
+        name: string
+        color: string | null
+        pipeline: { name: string } | { name: string }[] | null
+      }[]
+    ).map((s) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color,
+      pipeline_name: Array.isArray(s.pipeline) ? s.pipeline[0]?.name : s.pipeline?.name,
+      deal_count: stageCountMap.get(s.id) || 0,
+    })),
+  }
+}
+
 export function useCampaigns(filters?: CampaignFilters) {
   const supabase = createClient()
 
@@ -48,54 +133,40 @@ export function useCampaigns(filters?: CampaignFilters) {
       if (error) throw error
       if (!campaigns || campaigns.length === 0) return []
 
-      // Fetch list info for campaigns that have recipient_list_ids
-      const allListIds = new Set<string>()
+      // Resolve every audience id referenced across the whole page in one
+      // round trip, then attach the rows back onto each campaign.
+      const listIds = new Set<string>()
+      const tagIds = new Set<string>()
+      const stageIds = new Set<string>()
       campaigns.forEach((c) => {
-        if (c.recipient_list_ids && Array.isArray(c.recipient_list_ids)) {
-          c.recipient_list_ids.forEach((id: string) => allListIds.add(id))
-        }
+        ;(c.recipient_list_ids || []).forEach((id: string) => listIds.add(id))
+        ;(c.recipient_tag_ids || []).forEach((id: string) => tagIds.add(id))
+        ;(c.recipient_stage_ids || []).forEach((id: string) => stageIds.add(id))
       })
 
-      let listsMap = new Map<string, { id: string; name: string; contact_count: number }>()
-      
-      if (allListIds.size > 0) {
-        const [{ data: lists }, { data: contactCounts }] = await Promise.all([
-          supabase
-            .from('lists')
-            .select('id, name')
-            .in('id', Array.from(allListIds)),
-          supabase
-            .from('contact_lists')
-            .select('list_id')
-            .in('list_id', Array.from(allListIds)),
-        ])
+      const audience = await hydrateAudience(
+        supabase,
+        Array.from(listIds),
+        Array.from(tagIds),
+        Array.from(stageIds)
+      )
 
-        const countMap = new Map<string, number>()
-        contactCounts?.forEach((c) => {
-          countMap.set(c.list_id, (countMap.get(c.list_id) || 0) + 1)
-        })
+      const listsMap = new Map(audience.recipient_lists.map((l) => [l.id, l]))
+      const tagsMap = new Map(audience.recipient_tags.map((t) => [t.id, t]))
+      const stagesMap = new Map(audience.recipient_stages.map((st) => [st.id, st]))
 
-        lists?.forEach((list) => {
-          listsMap.set(list.id, {
-            id: list.id,
-            name: list.name,
-            contact_count: countMap.get(list.id) || 0,
-          })
-        })
-      }
-
-      // Enrich campaigns with list info
-      return campaigns.map((campaign) => {
-        const listIds = campaign.recipient_list_ids || []
-        const recipientLists = listIds
+      return campaigns.map((campaign) => ({
+        ...campaign,
+        recipient_lists: (campaign.recipient_list_ids || [])
           .map((id: string) => listsMap.get(id))
-          .filter(Boolean)
-
-        return {
-          ...campaign,
-          recipient_lists: recipientLists,
-        }
-      })
+          .filter(Boolean),
+        recipient_tags: (campaign.recipient_tag_ids || [])
+          .map((id: string) => tagsMap.get(id))
+          .filter(Boolean),
+        recipient_stages: (campaign.recipient_stage_ids || [])
+          .map((id: string) => stagesMap.get(id))
+          .filter(Boolean),
+      }))
     },
   })
 }
@@ -128,37 +199,16 @@ export function useCampaign(campaignId: string | null) {
       if (error) throw error
       if (!campaign) return null
 
-      // Fetch list info
-      const listIds = campaign.recipient_list_ids || []
-      let recipientLists: { id: string; name: string; contact_count: number }[] = []
-
-      if (listIds.length > 0) {
-        const [{ data: lists }, { data: contactCounts }] = await Promise.all([
-          supabase
-            .from('lists')
-            .select('id, name')
-            .in('id', listIds),
-          supabase
-            .from('contact_lists')
-            .select('list_id')
-            .in('list_id', listIds),
-        ])
-
-        const countMap = new Map<string, number>()
-        contactCounts?.forEach((c) => {
-          countMap.set(c.list_id, (countMap.get(c.list_id) || 0) + 1)
-        })
-
-        recipientLists = (lists || []).map((list) => ({
-          id: list.id,
-          name: list.name,
-          contact_count: countMap.get(list.id) || 0,
-        }))
-      }
+      const audience = await hydrateAudience(
+        supabase,
+        campaign.recipient_list_ids || [],
+        campaign.recipient_tag_ids || [],
+        campaign.recipient_stage_ids || []
+      )
 
       return {
         ...campaign,
-        recipient_lists: recipientLists,
+        ...audience,
       }
     },
     enabled: !!campaignId,
@@ -190,6 +240,8 @@ export function useCreateCampaign() {
           created_by_id: campaign.created_by_id,
           scheduled_at: campaign.scheduled_at || null,
           recipient_list_ids: campaign.recipient_list_ids || [],
+          recipient_tag_ids: campaign.recipient_tag_ids || [],
+          recipient_stage_ids: campaign.recipient_stage_ids || [],
           pipeline_id: campaign.pipeline_id || null,
         })
         .select()
@@ -227,6 +279,8 @@ export function useUpdateCampaign() {
       if (input.sms_content !== undefined) updates.sms_content = input.sms_content
       if (input.scheduled_at !== undefined) updates.scheduled_at = input.scheduled_at
       if (input.recipient_list_ids !== undefined) updates.recipient_list_ids = input.recipient_list_ids
+      if (input.recipient_tag_ids !== undefined) updates.recipient_tag_ids = input.recipient_tag_ids
+      if (input.recipient_stage_ids !== undefined) updates.recipient_stage_ids = input.recipient_stage_ids
       if (input.pipeline_id !== undefined) updates.pipeline_id = input.pipeline_id
 
       const { data, error } = await supabase
@@ -300,6 +354,8 @@ export function useDuplicateCampaign() {
           from_user_id: original.from_user_id,
           created_by_id: original.created_by_id,
           recipient_list_ids: original.recipient_list_ids,
+          recipient_tag_ids: original.recipient_tag_ids,
+          recipient_stage_ids: original.recipient_stage_ids,
           pipeline_id: original.pipeline_id,
         })
         .select()
@@ -430,7 +486,7 @@ export function useCampaignRecipients(campaignId: string | null, isSending?: boo
 
       // Fetch contact info for recipients
       const contactIds = [...new Set(sends.map(s => s.recipient_contact_id).filter(Boolean))]
-      let contactsMap = new Map<string, { id: string; first_name: string; last_name: string; email: string }>()
+      const contactsMap = new Map<string, { id: string; first_name: string; last_name: string; email: string }>()
 
       if (contactIds.length > 0) {
         const { data: contacts } = await supabase
@@ -453,35 +509,31 @@ export function useCampaignRecipients(campaignId: string | null, isSending?: boo
   })
 }
 
-export function useCalculateRecipients(listIds: string[]) {
+// Audience size for a saved campaign, across all three sources. Uses the same
+// SQL the sender does — the previous client-side count was capped at 1,000 by
+// PostgREST and under-reported every real audience.
+export function useCalculateRecipients(
+  listIds: string[],
+  tagIds: string[] = [],
+  stageIds: string[] = []
+) {
   const supabase = createClient()
 
-  return useQuery<{ count: number; hasDuplicates: boolean }>({
-    queryKey: ['calculate-recipients', listIds],
+  return useQuery<{ count: number }>({
+    queryKey: ['campaign-audience-count', listIds, tagIds, stageIds],
     queryFn: async () => {
-      if (listIds.length === 0) {
-        return { count: 0, hasDuplicates: false }
-      }
-
-      // Get all contact_ids from selected lists
-      const { data, error } = await supabase
-        .from('contact_lists')
-        .select('contact_id')
-        .in('list_id', listIds)
+      const { data, error } = await supabase.rpc('campaign_audience_count', {
+        p_list_ids: listIds,
+        p_tag_ids: tagIds,
+        p_stage_ids: stageIds,
+        p_type: 'email',
+      })
 
       if (error) throw error
-
-      // Count unique contacts
-      const allContacts = data?.map((c) => c.contact_id) || []
-      const uniqueContacts = new Set(allContacts)
-      const hasDuplicates = uniqueContacts.size < allContacts.length
-
-      return {
-        count: uniqueContacts.size,
-        hasDuplicates,
-      }
+      return { count: Number(data ?? 0) }
     },
-    enabled: listIds.length > 0,
+    enabled: listIds.length > 0 || tagIds.length > 0 || stageIds.length > 0,
+    staleTime: 30_000,
   })
 }
 
@@ -526,11 +578,17 @@ export function useEmailTemplates() {
       const { data, error } = await supabase
         .from('email_templates')
         .select('*')
-        .eq('category', 'campaign')
+        .neq('is_draft', true)
         .order('name')
 
       if (error) throw error
-      return data || []
+
+      // Campaign-category templates first, then the rest alphabetically —
+      // the picker groups on this order.
+      return (data || []).sort((a, b) => {
+        const rank = (c: string) => (c === 'campaign' ? 0 : c === 'automation' ? 1 : 2)
+        return rank(a.category) - rank(b.category) || a.name.localeCompare(b.name)
+      })
     },
   })
 }

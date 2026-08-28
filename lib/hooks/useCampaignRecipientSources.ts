@@ -1,12 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-// Hook to fetch all tags for recipient selection
+// Tags for recipient selection, with a contact count against each.
+//
+// The key must stay distinct from the bare ['tags'] used by useTags(),
+// ContactFilters and CreateContactModal. Those three return plain tag rows
+// with no contact_count, and React Query dedupes by key — so whichever
+// mounted first won, and this picker rendered their countless rows as "0".
 export function useTags() {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['tags'],
+    queryKey: ['tags', 'with-contact-counts'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tags')
@@ -15,17 +20,16 @@ export function useTags() {
 
       if (error) throw error
 
-      const tagIds = data?.map((t) => t.id) || []
-      if (tagIds.length === 0) return []
+      if (!data || data.length === 0) return []
 
-      const { data: counts } = await supabase
-        .from('contact_tags')
-        .select('tag_id')
-        .in('tag_id', tagIds)
+      // Counted via RPC, not client-side: contact_tags holds 352k rows and a
+      // plain select is capped at 1,000, which made almost every tag read
+      // "0 contacts" in the picker.
+      const { data: counts } = await supabase.rpc('get_tag_contact_counts')
 
       const countMap = new Map<string, number>()
-      counts?.forEach((c) => {
-        countMap.set(c.tag_id, (countMap.get(c.tag_id) || 0) + 1)
+      counts?.forEach((c: { tag_id: string; contact_count: number }) => {
+        countMap.set(c.tag_id, Number(c.contact_count))
       })
 
       return (data || []).map((tag) => ({
@@ -115,78 +119,14 @@ export function useAllPipelineStages() {
   })
 }
 
-// Calculate recipients from tags
-export function useCalculateRecipientsFromTags(tagIds: string[]) {
-  const supabase = createClient()
-
-  return useQuery<{ count: number; contactIds: string[]; hasDuplicates: boolean }>({
-    queryKey: ['calculate-recipients-tags', tagIds],
-    queryFn: async () => {
-      if (tagIds.length === 0) {
-        return { count: 0, contactIds: [], hasDuplicates: false }
-      }
-
-      // Get all contact_ids from selected tags
-      const { data, error } = await supabase
-        .from('contact_tags')
-        .select('contact_id')
-        .in('tag_id', tagIds)
-
-      if (error) throw error
-
-      // Get unique contacts
-      const allContacts = data?.map((c) => c.contact_id) || []
-      const uniqueContacts = [...new Set(allContacts)]
-      const hasDuplicates = uniqueContacts.length < allContacts.length
-
-      return {
-        count: uniqueContacts.length,
-        contactIds: uniqueContacts,
-        hasDuplicates,
-      }
-    },
-    enabled: tagIds.length > 0,
-  })
-}
-
-// Calculate recipients from pipeline stages
-export function useCalculateRecipientsFromStages(stageIds: string[]) {
-  const supabase = createClient()
-
-  return useQuery<{ count: number; contactIds: string[]; hasDuplicates: boolean }>({
-    queryKey: ['calculate-recipients-stages', stageIds],
-    queryFn: async () => {
-      if (stageIds.length === 0) {
-        return { count: 0, contactIds: [], hasDuplicates: false }
-      }
-
-      // Get all contact_ids from deals in selected stages (active deals only)
-      const { data, error } = await supabase
-        .from('deals')
-        .select('contact_id')
-        .in('current_stage_id', stageIds)
-        .is('won_at', null)
-        .is('lost_at', null)
-        .not('contact_id', 'is', null)
-
-      if (error) throw error
-
-      // Get unique contacts
-      const allContacts = data?.map((d) => d.contact_id).filter(Boolean) as string[] || []
-      const uniqueContacts = [...new Set(allContacts)]
-      const hasDuplicates = uniqueContacts.length < allContacts.length
-
-      return {
-        count: uniqueContacts.length,
-        contactIds: uniqueContacts,
-        hasDuplicates,
-      }
-    },
-    enabled: stageIds.length > 0,
-  })
-}
-
-// Combined recipient calculation from multiple sources
+// Combined recipient calculation from multiple sources.
+//
+// Runs entirely in SQL. The previous version selected every contact_lists /
+// contact_tags / deals join row and de-duplicated in JavaScript, which
+// PostgREST silently truncated at 1,000 rows — so a campaign aimed at the
+// 105k "ALL CONTACTS EVERYONE" list reported "1,000 recipients". The RPC
+// applies the same subscription filter the sender does, so this number is
+// what will actually be emailed.
 export function useCalculateCombinedRecipients(
   listIds: string[],
   tagIds: string[],
@@ -194,55 +134,22 @@ export function useCalculateCombinedRecipients(
 ) {
   const supabase = createClient()
 
-  return useQuery<{ count: number; hasDuplicates: boolean }>({
-    queryKey: ['calculate-combined-recipients', listIds, tagIds, stageIds],
+  return useQuery<{ count: number }>({
+    queryKey: ['campaign-audience-count', listIds, tagIds, stageIds],
     queryFn: async () => {
-      const allContactIds: string[] = []
+      const { data, error } = await supabase.rpc('campaign_audience_count', {
+        p_list_ids: listIds,
+        p_tag_ids: tagIds,
+        p_stage_ids: stageIds,
+        p_type: 'email',
+      })
 
-      // Get contacts from lists
-      if (listIds.length > 0) {
-        const { data } = await supabase
-          .from('contact_lists')
-          .select('contact_id')
-          .in('list_id', listIds)
-
-        data?.forEach((c) => allContactIds.push(c.contact_id))
-      }
-
-      // Get contacts from tags
-      if (tagIds.length > 0) {
-        const { data } = await supabase
-          .from('contact_tags')
-          .select('contact_id')
-          .in('tag_id', tagIds)
-
-        data?.forEach((c) => allContactIds.push(c.contact_id))
-      }
-
-      // Get contacts from stages
-      if (stageIds.length > 0) {
-        const { data } = await supabase
-          .from('deals')
-          .select('contact_id')
-          .in('current_stage_id', stageIds)
-          .is('won_at', null)
-          .is('lost_at', null)
-          .not('contact_id', 'is', null)
-
-        data?.forEach((d) => {
-          if (d.contact_id) allContactIds.push(d.contact_id)
-        })
-      }
-
-      // Get unique contacts
-      const uniqueContacts = new Set(allContactIds)
-      const hasDuplicates = uniqueContacts.size < allContactIds.length
-
-      return {
-        count: uniqueContacts.size,
-        hasDuplicates,
-      }
+      if (error) throw error
+      return { count: Number(data ?? 0) }
     },
     enabled: listIds.length > 0 || tagIds.length > 0 || stageIds.length > 0,
+    // The largest audience takes ~600ms server-side; don't re-run it on every
+    // window focus while the composer is open.
+    staleTime: 30_000,
   })
 }

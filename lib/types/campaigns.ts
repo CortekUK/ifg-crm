@@ -38,6 +38,8 @@ export interface Campaign {
   created_at: string
   updated_at: string
   recipient_list_ids: string[] | null
+  recipient_tag_ids: string[] | null
+  recipient_stage_ids: string[] | null
   // Pipeline link (null = generic campaign, set = programme-specific)
   pipeline_id: string | null
   // Progress tracking fields
@@ -61,6 +63,19 @@ export interface Campaign {
     id: string
     name: string
     contact_count?: number
+  }[]
+  recipient_tags?: {
+    id: string
+    name: string
+    color: string | null
+    contact_count?: number
+  }[]
+  recipient_stages?: {
+    id: string
+    name: string
+    color: string | null
+    pipeline_name?: string
+    deal_count?: number
   }[]
   // Pipeline join data
   pipeline?: {
@@ -101,6 +116,8 @@ export interface CreateCampaignInput {
   created_by_id: string
   scheduled_at?: string
   recipient_list_ids?: string[]
+  recipient_tag_ids?: string[]
+  recipient_stage_ids?: string[]
   // Pipeline link (null = generic campaign)
   pipeline_id?: string | null
 }
@@ -123,6 +140,8 @@ export interface UpdateCampaignInput {
   // Common fields
   scheduled_at?: string | null
   recipient_list_ids?: string[]
+  recipient_tag_ids?: string[]
+  recipient_stage_ids?: string[]
   // Pipeline link (null = generic campaign)
   pipeline_id?: string | null
 }

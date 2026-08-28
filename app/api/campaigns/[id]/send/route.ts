@@ -37,7 +37,7 @@ export async function POST(
     // Fetch the campaign
     const { data: campaign, error: fetchError } = await supabase
       .from('campaigns')
-      .select('id, name, status, type, recipient_list_ids')
+      .select('id, name, status, type, recipient_list_ids, recipient_tag_ids, recipient_stage_ids')
       .eq('id', campaignId)
       .single()
 
@@ -63,26 +63,40 @@ export async function POST(
       )
     }
 
-    // Count recipients
+    // Count recipients across all three sources, in SQL. Counting client-side
+    // here capped at 1,000 (PostgREST's default) and also ignored tag and
+    // stage audiences entirely.
     const listIds = campaign.recipient_list_ids || []
-    let recipientCount = 0
+    const tagIds = campaign.recipient_tag_ids || []
+    const stageIds = campaign.recipient_stage_ids || []
 
-    if (listIds.length > 0) {
-      const { data: contacts } = await supabase
-        .from('contact_lists')
-        .select('contact_id')
-        .in('list_id', listIds)
-
-      if (contacts) {
-        // Count unique contacts
-        const uniqueContacts = new Set(contacts.map(c => c.contact_id))
-        recipientCount = uniqueContacts.size
+    const { data: audienceCount, error: countError } = await supabase.rpc(
+      'campaign_audience_count',
+      {
+        p_list_ids: listIds,
+        p_tag_ids: tagIds,
+        p_stage_ids: stageIds,
+        p_type: campaign.type,
       }
+    )
+
+    if (countError) {
+      console.error('Failed to count campaign audience:', countError)
+      return NextResponse.json(
+        { error: 'Could not work out who this campaign goes to' },
+        { status: 500 }
+      )
     }
+
+    const recipientCount = Number(audienceCount ?? 0)
 
     if (recipientCount === 0) {
       return NextResponse.json(
-        { error: 'Campaign has no recipients - add at least one list' },
+        {
+          error:
+            'Campaign has no recipients — add at least one list, tag or pipeline stage, ' +
+            'and check the contacts in it are still subscribed.',
+        },
         { status: 400 }
       )
     }

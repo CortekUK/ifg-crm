@@ -33,23 +33,6 @@ export function CampaignFilters({ filters, onFiltersChange }: CampaignFiltersPro
         />
       </div>
 
-      {/* Type Filter */}
-      <Select
-        value={filters.type || 'all'}
-        onValueChange={(value) =>
-          onFiltersChange({ ...filters, type: value as CampaignFiltersType['type'] })
-        }
-      >
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="All Types" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
-          <SelectItem value="email">Email</SelectItem>
-          <SelectItem value="sms">SMS</SelectItem>
-        </SelectContent>
-      </Select>
-
       {/* Status Filter */}
       <Select
         value={filters.status || 'all'}

@@ -1,5 +1,19 @@
 'use client'
 
+// Campaign composer.
+//
+// A campaign is "this saved template, to this audience, now or later". Anything
+// that isn't one of those four decisions has been removed:
+//
+//   * SMS — there is no SMS provider wired up, so offering the choice only
+//     produced campaigns that could never send.
+//   * Subject line and preview text — process-campaigns overwrites the subject
+//     with the template's own (`template.subject || campaign.subject`), and
+//     preview_text was stored but never put into the outgoing email. Both
+//     fields looked authoritative and were not.
+//   * Compose-from-scratch — templates already carry the branding, merge tags
+//     and shared links; an ad-hoc textarea body bypassed all of it.
+
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Sheet,
@@ -19,7 +33,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -33,32 +46,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TemplateSearchSelect } from '@/components/ui/template-search-select'
+import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal'
+import { AudienceSelect, type AudienceOption } from '@/components/campaigns/AudienceSelect'
 import {
-  Mail,
-  MessageSquare,
   CalendarIcon,
   Loader2,
-  X,
   Users,
-  Search,
-  ChevronDown,
   AlertTriangle,
   Eye,
-  Type,
   Info,
   Tag,
-  GitBranch,
   Layers,
+  ListChecks,
+  Send,
+  Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatDate, formatNumber } from '@/lib/utils/format'
+import { formatDateLong, formatNumber } from '@/lib/utils/format'
 import { useQuery } from '@tanstack/react-query'
 import {
   useCreateCampaign,
@@ -76,8 +83,7 @@ import {
 } from '@/lib/hooks/useCampaignRecipientSources'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Campaign, CreateCampaignInput } from '@/lib/types/campaigns'
-import type { WebsiteBrochure } from '@/lib/types/website-content'
-import { BrochureInsertPopover, brochureButtonHtml } from '@/components/campaigns/BrochureInsertPopover'
+import type { Template } from '@/lib/types/templates'
 
 interface CreateCampaignModalProps {
   isOpen: boolean
@@ -86,22 +92,23 @@ interface CreateCampaignModalProps {
   editCampaign?: Campaign | null
 }
 
-const SMS_MAX_CHARS = 480
+// Players have profiles too (the player portal signs them in), so an
+// unfiltered profiles query put prospects in the "Send as" list.
+const STAFF_ROLES = ['super_admin', 'admin', 'recruiter']
 
-const EMAIL_MERGE_TAGS = [
-  { tag: '{{first_name}}', label: 'First Name' },
-  { tag: '{{last_name}}', label: 'Last Name' },
-  { tag: '{{email}}', label: 'Email' },
-  { tag: '{{programme}}', label: 'Programme' },
-  { tag: '{{calendly_link}}', label: 'Calendly Link' },
-]
+interface StaffMember {
+  id: string
+  full_name: string | null
+  email: string
+  role: string
+}
 
-const SMS_MERGE_TAGS = [
-  { tag: '{{first_name}}', label: 'First Name' },
-  { tag: '{{last_name}}', label: 'Last Name' },
-  { tag: '{{programme}}', label: 'Programme' },
-  { tag: '{{calendly_link}}', label: 'Calendly' },
-]
+/** Midnight today — the date picker must allow scheduling later *today*. */
+function startOfToday(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
 
 export function CreateCampaignModal({
   isOpen,
@@ -109,55 +116,28 @@ export function CreateCampaignModal({
   userId,
   editCampaign,
 }: CreateCampaignModalProps) {
-  // Form state
   const [name, setName] = useState('')
-  const [type, setType] = useState<'email' | 'sms'>('email')
-  const [selectedLists, setSelectedLists] = useState<string[]>([])
-  const [listSearchQuery, setListSearchQuery] = useState('')
-  const [isListDropdownOpen, setIsListDropdownOpen] = useState(false)
-
-  // Tag-based recipient selection
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [tagSearchQuery, setTagSearchQuery] = useState('')
-  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
-
-  // Pipeline stage recipient selection
-  const [selectedStages, setSelectedStages] = useState<string[]>([])
-  const [stagePipelineId, setStagePipelineId] = useState<string | null>(null)
-  const [isStageDropdownOpen, setIsStageDropdownOpen] = useState(false)
-
-  // Email fields
-  const [emailSubject, setEmailSubject] = useState('')
-  const [previewText, setPreviewText] = useState('')
-  const [templateId, setTemplateId] = useState<string>('')
-  const [emailContentMode, setEmailContentMode] = useState<'template' | 'compose'>('template')
-  const [emailBodyText, setEmailBodyText] = useState('')
-  const [emailBodyHtml, setEmailBodyHtml] = useState('')
-  // Brochures attached during this compose/edit session (recorded once a campaign id exists)
-  const [attachedBrochureIds, setAttachedBrochureIds] = useState<string[]>([])
-
-  // SMS fields
-  const [smsContent, setSmsContent] = useState('')
-
-  // Send As (recruiter selection)
   const [sendAsUserId, setSendAsUserId] = useState<string>(userId)
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
 
-  // Scheduling
+  const [selectedLists, setSelectedLists] = useState<string[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [selectedStages, setSelectedStages] = useState<string[]>([])
+
+  const [templateId, setTemplateId] = useState<string>('')
+
   const [isScheduled, setIsScheduled] = useState(false)
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>()
   const [scheduledTime, setScheduledTime] = useState('09:00')
+  // Wall-clock reading taken when the user last touched the schedule controls.
+  // Render must stay pure, so the "that time has passed" hint compares against
+  // this rather than calling Date.now() inline; handleSubmit re-checks live.
+  const [scheduleCheckedAt, setScheduleCheckedAt] = useState(0)
 
-  // Preview modal
   const [showPreview, setShowPreview] = useState(false)
-
-  // Send confirmation dialog
   const [showSendConfirmation, setShowSendConfirmation] = useState(false)
 
-  // Campaign mode (generic vs programme-specific)
-  const [campaignMode, setCampaignMode] = useState<'generic' | 'programme'>('generic')
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
-
-  // Track which campaign the form was initialized for to prevent re-initialization
+  // Guards against re-initialising the form while the user is typing in it.
   const initializedForRef = useRef<string | null>(null)
 
   const { data: lists = [] } = useCampaignLists()
@@ -165,20 +145,18 @@ export function CreateCampaignModal({
   const { data: templates = [] } = useEmailTemplates()
   const { data: tags = [] } = useTags()
   const { data: allStages = [] } = useAllPipelineStages()
-  const { data: recipientData, isLoading: recipientCountLoading } = useCalculateCombinedRecipients(
-    selectedLists,
-    selectedTags,
-    selectedStages
-  )
-  // Fetch active team members for "Send As" dropdown
-  const { data: teamMembers = [] } = useQuery<{ id: string; full_name: string | null; email: string }[]>({
-    queryKey: ['team-members-active'],
+  const { data: recipientData, isLoading: recipientCountLoading } =
+    useCalculateCombinedRecipients(selectedLists, selectedTags, selectedStages)
+
+  const { data: teamMembers = [] } = useQuery<StaffMember[]>({
+    queryKey: ['team-members-staff'],
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, role')
         .eq('is_active', true)
+        .in('role', STAFF_ROLES)
         .order('full_name')
       if (error) throw error
       return data || []
@@ -191,54 +169,40 @@ export function CreateCampaignModal({
 
   const isEditing = !!editCampaign
 
-  // Filter lists based on search query
-  const filteredLists = lists.filter((list) =>
-    list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
-  )
-
-  // Filter tags based on search query
-  const filteredTags = tags.filter((tag) =>
-    tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
-  )
-
-  // Initialize form when modal opens — only once per campaign/session
+  // Seed the form from the campaign being edited, once per open. The ref guard
+  // means this runs on open and never again while the user is typing, so the
+  // cascading-render concern behind react-hooks/set-state-in-effect does not
+  // apply — the alternative (remounting the form via `key`) would drop the
+  // sheet's close animation.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isOpen) {
-      // Modal closed — reset the initialization tracker so next open re-initializes
       initializedForRef.current = null
       return
     }
 
-    // Determine a stable key for the current form session
     const formKey = editCampaign?.id ?? 'new'
-
-    // Skip if already initialized for this campaign
     if (initializedForRef.current === formKey) return
     initializedForRef.current = formKey
 
     if (editCampaign) {
-      // Populate form with existing campaign data
       setName(editCampaign.name)
-      setType(editCampaign.type)
       setSendAsUserId(editCampaign.from_user_id || userId)
       setSelectedLists(editCampaign.recipient_list_ids || [])
-      setEmailSubject(editCampaign.subject || '')
-      setPreviewText(editCampaign.preview_text || '')
+      setSelectedTags(editCampaign.recipient_tag_ids || [])
+      setSelectedStages(editCampaign.recipient_stage_ids || [])
       setTemplateId(editCampaign.email_template_id || '')
-      setEmailBodyText(editCampaign.body_text || '')
-      setEmailBodyHtml(editCampaign.body_html || '')
-      setAttachedBrochureIds([])
-      setEmailContentMode(editCampaign.email_template_id ? 'template' : 'compose')
-      setSmsContent(editCampaign.sms_content || '')
-      // Pipeline selection — mode is derived from whether pipeline is set
       setSelectedPipelineId(editCampaign.pipeline_id || null)
-      setCampaignMode(editCampaign.pipeline_id ? 'programme' : 'generic')
+
       if (editCampaign.scheduled_at) {
-        setIsScheduled(true)
         const date = new Date(editCampaign.scheduled_at)
+        setIsScheduled(true)
         setScheduledDate(date)
         setScheduledTime(
-          `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+          `${date.getHours().toString().padStart(2, '0')}:${date
+            .getMinutes()
+            .toString()
+            .padStart(2, '0')}`,
         )
       } else {
         setIsScheduled(false)
@@ -246,301 +210,296 @@ export function CreateCampaignModal({
         setScheduledTime('09:00')
       }
     } else {
-      // Reset form for new campaign
       setName('')
-      setType('email')
       setSendAsUserId(userId)
       setSelectedLists([])
-      setListSearchQuery('')
-      setIsListDropdownOpen(false)
       setSelectedTags([])
-      setTagSearchQuery('')
-      setIsTagDropdownOpen(false)
       setSelectedStages([])
-      setStagePipelineId(null)
-      setIsStageDropdownOpen(false)
-      setEmailSubject('')
-      setPreviewText('')
       setTemplateId('')
-      setEmailContentMode('template')
-      setEmailBodyText('')
-      setEmailBodyHtml('')
-      setAttachedBrochureIds([])
-      setSmsContent('')
+      setSelectedPipelineId(null)
       setIsScheduled(false)
       setScheduledDate(undefined)
       setScheduledTime('09:00')
-      setCampaignMode('generic')
-      setSelectedPipelineId(null)
     }
-  }, [isOpen, editCampaign])
+  }, [isOpen, editCampaign, userId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  const handleListToggle = (listId: string) => {
-    setSelectedLists((prev) =>
-      prev.includes(listId)
-        ? prev.filter((id) => id !== listId)
-        : [...prev, listId]
-    )
-  }
+  const toggle = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (id: string) =>
+    setter((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
-  const handleTagToggle = (tagId: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId]
-    )
-  }
+  const listOptions: AudienceOption[] = useMemo(
+    () => lists.map((l) => ({ id: l.id, name: l.name, count: l.contact_count })),
+    [lists],
+  )
 
-  const handleStageToggle = (stageId: string) => {
-    setSelectedStages((prev) =>
-      prev.includes(stageId)
-        ? prev.filter((id) => id !== stageId)
-        : [...prev, stageId]
-    )
-  }
+  const tagOptions: AudienceOption[] = useMemo(
+    () =>
+      tags.map((t: { id: string; name: string; color?: string | null; contact_count?: number }) => ({
+        id: t.id,
+        name: t.name,
+        color: t.color,
+        count: t.contact_count,
+      })),
+    [tags],
+  )
 
-  const insertMergeTag = (tag: string, target: 'email' | 'sms' | 'subject') => {
-    if (target === 'sms') {
-      setSmsContent((prev) => prev + tag)
-    } else if (target === 'subject') {
-      setEmailSubject((prev) => prev + tag)
-    } else {
-      setEmailBodyText((prev) => prev + tag)
+  // Stages are grouped under their pipeline. When a pipeline is chosen for the
+  // campaign we only offer that pipeline's stages, so the two settings can't
+  // contradict each other.
+  const stageOptions: AudienceOption[] = useMemo(() => {
+    const byPipeline = new Map(pipelines.map((p) => [p.id, p.name]))
+    return allStages
+      .filter((s: { pipeline_id: string }) =>
+        selectedPipelineId ? s.pipeline_id === selectedPipelineId : true,
+      )
+      .map(
+        (s: {
+          id: string
+          name: string
+          color: string
+          pipeline_id: string
+          deal_count?: number
+        }) => ({
+          id: s.id,
+          name: s.name,
+          color: s.color,
+          count: s.deal_count,
+          group: selectedPipelineId ? undefined : byPipeline.get(s.pipeline_id),
+        }),
+      )
+  }, [allStages, pipelines, selectedPipelineId])
+
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === templateId) ?? null,
+    [templates, templateId],
+  )
+
+  const sendAsMember = teamMembers.find((m) => m.id === sendAsUserId)
+  // The list only offers active staff, so a saved campaign can point at
+  // someone who has since been deactivated. Rather than silently reassigning
+  // it, surface it and make them choose.
+  const senderMissing = teamMembers.length > 0 && !!sendAsUserId && !sendAsMember
+
+  const audienceCount = recipientData?.count ?? 0
+  const hasAudience =
+    selectedLists.length > 0 || selectedTags.length > 0 || selectedStages.length > 0
+
+  // The scheduled instant, resolved so the confirmation can state it plainly.
+  const scheduledAtDate = useMemo(() => {
+    if (!isScheduled || !scheduledDate) return null
+    const [hours, minutes] = scheduledTime.split(':')
+    const d = new Date(scheduledDate)
+    d.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+    return d
+  }, [isScheduled, scheduledDate, scheduledTime])
+
+  const scheduleInPast =
+    !!scheduledAtDate &&
+    scheduleCheckedAt > 0 &&
+    scheduledAtDate.getTime() <= scheduleCheckedAt
+
+  const canSave = name.trim().length > 0
+  const canSend =
+    canSave &&
+    !senderMissing &&
+    hasAudience &&
+    !!templateId &&
+    audienceCount > 0 &&
+    (!isScheduled || (!!scheduledAtDate && !scheduleInPast))
+
+  // A greyed-out button with no explanation is the worst version of
+  // validation — the missing field is usually scrolled out of view. Say what
+  // is outstanding instead of leaving them to hunt for it.
+  const blockers: string[] = []
+  if (!name.trim()) blockers.push('a campaign name')
+  if (senderMissing) blockers.push('an active person to send as')
+  if (!hasAudience) blockers.push('a list, tag or pipeline stage')
+  else if (!recipientCountLoading && audienceCount === 0)
+    blockers.push('an audience with at least one subscribed contact')
+  if (!templateId) blockers.push('a template')
+  if (isScheduled && !scheduledAtDate) blockers.push('a send date')
+  else if (isScheduled && scheduleInPast) blockers.push('a send time in the future')
+
+  const isPending =
+    createCampaign.isPending || updateCampaign.isPending || sendCampaign.isPending
+
+  const handleSubmit = async (saveAsDraft: boolean, sendNow = false) => {
+    if (!canSave) return
+
+    if (isScheduled && !saveAsDraft) {
+      if (!scheduledAtDate || scheduledAtDate.getTime() <= Date.now()) {
+        setScheduleCheckedAt(Date.now())
+        toast({
+          title: 'Pick a future time',
+          description: 'That send time has already passed.',
+          variant: 'destructive',
+        })
+        return
+      }
     }
-  }
 
-  // Upsert (brochure_id, campaign_id) rows for every brochure attached this session.
-  // Composite PK is (brochure_id, campaign_id); upsert ignores duplicates.
-  const recordBrochureAssociations = async (campaignId: string, brochureIds: string[]) => {
-    if (brochureIds.length === 0) return
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('brochure_campaigns')
-        .upsert(
-          brochureIds.map((brochure_id) => ({ brochure_id, campaign_id: campaignId })),
-          { onConflict: 'brochure_id,campaign_id', ignoreDuplicates: true }
-        )
-      if (error) throw error
-    } catch (err) {
-      // Non-fatal: the link is already in the email body. Surface a soft warning only.
-      console.error('Failed to record brochure/campaign association', err)
-    }
-  }
-
-  const handleInsertBrochure = (brochure: WebsiteBrochure) => {
-    // Always insert the branded button into the body immediately.
-    setEmailContentMode('compose')
-    setEmailBodyText((prev) => `${prev}${prev && !prev.endsWith('\n') ? '\n\n' : ''}${brochureButtonHtml(brochure)}`)
-    setAttachedBrochureIds((prev) => (prev.includes(brochure.id) ? prev : [...prev, brochure.id]))
-    // If the campaign already exists, record the association right away.
-    if (editCampaign?.id) {
-      void recordBrochureAssociations(editCampaign.id, [brochure.id])
-    }
-  }
-
-  const handleSubmit = async (saveAsDraft: boolean, sendNow: boolean = false) => {
-    if (!name.trim()) return
-
-    // For "Send Now" without scheduling, show confirmation first
     if (sendNow && !isScheduled && !showSendConfirmation) {
       setShowSendConfirmation(true)
       return
     }
 
     try {
-      let scheduledAt: string | undefined
-      if (isScheduled && scheduledDate) {
-        const [hours, minutes] = scheduledTime.split(':')
-        const scheduled = new Date(scheduledDate)
-        scheduled.setHours(parseInt(hours), parseInt(minutes))
-        scheduledAt = scheduled.toISOString()
-      }
-
       const campaignData: CreateCampaignInput = {
         name: name.trim(),
-        type,
+        type: 'email',
         status: saveAsDraft ? 'draft' : isScheduled ? 'scheduled' : 'draft',
         from_user_id: sendAsUserId,
         created_by_id: userId,
-        recipient_list_ids: selectedLists.length > 0 ? selectedLists : undefined,
-        scheduled_at: !saveAsDraft && isScheduled ? scheduledAt : undefined,
+        // Stored so the sender uses the recruiter's name in the From line
+        // rather than falling back to the generic "IFG Team".
+        from_name: sendAsMember?.full_name || undefined,
+        email_template_id: templateId || undefined,
+        recipient_list_ids: selectedLists,
+        recipient_tag_ids: selectedTags,
+        recipient_stage_ids: selectedStages,
+        scheduled_at:
+          !saveAsDraft && isScheduled && scheduledAtDate
+            ? scheduledAtDate.toISOString()
+            : undefined,
         pipeline_id: selectedPipelineId || null,
       }
 
-      if (type === 'email') {
-        campaignData.subject = emailSubject || undefined
-        campaignData.preview_text = previewText || undefined
-        if (emailContentMode === 'template' && templateId && templateId !== 'scratch') {
-          campaignData.email_template_id = templateId
-        } else if (emailContentMode === 'compose') {
-          campaignData.body_text = emailBodyText || undefined
-          campaignData.body_html = emailBodyHtml || emailBodyText || undefined
-        }
-      } else {
-        campaignData.sms_content = smsContent || undefined
-      }
+      const describe = () =>
+        saveAsDraft
+          ? `"${name.trim()}" saved as draft.`
+          : isScheduled && scheduledAtDate
+            ? `"${name.trim()}" will send on ${formatDateLong(scheduledAtDate)} at ${scheduledTime}.`
+            : `"${name.trim()}" has been saved.`
+
+      let campaignId = editCampaign?.id
 
       if (isEditing && editCampaign) {
-        await updateCampaign.mutateAsync({
-          id: editCampaign.id,
-          ...campaignData,
-        })
-
-        // Record any brochures attached during this session.
-        await recordBrochureAssociations(editCampaign.id, attachedBrochureIds)
-
-        // If sending now (not scheduled), trigger the send for existing campaign
-        if (sendNow && !isScheduled) {
-          await sendCampaign.mutateAsync(editCampaign.id)
-          toast({
-            title: 'Campaign sending',
-            description: `"${name.trim()}" is now being sent to ${formatNumber(recipientData?.count || 0)} recipients.`,
-          })
-        } else {
-          toast({
-            title: saveAsDraft ? 'Draft saved' : isScheduled ? 'Campaign scheduled' : 'Campaign updated',
-            description: saveAsDraft
-              ? `"${name.trim()}" saved as draft.`
-              : isScheduled
-                ? `"${name.trim()}" scheduled for ${formatDate(scheduledDate!)}.`
-                : `"${name.trim()}" has been updated.`,
-          })
-        }
+        await updateCampaign.mutateAsync({ id: editCampaign.id, ...campaignData })
       } else {
-        // Create the campaign first
-        const newCampaign = await createCampaign.mutateAsync(campaignData)
+        const created = await createCampaign.mutateAsync(campaignData)
+        campaignId = created?.id
+      }
 
-        // Record any brochures attached during this session (campaign id now exists).
-        if (newCampaign?.id) {
-          await recordBrochureAssociations(newCampaign.id, attachedBrochureIds)
-        }
-
-        // If sending now (not scheduled), trigger the send
-        if (sendNow && !isScheduled && newCampaign?.id) {
-          await sendCampaign.mutateAsync(newCampaign.id)
-          toast({
-            title: 'Campaign sending',
-            description: `"${name.trim()}" is now being sent to ${formatNumber(recipientData?.count || 0)} recipients.`,
-          })
-        } else {
-          toast({
-            title: saveAsDraft ? 'Draft saved' : isScheduled ? 'Campaign scheduled' : 'Campaign created',
-            description: saveAsDraft
-              ? `"${name.trim()}" saved as draft.`
-              : isScheduled
-                ? `"${name.trim()}" scheduled for ${formatDate(scheduledDate!)}.`
-                : `"${name.trim()}" created successfully.`,
-          })
-        }
+      if (sendNow && !isScheduled && campaignId) {
+        await sendCampaign.mutateAsync(campaignId)
+        toast({
+          title: 'Campaign sending',
+          description: `"${name.trim()}" is going out to ${formatNumber(audienceCount)} contacts.`,
+        })
+      } else {
+        toast({
+          title: saveAsDraft
+            ? 'Draft saved'
+            : isScheduled
+              ? 'Campaign scheduled'
+              : isEditing
+                ? 'Campaign updated'
+                : 'Campaign created',
+          description: describe(),
+        })
       }
 
       setShowSendConfirmation(false)
       onClose()
     } catch (error) {
       toast({
-        title: isEditing ? 'Failed to update campaign' : 'Failed to send campaign',
+        title: isEditing ? 'Could not update campaign' : 'Could not create campaign',
         description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       })
     }
   }
 
-  const smsSegments = Math.ceil(smsContent.length / 160)
-  const isValid = name.trim().length > 0
-  const hasNoRecipients = selectedLists.length === 0 && selectedTags.length === 0 && selectedStages.length === 0
-  const hasNoContent = type === 'email'
-    ? emailContentMode === 'template' ? !templateId || templateId === 'scratch' : !emailBodyText.trim()
-    : !smsContent.trim()
-  const isPending = createCampaign.isPending || updateCampaign.isPending || sendCampaign.isPending
-
-  // Get preview content
-  const getPreviewContent = () => {
-    if (type === 'sms') {
-      return smsContent || '(No content)'
-    }
-    if (emailContentMode === 'template' && templateId && templateId !== 'scratch') {
-      const template = templates.find((t) => t.id === templateId)
-      return template ? `Using template: ${template.name}` : '(No template selected)'
-    }
-    return emailBodyText || emailBodyHtml || '(No content)'
-  }
+  const sectionHeading = (step: number, title: string, hint?: string) => (
+    <div className="flex items-baseline gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
+        {step}
+      </span>
+      <h3 className="text-sm font-semibold uppercase text-blue-700 dark:text-blue-400">
+        {title}
+      </h3>
+      {hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
+    </div>
+  )
 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
-          <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl">
+          <SheetHeader className="shrink-0 border-b px-6 pb-4 pt-6">
             <SheetTitle className="font-oswald text-xl font-bold uppercase text-gray-900 dark:text-white">
               {isEditing ? 'Edit Campaign' : 'Create Campaign'}
             </SheetTitle>
             <SheetDescription>
-              {isEditing
-                ? 'Update your campaign details and settings.'
-                : 'Set up a new email or SMS campaign to reach your contacts.'}
+              Pick who it goes to and which template to send. The template supplies the
+              subject, content and branding.
             </SheetDescription>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-6">
-            <div className="space-y-6 py-6">
-              {/* Campaign Details */}
+            <div className="space-y-8 py-6">
+              {/* ---------------------------------------------- 1. Basics */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                  Campaign Details
-                </h3>
+                {sectionHeading(1, 'Campaign')}
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Campaign Name <span className="text-red-500">*</span>
+                    Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. January 2026 Newsletter"
+                    placeholder="e.g. Summer Residency 2027 — first announcement"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Internal only. Recipients never see this.
+                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={type === 'email' ? 'default' : 'outline'}
-                      onClick={() => setType('email')}
-                      className={cn('flex-1', type === 'email' && 'bg-blue-600 hover:bg-blue-700')}
-                      disabled={isEditing}
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Email
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={type === 'sms' ? 'default' : 'outline'}
-                      onClick={() => setType('sms')}
-                      className={cn('flex-1', type === 'sms' && 'bg-blue-600 hover:bg-blue-700')}
-                      disabled={isEditing}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      SMS
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Pipeline Selection */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Pipeline <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                    Send as
+                  </Label>
+                  <Select value={sendAsUserId} onValueChange={setSendAsUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a team member…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.full_name || member.email}
+                          {member.id === userId && ' (You)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {senderMissing ? (
+                    <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/50">
+                      <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                      <AlertDescription className="text-red-800 dark:text-red-200">
+                        The person this campaign was set to send as is no longer active.
+                        Pick someone else before sending.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Their name goes in the From line, and their Calendly link fills{' '}
+                      {'{{calendly_link}}'}. Replies come back to the CRM either way.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Pipeline{' '}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      (optional)
+                    </span>
                   </Label>
                   <Select
                     value={selectedPipelineId || 'none'}
                     onValueChange={(value) => {
-                      if (value === 'none') {
-                        setSelectedPipelineId(null)
-                        setCampaignMode('generic')
-                      } else {
-                        setSelectedPipelineId(value)
-                        setCampaignMode('programme')
-                      }
+                      setSelectedPipelineId(value === 'none' ? null : value)
                       setSelectedStages([])
                     }}
                   >
@@ -553,7 +512,7 @@ export function CreateCampaignModal({
                         <SelectItem key={pipeline.id} value={pipeline.id}>
                           {pipeline.name}
                           {pipeline.programme && (
-                            <span className="text-muted-foreground ml-1">
+                            <span className="ml-1 text-muted-foreground">
                               ({pipeline.programme.name})
                             </span>
                           )}
@@ -562,820 +521,399 @@ export function CreateCampaignModal({
                     </SelectContent>
                   </Select>
                   {selectedPipelineId && (
-                    <Alert className="bg-purple-50 border-purple-200 dark:bg-purple-950/50 dark:border-purple-800">
+                    <Alert className="border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/50">
                       <Info className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                       <AlertDescription className="text-purple-800 dark:text-purple-200">
-                        When contacts reply to this campaign, Smart Process will offer to create deals
-                        in the selected pipeline with round-robin assignment.
+                        Replies to this campaign can be turned into deals in this pipeline,
+                        assigned round-robin.
                       </AlertDescription>
                     </Alert>
                   )}
                 </div>
-
-                {/* Send As (Recruiter Selection) */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Send As
-                  </Label>
-                  <Select value={sendAsUserId} onValueChange={setSendAsUserId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select recruiter..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.full_name || member.email}
-                          {member.id === userId && ' (You)'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    The recruiter this campaign will be sent on behalf of. Their Calendly link will be used for {'{{calendly_link}}'}.
-                  </p>
-                </div>
               </div>
 
-              {/* Recipients */}
+              {/* -------------------------------------------- 2. Audience */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                  Recipients
-                </h3>
+                {sectionHeading(2, 'Audience', 'any combination')}
 
-                {/* No Recipients Warning */}
-                {hasNoRecipients && (
-                  <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/50 dark:border-yellow-800">
+                <AudienceSelect
+                  label="Lists"
+                  icon={<ListChecks className="h-4 w-4" />}
+                  options={listOptions}
+                  selectedIds={selectedLists}
+                  onToggle={toggle(setSelectedLists)}
+                  onClear={() => setSelectedLists([])}
+                  placeholder="Select lists…"
+                  searchPlaceholder="Search lists…"
+                  emptyText="No lists match that search"
+                  noOptionsText="No lists yet"
+                />
+
+                <AudienceSelect
+                  label="Tags"
+                  icon={<Tag className="h-4 w-4" />}
+                  options={tagOptions}
+                  selectedIds={selectedTags}
+                  onToggle={toggle(setSelectedTags)}
+                  onClear={() => setSelectedTags([])}
+                  placeholder="Select tags…"
+                  searchPlaceholder="Search tags…"
+                  emptyText="No tags match that search"
+                  noOptionsText="No tags yet"
+                />
+
+                <AudienceSelect
+                  label="Pipeline stages"
+                  icon={<Layers className="h-4 w-4" />}
+                  options={stageOptions}
+                  selectedIds={selectedStages}
+                  onToggle={toggle(setSelectedStages)}
+                  onClear={() => setSelectedStages([])}
+                  countNoun="deals"
+                  placeholder="Select stages…"
+                  searchPlaceholder="Search stages…"
+                  emptyText="No stages match that search"
+                  noOptionsText="No pipeline stages yet"
+                />
+
+                {!hasAudience ? (
+                  <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/50">
                     <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                     <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                      No recipients selected. Select at least one list, tag, or pipeline stage.
+                      Pick at least one list, tag or pipeline stage. You can mix them —
+                      anyone in more than one only gets the email once.
                     </AlertDescription>
                   </Alert>
-                )}
-
-                {/* List Selection Dropdown */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Select Lists <span className="text-red-500">*</span>
-                  </Label>
-                  <Popover open={isListDropdownOpen} onOpenChange={setIsListDropdownOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between font-normal"
-                      >
-                        <span className="text-muted-foreground">
-                          {selectedLists.length === 0
-                            ? 'Select lists...'
-                            : `${selectedLists.length} list${selectedLists.length > 1 ? 's' : ''} selected`}
+                ) : (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        Will receive this
+                      </span>
+                      {recipientCountLoading ? (
+                        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Counting…
                         </span>
-                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start" sideOffset={4}>
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search lists..."
-                            value={listSearchQuery}
-                            onChange={(e) => setListSearchQuery(e.target.value)}
-                            className="pl-8"
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-[240px] overflow-y-auto p-1">
-                          {filteredLists.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              No lists found
-                            </p>
-                          ) : (
-                            filteredLists.map((list) => {
-                              const isSelected = selectedLists.includes(list.id)
-                              return (
-                                <div
-                                  key={list.id}
-                                  className={cn(
-                                    'flex items-center justify-between p-2 rounded-md cursor-pointer',
-                                    isSelected ? 'bg-blue-50 dark:bg-blue-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                                  )}
-                                  onClick={() => handleListToggle(list.id)}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox checked={isSelected} />
-                                    <span className="text-sm font-medium">{list.name}</span>
-                                  </div>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatNumber(list.contact_count || 0)} contacts
-                                  </span>
-                                </div>
-                              )
-                            })
-                          )}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Selected Lists Badges */}
-                {selectedLists.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedLists.map((listId) => {
-                      const list = lists.find((l) => l.id === listId)
-                      return list ? (
-                        <Badge
-                          key={listId}
-                          variant="secondary"
-                          className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 pr-1"
-                        >
-                          {list.name}
-                          <span className="text-blue-500 ml-1">
-                            ({formatNumber(list.contact_count || 0)})
+                      ) : (
+                        <span>
+                          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                            {formatNumber(audienceCount)}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleListToggle(listId)}
-                            className="ml-1 p-0.5 rounded-full hover:bg-blue-200"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ) : null
-                    })}
-                  </div>
-                )}
-
-                {/* Tag Selection */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    <span className="flex items-center gap-2">
-                      <Tag className="h-4 w-4" />
-                      Select by Tags
-                    </span>
-                  </Label>
-                  <Popover open={isTagDropdownOpen} onOpenChange={setIsTagDropdownOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between font-normal"
-                      >
-                        <span className="text-muted-foreground">
-                          {selectedTags.length === 0
-                            ? 'Select tags...'
-                            : `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected`}
+                          <span className="ml-1 text-sm text-slate-600 dark:text-slate-400">
+                            contacts
+                          </span>
                         </span>
-                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start" sideOffset={4}>
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search tags..."
-                            value={tagSearchQuery}
-                            onChange={(e) => setTagSearchQuery(e.target.value)}
-                            className="pl-8"
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-[240px] overflow-y-auto p-1">
-                          {filteredTags.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              No tags found
-                            </p>
-                          ) : (
-                            filteredTags.map((tag) => {
-                              const isSelected = selectedTags.includes(tag.id)
-                              return (
-                                <div
-                                  key={tag.id}
-                                  className={cn(
-                                    'flex items-center justify-between p-2 rounded-md cursor-pointer',
-                                    isSelected ? 'bg-blue-50 dark:bg-blue-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                                  )}
-                                  onClick={() => handleTagToggle(tag.id)}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox checked={isSelected} />
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: tag.color }}
-                                    />
-                                    <span className="text-sm font-medium">{tag.name}</span>
-                                  </div>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatNumber(tag.contact_count || 0)} contacts
-                                  </span>
-                                </div>
-                              )
-                            })
-                          )}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Selected Tags Badges */}
-                {selectedTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTags.map((tagId) => {
-                      const tag = tags.find((t) => t.id === tagId)
-                      return tag ? (
-                        <Badge
-                          key={tagId}
-                          variant="secondary"
-                          className="pr-1"
-                          style={{
-                            backgroundColor: `${tag.color}20`,
-                            color: tag.color,
-                            borderColor: tag.color,
-                          }}
-                        >
-                          {tag.name}
-                          <span className="ml-1 opacity-70">
-                            ({formatNumber(tag.contact_count || 0)})
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleTagToggle(tagId)}
-                            className="ml-1 p-0.5 rounded-full hover:bg-black/10"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ) : null
-                    })}
-                  </div>
-                )}
-
-                {/* Pipeline Stage Selection */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    <span className="flex items-center gap-2">
-                      <Layers className="h-4 w-4" />
-                      Select by Pipeline Stage
-                    </span>
-                  </Label>
-                  <Popover open={isStageDropdownOpen} onOpenChange={setIsStageDropdownOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between font-normal"
-                      >
-                        <span className="text-muted-foreground">
-                          {selectedStages.length === 0
-                            ? 'Select stages...'
-                            : `${selectedStages.length} stage${selectedStages.length > 1 ? 's' : ''} selected`}
-                        </span>
-                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[340px] p-0" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
-                      <div
-                        className="max-h-[280px] overflow-y-auto p-1"
-                        onWheel={(e) => {
-                          e.stopPropagation()
-                          const target = e.currentTarget
-                          target.scrollTop += e.deltaY
-                        }}
-                      >
-                          {(selectedPipelineId
-                            ? pipelines.filter((p) => p.id === selectedPipelineId)
-                            : pipelines
-                          ).map((pipeline) => {
-                            const pipelineStages = allStages.filter((s: { pipeline_id: string }) => s.pipeline_id === pipeline.id)
-                            if (pipelineStages.length === 0) return null
-                            return (
-                              <div key={pipeline.id}>
-                                {!selectedPipelineId && (
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    {pipeline.name}
-                                  </div>
-                                )}
-                                {pipelineStages.map((stage: { id: string; name: string; color: string; deal_count?: number }) => {
-                                  const isSelected = selectedStages.includes(stage.id)
-                                  return (
-                                    <div
-                                      key={stage.id}
-                                      className={cn(
-                                        'flex items-center justify-between p-2 rounded-md cursor-pointer',
-                                        !selectedPipelineId && 'ml-1',
-                                        isSelected ? 'bg-blue-50 dark:bg-blue-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                                      )}
-                                      onClick={() => handleStageToggle(stage.id)}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <Checkbox checked={isSelected} />
-                                        <div
-                                          className="w-3 h-3 rounded-full"
-                                          style={{ backgroundColor: stage.color }}
-                                        />
-                                        <span className="text-sm font-medium">{stage.name}</span>
-                                      </div>
-                                      <span className="text-xs text-muted-foreground">
-                                        {formatNumber(stage.deal_count || 0)} deals
-                                      </span>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )
-                          })}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Selected Stages Badges */}
-                {selectedStages.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedStages.map((stageId) => {
-                      const stage = allStages.find((s: { id: string }) => s.id === stageId)
-                      return stage ? (
-                        <Badge
-                          key={stageId}
-                          variant="secondary"
-                          className="pr-1"
-                          style={{
-                            backgroundColor: `${stage.color}20`,
-                            color: stage.color,
-                            borderColor: stage.color,
-                          }}
-                        >
-                          {stage.name}
-                          <span className="ml-1 opacity-70">
-                            ({formatNumber(stage.deal_count || 0)} deals)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleStageToggle(stageId)}
-                            className="ml-1 p-0.5 rounded-full hover:bg-black/10"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ) : null
-                    })}
-                  </div>
-                )}
-
-                {/* Total Recipients Card */}
-                {(selectedLists.length > 0 || selectedTags.length > 0 || selectedStages.length > 0) && (
-                  <Card className="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Recipients</span>
-                        </div>
-                        <div className="text-right">
-                          {recipientCountLoading ? (
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">Calculating...</span>
-                            </div>
-                          ) : (
-                            <div>
-                              <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                                {formatNumber(recipientData?.count || 0)}
-                              </span>
-                              <span className="text-sm text-slate-600 dark:text-slate-400 ml-1">contacts</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {recipientData?.hasDuplicates && !recipientCountLoading && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          (duplicates removed across sources)
-                        </p>
                       )}
-                      {/* Source breakdown */}
-                      {!recipientCountLoading && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {selectedLists.length > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {selectedLists.length} list{selectedLists.length > 1 ? 's' : ''}
-                            </span>
-                          )}
-                          {selectedTags.length > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {selectedLists.length > 0 && '•'} {selectedTags.length} tag{selectedTags.length > 1 ? 's' : ''}
-                            </span>
-                          )}
-                          {selectedStages.length > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {(selectedLists.length > 0 || selectedTags.length > 0) && '•'} {selectedStages.length} stage{selectedStages.length > 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      De-duplicated across every source, and unsubscribed or bounced
+                      contacts are already excluded.
+                    </p>
+                    {!recipientCountLoading && audienceCount === 0 && (
+                      <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">
+                        Nobody in this selection is still subscribed, so there is nothing to
+                        send.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
-              {/* Email Content */}
-              {type === 'email' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Subject Line <span className="text-red-500">*</span>
-                      </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 text-xs">
-                            <Type className="h-3 w-3 mr-1" />
-                            Insert Variable
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-1" align="end">
-                          {EMAIL_MERGE_TAGS.slice(0, 3).map((item) => (
-                            <Button
-                              key={item.tag}
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start text-xs"
-                              onClick={() => insertMergeTag(item.tag, 'subject')}
-                            >
-                              {item.label}
-                            </Button>
-                          ))}
-                        </PopoverContent>
-                      </Popover>
+              {/* --------------------------------------------- 3. Content */}
+              <div className="space-y-4">
+                {sectionHeading(3, 'Email')}
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Template <span className="text-red-500">*</span>
+                  </Label>
+                  <TemplateSearchSelect
+                    templates={templates}
+                    value={templateId}
+                    onValueChange={setTemplateId}
+                    placeholder="Choose a template"
+                    groupByCategory
+                  />
+                </div>
+
+                {selectedTemplate ? (
+                  <div className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="flex items-baseline gap-2">
+                      <span className="w-16 shrink-0 text-xs uppercase text-muted-foreground">
+                        Subject
+                      </span>
+                      <p className="text-sm font-medium">
+                        {selectedTemplate.subject || (
+                          <span className="text-red-600 dark:text-red-400">
+                            This template has no subject line
+                          </span>
+                        )}
+                      </p>
                     </div>
-                    <Input
-                      value={emailSubject}
-                      onChange={(e) => setEmailSubject(e.target.value)}
-                      placeholder="Enter email subject..."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Preview Text</Label>
-                    <Input
-                      value={previewText}
-                      onChange={(e) => setPreviewText(e.target.value)}
-                      placeholder="Text shown in inbox preview..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      This text appears next to the subject in most email clients
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                      Email Content
-                    </h3>
-
-                    <Tabs
-                      value={emailContentMode}
-                      onValueChange={(v) => setEmailContentMode(v as 'template' | 'compose')}
-                    >
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="template">Use Template</TabsTrigger>
-                        <TabsTrigger value="compose">Compose</TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="template" className="space-y-4 mt-4">
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Template <span className="text-red-500">*</span>
-                          </Label>
-                          <TemplateSearchSelect
-                            templates={templates}
-                            value={templateId}
-                            onValueChange={setTemplateId}
-                            placeholder="Select a template"
-                          />
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent value="compose" className="space-y-4 mt-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Body</Label>
-                            <div className="flex flex-wrap gap-1">
-                              {EMAIL_MERGE_TAGS.map((item) => (
-                                <Button
-                                  key={item.tag}
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={() => insertMergeTag(item.tag, 'email')}
-                                >
-                                  {item.label}
-                                </Button>
-                              ))}
-                              <BrochureInsertPopover onInsert={handleInsertBrochure} />
-                            </div>
-                          </div>
-                          <Textarea
-                            value={emailBodyText}
-                            onChange={(e) => setEmailBodyText(e.target.value)}
-                            placeholder="Write your email content here..."
-                            rows={8}
-                            className="font-mono text-sm"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Use merge tags like {'{{first_name}}'} to personalize your email
-                          </p>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-
-                    {/* Preview Button */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="w-16 shrink-0 text-xs uppercase text-muted-foreground">
+                        From
+                      </span>
+                      <p className="text-sm">
+                        {sendAsMember?.full_name || sendAsMember?.email || 'IFG Team'}
+                      </p>
+                    </div>
                     <Button
                       type="button"
                       variant="outline"
                       className="w-full"
                       onClick={() => setShowPreview(true)}
                     >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Preview Email
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview email
                     </Button>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    The template decides the subject line, the content and the global header
+                    and footer. Edit those in Templates.
+                  </p>
+                )}
+              </div>
 
-              {/* SMS Content */}
-              {type === 'sms' && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                    SMS Content
-                  </h3>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Message <span className="text-red-500">*</span>
-                      </Label>
-                      <span className="text-xs text-slate-500">
-                        {smsContent.length}/{SMS_MAX_CHARS} • {smsSegments} segment{smsSegments !== 1 && 's'}
-                      </span>
-                    </div>
-                    <Textarea
-                      value={smsContent}
-                      onChange={(e) => setSmsContent(e.target.value)}
-                      placeholder="Type your SMS message..."
-                      rows={4}
-                      maxLength={SMS_MAX_CHARS}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Insert Variable</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {SMS_MERGE_TAGS.map((item) => (
-                        <Button
-                          key={item.tag}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => insertMergeTag(item.tag, 'sms')}
-                        >
-                          {item.tag}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Schedule */}
+              {/* -------------------------------------------- 4. Schedule */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                  Schedule
-                </h3>
+                {sectionHeading(4, 'When')}
 
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Schedule for later</Label>
-                  <Switch checked={isScheduled} onCheckedChange={setIsScheduled} />
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduled(false)}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-md border p-3 text-sm font-medium transition-colors',
+                      !isScheduled
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                        : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800',
+                    )}
+                  >
+                    <Send className="h-4 w-4" />
+                    Send now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsScheduled(true)
+                      setScheduleCheckedAt(Date.now())
+                    }}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-md border p-3 text-sm font-medium transition-colors',
+                      isScheduled
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                        : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800',
+                    )}
+                  >
+                    <Clock className="h-4 w-4" />
+                    Schedule
+                  </button>
                 </div>
 
                 {isScheduled && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full justify-start text-left font-normal',
-                              !scheduledDate && 'text-muted-foreground'
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {scheduledDate ? formatDate(scheduledDate) : 'Pick a date'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={scheduledDate}
-                            onSelect={setScheduledDate}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Date
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                'w-full justify-start text-left font-normal',
+                                !scheduledDate && 'text-muted-foreground',
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {scheduledDate ? formatDateLong(scheduledDate) : 'Pick a date'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={scheduledDate}
+                              onSelect={(date) => {
+                                setScheduledDate(date)
+                                setScheduleCheckedAt(Date.now())
+                              }}
+                              // Compare against midnight, not "now" — the old
+                              // check disabled today, so you could not schedule
+                              // anything for later the same day.
+                              disabled={(date) => date < startOfToday()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Time
+                        </Label>
+                        <Input
+                          type="time"
+                          value={scheduledTime}
+                          onChange={(e) => {
+                            setScheduledTime(e.target.value)
+                            setScheduleCheckedAt(Date.now())
+                          }}
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Time</Label>
-                      <Input
-                        type="time"
-                        value={scheduledTime}
-                        onChange={(e) => setScheduledTime(e.target.value)}
-                      />
-                    </div>
+                    {scheduledAtDate && !scheduleInPast && (
+                      <p className="text-xs text-muted-foreground">
+                        Sends on{' '}
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {formatDateLong(scheduledAtDate)} at {scheduledTime}
+                        </span>{' '}
+                        — your local time. The scheduler checks every minute, so it may go a
+                        minute or so after.
+                      </p>
+                    )}
+
+                    {scheduleInPast && (
+                      <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/50">
+                        <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <AlertDescription className="text-red-800 dark:text-red-200">
+                          That time has already passed. Pick a time in the future, or switch
+                          to Send now.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {!scheduledDate && (
+                      <p className="text-xs text-muted-foreground">Pick a date to schedule.</p>
+                    )}
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-900 shrink-0">
-            <div className="flex gap-3 w-full">
+          <SheetFooter className="shrink-0 flex-col gap-3 border-t bg-slate-50 px-6 py-4 dark:bg-slate-900">
+            {blockers.length > 0 && (
+              <p className="w-full text-xs text-muted-foreground">
+                <span className="font-medium text-amber-600 dark:text-amber-400">
+                  Still needed:
+                </span>{' '}
+                {blockers.length === 1
+                  ? blockers[0]
+                  : `${blockers.slice(0, -1).join(', ')} and ${blockers[blockers.length - 1]}`}
+                .
+              </p>
+            )}
+            <div className="flex w-full gap-3">
               <Button
                 variant="outline"
                 onClick={() => handleSubmit(true)}
-                disabled={!isValid || isPending}
+                disabled={!canSave || isPending}
                 className="flex-1"
               >
-                Save as Draft
+                Save as draft
               </Button>
-              {type === 'email' ? (
-                <Button
-                  onClick={() => handleSubmit(false, !isScheduled)}
-                  disabled={!isValid || isPending || hasNoRecipients || hasNoContent}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {sendCampaign.isPending ? 'Sending...' : isEditing ? 'Updating...' : 'Creating...'}
-                    </>
-                  ) : isScheduled ? (
-                    'Schedule'
-                  ) : (
-                    'Send Now'
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => handleSubmit(false, !isScheduled)}
-                  disabled={!isValid || isPending || hasNoRecipients || hasNoContent}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {sendCampaign.isPending ? 'Sending...' : isEditing ? 'Updating...' : 'Creating...'}
-                    </>
-                  ) : isScheduled ? (
-                    'Schedule'
-                  ) : (
-                    'Send Now'
-                  )}
-                </Button>
-              )}
+              <Button
+                onClick={() => handleSubmit(false, !isScheduled)}
+                disabled={!canSend || isPending}
+                className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {sendCampaign.isPending ? 'Sending…' : 'Saving…'}
+                  </>
+                ) : isScheduled ? (
+                  'Schedule'
+                ) : recipientCountLoading && hasAudience ? (
+                  'Counting…'
+                ) : (
+                  `Send to ${formatNumber(audienceCount)}`
+                )}
+              </Button>
             </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
-      {/* Preview Dialog */}
-      <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Email Preview</DialogTitle>
-            <DialogDescription>
-              Preview how your email will appear to recipients
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-slate-100 dark:bg-slate-800 p-3 border-b">
-                <p className="text-sm">
-                  <strong>Subject:</strong> {emailSubject || '(No subject)'}
-                </p>
-                {previewText && (
-                  <p className="text-xs text-muted-foreground mt-1">{previewText}</p>
-                )}
-              </div>
-              <div className="p-4 bg-white dark:bg-slate-900 min-h-[200px] max-h-[400px] overflow-y-auto">
-                {emailContentMode === 'template' && templateId ? (
-                  (() => {
-                    const template = templates.find((t) => t.id === templateId)
-                    if (!template?.body_html) {
-                      return (
-                        <p className="text-muted-foreground text-center py-8">
-                          Template has no content
-                        </p>
-                      )
-                    }
-                    // Replace merge tags with sample data for preview
-                    const previewHtml = template.body_html
-                      .replace(/\{\{first_name\}\}/g, 'John')
-                      .replace(/\{\{last_name\}\}/g, 'Doe')
-                      .replace(/\{\{email\}\}/g, 'john.doe@example.com')
-                      .replace(/\{\{programme\}\}/g, 'US Soccer')
-                      .replace(/\{\{calendly_link\}\}/g, 'https://calendly.com/example')
-                    return (
-                      <div
-                        className="prose prose-sm max-w-none dark:prose-invert"
-                        dangerouslySetInnerHTML={{ __html: previewHtml }}
-                      />
-                    )
-                  })()
-                ) : emailBodyText ? (
-                  <div className="whitespace-pre-wrap text-sm">
-                    {emailBodyText
-                      .replace(/\{\{first_name\}\}/g, 'John')
-                      .replace(/\{\{last_name\}\}/g, 'Doe')
-                      .replace(/\{\{email\}\}/g, 'john.doe@example.com')
-                      .replace(/\{\{programme\}\}/g, 'US Soccer')
-                      .replace(/\{\{calendly_link\}\}/g, 'https://calendly.com/example')}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">No content yet</p>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              * Merge tags shown with sample data (John Doe)
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Same preview the Templates page uses — a real iframe with the global
+          header and footer applied, rather than the old inline-HTML box that
+          rendered email tables through Tailwind's prose styles. */}
+      <TemplatePreviewModal
+        template={(selectedTemplate as Template | null) ?? null}
+        open={showPreview}
+        onOpenChange={setShowPreview}
+      />
 
-      {/* Send Confirmation Dialog */}
       <Dialog open={showSendConfirmation} onOpenChange={setShowSendConfirmation}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Send Campaign Now?</DialogTitle>
+            <DialogTitle>Send this campaign now?</DialogTitle>
             <DialogDescription>
-              You&apos;re about to send this campaign to {formatNumber(recipientData?.count || 0)} recipients.
-              This action cannot be undone.
+              This goes out immediately and cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="rounded-lg border p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Campaign</span>
-                <span className="font-medium">{name}</span>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2 rounded-lg border p-4 text-sm">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-muted-foreground">Campaign</span>
+                <span className="truncate font-medium">{name}</span>
               </div>
-              {type === 'email' ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Subject</span>
-                  <span className="font-medium truncate max-w-[200px]">{emailSubject || '(No subject)'}</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Message</span>
-                  <span className="font-medium truncate max-w-[200px]">{smsContent ? `${smsContent.length} chars` : '(No content)'}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Recipients</span>
-                <span className="font-medium">{formatNumber(recipientData?.count || 0)} contacts</span>
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-muted-foreground">Subject</span>
+                <span className="truncate font-medium">
+                  {selectedTemplate?.subject || '(none)'}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Lists</span>
-                <span className="font-medium">{selectedLists.length} selected</span>
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-muted-foreground">From</span>
+                <span className="truncate font-medium">
+                  {sendAsMember?.full_name || sendAsMember?.email || 'IFG Team'}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-muted-foreground">Recipients</span>
+                <span className="font-medium">
+                  {formatNumber(audienceCount)} contacts
+                </span>
               </div>
             </div>
-            {recipientData?.hasDuplicates && (
-              <p className="text-xs text-muted-foreground">
-                Note: Duplicate contacts across lists have been removed.
-              </p>
-            )}
+
+            <div className="flex flex-wrap gap-1.5">
+              {selectedLists.length > 0 && (
+                <Badge variant="secondary">{selectedLists.length} list(s)</Badge>
+              )}
+              {selectedTags.length > 0 && (
+                <Badge variant="secondary">{selectedTags.length} tag(s)</Badge>
+              )}
+              {selectedStages.length > 0 && (
+                <Badge variant="secondary">{selectedStages.length} stage(s)</Badge>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setShowSendConfirmation(false)}
-            >
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowSendConfirmation(false)}>
               Cancel
             </Button>
             <Button
               onClick={() => handleSubmit(false, true)}
               disabled={isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 text-white hover:bg-blue-700"
             >
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  Sending…
                 </>
               ) : (
-                'Yes, Send Now'
+                `Yes, send to ${formatNumber(audienceCount)}`
               )}
             </Button>
           </div>

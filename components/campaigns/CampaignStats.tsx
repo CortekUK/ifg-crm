@@ -3,21 +3,13 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { Send, Mail, MessageSquare, Eye } from 'lucide-react'
+import { Send, Mail, FileText, Eye } from 'lucide-react'
 import { formatNumber } from '@/lib/utils/format'
 import type { Campaign } from '@/lib/types/campaigns'
 
 interface CampaignStatsProps {
   campaigns: Campaign[]
   isLoading?: boolean
-}
-
-interface StatItem {
-  label: string
-  value: string
-  icon: React.ComponentType<{ className?: string }>
-  colour: 'blue' | 'green' | 'purple' | 'orange'
-  subtitle?: string
 }
 
 const colourConfig = {
@@ -54,11 +46,11 @@ export function CampaignStats({ campaigns, isLoading }: CampaignStatsProps) {
   const scheduledCampaigns = campaigns.filter((c) => c.status === 'scheduled')
   const draftCampaigns = campaigns.filter((c) => c.status === 'draft')
   
-  // Calculate total recipients from sent campaigns
-  const totalRecipients = sentCampaigns.reduce((sum, c) => {
-    const listRecipients = c.recipient_lists?.reduce((s, l) => s + (l.contact_count || 0), 0) || 0
-    return sum + (c.recipient_count || listRecipients)
-  }, 0)
+  // Recipients actually emailed, as recorded by the sender.
+  const totalRecipients = sentCampaigns.reduce(
+    (sum, c) => sum + (c.total_recipients ?? c.recipient_count ?? 0),
+    0
+  )
   
   // Calculate average open rate from campaigns with stats
   const campaignsWithStats = sentCampaigns.filter(c => c.open_count !== undefined && c.delivered_count)
@@ -78,18 +70,18 @@ export function CampaignStats({ campaigns, isLoading }: CampaignStatsProps) {
       subtitle: `${sentCampaigns.length} sent, ${scheduledCampaigns.length} scheduled`,
     },
     {
-      label: 'Sent This Month',
+      label: 'Sent',
       value: formatNumber(sentCampaigns.length),
       icon: Mail,
       colour: 'green' as const,
-      subtitle: `${formatNumber(totalRecipients)} total recipients`,
+      subtitle: `${formatNumber(totalRecipients)} emails delivered`,
     },
     {
       label: 'Drafts',
       value: formatNumber(draftCampaigns.length),
-      icon: MessageSquare,
+      icon: FileText,
       colour: 'purple' as const,
-      subtitle: 'Awaiting completion',
+      subtitle: 'Not sent yet',
     },
     {
       label: 'Avg Open Rate',

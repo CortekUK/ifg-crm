@@ -37,9 +37,6 @@ import {
   MessageSquare,
   Send,
   Eye,
-  MousePointer,
-  AlertTriangle,
-  UserMinus,
   Users,
   Calendar,
   Clock,
@@ -48,10 +45,9 @@ import {
   Trash2,
   XCircle,
   Loader2,
-  CheckCircle,
   GitBranch,
 } from 'lucide-react'
-import { formatDate, formatDateTime, formatDateLong, formatNumber } from '@/lib/utils/format'
+import { formatDate, formatDateTime, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import {
   useCampaign,
@@ -66,7 +62,9 @@ import {
 import { useCampaignDetailRealtime } from '@/lib/hooks/useCampaignRealtime'
 import { Progress } from '@/components/ui/progress'
 import { toast } from '@/lib/hooks/use-toast'
+import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal'
 import type { Campaign } from '@/lib/types/campaigns'
+import type { Template } from '@/lib/types/templates'
 
 interface CampaignDetailSheetProps {
   campaignId: string | null
@@ -95,12 +93,17 @@ export function CampaignDetailSheet({
   const [showSendDialog, setShowSendDialog] = useState(false)
   const [showResendDialog, setShowResendDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  const [showEmailPreview, setShowEmailPreview] = useState(false)
   const [sendStatusFilter, setSendStatusFilter] = useState<string | null>(null)
 
   const { data: campaign, isLoading } = useCampaign(campaignId)
   const isSending = campaign?.status === 'sending'
   const { data: recipients = [], isLoading: recipientsLoading } = useCampaignRecipients(campaignId, isSending)
-  const { data: recipientData } = useCalculateRecipients(campaign?.recipient_list_ids || [])
+  const { data: recipientData } = useCalculateRecipients(
+    campaign?.recipient_list_ids || [],
+    campaign?.recipient_tag_ids || [],
+    campaign?.recipient_stage_ids || []
+  )
 
   // Live updates: subscribe to email_sends changes for this campaign
   useCampaignDetailRealtime(campaignId)
@@ -340,98 +343,135 @@ export function CampaignDetailSheet({
                     </div>
                   )}
 
-                  {/* Content preview */}
-                  {campaign.type === 'email' ? (
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                        Content
-                      </h3>
-                      {campaign.subject && (
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs text-muted-foreground uppercase shrink-0">Subject</span>
-                          <p className="font-medium text-sm">{campaign.subject}</p>
-                        </div>
-                      )}
-                      {campaign.from_name && (
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs text-muted-foreground uppercase shrink-0">From</span>
-                          <p className="text-sm">
-                            {campaign.from_name}
-                            {campaign.from_email && <span className="text-muted-foreground"> &lt;{campaign.from_email}&gt;</span>}
-                          </p>
-                        </div>
-                      )}
-                      {campaign.reply_to && (
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs text-muted-foreground uppercase shrink-0">Reply-To</span>
-                          <p className="text-sm text-muted-foreground">{campaign.reply_to}</p>
-                        </div>
-                      )}
-                      {campaign.preview_text && (
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs text-muted-foreground uppercase shrink-0">Preview</span>
-                          <p className="text-sm text-muted-foreground">{campaign.preview_text}</p>
-                        </div>
-                      )}
+                  {/* Content — what actually goes out. The subject shown is
+                      the template's, because process-campaigns uses
+                      `template.subject || campaign.subject`; showing the
+                      campaign's own subject here implied an override that
+                      never applied. */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
+                      Content
+                    </h3>
 
-                      {/* Body / Template */}
-                      {campaign.body_html ? (
-                        <div className="border rounded-lg p-4 bg-white dark:bg-slate-900 max-h-60 overflow-y-auto">
-                          <div
-                            className="prose prose-sm max-w-none dark:prose-invert"
-                            dangerouslySetInnerHTML={{ __html: campaign.body_html }}
-                          />
-                        </div>
-                      ) : campaign.body_text ? (
-                        <div className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-800 max-h-40 overflow-y-auto">
-                          <p className="whitespace-pre-wrap text-sm">{campaign.body_text}</p>
-                        </div>
-                      ) : campaign.template ? (
-                        <div className="flex items-center gap-2 p-3 border rounded-lg bg-blue-50 dark:bg-blue-950">
-                          <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{campaign.template.name}</span>
-                          <Badge variant="outline" className="text-xs ml-auto">Template</Badge>
-                        </div>
-                      ) : null}
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs text-muted-foreground uppercase shrink-0 w-14">Subject</span>
+                      <p className="font-medium text-sm">
+                        {campaign.template?.subject || campaign.subject || (
+                          <span className="text-muted-foreground font-normal">Not set</span>
+                        )}
+                      </p>
                     </div>
-                  ) : campaign.sms_content ? (
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                        SMS Content
-                      </h3>
-                      <div className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
-                        <p className="whitespace-pre-wrap text-sm">{campaign.sms_content}</p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {campaign.sms_content.length} characters • {Math.ceil(campaign.sms_content.length / 160)} segment(s)
+
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs text-muted-foreground uppercase shrink-0 w-14">From</span>
+                      <p className="text-sm">
+                        {campaign.from_name || campaign.from_user?.full_name || 'IFG Team'}
+                      </p>
+                    </div>
+
+                    {campaign.template ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 p-3 border rounded-lg bg-blue-50 dark:bg-blue-950">
+                          <Mail className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300 truncate">
+                            {campaign.template.name}
+                          </span>
+                          <Badge variant="outline" className="text-xs ml-auto shrink-0">Template</Badge>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setShowEmailPreview(true)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview email
+                        </Button>
+                      </div>
+                    ) : campaign.body_html || campaign.body_text ? (
+                      <div className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-800 max-h-40 overflow-y-auto">
+                        <p className="whitespace-pre-wrap text-sm">
+                          {campaign.body_text || 'Inline HTML content'}
                         </p>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No template selected — this campaign has nothing to send.
+                      </p>
+                    )}
+                  </div>
 
-                  {/* Recipient Lists */}
-                  {campaign.recipient_lists && campaign.recipient_lists.length > 0 && (
+                  {/* Audience — lists, tags and pipeline stages */}
+                  {(campaign.recipient_lists?.length ||
+                    campaign.recipient_tags?.length ||
+                    campaign.recipient_stages?.length) ? (
                     <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase border-b border-slate-200 dark:border-slate-700 pb-2">
-                        Recipients
-                      </h3>
+                      <div className="flex items-baseline justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
+                          Audience
+                        </h3>
+                        <span className="text-xs text-muted-foreground">
+                          {formatNumber(recipientData?.count || 0)} contacts
+                        </span>
+                      </div>
                       <div className="space-y-1.5">
-                        {campaign.recipient_lists.map((list) => (
+                        {campaign.recipient_lists?.map((list) => (
                           <div
                             key={list.id}
                             className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg"
                           >
-                            <div className="flex items-center gap-2">
-                              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-sm font-medium">{list.name}</span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <span className="text-sm font-medium truncate">{list.name}</span>
+                              <Badge variant="outline" className="text-[10px] shrink-0">List</Badge>
                             </div>
-                            <span className="text-xs text-muted-foreground">
-                              {formatNumber(list.contact_count || 0)} {(list.contact_count || 0) === 1 ? 'contact' : 'contacts'}
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {formatNumber(list.contact_count || 0)}
+                            </span>
+                          </div>
+                        ))}
+                        {campaign.recipient_tags?.map((tag) => (
+                          <div
+                            key={tag.id}
+                            className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className="h-3 w-3 shrink-0 rounded-full"
+                                style={{ backgroundColor: tag.color || '#94a3b8' }}
+                              />
+                              <span className="text-sm font-medium truncate">{tag.name}</span>
+                              <Badge variant="outline" className="text-[10px] shrink-0">Tag</Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {formatNumber(tag.contact_count || 0)}
+                            </span>
+                          </div>
+                        ))}
+                        {campaign.recipient_stages?.map((stage) => (
+                          <div
+                            key={stage.id}
+                            className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className="h-3 w-3 shrink-0 rounded-full"
+                                style={{ backgroundColor: stage.color || '#94a3b8' }}
+                              />
+                              <span className="text-sm font-medium truncate">
+                                {stage.pipeline_name ? `${stage.pipeline_name} — ` : ''}
+                                {stage.name}
+                              </span>
+                              <Badge variant="outline" className="text-[10px] shrink-0">Stage</Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {formatNumber(stage.deal_count || 0)} deals
                             </span>
                           </div>
                         ))}
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Sending Progress */}
                   {campaign.status === 'sending' && (
@@ -827,6 +867,14 @@ export function CampaignDetailSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Same preview component the Templates page uses, so "what will they
+          get?" looks identical everywhere. */}
+      <TemplatePreviewModal
+        template={(campaign?.template as unknown as Template) ?? null}
+        open={showEmailPreview}
+        onOpenChange={setShowEmailPreview}
+      />
     </>
   )
 }

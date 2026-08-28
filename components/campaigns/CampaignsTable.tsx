@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Mail, MessageSquare, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2, Send, GitBranch, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Mail, MoreHorizontal, Eye, Pencil, Copy, Trash2, ListIcon, XCircle, Loader2, GitBranch, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -217,7 +217,7 @@ export function CampaignsTable({
             <TableRow>
               <TableHead className="w-12"><Checkbox disabled /></TableHead>
               <TableHead className="min-w-[200px]">Campaign</TableHead>
-              <TableHead className="w-[80px]">Type</TableHead>
+              <TableHead className="w-[130px]">Audience</TableHead>
               <TableHead className="w-[100px]">Pipeline</TableHead>
               <TableHead className="w-[90px]">Status</TableHead>
               <TableHead className="w-[80px] text-center">Recipients</TableHead>
@@ -275,7 +275,7 @@ export function CampaignsTable({
                   Campaign <CampaignSortIcon field="name" activeField={sortField} dir={sortDir} />
                 </div>
               </TableHead>
-              <TableHead className="w-[80px]">Type</TableHead>
+              <TableHead className="w-[130px]">Audience</TableHead>
               <TableHead className="w-[100px]">Pipeline</TableHead>
               <TableHead className="w-[90px] cursor-pointer select-none hover:bg-muted/50" onClick={() => toggleSort('status')}>
                 <div className="flex items-center gap-1">
@@ -342,24 +342,15 @@ export function CampaignsTable({
                           className="w-10 h-10 rounded object-cover"
                         />
                       ) : (
-                        <div className={cn(
-                          "w-10 h-10 rounded flex items-center justify-center",
-                          campaign.type === 'email'
-                            ? "bg-blue-100 dark:bg-blue-900/30"
-                            : "bg-purple-100 dark:bg-purple-900/30"
-                        )}>
-                          {campaign.type === 'email' ? (
-                            <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          ) : (
-                            <MessageSquare className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                          )}
+                        <div className="w-10 h-10 rounded flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+                          <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         </div>
                       )}
                       <div className="space-y-1">
                         <span className="font-medium block">{campaign.name}</span>
-                        {campaign.subject && (
+                        {(campaign.template?.subject || campaign.subject) && (
                           <span className="text-xs text-muted-foreground block truncate max-w-[200px]">
-                            {campaign.subject}
+                            {campaign.template?.subject || campaign.subject}
                           </span>
                         )}
                         {recipientLists.length > 0 && (
@@ -394,13 +385,27 @@ export function CampaignsTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {campaign.type === 'email' ? (
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex flex-wrap items-center gap-1">
+                      {(campaign.recipient_lists?.length ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {campaign.recipient_lists!.length} list{campaign.recipient_lists!.length > 1 ? 's' : ''}
+                        </Badge>
                       )}
-                      <span className="capitalize">{campaign.type}</span>
+                      {(campaign.recipient_tags?.length ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {campaign.recipient_tags!.length} tag{campaign.recipient_tags!.length > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                      {(campaign.recipient_stages?.length ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {campaign.recipient_stages!.length} stage{campaign.recipient_stages!.length > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                      {!campaign.recipient_lists?.length &&
+                        !campaign.recipient_tags?.length &&
+                        !campaign.recipient_stages?.length && (
+                          <span className="text-xs text-muted-foreground">Not set</span>
+                        )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -523,7 +528,7 @@ export function CampaignsTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteDialogCampaign?.name}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{deleteDialogCampaign?.name}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -552,7 +557,7 @@ export function CampaignsTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Scheduled Campaign</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel "{cancelDialogCampaign?.name}"? It will not be sent.
+              Are you sure you want to cancel &quot;{cancelDialogCampaign?.name}&quot;? It will not be sent.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
