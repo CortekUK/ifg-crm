@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchRankedContactIds } from '@/lib/contacts/search'
 import type { List, ListWithContacts, ListFilters, CreateListInput, UpdateListInput, ListStats } from '@/lib/types/lists'
 
 export function useLists(filters?: ListFilters) {
@@ -103,7 +104,7 @@ export function useListContacts(listId: string | null, page = 1, pageSize = 20, 
       const offset = (page - 1) * pageSize
 
       // Build base query for contacts in this list
-      let query = supabase
+      const query = supabase
         .from('contact_lists')
         .select(`
           contact_id,
@@ -113,23 +114,35 @@ export function useListContacts(listId: string | null, page = 1, pageSize = 20, 
         `, { count: 'exact' })
         .eq('list_id', listId)
 
-      // Apply search filter — each word must match at least one field (AND between words, OR within)
-      // Always search name and email; include phone when term contains digits
+      // Searching goes through search_contacts_ranked, scoped to this list,
+      // so member search behaves identically to the Contacts page and to the
+      // tag sheet — one definition of what "matches", and results ranked by
+      // relevance rather than by when they were added.
       if (search?.trim()) {
-        const searchTerm = search.trim()
-        const looksLikePhone = /\d/.test(searchTerm)
-        const words = searchTerm.split(/\s+/).filter(Boolean)
-        for (const word of words) {
-          const conditions = [
-            `first_name.ilike.%${word}%`,
-            `last_name.ilike.%${word}%`,
-            `email.ilike.%${word}%`,
-          ]
-          if (looksLikePhone) {
-            conditions.push(`phone.ilike.%${word}%`)
-          }
-          query = query.or(conditions.join(','), { referencedTable: 'contacts' })
-        }
+        const { ids, total } = await fetchRankedContactIds(supabase, {
+          search: search.trim(),
+          contactIds: null,
+          listId,
+          limit: pageSize,
+          offset,
+        })
+
+        if (ids.length === 0) return { contacts: [], total }
+
+        const { data, error } = await supabase
+          .from('contact_lists')
+          .select('contact_id, list_id, added_at, contact:contacts!inner(*)')
+          .eq('list_id', listId)
+          .in('contact_id', ids)
+
+        if (error) throw error
+
+        const position = new Map(ids.map((id, i) => [id, i]))
+        const ordered = [...(data || [])].sort(
+          (a, b) => (position.get(a.contact_id) ?? 0) - (position.get(b.contact_id) ?? 0)
+        )
+
+        return { contacts: ordered, total }
       }
 
       const { data, count, error } = await query

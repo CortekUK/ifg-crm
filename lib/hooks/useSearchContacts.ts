@@ -1,40 +1,53 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchRankedContactIds, orderByIds } from '@/lib/contacts/search'
 import type { Contact } from '@/lib/types/contacts'
+
+/**
+ * Contact picker search, e.g. "add contacts to this list".
+ *
+ * Uses the same `search_contacts_ranked` function the Contacts page does.
+ * The previous hand-rolled version assumed the first typed word was the
+ * first name and the last word the surname, so "Head Aila" found nobody,
+ * and a multi-word term never checked the email column at all. It also
+ * returned an arbitrary 50 rows with no relevance ordering, so an exact
+ * match could be missing from a list of near-misses.
+ */
+const RESULT_LIMIT = 50
 
 export function useSearchContacts(search: string) {
   const supabase = createClient()
+  const term = search.trim()
 
   return useQuery<Contact[]>({
-    queryKey: ['contacts-search', search || '__recent__'],
+    queryKey: ['contacts-search', term || '__recent__'],
     queryFn: async () => {
-      let query = supabase.from('contacts').select('*')
+      // Nothing typed yet — show the most recent contacts as a starting point.
+      if (term.length < 2) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(RESULT_LIMIT)
 
-      if (search && search.length >= 2) {
-        // Split search into words so "Alex Mattes" matches first_name=Alex AND last_name=Mattes
-        const words = search.trim().split(/\s+/).filter(Boolean)
-
-        if (words.length >= 2) {
-          // Multi-word: first word matches first_name, last word matches last_name
-          query = query
-            .ilike('first_name', `%${words[0]}%`)
-            .ilike('last_name', `%${words[words.length - 1]}%`)
-        } else {
-          // Single word: match against first_name, last_name, or email
-          query = query.or(
-            `first_name.ilike.%${words[0]}%,last_name.ilike.%${words[0]}%,email.ilike.%${words[0]}%`
-          )
-        }
-      } else {
-        // No search — return recent contacts
-        query = query.order('created_at', { ascending: false })
+        if (error) throw error
+        return data || []
       }
 
-      const { data, error } = await query.limit(50)
+      const { ids } = await fetchRankedContactIds(supabase, {
+        search: term,
+        contactIds: null,
+        limit: RESULT_LIMIT,
+        offset: 0,
+      })
 
+      if (ids.length === 0) return []
+
+      const { data, error } = await supabase.from('contacts').select('*').in('id', ids)
       if (error) throw error
-      return data || []
+
+      // Supabase returns rows in planner order, which would discard the ranking.
+      return orderByIds(data || [], ids)
     },
-    enabled: true,
   })
 }

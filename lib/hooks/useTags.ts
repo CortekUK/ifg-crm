@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchRankedContactIds } from '@/lib/contacts/search'
 import type { ContactTag } from '@/lib/types/contacts'
 
 export interface TagWithCount extends ContactTag {
@@ -70,7 +71,7 @@ export function useTagContacts(tagId: string | null, page = 1, pageSize = 20, se
 
       const offset = (page - 1) * pageSize
 
-      let query = supabase
+      const query = supabase
         .from('contact_tags')
         .select(`
           contact_id,
@@ -80,12 +81,36 @@ export function useTagContacts(tagId: string | null, page = 1, pageSize = 20, se
         `, { count: 'exact' })
         .eq('tag_id', tagId)
 
+      // Searching goes through search_contacts_ranked, scoped to this tag.
+      // The old predicate passed the whole typed string to each column, so
+      // "Aila Head" asked whether a FIRST NAME contained "Aila Head" and
+      // matched nobody — full-name search inside a tag never worked.
       if (search?.trim()) {
-        const term = search.trim()
-        query = query.or(
-          `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%`,
-          { referencedTable: 'contacts' }
+        const { ids, total } = await fetchRankedContactIds(supabase, {
+          search: search.trim(),
+          contactIds: null,
+          tagId,
+          limit: pageSize,
+          offset,
+        })
+
+        if (ids.length === 0) return { contacts: [], total }
+
+        const { data, error } = await supabase
+          .from('contact_tags')
+          .select('contact_id, tag_id, added_at, contact:contacts!inner(*)')
+          .eq('tag_id', tagId)
+          .in('contact_id', ids)
+
+        if (error) throw error
+
+        // Keep the relevance order the function returned.
+        const position = new Map(ids.map((id, i) => [id, i]))
+        const ordered = [...(data || [])].sort(
+          (a, b) => (position.get(a.contact_id) ?? 0) - (position.get(b.contact_id) ?? 0)
         )
+
+        return { contacts: ordered, total }
       }
 
       const { data, count, error } = await query

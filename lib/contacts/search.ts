@@ -28,6 +28,10 @@ export interface RankedSearchArgs {
   sortOrder?: 'asc' | 'desc'
   limit: number
   offset: number
+  /** Restrict to contacts carrying this tag (member search inside a tag). */
+  tagId?: string | null
+  /** Restrict to contacts on this list (member search inside a list). */
+  listId?: string | null
 }
 
 /** Treat the sentinel 'all' and empty strings as "no filter". */
@@ -58,6 +62,8 @@ export async function fetchRankedContactIds(
     p_sort_desc: args.sortOrder !== 'asc',
     p_limit: args.limit,
     p_offset: args.offset,
+    p_tag_id: args.tagId ?? null,
+    p_list_id: args.listId ?? null,
   })
 
   if (error) throw error
