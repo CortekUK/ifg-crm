@@ -192,15 +192,25 @@ export default function UsersPage() {
           // account instead; DELETE /api/users/[id] also clears the
           // user_invites rows for that email. Fall back to a plain invite-row
           // delete if no profile was created (e.g. link generation failed).
+          // ilike, not eq: emails were stored with whatever case was typed,
+          // so an exact match could miss the very profile this is about to
+          // reason over.
+          //
+          // password_set_at is the guard that matters. Without it, cancelling
+          // a duplicate invite raised against someone who had ALREADY joined
+          // would delete their live account, auth user and all — the invite
+          // shell and a working user are indistinguishable by email alone.
           const { data: pendingProfile } = await supabase
             .from('profiles')
-            .select('id')
-            .eq('email', invite.email)
+            .select('id, password_set_at')
+            .ilike('email', invite.email)
             .maybeSingle()
 
-          if (pendingProfile?.id) {
+          if (pendingProfile?.id && !pendingProfile.password_set_at) {
             await deleteUser.mutateAsync(pendingProfile.id)
           } else {
+            // Either no profile was created, or one exists but belongs to an
+            // active user — in both cases only the invite row should go.
             const { error } = await supabase
               .from('user_invites')
               .delete()

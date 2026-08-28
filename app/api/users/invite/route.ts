@@ -117,7 +117,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { email, fullName, role, title, sport, phone, calendlyUrl, zoomUrl, pipelineIds } = body
+    const { email: rawEmail, fullName, role, title, sport, phone, calendlyUrl, zoomUrl, pipelineIds } = body
+
+    // Normalise before anything looks it up. Addresses are case-insensitive in
+    // practice, but every comparison below (and the profiles/user_invites
+    // rows) is plain text — so inviting "Dansoutar@…" when "dansoutar@…"
+    // already existed slipped past the duplicate guard and created a second,
+    // unusable invite against a live account.
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail
 
     if (!email || !fullName) {
       return NextResponse.json({ error: 'Email and name are required' }, { status: 400 })
@@ -139,16 +146,26 @@ export async function POST(request: NextRequest) {
     // Get admin client
     const supabaseAdmin = getSupabaseAdmin()
 
-    // Check if user already exists in profiles
+    // Case-insensitive on purpose — see the normalisation note above.
     const { data: existingUser } = await supabaseAdmin
       .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .single()
+      .select('id, password_set_at')
+      .ilike('email', email)
+      .maybeSingle()
 
     if (existingUser) {
       // Check if this is an unconfirmed user (from a previous failed invite)
       // by looking at their auth record
+      // Someone who has set a password owns this account. Never delete and
+      // re-create it — that would destroy a working user and everything
+      // attributed to them.
+      if (existingUser.password_set_at) {
+        return NextResponse.json(
+          { error: 'This person already has an active account. Use Edit user instead of inviting them again.' },
+          { status: 400 },
+        )
+      }
+
       if (hasServiceRoleKey()) {
         const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(existingUser.id)
         const identities = authUser?.user?.identities
@@ -167,11 +184,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clean up any old invites for this email (all statuses — user may have been deleted and re-invited)
+    // Clean up any old invites for this email (all statuses — user may have
+    // been deleted and re-invited). ilike so differently-cased duplicates from
+    // before the normalisation above are swept up too.
     await supabaseAdmin
       .from('user_invites')
       .delete()
-      .eq('email', email)
+      .ilike('email', email)
 
     // Create invite record
     const { data: invite, error: inviteError } = await supabaseAdmin

@@ -66,14 +66,31 @@ export function useUsersAndInvites() {
   const usersQuery = useUsers()
   const invitesQuery = useUserInvites()
 
-  // Emails with pending invites — used to hide the auto-created profile row
-  const pendingEmails = new Set(
-    (invitesQuery.data || []).map((i) => i.email.toLowerCase())
+  // Accounts that have genuinely completed setup. An invite row for one of
+  // these is stale — it happens when someone is invited a second time after
+  // already joining, which the invite API failed to block because it compared
+  // emails case-sensitively ("Dansoutar@" vs "dansoutar@").
+  //
+  // Left in place, the stale invite hid the real account behind a "Pending"
+  // badge and offered Resend and Cancel against a working user. Comparison is
+  // lower-cased throughout, because that is exactly what went wrong.
+  const settledEmails = new Set(
+    (usersQuery.data || [])
+      .filter((u) => !!u.password_set_at)
+      .map((u) => u.email.toLowerCase())
   )
+
+  const liveInvites = (invitesQuery.data || []).filter(
+    (i) => !settledEmails.has(i.email.toLowerCase())
+  )
+
+  // Emails with a genuine pending invite — used to hide the auto-created
+  // profile shell that the invite generated, so it doesn't show twice.
+  const pendingEmails = new Set(liveInvites.map((i) => i.email.toLowerCase()))
 
   const combined: UserOrInvite[] = [
     // Map pending invites first (show at top)
-    ...(invitesQuery.data || []).map((invite): UserOrInvite => ({
+    ...liveInvites.map((invite): UserOrInvite => ({
       id: invite.id,
       email: invite.email,
       full_name: invite.full_name,
