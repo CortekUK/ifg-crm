@@ -15,6 +15,7 @@ import { SocialBlock } from './blocks/SocialBlock'
 import { HTMLBlock } from './blocks/HTMLBlock'
 import { ColumnsBlock } from './blocks/ColumnsBlock'
 import { SectionBlock } from './blocks/SectionBlock'
+import { BrochureBlock } from './blocks/BrochureBlock'
 import { HeroBlock } from './blocks/HeroBlock'
 import { CardsBlock } from './blocks/CardsBlock'
 import { QuoteBlock } from './blocks/QuoteBlock'
@@ -114,6 +115,10 @@ export function CanvasBlock({
             isSelected={isSelected}
             onUpdate={onUpdate}
           />
+        )
+      case 'brochure':
+        return (
+          <BrochureBlock content={blockContent} isSelected={isSelected} onUpdate={onUpdate} />
         )
       case 'section':
         return (

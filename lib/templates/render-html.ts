@@ -1,4 +1,5 @@
 import type {
+  BrochureBlockContent,
   SectionBlockContent,
   EditorBlock,
   TextBlockContent,
@@ -28,6 +29,7 @@ import type {
 // (Gmail strips inline SVG). The registry of platforms is still the
 // single source of truth for which keys are renderable.
 import { SOCIAL_PLATFORMS } from './social-icons'
+import { brochureEmailUrl } from '@/lib/config/site-url'
 
 // Default chrome colours when no theme is set on the template. Single
 // source of truth — `EditorCanvas` mirrors these values so the canvas
@@ -421,6 +423,8 @@ export function renderBlock(block: EditorBlock, theme?: TemplateTheme | null): s
   // have; those sections carry their own colours.
   const t = resolveTheme(theme)
   switch (block.type) {
+    case 'brochure':
+      return renderBrochureBlock(block.content as BrochureBlockContent, t)
     case 'section':
       return renderSectionBlock(block.content as SectionBlockContent, t)
     case 'text':
@@ -562,6 +566,96 @@ function renderButtonBlock(content: ButtonBlockContent, t: Required<TemplateThem
       </a>
     </div>
   `
+}
+
+/**
+ * A brochure shown as a book that opens the real flipbook.
+ *
+ * The cover is built from table cells rather than an image with a border:
+ * a thin dark spine down the left, the cover itself, then two hairline page
+ * edges on the right. Email clients that block images still show the shape and
+ * the title, so the block never collapses to nothing.
+ */
+function renderBrochureBlock(content: BrochureBlockContent, t: Required<TemplateTheme>): string {
+  if (!content.slug) {
+    return `<div style="padding: 16px; border: 1px dashed ${t.mutedColor}; text-align: center; font-family: ${fontStack(
+      t.bodyFont,
+    )}; font-size: 14px; color: ${t.mutedColor};">Pick a brochure</div>`
+  }
+
+  const url = brochureEmailUrl(content.slug)
+  const radius = Math.min(cornerRadius(t.corners), 10)
+  const cover = content.coverImage ? resolveAssetUrl(content.coverImage) : ''
+  const spine = t.primaryColor
+
+  const meta =
+    content.showPageCount && content.pageCount
+      ? `<div style="margin-top: 6px; font-family: ${fontStack(t.bodyFont)}; font-size: ${Math.round(
+          t.baseFontSize * 0.75,
+        )}px; letter-spacing: 1.5px; text-transform: uppercase; color: ${t.mutedColor};">${
+          content.pageCount
+        } pages · flip through it online</div>`
+      : ''
+
+  const book = cover
+    ? `<table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+        <tr>
+          <td style="width: 6px; background-color: ${spine}; border-radius: ${radius}px 0 0 ${radius}px; font-size: 0; line-height: 0;">&nbsp;</td>
+          <td style="line-height: 0;">
+            <a href="${escapeHtml(url)}" target="_blank"><img src="${escapeHtml(
+              cover,
+            )}" alt="${escapeHtml(content.title)}" width="200" style="display: block; width: 200px; max-width: 100%; height: auto; border: 0;" /></a>
+          </td>
+          <!-- The stacked page edges. Two thin cells, lighter each step. -->
+          <td style="width: 3px; background-color: #d9dde3; font-size: 0; line-height: 0;">&nbsp;</td>
+          <td style="width: 2px; background-color: #eef1f5; border-radius: 0 ${radius}px ${radius}px 0; font-size: 0; line-height: 0;">&nbsp;</td>
+        </tr>
+      </table>`
+    : ''
+
+  const copy = `
+    <div style="font-family: ${fontStack(t.headingFont)}; font-size: ${Math.round(
+      t.baseFontSize * 1.375,
+    )}px; font-weight: bold; color: ${t.inkColor};">${escapeHtml(content.title)}</div>
+    ${
+      content.description
+        ? `<div style="margin-top: 8px; font-family: ${fontStack(t.bodyFont)}; font-size: ${Math.round(
+            t.baseFontSize * 0.9375,
+          )}px; line-height: 1.55; color: ${t.mutedColor};">${escapeHtml(content.description)}</div>`
+        : ''
+    }
+    ${meta}
+    <div style="margin-top: 16px;">
+      <a href="${escapeHtml(url)}" target="_blank" style="display: inline-block; background-color: ${
+        t.primaryColor
+      }; color: #ffffff; padding: 12px 26px; text-decoration: none; border-radius: ${cornerRadius(
+        t.corners,
+      )}px; font-family: ${fontStack(t.bodyFont)}; font-weight: bold; font-size: ${Math.round(
+        t.baseFontSize * 0.9375,
+      )}px;">${escapeHtml(content.buttonText || 'Open the brochure')}</a>
+    </div>`
+
+  const pad = `padding-top: ${content.paddingTop}px; padding-bottom: ${content.paddingBottom}px;`
+
+  // Side by side on a desktop, stacked on a phone through the shared
+  // .ifg-card rule the panels already use.
+  if (content.layout === 'wide' && book) {
+    return `
+    <div style="${pad}">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="table-layout: fixed;">
+        <tr>
+          <td class="ifg-card" width="42%" valign="top" style="padding-right: 18px;">${book}</td>
+          <td class="ifg-card" width="58%" valign="top">${copy}</td>
+        </tr>
+      </table>
+    </div>`
+  }
+
+  return `
+    <div style="${pad} text-align: center;">
+      ${book}
+      <div style="margin-top: 18px;">${copy}</div>
+    </div>`
 }
 
 /**

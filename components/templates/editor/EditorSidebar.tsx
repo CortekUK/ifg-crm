@@ -57,9 +57,12 @@ import {
   Trash2,
   Loader2,
   Rows3,
+  BookOpen,
 } from 'lucide-react'
+import { useBrochures } from '@/lib/hooks/useWebsiteBrochures'
+import { brochureBlockContent } from './blocks/BrochureBlock'
 import { cn } from '@/lib/utils'
-import { TemplateSettings, BlockType, templateVariables, EditorBlock } from '@/lib/templates/editor-types'
+import { TemplateSettings, BlockType, templateVariables, EditorBlock, defaultBlockContent } from '@/lib/templates/editor-types'
 import { useSavedModules, useSaveModule, useDeleteModule, moduleToBlock, type SavedModule } from '@/lib/hooks/useSavedModules'
 
 interface EditorSidebarProps {
@@ -926,6 +929,12 @@ export function EditorSidebar({
                 </div>
               </div>
 
+              {/* Brochures — the real ones from the CRM, not a generic block.
+                  Clicking one inserts it already filled in, because picking
+                  "brochure" and then picking WHICH brochure is two steps for
+                  a decision the user has already made. */}
+              <BrochureLibrary onInsert={onAddBlockFromModule} />
+
               {/* Advanced Blocks */}
               <div>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Advanced</p>
@@ -1085,6 +1094,77 @@ export function EditorSidebar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+/**
+ * The brochures that exist in the CRM, ready to drop into an email.
+ *
+ * Listed here rather than behind a generic "brochure" block because the user
+ * has already decided which brochure they want by the time they open the
+ * sidebar — asking them to add an empty block and then choose is a step for
+ * nothing. Each one inserts filled in: cover, title, page count and the link
+ * to its flipbook.
+ */
+function BrochureLibrary({
+  onInsert,
+}: {
+  onInsert?: (block: EditorBlock) => void
+}) {
+  const { data: brochures = [], isLoading } = useBrochures()
+
+  if (isLoading || brochures.length === 0) return null
+
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Brochures
+      </p>
+      <div className="space-y-1.5">
+        {brochures.map((b) => {
+          const cover = b.cover_image || b.page_images?.[0] || ''
+          const pages = b.page_count ?? b.page_images?.length ?? 0
+          return (
+            <button
+              key={b.id}
+              onClick={() =>
+                onInsert?.({
+                  id: `block_${Date.now()}_${b.id.slice(0, 6)}`,
+                  type: 'brochure',
+                  content: {
+                    ...(defaultBlockContent.brochure as unknown as Record<string, unknown>),
+                    ...brochureBlockContent(b),
+                  },
+                })
+              }
+              disabled={!onInsert}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-left transition-all hover:border-emerald-400 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40"
+            >
+              <span className="h-10 w-8 shrink-0 overflow-hidden rounded bg-emerald-100 dark:bg-emerald-900">
+                {cover ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={cover} alt="" className="h-10 w-8 object-cover" />
+                ) : (
+                  <BookOpen className="m-1 h-6 w-6 text-emerald-500" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                  {b.title}
+                </span>
+                <span className="block text-[10px] text-emerald-600 dark:text-emerald-400">
+                  {pages ? `${pages} pages` : 'not pre-rendered yet'}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+        Inserted as a book that opens the flipbook on the website. The pages
+        cannot turn inside an inbox.
+      </p>
     </div>
   )
 }

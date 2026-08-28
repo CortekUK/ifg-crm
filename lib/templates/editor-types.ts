@@ -1,4 +1,4 @@
-export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature' | 'company_signature' | 'file' | 'hero' | 'cards' | 'quote' | 'section'
+export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature' | 'company_signature' | 'file' | 'hero' | 'cards' | 'quote' | 'section' | 'brochure'
 
 export interface EditorBlock {
   id: string
@@ -8,6 +8,7 @@ export interface EditorBlock {
 }
 
 export type BlockContent =
+  | BrochureBlockContent
   | SectionBlockContent
   | HeroBlockContent
   | CardsBlockContent
@@ -33,6 +34,32 @@ export interface TextBlockContent {
   paddingTop: number
   paddingBottom: number
   backgroundColor?: string
+}
+
+/**
+ * A brochure, presented as a book.
+ *
+ * The brochure itself is a flipbook on the public site — page-flip is
+ * JavaScript, and no email client will run it. So the email shows the cover
+ * standing as a book (spine, page edges, shadow) and links to the real
+ * flipbook. What arrives in the inbox looks like the thing it opens, which is
+ * the closest an email can honestly get.
+ */
+export interface BrochureBlockContent {
+  /** The brochure in the CRM. Kept so the block can be re-resolved later. */
+  brochureId: string
+  /** Denormalised at insert so the email renders even if the row moves. */
+  slug: string
+  title: string
+  description: string
+  coverImage: string
+  pageCount: number
+  buttonText: string
+  /** 'book' stands the cover up; 'wide' lays it beside the copy. */
+  layout: 'book' | 'wide'
+  showPageCount: boolean
+  paddingTop: number
+  paddingBottom: number
 }
 
 /**
@@ -457,6 +484,19 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
   html: {
     code: '<!-- Custom HTML here -->',
   } as HTMLBlockContent,
+  brochure: {
+    brochureId: '',
+    slug: '',
+    title: '',
+    description: '',
+    coverImage: '',
+    pageCount: 0,
+    buttonText: 'Open the brochure',
+    layout: 'book',
+    showPageCount: true,
+    paddingTop: 12,
+    paddingBottom: 12,
+  } as BrochureBlockContent,
   section: {
     backgroundColor: '#0f172a',
     backgroundImageUrl: '',

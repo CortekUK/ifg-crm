@@ -1,5 +1,66 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { renderBlocksToHTML } from '@/lib/templates/render-html'
+import { defaultBlockContent, type EditorBlock } from '@/lib/templates/editor-types'
+
+/**
+ * The blocks a brochure email is made of.
+ *
+ * Built from real editor blocks rather than a string of HTML, for two
+ * reasons. It inherits the global theme and branding like every other
+ * template — the hand-written version did not, so these three were the only
+ * emails in the system that ignored the brand. And it opens in the editor as
+ * something you can change, instead of one unreadable HTML block.
+ */
+function brochureBlocks(b: { id: string; slug: string; title: string; description?: string | null; cover_image?: string | null; page_count?: number | null; page_images?: string[] | null }): EditorBlock[] {
+  const cover = b.cover_image || b.page_images?.[0] || ''
+  const pages = b.page_count ?? b.page_images?.length ?? 0
+
+  return [
+    {
+      id: `${b.id}-intro`,
+      type: 'text',
+      content: {
+        ...defaultBlockContent.text,
+        html: `<p>Hi {{first_name}},</p><p>Here is the ${escapeText(b.title)} — the programme week, what is included, the costs and the entry requirements, all in one place.</p>`,
+        paddingTop: 0,
+        paddingBottom: 8,
+      },
+    },
+    {
+      id: `${b.id}-brochure`,
+      type: 'brochure',
+      content: {
+        ...defaultBlockContent.brochure,
+        brochureId: b.id,
+        slug: b.slug,
+        title: b.title,
+        description: b.description ?? '',
+        coverImage: cover,
+        pageCount: pages,
+        buttonText: 'Open the brochure',
+        layout: 'wide',
+        showPageCount: true,
+      },
+    },
+    {
+      id: `${b.id}-outro`,
+      type: 'text',
+      content: {
+        ...defaultBlockContent.text,
+        html: `<p>It opens in the browser — no download, and it works on a phone.</p><p>Any questions at all, just reply to this email and it comes straight to me.</p>`,
+        paddingTop: 12,
+        paddingBottom: 0,
+      },
+    },
+  ] as EditorBlock[]
+}
+
+/** Titles come from user input and land inside HTML. */
+function escapeText(value: string): string {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 /**
  * Reconciles the auto-managed "send this brochure when a deal enters a stage"
  * automations for ONE brochure so they match its `brochure_pipelines` rows.
@@ -15,40 +76,79 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  *
  * Must be called with a SERVICE-ROLE client (writes automations/templates).
  */
-const SITE_ORIGIN = 'https://theinternationalfootballgroup.com'
-
 export async function syncBrochureAutomations(
   supabase: SupabaseClient,
   brochureId: string,
 ): Promise<void> {
   const { data: b } = await supabase
     .from('website_brochures')
-    .select('id, slug, title')
+    .select('id, slug, title, description, cover_image, page_count, page_images')
     .eq('id', brochureId)
     .maybeSingle()
   if (!b) return
 
-  const link = `${SITE_ORIGIN}/b/${b.slug}?v=1`
   const tplName = `Brochure: ${b.title}`
   const subject = `${b.title} 📘`
-  const bodyHtml = `<div style="font-family:Arial,Helvetica,sans-serif;color:#0E1413;font-size:16px;line-height:1.6;max-width:560px">
-<p>Hi {{first_name}},</p>
-<p>Here's the ${b.title} — everything you need in one place:</p>
-<p style="text-align:center;margin:30px 0"><a href="${link}" style="background:#BE1623;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 32px;border-radius:999px;display:inline-block">View the brochure →</a></p>
-<p>Any questions at all, just reply to this email.</p>
-<p>Best,<br>{{deal_owner_name|Nathan Bibby}}<br>The International Football Group</p>
-</div>`
+  const blocks = brochureBlocks(b)
 
-  // 1. Reusable email template for this brochure (create or refresh).
+  // 1. Reusable email template for this brochure.
+  //
+  // On refresh this deliberately does NOT overwrite a template someone has
+  // edited. It re-renders the brochure BLOCK in place — cover, title, page
+  // count, link — and leaves every other block alone. The previous version
+  // replaced the whole body on every brochure save, so any edit to these
+  // three emails was silently discarded the next time the brochure was
+  // touched.
   let templateId: string | null = null
-  const { data: tpl } = await supabase.from('email_templates').select('id').eq('name', tplName).maybeSingle()
+  const { data: tpl } = await supabase
+    .from('email_templates')
+    .select('id, body_json, theme')
+    .eq('name', tplName)
+    .maybeSingle()
+
   if (tpl?.id) {
     templateId = tpl.id
-    await supabase.from('email_templates').update({ subject, body_html: bodyHtml }).eq('id', templateId)
+    const existing = Array.isArray(tpl.body_json) ? (tpl.body_json as EditorBlock[]) : []
+    const hasBrochureBlock = existing.some((blk) => blk?.type === 'brochure')
+
+    const nextBlocks = hasBrochureBlock
+      ? existing.map((blk) =>
+          blk.type === 'brochure'
+            ? {
+                ...blk,
+                content: {
+                  ...blk.content,
+                  brochureId: b.id,
+                  slug: b.slug,
+                  title: b.title,
+                  coverImage: b.cover_image || b.page_images?.[0] || blk.content?.coverImage || '',
+                  pageCount: b.page_count ?? b.page_images?.length ?? blk.content?.pageCount ?? 0,
+                },
+              }
+            : blk,
+        )
+      : blocks
+
+    await supabase
+      .from('email_templates')
+      .update({
+        subject,
+        body_json: nextBlocks,
+        body_html: renderBlocksToHTML(nextBlocks, (tpl.theme as never) ?? null),
+      })
+      .eq('id', templateId)
   } else {
     const { data: created } = await supabase
       .from('email_templates')
-      .insert({ name: tplName, subject, body_html: bodyHtml, category: 'automation', from_name_type: 'deal_owner', is_draft: false })
+      .insert({
+        name: tplName,
+        subject,
+        body_json: blocks,
+        body_html: renderBlocksToHTML(blocks),
+        category: 'automation',
+        from_name_type: 'deal_owner',
+        is_draft: false,
+      })
       .select('id')
       .single()
     templateId = created?.id ?? null
