@@ -16,21 +16,15 @@
 
 import type { EditorBlock, TemplateTheme } from './editor-types'
 import type { EmailBranding } from './branding-types'
+import { DEFAULT_EMAIL_BRANDING } from './branding-types'
 import {
   BRANDING_MARKERS,
   renderBlock,
   renderBlocksToHTML,
   resolveAssetUrl,
   type BrandingSlots,
+  escapeHtml,
 } from './render-html'
-
-function escapeHtml(value: string): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 /** Wrap `inner` in an anchor when the header has a click-through URL. */
 function maybeLink(inner: string, url: string): string {
@@ -52,8 +46,36 @@ function renderHeader(b: EmailBranding): string {
   //
   // A logo needs a transparent background: on a dark header, a mark saved
   // with white baked in renders as a visible white box.
+  const styled = (b.header.style ?? 'plain') !== 'plain'
+
+  // Two or more marks in a styled header read as a partnership lockup when a
+  // hairline separates them — the difference between "our logo and their logo"
+  // and "IFG × Macclesfield". A single mark gets no rule to sit against.
+  const dividedLogoRow =
+    styled && logos.length > 1
+      ? `<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto;">
+        <tr>${logos
+          .map(
+            (l, i) =>
+              `${
+                i > 0
+                  ? `<td style="width: 1px; padding: 0 ${Math.round(
+                      gap / 2,
+                    )}px;"><div style="width: 1px; height: 34px; background-color: rgba(255,255,255,0.22); font-size: 0; line-height: 0;">&nbsp;</div></td>`
+                  : ''
+              }<td style="vertical-align: middle; line-height: 0;"><img class="ifg-header-logo" src="${escapeHtml(
+                resolveAssetUrl(l.src),
+              )}" alt="${escapeHtml(l.alt || '')}" width="${l.width}" style="display: block; width: ${
+                l.width
+              }px; max-width: 100%; height: auto; border: 0;" /></td>`,
+          )
+          .join('')}</tr>
+      </table>`
+      : ''
+
   const logoRow =
-    logos.length > 0
+    dividedLogoRow ||
+    (logos.length > 0
       ? `<div class="ifg-header-logos" style="text-align: center; line-height: 0;">${logos
           .map(
             (l) =>
@@ -66,18 +88,22 @@ function renderHeader(b: EmailBranding): string {
               )}px; vertical-align: middle; border: 0;" />`,
           )
           .join('')}</div>`
-      : ''
+      : '')
+
+  // In a styled band the wordmark is set in caps with wide tracking — it reads
+  // as a mark rather than as a heading.
+  const wordmarkStyle = styled
+    ? `color: ${h.textColor}; font-size: 20px; font-weight: bold; letter-spacing: 3px; text-transform: uppercase;`
+    : `color: ${h.textColor}; font-size: 24px; font-weight: bold;`
 
   const wordmark = `<table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
         <tr>
-          <td style="vertical-align: middle;">
-            <span style="color: ${h.textColor}; font-size: 24px; font-weight: bold;">${escapeHtml(
-              h.text,
-            )}</span>
+          <td class="ifg-header-cell" style="vertical-align: middle;">
+            <span style="${wordmarkStyle}">${escapeHtml(h.text)}</span>
           </td>${
             h.subtext
               ? `
-          <td style="vertical-align: middle; padding-left: 10px;">
+          <td class="ifg-header-cell" style="vertical-align: middle; padding-left: 10px;">
             <span style="color: ${h.textColor}; font-size: 16px;">${escapeHtml(h.subtext)}</span>
           </td>`
               : ''
@@ -90,11 +116,14 @@ function renderHeader(b: EmailBranding): string {
 
   // One line: a centred two-cell table. Tables (not flexbox or inline-block
   // alone) are what hold up across Outlook.
+  // `ifg-header-cell` lets the shell's media query stack these on a phone.
+  // Side by side, a 375px screen gives each half under 180px — which is how
+  // the logos ended up thumbnail-sized and the wordmark wrapped mid-phrase.
   const sideBySide = (left: string, right: string) => `
       <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
         <tr>
-          <td style="vertical-align: middle;">${left}</td>
-          <td style="vertical-align: middle; padding-left: ${Math.max(gap, 8)}px;">${right}</td>
+          <td class="ifg-header-cell" style="vertical-align: middle;">${left}</td>
+          <td class="ifg-header-cell" style="vertical-align: middle; padding-left: ${Math.max(gap, 8)}px;">${right}</td>
         </tr>
       </table>`
 
@@ -121,10 +150,109 @@ function renderHeader(b: EmailBranding): string {
     inner = wordmark
   }
 
-  return `
-    <div style="background-color: ${h.bgColor}; padding: 20px; text-align: center;">
-      ${maybeLink(inner, h.linkUrl)}
+  return wrapHeaderBand(h, maybeLink(inner, h.linkUrl))
+}
+
+/**
+ * Wrap the header lockup in its chosen visual treatment.
+ *
+ * Everything here is table-and-inline-style only, because this is the first
+ * thing Outlook renders and a broken masthead is the most visible failure an
+ * email can have. Each style degrades to a solid band rather than to nothing.
+ */
+function wrapHeaderBand(h: EmailBranding['header'], inner: string): string {
+  const style = h.style ?? 'plain'
+  const accent = h.accentColor || '#BE1623'
+
+  if (style === 'plain') {
+    return `
+    <div class="ifg-header-band" style="background-color: ${h.bgColor}; padding: 20px; text-align: center;">
+      ${inner}
     </div>
+  `
+  }
+
+  // A short centred hairline above the strapline. Pure border, no image, so it
+  // survives image blocking — which is on by default in Outlook and Gmail
+  // until the reader trusts the sender.
+  const rule = h.tagline
+    ? `<table cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 16px auto 0;">
+        <tr><td style="width: 56px; border-top: 1px solid rgba(255,255,255,0.28); font-size: 0; line-height: 0;">&nbsp;</td></tr>
+      </table>`
+    : ''
+
+  // Letter-spacing is ignored by Outlook desktop; it simply reads as normal
+  // small caps there, which is a fine outcome rather than a broken one.
+  const tagline = h.tagline
+    ? `<div class="ifg-tagline" style="margin-top: 12px; color: ${h.textColor}; opacity: 0.72; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: bold;">${escapeHtml(
+        h.tagline,
+      )}</div>`
+    : ''
+
+  // The closing bar. Three pixels of brand colour is what separates a header
+  // from a coloured rectangle.
+  const accentBar = `<div style="height: 3px; line-height: 3px; font-size: 0; background-color: ${accent};">&nbsp;</div>`
+
+  const lockup = `${inner}${rule}${tagline}`
+
+  // A hairline of the accent colour at the very top as well as the bar at the
+  // bottom. It frames the band, which is what stops a coloured rectangle
+  // reading as a coloured rectangle.
+  const topRule = `<div style="height: 1px; line-height: 1px; font-size: 0; background-color: ${accent}; opacity: 0.85;">&nbsp;</div>`
+
+  if (style === 'refined') {
+    return `
+    ${topRule}
+    <div class="ifg-header-band" style="background-color: ${h.bgColor}; padding: 34px 24px 30px; text-align: center;">
+      ${lockup}
+    </div>
+    ${accentBar}
+  `
+  }
+
+  // hero — photograph behind the lockup.
+  const image = h.bgImageUrl ? resolveAssetUrl(h.bgImageUrl) : ''
+  if (!image) {
+    // No photograph chosen: this is 'refined' with deeper padding, not a
+    // broken band.
+    return `
+    <div class="ifg-header-band" style="background-color: ${h.bgColor}; padding: 44px 24px 40px; text-align: center;">
+      ${lockup}
+    </div>
+    ${accentBar}
+  `
+  }
+
+  // `background` attribute + background-color fallback covers most clients.
+  // The VML block is what puts the image behind the lockup in Outlook desktop,
+  // which ignores CSS background images entirely.
+  //
+  // The scrim is a translucent overlay so light photography can't swallow a
+  // white wordmark. Outlook cannot composite it, so there the VML image shows
+  // undimmed — acceptable, and the reason the photograph should be dark to
+  // begin with.
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: ${h.bgColor};">
+      <tr>
+        <td background="${escapeHtml(image)}" bgcolor="${h.bgColor}" valign="middle" style="background-color: ${h.bgColor}; background-image: url('${escapeHtml(
+          image,
+        )}'); background-position: center center; background-size: cover; background-repeat: no-repeat;">
+          <!--[if gte mso 9]>
+          <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:180px;">
+            <v:fill type="frame" src="${escapeHtml(image)}" color="${h.bgColor}" />
+            <v:textbox inset="0,0,0,0">
+          <![endif]-->
+          <div class="ifg-header-band" style="background-color: rgba(15, 23, 42, 0.66); padding: 46px 24px 42px; text-align: center;">
+            ${lockup}
+          </div>
+          <!--[if gte mso 9]>
+            </v:textbox>
+          </v:rect>
+          <![endif]-->
+        </td>
+      </tr>
+    </table>
+    ${accentBar}
   `
 }
 
@@ -182,6 +310,18 @@ function renderLegal(b: EmailBranding): string {
       ${lines.join('\n      ')}
     </div>
   `
+}
+
+/**
+ * The header band on its own, for the editor's live preview.
+ *
+ * Exported so the preview renders the exact HTML that gets emailed. The editor
+ * previously carried a hand-built React reimplementation of the header, which
+ * drifted the moment the renderer gained a feature — a new style could be
+ * selected but not seen.
+ */
+export function renderHeaderHtml(header: EmailBranding['header']): string {
+  return renderHeader({ ...DEFAULT_EMAIL_BRANDING, showHeader: true, header })
 }
 
 /** Render every branded region. This is what gets persisted on save. */

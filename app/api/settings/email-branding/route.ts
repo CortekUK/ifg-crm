@@ -17,6 +17,8 @@ import {
   type EmailBrandingRecord,
 } from '@/lib/templates/branding-types'
 import { renderBrandingSlots } from '@/lib/templates/render-branding'
+import { renderBlocksToHTML } from '@/lib/templates/render-html'
+import type { EditorBlock } from '@/lib/templates/editor-types'
 
 const SETTINGS_KEY = 'email_branding'
 
@@ -66,6 +68,49 @@ export async function GET() {
       { status: 500 },
     )
   }
+}
+
+/**
+ * Re-render every template's body_html against the shared theme.
+ *
+ * Templates with no blocks are skipped, not rebuilt: body_json is empty for
+ * anything imported as raw HTML, and rendering zero blocks would replace a
+ * real email with an empty one. Returns how many were rewritten.
+ */
+async function restyleAllTemplates(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  theme: EmailBranding['theme'],
+): Promise<number> {
+  const { data: templates, error } = await supabase
+    .from('email_templates')
+    .select('id, body_json, theme, use_global_branding')
+
+  if (error || !templates) return 0
+
+  let count = 0
+  for (const tpl of templates) {
+    const blocks = (tpl.body_json ?? []) as EditorBlock[]
+    if (!Array.isArray(blocks) || blocks.length === 0) continue
+
+    // A per-template theme still wins, so a one-off design isn't flattened by
+    // a global change.
+    const merged = { ...theme, ...((tpl.theme as object) ?? {}) }
+    // A template that supplies its own header and footer must not have the
+    // global markers written back into it here — this path rewrites EVERY
+    // template, so without the flag one theme change would silently restore
+    // the shared masthead to a design built without it.
+    const html = renderBlocksToHTML(blocks, merged, undefined, {
+      globalBranding: tpl.use_global_branding !== false,
+    })
+
+    const { error: upErr } = await supabase
+      .from('email_templates')
+      .update({ body_html: html, updated_at: new Date().toISOString() })
+      .eq('id', tpl.id)
+
+    if (!upErr) count++
+  }
+  return count
 }
 
 export async function PUT(request: NextRequest) {
@@ -138,7 +183,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, config, rendered })
+    // The header and footer are markers swapped in at send time, so they need
+    // no re-render. The theme styles the body itself, so every template's
+    // stored HTML has to be rebuilt from its blocks or the new typography and
+    // brand colour would only appear on templates edited afterwards.
+    const restyled = await restyleAllTemplates(supabase, config.theme)
+
+    return NextResponse.json({ success: true, config, rendered, restyled })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },

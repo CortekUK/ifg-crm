@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
     const blocks = (body.blocks || []) as EditorBlock[]
     const subject = String(body.subject || 'Test email')
     const theme = (body.theme ?? null) as TemplateTheme | null
+    // Defaults to true so any caller that doesn't send the flag behaves as
+    // it always has.
+    const useGlobalBranding = body.useGlobalBranding !== false
 
     if (!Array.isArray(blocks) || blocks.length === 0) {
       return NextResponse.json(
@@ -102,7 +105,9 @@ export async function POST(request: NextRequest) {
 
     // Test sends go through the same branding as production, so what the
     // tester receives is what a lead would receive.
-    const rawHtml = renderBlocksToHTML(blocks, theme, await getBrandingSlots())
+    const rawHtml = renderBlocksToHTML(blocks, theme, await getBrandingSlots(), {
+      globalBranding: useGlobalBranding,
+    })
     const html = replaceMergeTags(rawHtml, data)
     const renderedSubject = replaceMergeTags(subject, data)
 

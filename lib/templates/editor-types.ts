@@ -1,4 +1,4 @@
-export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature' | 'company_signature' | 'file'
+export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'video' | 'social' | 'html' | 'columns' | 'conditional' | 'recruiter_signature' | 'company_signature' | 'file' | 'hero' | 'cards' | 'quote' | 'section'
 
 export interface EditorBlock {
   id: string
@@ -8,6 +8,10 @@ export interface EditorBlock {
 }
 
 export type BlockContent =
+  | SectionBlockContent
+  | HeroBlockContent
+  | CardsBlockContent
+  | QuoteBlockContent
   | TextBlockContent
   | ImageBlockContent
   | ButtonBlockContent
@@ -31,9 +35,107 @@ export interface TextBlockContent {
   backgroundColor?: string
 }
 
+/**
+ * A full-width band: its own background, its own text colour, its own blocks
+ * inside it.
+ *
+ * This is the piece the designed references are built from and the piece we
+ * were missing. Everything used to sit in one padded white cell, so every
+ * template came out as the same white card with the same margins — which is
+ * exactly the "they all look similar" the client saw. A section escapes that
+ * cell: edge to edge, dark on dark, image behind it.
+ *
+ * `textColor` and `mutedColor` override the theme for the blocks INSIDE the
+ * band, because a dark band needs light type and the children shouldn't each
+ * have to be re-coloured by hand.
+ */
+export interface SectionBlockContent {
+  backgroundColor: string
+  backgroundImageUrl: string
+  /** 0–100. Darkens the background image behind the content. */
+  overlayOpacity: number
+  /** Body and heading colour for everything inside. Blank keeps the theme's. */
+  textColor: string
+  /** Small-print colour inside. Blank keeps the theme's. */
+  mutedColor: string
+  paddingY: number
+  paddingX: number
+  children: EditorBlock[]
+}
+
+/**
+ * A photograph with a headline and call to action over it.
+ *
+ * Text over an image is the one layout email clients disagree about most:
+ * Outlook's Word engine cannot position anything over a CSS background, so the
+ * renderer emits VML for it. `overlayOpacity` darkens the photo so light
+ * imagery can't swallow white type — Outlook can't composite that either,
+ * which is why the editor asks for a dark image.
+ */
+export interface HeroBlockContent {
+  imageUrl: string
+  /** Small uppercase line above the headline — the reference designs all
+   *  open with one, and it does more for the tone than any other element. */
+  eyebrow?: string
+  heading: string
+  subheading: string
+  buttonText: string
+  buttonUrl: string
+  /** 0–100. How much the photo is darkened behind the text. */
+  overlayOpacity: number
+  textColor: string
+  alignment: 'left' | 'center'
+  height: 'short' | 'medium' | 'tall'
+  /** 'display' is poster size; 'giant' is a wordmark used as a graphic. */
+  size?: 'regular' | 'display' | 'giant'
+  /** Span the full width of the email, ignoring the content padding. */
+  fullBleed?: boolean
+  /** Panel colour when there is no photograph. Blank uses the ink colour. */
+  backgroundColor?: string
+}
+
+/** One panel in a cards row. */
+export interface CardItem {
+  title: string
+  body: string
+  /** Optional emoji or short glyph shown above the title. */
+  icon: string
+}
+
+/**
+ * Two or three side-by-side panels — the "what you get / what you won't"
+ * layout. Renders as a table so it survives Outlook, and stacks on narrow
+ * screens through the shell's media query.
+ */
+export interface CardsBlockContent {
+  items: CardItem[]
+  columns: 2 | 3
+  backgroundColor: string
+  borderColor: string
+  paddingTop: number
+  paddingBottom: number
+}
+
+/** A pull quote or a headline statistic. */
+export interface QuoteBlockContent {
+  text: string
+  attribution: string
+  /** 'quote' sets the text in italics; 'stat' sets it large and bold. */
+  variant: 'quote' | 'stat'
+  backgroundColor: string
+  /** Blank uses the theme's brand colour. */
+  accentColor: string
+  paddingTop: number
+  paddingBottom: number
+}
+
 export interface ImageBlockContent {
   src: string
   alt: string
+  /** Edge to edge, with no padding either side. */
+  fullBleed?: boolean
+  /** Rounded corners, in px. Ignored by Outlook like every other radius. */
+  radius?: number
   linkUrl?: string
   alignment: 'left' | 'center' | 'right'
   width: string // '100', '75', '50', '25', 'auto'
@@ -44,6 +146,14 @@ export interface ImageBlockContent {
 export interface ButtonBlockContent {
   text: string
   url: string
+  /** 'outline' is the hollow pill the reference designs use — a border in the
+   *  brand colour with the label to match, and no fill. */
+  variant?: 'solid' | 'outline'
+  /**
+   * Opt out of the theme's brand colour and corners for this one button.
+   * Off by default so a brand change restyles every call to action at once.
+   */
+  customColour?: boolean
   backgroundColor: string
   textColor: string
   borderRadius: number
@@ -194,6 +304,20 @@ export interface FileBlockContent {
 // Exposed to the AI through the JSON-schema response so prompts like
 // "change the header colour to red" or "make the page bg cream" can
 // be honoured without dropping a custom html block on top.
+/**
+ * Named font stacks. Every one ends in a websafe face, because a custom font
+ * is a suggestion in email — Outlook and most mobile clients ignore webfonts
+ * entirely, so the fallback is what a large share of readers actually see.
+ * The pairing has to look deliberate in the fallback too.
+ */
+export type ThemeFont = 'system' | 'modern' | 'classic' | 'editorial' | 'condensed' | 'mono'
+
+/** Corner treatment for buttons and panels. Outlook squares these off. */
+export type ThemeCorners = 'square' | 'soft' | 'pill'
+
+/** Vertical rhythm — how much air the content is given. */
+export type ThemeRhythm = 'compact' | 'comfortable' | 'airy'
+
 export interface TemplateTheme {
   headerBgColor?: string
   headerTextColor?: string
@@ -204,9 +328,35 @@ export interface TemplateTheme {
   // is the card itself (white by default).
   pageBgColor?: string
   bodyBgColor?: string
+
+  // ── Brand ────────────────────────────────────────────────────────────────
+  /** Buttons, links and accents. The one colour that carries the brand. */
+  primaryColor?: string
+  /** Body copy and headings. */
+  inkColor?: string
+  /** Muted text — captions, secondary lines. */
+  mutedColor?: string
+
+  // ── Typography ───────────────────────────────────────────────────────────
+  headingFont?: ThemeFont
+  bodyFont?: ThemeFont
+  /** Base body size in px. Headings scale from this. */
+  baseFontSize?: number
+  /** Multiplier on the heading scale, so one control makes type bigger. */
+  headingScale?: number
+
+  // ── Shape & rhythm ───────────────────────────────────────────────────────
+  corners?: ThemeCorners
+  rhythm?: ThemeRhythm
 }
 
 export interface TemplateSettings {
+  /**
+   * False when the template supplies its own header and footer as blocks.
+   * Such a template must carry its own unsubscribe link — the global legal
+   * strip is switched off with everything else.
+   */
+  useGlobalBranding?: boolean
   name: string
   subject: string
   preheader: string
@@ -235,6 +385,7 @@ export interface EditorState {
 }
 
 export const defaultTemplateSettings: TemplateSettings = {
+  useGlobalBranding: true,
   name: 'Untitled Template',
   subject: '',
   preheader: '',
@@ -306,6 +457,51 @@ export const defaultBlockContent: Record<BlockType, BlockContent> = {
   html: {
     code: '<!-- Custom HTML here -->',
   } as HTMLBlockContent,
+  section: {
+    backgroundColor: '#0f172a',
+    backgroundImageUrl: '',
+    overlayOpacity: 0,
+    textColor: '#ffffff',
+    mutedColor: '#94a3b8',
+    paddingY: 36,
+    paddingX: 24,
+    children: [],
+  } as SectionBlockContent,
+  hero: {
+    imageUrl: '',
+    heading: 'Your pathway starts here',
+    subheading: 'Train, study and compete in England.',
+    buttonText: 'Start your application',
+    buttonUrl: '',
+    overlayOpacity: 55,
+    textColor: '#ffffff',
+    alignment: 'center',
+    height: 'medium',
+    size: 'regular',
+    // New heroes span the full width; anything already saved has no such
+    // field and keeps its current inset rendering.
+    fullBleed: true,
+  } as HeroBlockContent,
+  cards: {
+    items: [
+      { title: 'What you get', body: 'A full season of competitive football alongside your studies.', icon: '' },
+      { title: 'What it costs', body: 'Everything is set out up front. No surprises later.', icon: '' },
+    ],
+    columns: 2,
+    backgroundColor: '#f7f7f5',
+    borderColor: '#e5e7eb',
+    paddingTop: 10,
+    paddingBottom: 10,
+  } as CardsBlockContent,
+  quote: {
+    text: 'The best year of my life, on and off the pitch.',
+    attribution: 'Former player, UK Gap Year',
+    variant: 'quote',
+    backgroundColor: '',
+    accentColor: '',
+    paddingTop: 16,
+    paddingBottom: 16,
+  } as QuoteBlockContent,
   columns: {
     columns: 2,
     columnWidths: [50, 50],

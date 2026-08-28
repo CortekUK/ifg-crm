@@ -37,6 +37,7 @@ import type {
   DividerBlockContent,
   SocialBlockContent,
   CompanySignatureBlockContent,
+  TemplateTheme,
 } from './editor-types'
 
 /** One logo in the header row. */
@@ -84,6 +85,27 @@ export interface BrandingHeader {
   textColor: string
   /** Optional click-through on the whole header. Blank = not a link. */
   linkUrl: string
+  /**
+   * Visual treatment of the band.
+   *
+   *   plain    — flat colour block. The original; kept as the default so an
+   *              existing configuration never changes appearance on upgrade.
+   *   refined  — generous padding, a centred lockup, a hairline rule and a
+   *              letter-spaced strapline, closed by an accent bar.
+   *   hero     — a photograph behind the lockup, darkened for legibility.
+   *              Outlook desktop cannot composite a translucent layer over a
+   *              background image, so it degrades to the solid band.
+   */
+  style: 'plain' | 'refined' | 'hero'
+  /** Rule / bar colour for 'refined' and 'hero'. */
+  accentColor: string
+  /**
+   * Small uppercase line under the lockup, e.g. "MACCLESFIELD · ENGLAND".
+   * Blank to hide. Distinct from `subtext`, which sits beside the wordmark.
+   */
+  tagline: string
+  /** Background photograph for the 'hero' style. Blank falls back to bgColor. */
+  bgImageUrl: string
 }
 
 /**
@@ -126,6 +148,16 @@ export interface BrandingLegal {
 export interface EmailBranding {
   header: BrandingHeader
   showHeader: boolean
+
+  /**
+   * Brand colours, typography and shape, shared by every template.
+   *
+   * Unlike the header and footer — which are markers substituted at send time —
+   * the theme styles the body, so it cannot be swapped in late. Saving it
+   * re-renders every template's stored HTML from its blocks. That is why this
+   * lives behind the same explicit "Apply to all templates" action.
+   */
+  theme: TemplateTheme
 
   signature: RecruiterSignatureBlockContent
   showSignature: boolean
@@ -173,7 +205,17 @@ export const DEFAULT_EMAIL_BRANDING: EmailBranding = {
     bgColor: '#0f172a',
     textColor: '#ffffff',
     linkUrl: '',
+    // 'plain' by default so upgrading the renderer never restyles an email
+    // somebody already approved. The other treatments are opt-in.
+    style: 'plain',
+    accentColor: '#BE1623',
+    tagline: '',
+    bgImageUrl: '',
   },
+
+  // Shipped as the renderer's own defaults so an existing installation looks
+  // exactly as it did until somebody deliberately changes something.
+  theme: {},
 
   showSignature: true,
   signature: {
@@ -310,6 +352,8 @@ export function resolveBranding(stored?: Partial<EmailBranding> | null): EmailBr
     showHeader: stored.showHeader ?? d.showHeader,
     header: normaliseHeader(d.header, stored.header),
 
+    theme: { ...d.theme, ...(stored.theme ?? {}) },
+
     showSignature: stored.showSignature ?? d.showSignature,
     signature: { ...d.signature, ...(stored.signature ?? {}) },
 
@@ -369,4 +413,4 @@ export interface EmailBrandingRecord {
   renderer_version: number
 }
 
-export const BRANDING_RENDERER_VERSION = 4
+export const BRANDING_RENDERER_VERSION = 6
