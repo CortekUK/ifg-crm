@@ -9,7 +9,7 @@ import {
   CoursesManager, StaffManager, FaqsManager, ClinicsManager, StoriesManager, GalleryManager, NewsManager, SquadsManager,
 } from './managers'
 
-const SITE_ORIGIN = 'https://theinternationalfootballgroup.com'
+import { SITE_URL as SITE_ORIGIN } from '@/lib/config/site-url'
 
 // Full-page editor for one website page. Composes the modules declared for the
 // page in the registry: content (schema), pricing (programme), and collections.

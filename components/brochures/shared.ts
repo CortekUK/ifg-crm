@@ -1,11 +1,8 @@
 import { toast } from '@/lib/hooks/use-toast'
 
-/** Public website base for a brochure flipbook: /b/<slug>. */
-export const BROCHURE_PUBLIC_BASE = 'https://theinternationalfootballgroup.com/b'
-
-export function brochurePublicUrl(slug: string): string {
-  return `${BROCHURE_PUBLIC_BASE}/${slug}`
-}
+// Re-exported so existing callers keep working; the URL itself is defined
+// once, in lib/config/site-url.ts.
+export { brochurePublicUrl, SITE_URL } from '@/lib/config/site-url'
 
 /** Copy text to the clipboard and toast. Falls back gracefully. */
 export async function copyToClipboard(text: string, label = 'Link copied') {
