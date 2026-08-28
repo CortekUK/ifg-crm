@@ -117,7 +117,17 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
         `${brochureTitle} Leads`,
         `Leads captured from the "${brochureTitle}" brochure`,
       )
-      if (lid) targetListIds.push(lid)
+      if (lid) {
+        targetListIds.push(lid)
+        // Attach it to the brochure as well. Without this the list was created
+        // and filled, but brochure_lists stayed empty — so the brochure's
+        // "Attached lists" panel showed nothing, and every later capture went
+        // back down this same "no attached lists" branch instead of reading
+        // the list that already existed.
+        await supabase
+          .from('brochure_lists')
+          .upsert({ brochure_id: brochureId, list_id: lid }, { onConflict: 'brochure_id,list_id' })
+      }
     }
   } else {
     let listName = 'Website Enquiries'

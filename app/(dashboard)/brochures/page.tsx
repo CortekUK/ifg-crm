@@ -10,7 +10,6 @@ import {
   Copy,
   Eye,
   Download,
-  Users,
   ListChecks,
   Megaphone,
   GitBranch,
@@ -41,7 +40,9 @@ import {
 import type { WebsiteBrochure } from '@/lib/types/website-content'
 import { BrochureModal } from '@/components/brochures/BrochureModal'
 import { BrochureDetail, CountChip } from '@/components/brochures/BrochureDetail'
+import { BrochurePreviewModal } from '@/components/brochures/BrochurePreviewModal'
 import { brochurePublicUrl, copyToClipboard } from '@/components/brochures/shared'
+import { useAutoBrochureImages } from '@/lib/hooks/useAutoBrochureImages'
 
 export default function BrochuresPage() {
   const router = useRouter()
@@ -57,7 +58,12 @@ export default function BrochuresPage() {
   const [editing, setEditing] = React.useState<WebsiteBrochure | null>(null)
   const [detail, setDetail] = React.useState<WebsiteBrochure | null>(null)
   const [toDelete, setToDelete] = React.useState<WebsiteBrochure | null>(null)
+  const [preview, setPreview] = React.useState<WebsiteBrochure | null>(null)
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
+
+  // Backfill fast-viewing images for any brochure that predates pre-rendering.
+  // Starts on its own; nobody has to know it needs doing.
+  const autoImages = useAutoBrochureImages(brochures, isAdmin)
 
   // Brochure management is admin-only (mirrors the sidebar link + Lists page).
   React.useEffect(() => {
@@ -131,6 +137,25 @@ export default function BrochuresPage() {
         </div>
       </div>
 
+      {/* Quiet progress for the automatic pre-render. Informational only —
+          there is nothing to click, and leaving the page just resumes it next
+          time. */}
+      {autoImages.brochureId && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/40">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600 dark:text-blue-400" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-blue-900 dark:text-blue-200">
+              Speeding up “{autoImages.title}”
+            </p>
+            <p className="truncate text-xs text-blue-700 dark:text-blue-300">
+              {autoImages.status}
+              {autoImages.pending > 0 && ` · ${autoImages.pending} more to go`}
+              {' · '}pre-rendering its pages so it opens instantly for visitors
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Body */}
       {isLoading ? (
         <div className="space-y-3">
@@ -183,13 +208,12 @@ export default function BrochuresPage() {
                     </p>
                     {/* Stats */}
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {/* People, not opens. The brochure is gated, so "views"
+                          and "leads" were two counts of the same set — one
+                          inflated by repeat readers. */}
                       <span className="inline-flex items-center gap-1">
                         <Eye className="h-3.5 w-3.5" />
-                        {(stats?.views ?? b.views_count ?? 0).toLocaleString()} views
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {(stats?.leads ?? 0).toLocaleString()} leads
+                        {(stats?.leads ?? 0).toLocaleString()} views
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <Download className="h-3.5 w-3.5" />
@@ -222,6 +246,19 @@ export default function BrochuresPage() {
                     </span>
                   </label>
                   <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPreview(b)
+                      }}
+                      aria-label="Preview brochure"
+                      title="Preview the flipbook"
+                    >
+                      <BookOpen className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -264,6 +301,12 @@ export default function BrochuresPage() {
       <BrochureModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} />
 
       {/* Detail drawer */}
+      <BrochurePreviewModal
+        brochure={preview}
+        open={!!preview}
+        onOpenChange={(o) => !o && setPreview(null)}
+      />
+
       <BrochureDetail
         brochure={detail}
         stats={detail ? statsMap?.[detail.id] : undefined}

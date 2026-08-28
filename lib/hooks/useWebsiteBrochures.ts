@@ -100,6 +100,9 @@ export function useBrochureStats() {
         s.views = b.views_count ?? 0
         s.downloads = b.download_count ?? 0
       }
+      // `leads` is the number of distinct people, which is what the UI shows
+      // as "views" — the gate means a reader is always someone we know, so a
+      // separate opens tally only ever double-counted repeat visits.
       for (const r of leads.data ?? []) ensure(r.brochure_id).leads += 1
       for (const r of lists.data ?? []) ensure(r.brochure_id).list_ids.push(r.list_id)
       for (const r of campaigns.data ?? []) ensure(r.brochure_id).campaign_ids.push(r.campaign_id)
@@ -133,6 +136,44 @@ export function useBrochureLeads(brochureId: string | null) {
           email: r.contact!.email,
           created_at: r.created_at,
         }))
+    },
+  })
+}
+
+// The people behind a brochure — one row each, with how many times they opened
+// it and whether they downloaded. Replaces the old split of "views" (an
+// anonymous tally) and "leads" (the same people, counted differently): the
+// brochure is gated, so every reader is someone we already know.
+export interface BrochureAudienceMember {
+  contact_id: string
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  opens: number
+  downloads: number
+  first_seen: string
+  last_seen: string
+}
+
+export function useBrochureAudience(brochureId: string | null) {
+  return useQuery<BrochureAudienceMember[]>({
+    queryKey: ['brochure-audience', brochureId],
+    enabled: !!brochureId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('brochure_audience', {
+        p_brochure_id: brochureId as string,
+      })
+      if (error) throw error
+      type Row = Omit<BrochureAudienceMember, 'opens' | 'downloads'> & {
+        opens: number | string
+        downloads: number | string
+      }
+      return ((data ?? []) as Row[]).map((r) => ({
+        ...r,
+        opens: Number(r.opens),
+        downloads: Number(r.downloads),
+      }))
     },
   })
 }

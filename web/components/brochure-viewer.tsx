@@ -354,13 +354,22 @@ function Flipbook({ brochure, render }: { brochure: Brochure; render: RenderStat
   const { images, ratio, total, status, phase, progress } = render;
 
   // Fire-and-forget tracking pings (best-effort; never block the viewer).
+  //
+  // The email matters: the gate remembers a visitor and skips itself on return
+  // visits, so without sending what we already know, every repeat open was an
+  // anonymous counter bump. Sending it lets the CRM attribute the view and
+  // record them as a lead on this brochure too.
   const pingView = useCallback(() => {
     if (viewPinged.current) return;
     viewPinged.current = true;
     fetch("/api/brochure-view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: brochure.slug }),
+      body: JSON.stringify({
+        slug: brochure.slug,
+        email: readStore().lead?.email || undefined,
+        referrer: typeof document !== "undefined" ? document.referrer || undefined : undefined,
+      }),
       keepalive: true,
     }).catch(() => {});
   }, [brochure.slug]);
@@ -369,7 +378,7 @@ function Flipbook({ brochure, render }: { brochure: Brochure; render: RenderStat
     fetch("/api/brochure-download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: brochure.slug }),
+      body: JSON.stringify({ slug: brochure.slug, email: readStore().lead?.email || undefined }),
       keepalive: true,
     }).catch(() => {});
   }, [brochure.slug]);

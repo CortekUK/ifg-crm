@@ -34,13 +34,14 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import {
-  useBrochureLeads,
+  useBrochureAudience,
   useSetBrochureLists,
   useSetBrochureCampaigns,
   useSetBrochurePipelines,
 } from '@/lib/hooks/useWebsiteBrochures'
 import type { WebsiteBrochure, BrochureStats } from '@/lib/types/website-content'
 import { brochurePublicUrl, copyToClipboard } from './shared'
+import { BrochurePreviewModal } from './BrochurePreviewModal'
 
 // ── Reference data (association pickers) ─────────────────────────────────────
 type NamedRow = { id: string; name: string }
@@ -141,9 +142,19 @@ function MultiSelectSave({
   const dirty =
     selected.size !== initial.length || initial.some((id) => !selected.has(id))
 
-  const filtered = options.filter((o) =>
-    o.name.toLowerCase().includes(query.trim().toLowerCase()),
-  )
+  // Attached items float to the top. With 25 lists the ones already in use
+  // were scattered through an alphabetical list and easy to miss — you had to
+  // scroll to find out what a brochure was even wired to.
+  //
+  // Sorted against `initial`, not `selected`, so a row does not jump out from
+  // under the cursor the moment you tick it.
+  const attached = new Set(initial)
+  const filtered = options
+    .filter((o) => o.name.toLowerCase().includes(query.trim().toLowerCase()))
+    .sort((a, b) => {
+      const rank = Number(attached.has(b.id)) - Number(attached.has(a.id))
+      return rank !== 0 ? rank : a.name.localeCompare(b.name)
+    })
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -336,7 +347,15 @@ export function BrochureDetail({
 }) {
   const brochureId = brochure?.id ?? null
 
-  const leadsQuery = useBrochureLeads(brochureId)
+  const [previewOpen, setPreviewOpen] = React.useState(false)
+  const audienceQuery = useBrochureAudience(brochureId)
+  const audience = audienceQuery.data ?? []
+  // "Views" now means people, not opens — the brochure is gated, so the two
+  // were always describing the same set from different angles.
+  const totalDownloads = audience.reduce((n, m) => n + m.downloads, 0)
+
+  const hasFastImages = (brochure?.page_images?.length ?? 0) > 0
+
   const listsRef = useNamedTable('lists')
   const campaignsRef = useNamedTable('campaigns')
   const pipelinesRef = useNamedTable('pipelines')
@@ -409,10 +428,9 @@ export function BrochureDetail({
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
               {/* Overview */}
               <SectionCard icon={Eye} title="Overview">
-                <div className="grid grid-cols-3 gap-2">
-                  <StatTile icon={Eye} label="Views" value={stats?.views ?? brochure.views_count ?? 0} />
-                  <StatTile icon={Users} label="Leads" value={stats?.leads ?? 0} />
-                  <StatTile icon={Download} label="Downloads" value={stats?.downloads ?? brochure.download_count ?? 0} />
+                <div className="grid grid-cols-2 gap-2">
+                  <StatTile icon={Eye} label="Views" value={audience.length} />
+                  <StatTile icon={Download} label="Downloads" value={totalDownloads} />
                 </div>
                 <div className="mt-3 flex items-center gap-2 rounded-lg border border-border/70 bg-muted/30 p-2">
                   <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{publicUrl}</span>
@@ -430,37 +448,73 @@ export function BrochureDetail({
                     Copy
                   </Button>
                 </div>
+
+                {/* Preview here rather than "open the public link" — that page
+                    is gated, so previewing it would put staff details into the
+                    brochure's own lead list. */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 w-full"
+                  onClick={() => setPreviewOpen(true)}
+                >
+                  <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+                  Preview the flipbook
+                </Button>
+
+                {!hasFastImages && (
+                  <p className="mt-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    Pages are being pre-rendered so this opens quickly for visitors. Until that
+                    finishes it falls back to loading the PDF itself, which is slower.
+                  </p>
+                )}
               </SectionCard>
 
-              {/* Collected leads */}
-              <SectionCard icon={Users} title="Collected leads" description="Contacts captured by this brochure.">
-                {leadsQuery.isLoading ? (
+              {/* One list of people. Each row carries how many times they
+                  opened it, so a repeat reader reads as one person with a
+                  count rather than inflating a separate "views" number. */}
+              <SectionCard
+                icon={Users}
+                title="Views"
+                description="Everyone who has opened this brochure, and how often."
+              >
+                {audienceQuery.isLoading ? (
                   <Skeleton className="h-24 w-full rounded-lg" />
-                ) : leadsQuery.isError ? (
-                  <p className="text-sm text-red-500">Could not load leads.</p>
-                ) : (leadsQuery.data?.length ?? 0) === 0 ? (
+                ) : audienceQuery.isError ? (
+                  <p className="text-sm text-red-500">Could not load views.</p>
+                ) : audience.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
-                    No leads captured yet.
+                    Nobody has opened this brochure yet.
                   </p>
                 ) : (
-                  <div className="max-h-64 overflow-y-auto rounded-lg border border-border/70">
+                  <div className="max-h-72 overflow-y-auto rounded-lg border border-border/70">
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 bg-muted/60 text-xs text-muted-foreground">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">Name</th>
                           <th className="px-3 py-2 text-left font-medium">Email</th>
-                          <th className="px-3 py-2 text-left font-medium">Date</th>
+                          <th className="px-3 py-2 text-center font-medium">Opens</th>
+                          <th className="px-3 py-2 text-left font-medium">Last opened</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {leadsQuery.data!.map((lead) => (
-                          <tr key={lead.contact_id + lead.created_at} className="border-t border-border/70">
+                        {audience.map((m) => (
+                          <tr key={m.contact_id} className="border-t border-border/70">
                             <td className="px-3 py-2 text-foreground">
-                              {[lead.first_name, lead.last_name].filter(Boolean).join(' ') || '—'}
+                              {[m.first_name, m.last_name].filter(Boolean).join(' ') || '—'}
                             </td>
-                            <td className="px-3 py-2 text-muted-foreground">{lead.email || '—'}</td>
-                            <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
-                              {new Date(lead.created_at).toLocaleDateString()}
+                            <td className="px-3 py-2 text-muted-foreground">{m.email || '—'}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="tabular-nums text-foreground">{m.opens}</span>
+                              {m.downloads > 0 && (
+                                <Badge variant="outline" className="ml-1.5 text-[10px]">
+                                  <Download className="mr-0.5 h-2.5 w-2.5" />
+                                  {m.downloads}
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                              {new Date(m.last_seen).toLocaleDateString()}
                             </td>
                           </tr>
                         ))}
@@ -523,6 +577,14 @@ export function BrochureDetail({
           </>
         )}
       </SheetContent>
+
+      {/* Preview lives outside SheetContent so the book gets the full window
+          rather than the drawer's width. */}
+      <BrochurePreviewModal
+        brochure={brochure ?? null}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </Sheet>
   )
 }

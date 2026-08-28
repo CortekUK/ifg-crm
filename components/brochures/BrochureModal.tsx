@@ -13,8 +13,7 @@ import {
 } from '@/components/ui/select'
 import { ContentDialog, Field, FieldRow, FormSection, PublishControls } from '@/components/website-content/_form'
 import { PdfField } from '@/components/website-content/PdfField'
-import { renderPdfAllPages } from '@/lib/website-content/pdf'
-import { uploadBrochurePageImage } from '@/lib/website-content/upload'
+import { generateBrochurePageImages } from '@/lib/website-content/brochure-images'
 import { useSaveBrochure, slugifyBrochure } from '@/lib/hooks/useWebsiteBrochures'
 import { toast } from '@/lib/hooks/use-toast'
 import { BROCHURE_PROGRAMS } from '@/lib/types/website-content'
@@ -107,24 +106,7 @@ export function BrochureModal({
     setGenerating(true)
     setGenProgress(null)
     try {
-      const { blobs, pageCount, ext } = await renderPdfAllPages(file, (done, total) => {
-        setGenProgress(`Rendering pages ${done}/${total}`)
-      })
-      // Upload the page images (order preserved), with a small concurrency pool.
-      const urls: string[] = new Array(blobs.length)
-      let idx = 0
-      let uploaded = 0
-      const POOL = 4
-      await Promise.all(
-        Array.from({ length: Math.min(POOL, blobs.length) }, async () => {
-          while (idx < blobs.length) {
-            const my = idx++
-            urls[my] = await uploadBrochurePageImage(blobs[my], ext)
-            uploaded++
-            setGenProgress(`Uploading pages ${uploaded}/${blobs.length}`)
-          }
-        }),
-      )
+      const { urls, pageCount } = await generateBrochurePageImages(file, setGenProgress)
       setDraft((d) => ({
         ...d,
         page_images: urls,
