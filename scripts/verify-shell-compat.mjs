@@ -7,22 +7,17 @@
 // point is those emails specifically.
 //
 //   node scripts/verify-shell-compat.mjs
-import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'
-import { execFileSync } from 'node:child_process'; import { createRequire } from 'node:module'
+import fs from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
+import { compileRenderer } from './_compile-renderer.mjs'
 
-const require = createRequire(import.meta.url)
 for (const l of fs.readFileSync('.env', 'utf8').split('\n')) {
   const m = l.match(/^([A-Z_0-9]+)=(.*)$/); if (m) process.env[m[1]] = m[2].trim()
 }
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ifg-shell-'))
-execFileSync('npx', ['tsc', 'lib/templates/render-html.ts', '--outDir', dir, '--rootDir',
-  'lib/templates', '--module', 'commonjs', '--target', 'es2020', '--moduleResolution',
-  'node', '--esModuleInterop', '--skipLibCheck'], { stdio: 'inherit' })
 const {
   renderBlocksToHTML, renderBlock, renderEmailShell, blockGapHtml, rhythmSpacing, resolveTheme,
-} = require(path.join(dir, 'render-html.js'))
+} = compileRenderer(['lib/templates/render-html.ts']).load('templates/render-html.js')
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const { data: templates, error } = await sb

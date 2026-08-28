@@ -2,15 +2,11 @@
 // can't ship because it looked fine on one bright screen.
 //
 //   node scripts/verify-palettes.mjs
-import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'
-import { execFileSync } from 'node:child_process'; import { createRequire } from 'node:module'
+import fs from 'node:fs'
+import { compileRenderer } from './_compile-renderer.mjs'
 
-const require = createRequire(import.meta.url)
-const out = fs.mkdtempSync(path.join(os.tmpdir(), 'ifg-palettes-'))
-execFileSync('npx', ['tsc', 'lib/templates/palettes.ts', '--outDir', out, '--rootDir',
-  'lib/templates', '--module', 'commonjs', '--target', 'es2020', '--moduleResolution',
-  'node', '--esModuleInterop', '--skipLibCheck'], { stdio: 'inherit' })
-const { PALETTES, contrastRatio } = require(path.join(out, 'palettes.js'))
+const { PALETTES, contrastRatio } = compileRenderer(['lib/templates/palettes.ts'])
+  .load('templates/palettes.js')
 
 // Each pair is something a reader has to actually read.
 const pairs = (p) => [
