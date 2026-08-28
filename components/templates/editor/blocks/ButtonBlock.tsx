@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import { templateVariables, ButtonBlockContent } from '@/lib/templates/editor-types'
 import { SharedLinksDialog } from '../SharedLinksDialog'
 import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
+import { useEditorTheme } from '../EditorThemeContext'
+import { cornerRadius, fontStack } from '@/lib/templates/render-html'
 import type { BrandingLink } from '@/lib/templates/branding-types'
 
 interface ButtonBlockProps {
@@ -28,6 +30,14 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
   const [linksOpen, setLinksOpen] = useState(false)
   const { data: branding } = useEmailBrandingConfig()
   const sharedLinks = branding?.config.links ?? []
+  const theme = useEditorTheme()
+
+  // What the RENDERER will actually use. Unless a button opts out, the brand
+  // colour and the theme's corners win over the values stored on the block —
+  // so the canvas showed one colour while the email sent another.
+  const usesBrand = !buttonContent.customColour
+  const previewBg = usesBrand ? theme.primaryColor : buttonContent.backgroundColor
+  const previewRadius = usesBrand ? cornerRadius(theme.corners) : buttonContent.borderRadius
 
   const insertVariable = (variable: string) => {
     onUpdate({ url: (buttonContent.url || '') + variable })
@@ -129,12 +139,34 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
             onInsert={useSharedLink}
           />
 
+          {/* The renderer's rule, made visible. Before this the colour picker
+              below wrote a value the email quietly ignored. */}
+          <label className="flex items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={usesBrand}
+              onChange={(e) => onUpdate({ customColour: !e.target.checked })}
+              className="mt-0.5"
+            />
+            <span>
+              Follow the brand colour and corner style
+              <span className="block text-[11px] text-muted-foreground">
+                Change them once in Brand &amp; type and every button updates.
+              </span>
+            </span>
+          </label>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
+            <div
+              className={cn(
+                'flex items-center gap-2',
+                usesBrand && 'pointer-events-none opacity-40',
+              )}
+            >
               <Label className="text-xs">Background:</Label>
               <input
                 type="color"
-                value={buttonContent.backgroundColor}
+                value={usesBrand ? theme.primaryColor : buttonContent.backgroundColor}
                 onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
                 className="h-7 w-10 rounded cursor-pointer"
               />
@@ -150,16 +182,21 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div
+            className={cn(
+              'flex items-center gap-2',
+              usesBrand && 'pointer-events-none opacity-40',
+            )}
+          >
             <Label className="text-xs w-20">Radius:</Label>
             <Slider
-              value={[buttonContent.borderRadius]}
+              value={[previewRadius]}
               onValueChange={([value]) => onUpdate({ borderRadius: value })}
               max={20}
               step={1}
               className="flex-1"
             />
-            <span className="text-xs text-gray-500 w-8">{buttonContent.borderRadius}px</span>
+            <span className="text-xs text-gray-500 w-8">{previewRadius}px</span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -234,11 +271,12 @@ export function ButtonBlock({ content, isSelected, onUpdate }: ButtonBlockProps)
           style={{
             display: buttonContent.width === 'full' || buttonContent.width === '50' || buttonContent.width === '75' ? 'block' : 'inline-block',
             width: buttonContent.width === 'full' ? '100%' : buttonContent.width === '50' ? '50%' : buttonContent.width === '75' ? '75%' : 'auto',
-            backgroundColor: buttonContent.backgroundColor,
+            backgroundColor: previewBg,
             color: buttonContent.textColor,
+            fontFamily: fontStack(theme.bodyFont),
             padding: `${buttonContent.paddingY ?? 12}px ${buttonContent.paddingX ?? 24}px`,
             textDecoration: 'none',
-            borderRadius: `${buttonContent.borderRadius}px`,
+            borderRadius: `${previewRadius}px`,
             fontWeight: 'bold',
             textAlign: 'center',
             margin: buttonContent.alignment === 'center' ? '0 auto' : buttonContent.alignment === 'right' ? '0 0 0 auto' : undefined,

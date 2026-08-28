@@ -9,6 +9,7 @@ import {
   LegalSectionEditor,
   LegalPreview,
 } from './GlobalSectionEditors'
+import { ThemeBar } from './ThemeBar'
 import { SocialBlock } from './blocks/SocialBlock'
 import { CompanySignatureBlock } from './blocks/CompanySignatureBlock'
 import { RecruiterSignatureBlock } from './blocks/RecruiterSignatureBlock'
@@ -16,11 +17,18 @@ import { LayoutGrid } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import type { EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
 import type { EmailBranding } from '@/lib/templates/branding-types'
-import { resolveTheme } from '@/lib/templates/render-html'
-import { useBrandingDraft } from '@/lib/hooks/useEmailBranding'
+import { resolveTheme, fontStack, cornerRadius, rhythmSpacing } from '@/lib/templates/render-html'
+import type { useBrandingDraft } from '@/lib/hooks/useEmailBranding'
+import { EditorThemeProvider } from './EditorThemeContext'
 
 /** Which globally-branded region is open for editing, if any. */
-export type GlobalSection = 'header' | 'signature' | 'social' | 'company' | 'legal'
+export type GlobalSection =
+  | 'theme'
+  | 'header'
+  | 'signature'
+  | 'social'
+  | 'company'
+  | 'legal'
 
 interface EditorCanvasProps {
   blocks: EditorBlock[]
@@ -38,6 +46,19 @@ interface EditorCanvasProps {
       one always clears the other — only ever one settings panel is open. */
   selectedGlobalSection: GlobalSection | null
   onSelectGlobalSection: (section: GlobalSection | null) => void
+  /**
+   * False when this template carries its own header and footer as blocks —
+   * the global regions are then not rendered at all, because showing a
+   * masthead the email will never contain is worse than showing none.
+   */
+  useGlobalBranding?: boolean
+  /**
+   * The global-branding draft, owned by the editor page rather than by this
+   * component. It used to live here — which meant an unsaved theme change was
+   * invisible to the preview drawer, because the drawer read the SAVED
+   * branding and had no way to see edits in progress.
+   */
+  brandingDraft: ReturnType<typeof useBrandingDraft>
 }
 
 export function EditorCanvas({
@@ -51,10 +72,12 @@ export function EditorCanvas({
   onDuplicateBlock,
   selectedGlobalSection,
   onSelectGlobalSection,
+  brandingDraft,
+  useGlobalBranding = true,
 }: EditorCanvasProps) {
   const t = resolveTheme(theme)
   const { branding, isDirty, isSaving, updateSection, discard, publish } =
-    useBrandingDraft()
+    brandingDraft
 
   // Shared plumbing for every global region: selecting one, and the
   // publish / discard controls that appear once it's open.
@@ -104,38 +127,93 @@ export function EditorCanvas({
     //   * header bg / sizes   #0f172a / IFG 24px / subtitle 16px
     //   * body padding        20px      (renderer's <td style="padding:20px">)
     //   * footer bg / fg      #f3f4f6 / #6b7280 / link #3b82f6
+    <EditorThemeProvider theme={theme}>
     <div
       className="flex-1 overflow-auto px-3 py-4 dark:bg-slate-900 md:px-4 md:py-5"
       style={{ backgroundColor: t.pageBgColor }}
       onClick={handleCanvasClick}
     >
       <div className="mx-auto max-w-[600px]">
+        {/* Brand & type — a toolbar ABOVE the email, not a region inside it.
+            The header and footer below genuinely are part of the email; the
+            theme is a setting, and rendering it in the card made it look like
+            content sitting at the top of the message. */}
+        {branding && (
+          <ThemeBar
+            theme={branding.theme}
+            isSelected={selectedGlobalSection === 'theme'}
+            onSelect={() => onSelectGlobalSection('theme')}
+            onClose={() => onSelectGlobalSection(null)}
+            onUpdate={(patch) =>
+              updateSection('theme', { ...branding.theme, ...patch })
+            }
+            // A palette is a scheme, not a colour: it sets the page, the card,
+            // the text and the brand on the theme, and the band colour on the
+            // header — which is a different section of the branding record.
+            onApplyPalette={(palette) => {
+              updateSection('theme', { ...branding.theme, ...palette.theme })
+              updateSection('header', {
+                ...branding.header,
+                bgColor: palette.header.bgColor,
+                textColor: palette.header.textColor,
+              })
+            }}
+            isDirty={isDirty}
+            isSaving={isSaving}
+            onPublish={() => {
+              void publish()
+            }}
+            onDiscard={discard}
+          />
+        )}
+
+        {/* The theme, published to the blocks as CSS variables. Block
+            editors are React components with their own styling, so without
+            this the canvas ignored the fonts, the ink colour and the brand
+            colour entirely — the theme panel appeared to do nothing. */}
         <div
           className="overflow-hidden rounded-lg shadow-sm"
-          style={{ backgroundColor: t.bodyBgColor }}
+          style={
+            {
+              backgroundColor: t.bodyBgColor,
+              '--ifg-body': fontStack(t.bodyFont),
+              '--ifg-heading': fontStack(t.headingFont),
+              '--ifg-ink': t.inkColor,
+              '--ifg-muted': t.mutedColor,
+              '--ifg-brand': t.primaryColor,
+              '--ifg-radius': `${cornerRadius(t.corners)}px`,
+              '--ifg-size': `${t.baseFontSize}px`,
+              '--ifg-heading-scale': String(t.headingScale || 1),
+            } as React.CSSProperties
+          }
         >
           {/* Global header — click to edit; applies to every template. */}
-          {branding && branding.showHeader && (
+          {useGlobalBranding && branding && branding.showHeader && (
             <GlobalRegion
               {...regionProps('header', 'Header', 'The band at the top of every email. Editing it changes all templates.')}
               preview={<HeaderPreview header={branding.header} />}
             >
               <>
+                {/* Preview first: you are choosing how this looks, so it has to
+                    be on screen while you choose. Below the settings it sat
+                    off the bottom of a long panel. */}
+                <div className="mb-3 overflow-hidden rounded border border-slate-200">
+                  <HeaderPreview header={branding.header} />
+                </div>
                 <HeaderSectionEditor
                   header={branding.header}
                   onUpdate={(patch) =>
                     updateSection('header', { ...branding.header, ...patch })
                   }
                 />
-                <div className="mt-3 overflow-hidden rounded">
-                  <HeaderPreview header={branding.header} />
-                </div>
               </>
             </GlobalRegion>
           )}
 
-          {/* Canvas Content — 20px padding to match renderer */}
-          <div className="p-5">
+          {/* Content cell. Padding comes from the theme's rhythm, exactly as
+              renderEmailShell does — it was hardcoded at 20px, so changing
+              the spacing setting moved nothing on the canvas. */}
+          <div style={{ padding: rhythmSpacing(t.rhythm).cell }}>
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="canvas">
                 {(provided, snapshot) => (
@@ -167,6 +245,15 @@ export function EditorCanvas({
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               className={snapshot.isDragging ? 'z-50' : ''}
+                              // The rhythm's extra gap between blocks, matching
+                              // the spacer the renderer emits between them.
+                              style={{
+                                ...provided.draggableProps.style,
+                                marginBottom:
+                                  index < blocks.length - 1
+                                    ? rhythmSpacing(t.rhythm).block
+                                    : 0,
+                              }}
                             >
                               <CanvasBlock
                                 block={block}
@@ -191,7 +278,7 @@ export function EditorCanvas({
 
             {/* Global signature / social / partner logos. These sit inside
                 the content cell, exactly where the renderer places them. */}
-            {branding && (
+            {useGlobalBranding && branding && (
               <div className="mt-2 space-y-2">
                 {branding.showSignature && (
                   <GlobalRegion
@@ -263,7 +350,7 @@ export function EditorCanvas({
           </div>
 
           {/* Global unsubscribe / legal strip. */}
-          {branding && branding.showLegal && (
+          {useGlobalBranding && branding && branding.showLegal && (
             <GlobalRegion
               {...regionProps('legal', 'Unsubscribe strip', 'The grey band at the very bottom of every email.')}
               preview={<LegalPreview legal={branding.legal} />}
@@ -284,5 +371,6 @@ export function EditorCanvas({
         </div>
       </div>
     </div>
+    </EditorThemeProvider>
   )
 }

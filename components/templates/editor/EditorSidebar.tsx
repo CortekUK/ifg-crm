@@ -50,11 +50,13 @@ import {
   AlignCenter,
   AlignRight,
   Columns,
+  Quote,
   GitBranch,
   Paperclip,
   Save,
   Trash2,
   Loader2,
+  Rows3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TemplateSettings, BlockType, templateVariables, EditorBlock } from '@/lib/templates/editor-types'
@@ -80,6 +82,10 @@ const blockItems: { type: BlockType; icon: React.ElementType; label: string; sec
   { type: 'html', icon: Code, label: 'HTML', section: 'basic' },
   { type: 'file', icon: Paperclip, label: 'File', section: 'basic' },
   // Layout blocks
+  { type: 'section', icon: Rows3, label: 'Band', section: 'layout' },
+  { type: 'hero', icon: Image, label: 'Hero', section: 'layout' },
+  { type: 'cards', icon: LayoutGrid, label: 'Panels', section: 'layout' },
+  { type: 'quote', icon: Quote, label: 'Quote', section: 'layout' },
   { type: 'columns', icon: Columns, label: 'Columns', section: 'layout' },
   // Advanced blocks
   { type: 'conditional', icon: GitBranch, label: 'Conditional', section: 'advanced' },
@@ -837,6 +843,36 @@ export function EditorSidebar({
                     <SelectItem value="transactional">Transactional</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Whether this template wears the shared masthead and footer, or
+                  supplies its own as blocks. Off is for designed campaigns
+                  where a shared band would fight the layout. */}
+              <div className="space-y-2">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={settings.useGlobalBranding !== false}
+                    onChange={(e) => onUpdateSettings({ useGlobalBranding: e.target.checked })}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">
+                      Use the shared header &amp; footer
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Off means this template supplies its own, as blocks.
+                    </span>
+                  </span>
+                </label>
+                {settings.useGlobalBranding === false && (
+                  <p className="rounded-md bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    The shared unsubscribe strip is off for this template, so its
+                    own footer must include an <strong>{'{{unsubscribe_url}}'}</strong>{' '}
+                    link and your company details. Without them the email is not
+                    lawful to send.
+                  </p>
+                )}
               </div>
             </CollapsibleContent>
           </Collapsible>

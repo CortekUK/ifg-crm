@@ -221,3 +221,31 @@
   display: none;
 }
 
+
+/* Template canvas typography.
+   The canvas is meant to mirror the rendered email, so text blocks take the
+   theme's fonts and ink colour rather than the app's. The variables are set
+   on the email card in EditorCanvas; the fallbacks keep a block readable if
+   it is ever rendered outside that card. Headings need their own rule
+   because they live inside contentEditable HTML, where no React style
+   prop can reach them. */
+.ifg-rich {
+  font-family: var(--ifg-body, inherit);
+  color: var(--ifg-ink, #0f172a);
+}
+.ifg-rich h1,
+.ifg-rich h2,
+.ifg-rich h3 {
+  font-family: var(--ifg-heading, inherit);
+  color: var(--ifg-ink, #0f172a);
+  font-weight: 700;
+  line-height: 1.25;
+}
+/* Multipliers match styleHeadings() in render-html.ts. Sized off the theme's
+   base rather than off the block's own font-size, because that is what the
+   renderer does — a heading is the same size whether it sits in a small or a
+   large text block. */
+.ifg-rich h1 { font-size: calc(var(--ifg-size, 16px) * 2.125 * var(--ifg-heading-scale, 1)); }
+.ifg-rich h2 { font-size: calc(var(--ifg-size, 16px) * 1.625 * var(--ifg-heading-scale, 1)); }
+.ifg-rich h3 { font-size: calc(var(--ifg-size, 16px) * 1.25 * var(--ifg-heading-scale, 1)); }
+.ifg-rich h1, .ifg-rich h2, .ifg-rich h3 { margin: 0 0 12px; }

@@ -30,27 +30,37 @@ import {
 import { Monitor, Smartphone, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderBlocksToHTML, replaceVariables } from '@/lib/templates/render-html'
-import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
-import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
+import { useEmailBrandingConfig, useEffectiveTheme } from '@/lib/hooks/useEmailBranding'
+import { sampleContacts, TemplateSettings, EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
 
 interface PreviewModalProps {
   isOpen: boolean
   onClose: () => void
   blocks: EditorBlock[]
   settings: TemplateSettings
+  /** Live theme from the editor, including global edits not yet applied. */
+  theme?: TemplateTheme | null
 }
 
-export function PreviewModal({ isOpen, onClose, blocks, settings }: PreviewModalProps) {
+export function PreviewModal({ isOpen, onClose, blocks, settings, theme }: PreviewModalProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const { data: branding } = useEmailBrandingConfig()
+  // Global branding theme with the per-template override on top, so the
+  // preview matches both the canvas and what actually gets sent.
+  // `theme` comes from the editor page and includes unapplied global edits;
+  // the hook is the fallback for any caller that doesn't pass one.
+  const savedTheme = useEffectiveTheme(settings.theme)
+  const effectiveTheme = theme ?? savedTheme
 
   const selectedContact =
     sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
 
   // Generate HTML with sample data
-  const rawHtml = renderBlocksToHTML(blocks, settings.theme, branding?.rendered)
+  const rawHtml = renderBlocksToHTML(blocks, effectiveTheme, branding?.rendered, {
+    globalBranding: settings.useGlobalBranding !== false,
+  })
   const previewHtml = replaceVariables(rawHtml, {
     first_name: selectedContact.first_name,
     last_name: selectedContact.last_name,

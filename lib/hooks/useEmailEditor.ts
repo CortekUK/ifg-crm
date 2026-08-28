@@ -12,6 +12,7 @@ import {
   defaultTemplateSettings,
   defaultBlockContent,
 } from '@/lib/templates/editor-types'
+import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
 
 // Auto-save debounce — wait this long after the user's last edit before
 // silently writing to the DB. Long enough that we're not hammering the
@@ -45,6 +46,8 @@ function generateId(): string {
 export function useEmailEditor(templateId?: string) {
   const router = useRouter()
   const supabase = createClient()
+  // The global theme every template renders on top of.
+  const { data: branding } = useEmailBrandingConfig()
 
   // State
   const [blocks, setBlocks] = useState<EditorBlock[]>([])
@@ -175,6 +178,9 @@ export function useEmailEditor(templateId?: string) {
         }
 
         const loadedSettings: TemplateSettings = {
+          // Older rows predate the column; the default is the shared branding
+          // every template has always had.
+          useGlobalBranding: data.use_global_branding !== false,
           name: data.name || 'Untitled Template',
           subject: data.subject || '',
           preheader: data.preheader || '',
@@ -429,7 +435,17 @@ export function useEmailEditor(templateId?: string) {
       }
 
       try {
-        const bodyHtml = renderBlocksToHTML(blocks, settings.theme)
+        // Global theme first, per-template override on top — the same
+        // precedence the branding save path uses when it restyles every
+        // template. Rendering `settings.theme` alone meant a new template
+        // was saved in the default palette regardless of the client's brand.
+        const effectiveTheme = {
+          ...(branding?.config?.theme ?? {}),
+          ...(settings.theme ?? {}),
+        }
+        const bodyHtml = renderBlocksToHTML(blocks, effectiveTheme, undefined, {
+          globalBranding: settings.useGlobalBranding !== false,
+        })
         // body_json is a JSONB column. supabase-js will serialise the
         // request body itself — we pass the array directly so Postgres
         // stores it as a real JSON array instead of a JSON-encoded
@@ -465,6 +481,7 @@ export function useEmailEditor(templateId?: string) {
           fixed_from_email:
             settings.fromNameType === 'fixed' ? settings.fixedFromEmail : null,
           category: settings.category,
+          use_global_branding: settings.useGlobalBranding !== false,
           // Theme is optional. When the user hasn't tweaked anything we
           // store null and the renderer applies defaults; when set we
           // persist the JSON object verbatim. supabase-js serialises it
@@ -584,7 +601,7 @@ export function useEmailEditor(templateId?: string) {
         setIsAutoSaving(false)
       }
     },
-    [activeTemplateId, blocks, settings, supabase, router, hasUnsavedChanges],
+    [activeTemplateId, blocks, settings, supabase, router, hasUnsavedChanges, branding],
   )
 
   // Auto-save: fires AUTOSAVE_DEBOUNCE_MS after the last edit. Only

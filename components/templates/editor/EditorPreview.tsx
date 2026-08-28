@@ -13,8 +13,8 @@ import {
 import { Monitor, Smartphone, Send, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
-import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
-import { sampleContacts, TemplateSettings, EditorBlock } from '@/lib/templates/editor-types'
+import { useEmailBrandingConfig, useEffectiveTheme } from '@/lib/hooks/useEmailBranding'
+import { sampleContacts, TemplateSettings, EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
 import { previewMergeTags } from '@/lib/utils/mergeTags'
 import { toast } from '@/lib/hooks/use-toast'
 
@@ -25,15 +25,23 @@ interface EditorPreviewProps {
   // the drawer (the right-edge tab also toggles, but having an explicit
   // close inside the drawer is easier to spot when it's open).
   onClose?: () => void
+  /** Live theme from the editor, including global edits not yet applied. */
+  theme?: TemplateTheme | null
 }
 
-export function EditorPreview({ blocks, settings, onClose }: EditorPreviewProps) {
+export function EditorPreview({ blocks, settings, onClose, theme }: EditorPreviewProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   // Global header/footer come from settings, not the template, so the
   // preview has to pull them in to match what actually gets sent.
   const { data: branding } = useEmailBrandingConfig()
+  // Global branding theme with the per-template override on top, so the
+  // preview matches both the canvas and what actually gets sent.
+  // `theme` comes from the editor page and includes unapplied global edits;
+  // the hook is the fallback for any caller that doesn't pass one.
+  const savedTheme = useEffectiveTheme(settings.theme)
+  const effectiveTheme = theme ?? savedTheme
 
   const selectedContact = sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
 
@@ -50,7 +58,9 @@ export function EditorPreview({ blocks, settings, onClose }: EditorPreviewProps)
     last_name: selectedContact.last_name,
     email: selectedContact.email,
   }
-  const rawHtml = renderBlocksToHTML(blocks, settings.theme, branding?.rendered)
+  const rawHtml = renderBlocksToHTML(blocks, effectiveTheme, branding?.rendered, {
+    globalBranding: settings.useGlobalBranding !== false,
+  })
   const previewHtml = previewMergeTags(rawHtml, contactOverrides)
 
   // Update iframe content when HTML changes
@@ -79,7 +89,12 @@ export function EditorPreview({ blocks, settings, onClose }: EditorPreviewProps)
       const res = await fetch('/api/templates/send-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocks, subject: settings.subject, theme: settings.theme ?? null }),
+        body: JSON.stringify({
+          blocks,
+          subject: settings.subject,
+          theme: settings.theme ?? null,
+          useGlobalBranding: settings.useGlobalBranding !== false,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

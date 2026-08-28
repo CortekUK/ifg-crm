@@ -27,11 +27,17 @@ interface GlobalRegionProps {
   /** Read-only rendering, shown when the region isn't selected. */
   preview: React.ReactNode
   /**
-   * Settings UI shown INSTEAD of `preview` once selected. The block-typed
-   * regions render their own preview beneath their settings panel, so
-   * rendering `preview` as well would duplicate it.
+   * Settings UI shown once selected. The block-typed regions render their own
+   * preview beneath their settings panel; the rest need `keepPreview`.
    */
   children?: React.ReactNode
+  /**
+   * Keep the read-only preview visible while the settings are open, for
+   * regions whose editor doesn't render one itself. Without it the header
+   * vanished the moment you clicked to change it, so you were picking a style
+   * blind and had to deselect to see the result.
+   */
+  keepPreview?: boolean
 }
 
 export function GlobalRegion({
@@ -45,6 +51,7 @@ export function GlobalRegion({
   onDiscard,
   preview,
   children,
+  keepPreview = false,
 }: GlobalRegionProps) {
   return (
     <div
@@ -78,7 +85,11 @@ export function GlobalRegion({
               'Shared by every email template. Changes here apply everywhere, including templates you create later.'}
           </p>
 
-          <div className="rounded-md bg-white/70 p-2 dark:bg-slate-900/40">
+          {/* Explicitly light. This panel floats over the email canvas — a
+              white page whatever the app theme is — so dark-mode text colours
+              landed pale-grey-on-white and were unreadable. `[color-scheme:light]`
+              keeps native controls (colour swatches, file inputs) in step. */}
+          <div className="rounded-md border border-indigo-200 bg-white p-2.5 text-slate-900 [color-scheme:light]">
             {children}
           </div>
 
@@ -118,7 +129,9 @@ export function GlobalRegion({
       )}
 
       {/* Click-through so a click anywhere on the region selects it. */}
-      {!isSelected && <div className="pointer-events-none">{preview}</div>}
+      {(!isSelected || keepPreview) && (
+        <div className="pointer-events-none">{preview}</div>
+      )}
     </div>
   )
 }

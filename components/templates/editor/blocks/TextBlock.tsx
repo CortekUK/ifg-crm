@@ -23,6 +23,7 @@ import {
   Code,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useEditorTheme } from '../EditorThemeContext'
 import { TextBlockContent } from '@/lib/templates/editor-types'
 import { MergeTagDropdown } from '../MergeTagDropdown'
 
@@ -34,6 +35,7 @@ interface TextBlockProps {
 
 export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
   const textContent = content as unknown as TextBlockContent
+  const theme = useEditorTheme()
   const editorRef = useRef<HTMLDivElement>(null)
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
@@ -110,7 +112,18 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
     onUpdate({ html: value })
   }
 
-  const fontSize = textContent.fontSize === 'small' ? 'text-sm' : textContent.fontSize === 'large' ? 'text-lg' : textContent.fontSize === 'xlarge' ? 'text-2xl' : 'text-base'
+  // Sized in px off the theme's base, exactly as renderTextBlock does. The
+  // Tailwind classes this replaces were fixed sizes, so the theme's text-size
+  // control moved nothing on the canvas.
+  const base = theme.baseFontSize
+  const fontSize =
+    textContent.fontSize === 'small'
+      ? Math.round(base * 0.875)
+      : textContent.fontSize === 'large'
+        ? Math.round(base * 1.125)
+        : textContent.fontSize === 'xlarge'
+          ? Math.round(base * 1.5)
+          : base
 
   return (
     <div
@@ -321,12 +334,13 @@ export function TextBlock({ content, isSelected, onUpdate }: TextBlockProps) {
           contentEditable
           suppressContentEditableWarning
           onInput={handleInput}
+          // ifg-rich pulls the theme's body font, heading font and ink
+          // colour from the canvas — the same values the renderer uses.
           className={cn(
-            'min-h-[40px] p-2 rounded focus:outline-none text-gray-900',
-            fontSize,
+            'ifg-rich min-h-[40px] p-2 rounded focus:outline-none',
             isSelected && 'bg-gray-50'
           )}
-          style={{ textAlign: textContent.alignment }}
+          style={{ textAlign: textContent.alignment, fontSize, lineHeight: 1.6 }}
         />
       )}
     </div>

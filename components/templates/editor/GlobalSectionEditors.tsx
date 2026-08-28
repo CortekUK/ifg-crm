@@ -7,7 +7,7 @@
 // block types, so the canvas reuses their existing block components rather
 // than duplicating those editors here.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -16,6 +16,15 @@ import { Upload, Loader2, Plus, Trash2, AlertTriangle, Sparkles } from 'lucide-r
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/hooks/use-toast'
 import { uploadEmailImage } from '@/lib/templates/upload-image'
+import { renderHeaderHtml } from '@/lib/templates/render-branding'
+import type { TemplateTheme, ThemeFont } from '@/lib/templates/editor-types'
+import {
+  PALETTES,
+  contrastRatio,
+  contrastVerdict,
+  matchPalette,
+  type Palette,
+} from '@/lib/templates/palettes'
 import type {
   BrandingHeader,
   BrandingHeaderLogo,
@@ -131,6 +140,57 @@ function ArrangementPicker({
   )
 }
 
+/** Photography already in the CRM's public folder, offered as a starting point. */
+const SUGGESTED_HERO_IMAGES = [
+  { src: '/landing/photos/stadium.jpeg', label: 'Stadium' },
+  { src: '/landing/photos/hero.jpg', label: 'Hero' },
+]
+
+/** The three header treatments, with a miniature of each. */
+const STYLE_OPTIONS: {
+  value: NonNullable<BrandingHeader['style']>
+  label: string
+  hint: string
+  glyph: React.ReactNode
+}[] = [
+  {
+    value: 'plain',
+    label: 'Plain',
+    hint: 'Flat band',
+    glyph: (
+      <span className="block h-6 w-full rounded-sm bg-slate-800">
+        <span className="block h-full w-full rounded-sm border border-slate-700" />
+      </span>
+    ),
+  },
+  {
+    value: 'refined',
+    label: 'Refined',
+    hint: 'Rule + accent',
+    glyph: (
+      <span className="block w-full overflow-hidden rounded-sm">
+        <span className="flex h-5 w-full items-center justify-center bg-slate-800">
+          <span className="h-px w-4 bg-white/40" />
+        </span>
+        <span className="block h-1 w-full bg-red-600" />
+      </span>
+    ),
+  },
+  {
+    value: 'hero',
+    label: 'Hero',
+    hint: 'Photo behind',
+    glyph: (
+      <span className="block w-full overflow-hidden rounded-sm">
+        <span className="flex h-5 w-full items-center justify-center bg-gradient-to-br from-slate-600 to-slate-900">
+          <span className="h-px w-4 bg-white/50" />
+        </span>
+        <span className="block h-1 w-full bg-red-600" />
+      </span>
+    ),
+  },
+]
+
 export function HeaderSectionEditor({
   header,
   onUpdate,
@@ -139,6 +199,7 @@ export function HeaderSectionEditor({
   onUpdate: (patch: Partial<BrandingHeader>) => void
 }) {
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
+  const [uploadingHero, setUploadingHero] = useState(false)
   const logos = header.logos ?? []
   const showLogos = header.mode === 'logos' || header.mode === 'both'
   const showText = header.mode === 'text' || header.mode === 'both'
@@ -149,6 +210,25 @@ export function HeaderSectionEditor({
   const removeLogo = (idx: number) => setLogos(logos.filter((_, i) => i !== idx))
   const addLogo = (logo?: BrandingHeaderLogo) =>
     setLogos([...logos, logo ?? { src: '', alt: '', width: 150 }])
+
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadingHero(true)
+    try {
+      onUpdate({ bgImageUrl: await uploadEmailImage(file) })
+      toast({ title: 'Background uploaded', description: 'Header photograph updated.' })
+    } catch (err) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingHero(false)
+    }
+  }
 
   const handleUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -170,8 +250,138 @@ export function HeaderSectionEditor({
     }
   }
 
+  const style = header.style ?? 'plain'
+
   return (
     <div className="space-y-3">
+      {/* Treatment first: it frames everything below it. */}
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Style
+        </p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {STYLE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onUpdate({ style: opt.value })}
+              className={cn(
+                'rounded-md border p-2 text-left transition-colors',
+                style === opt.value
+                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
+                  : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800',
+              )}
+            >
+              {opt.glyph}
+              <span className="mt-1 block text-[11px] font-medium">{opt.label}</span>
+              <span className="block text-[10px] leading-tight text-muted-foreground">
+                {opt.hint}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {style !== 'plain' && (
+        <div className="space-y-2 rounded-md border border-slate-200 p-2 dark:border-slate-700">
+          <div className="space-y-1">
+            <Label className="text-[11px]">Strapline</Label>
+            <Input
+              value={header.tagline ?? ''}
+              onChange={(e) => onUpdate({ tagline: e.target.value })}
+              placeholder="MACCLESFIELD · ENGLAND"
+              className="h-7 text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Small uppercase line under the logos. Leave blank to hide it.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-[11px]">Accent bar</Label>
+            <input
+              type="color"
+              value={header.accentColor ?? '#BE1623'}
+              onChange={(e) => onUpdate({ accentColor: e.target.value })}
+              className="h-6 w-10 cursor-pointer rounded border border-slate-300 dark:border-slate-600"
+            />
+            <span className="text-[10px] text-muted-foreground">
+              The 3px rule closing the header.
+            </span>
+          </div>
+
+          {style === 'hero' && (
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Background photograph</Label>
+              <div className="flex gap-1.5">
+                <Input
+                  value={header.bgImageUrl ?? ''}
+                  onChange={(e) => onUpdate({ bgImageUrl: e.target.value })}
+                  placeholder="Upload one, or pick a suggestion below"
+                  className="h-7 flex-1 text-xs"
+                />
+                <label className="inline-flex">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleHeroUpload}
+                    disabled={uploadingHero}
+                  />
+                  <span
+                    className={cn(
+                      'inline-flex h-7 cursor-pointer items-center rounded-md border border-slate-300 px-2 text-xs',
+                      uploadingHero && 'pointer-events-none opacity-60',
+                    )}
+                  >
+                    {uploadingHero ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                </label>
+                {header.bgImageUrl && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() => onUpdate({ bgImageUrl: '' })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {SUGGESTED_HERO_IMAGES.map((img) => (
+                  <button
+                    key={img.src}
+                    type="button"
+                    onClick={() => onUpdate({ bgImageUrl: img.src })}
+                    className={cn(
+                      'overflow-hidden rounded border-2 transition-colors',
+                      header.bgImageUrl === img.src
+                        ? 'border-indigo-500'
+                        : 'border-transparent hover:border-slate-300',
+                    )}
+                    title={img.label}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.src} alt={img.label} className="h-9 w-16 object-cover" />
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[10px] text-slate-500">
+                Use a dark image. Outlook can&apos;t dim a background photo, so a bright
+                one will swallow the white logos there.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1.5">
         {(['text', 'logos', 'both'] as const).map((m) => (
           <Button
@@ -357,80 +567,12 @@ export function HeaderSectionEditor({
 }
 
 export function HeaderPreview({ header }: { header: BrandingHeader }) {
-  const logos = (header.logos ?? []).filter((l) => l.src)
-  const gap = Math.round((header.logoGap ?? 24) / 2)
-  const hasLogos = (header.mode === 'logos' || header.mode === 'both') && logos.length > 0
-  const hasText = header.mode === 'text' || header.mode === 'both' || !hasLogos
-  const arrangement = header.arrangement ?? 'logos-top'
-  const both = hasLogos && hasText && header.mode === 'both'
-
-  const logoRow = hasLogos ? (
-    <div style={{ lineHeight: 0 }}>
-      {logos.map((l, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={i}
-          src={l.src}
-          alt={l.alt || ''}
-          style={{
-            display: 'inline-block',
-            width: l.width,
-            maxWidth: '100%',
-            height: 'auto',
-            margin: `0 ${gap}px`,
-            verticalAlign: 'middle',
-          }}
-        />
-      ))}
-    </div>
-  ) : null
-
-  const wordmark = hasText ? (
-    <span className="inline-flex items-center gap-2.5">
-      <span style={{ color: header.textColor, fontSize: 24, fontWeight: 700 }}>
-        {header.text}
-      </span>
-      {header.subtext && (
-        <span style={{ color: header.textColor, fontSize: 16 }}>{header.subtext}</span>
-      )}
-    </span>
-  ) : null
-
-  let content: React.ReactNode
-  if (!both) {
-    content = (
-      <>
-        {logoRow}
-        {wordmark}
-      </>
-    )
-  } else if (arrangement === 'logos-left' || arrangement === 'text-left') {
-    content = (
-      <div
-        className="flex items-center justify-center"
-        style={{ gap: Math.max(header.logoGap ?? 24, 8) }}
-      >
-        {arrangement === 'logos-left' ? logoRow : wordmark}
-        {arrangement === 'logos-left' ? wordmark : logoRow}
-      </div>
-    )
-  } else {
-    content = (
-      <div className="flex flex-col items-center" style={{ gap: 14 }}>
-        {arrangement === 'text-top' ? wordmark : logoRow}
-        {arrangement === 'text-top' ? logoRow : wordmark}
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ backgroundColor: header.bgColor }} className="px-5 py-5 text-center">
-      {content}
-    </div>
-  )
+  // Renders the real thing. This used to be a parallel React implementation of
+  // the header, which meant every renderer feature had to be built twice — and
+  // when it wasn't, the editor showed a style you had not chosen.
+  const html = useMemo(() => renderHeaderHtml(header), [header])
+  return <div dangerouslySetInnerHTML={{ __html: html }} />
 }
-
-// ----------------------------------------------------------------- legal
 
 export function LegalSectionEditor({
   legal,
@@ -517,6 +659,485 @@ export function LegalPreview({ legal }: { legal: BrandingLegal }) {
           {legal.unsubscribeLabel || 'Unsubscribe'}
         </span>
       )}
+    </div>
+  )
+}
+
+// ── Brand & type ─────────────────────────────────────────────────────────────
+
+const FONT_CHOICES: { value: ThemeFont; label: string; sample: string; note: string }[] = [
+  { value: 'system', label: 'System', sample: 'Aa', note: 'Neutral, loads everywhere' },
+  { value: 'modern', label: 'Modern', sample: 'Aa', note: 'Inter — clean, contemporary' },
+  { value: 'classic', label: 'Classic', sample: 'Aa', note: 'Georgia — warm, established' },
+  { value: 'editorial', label: 'Editorial', sample: 'Aa', note: 'Playfair — magazine feel' },
+  { value: 'condensed', label: 'Condensed', sample: 'Aa', note: 'Oswald — sporting, bold' },
+  { value: 'mono', label: 'Mono', sample: 'Aa', note: 'Space Mono — technical, modern' },
+]
+
+const PREVIEW_STACK: Record<ThemeFont, string> = {
+  system: 'system-ui, sans-serif',
+  modern: 'Inter, Helvetica, Arial, sans-serif',
+  classic: 'Georgia, serif',
+  editorial: '"Playfair Display", Georgia, serif',
+  condensed: 'Oswald, "Arial Narrow", sans-serif',
+  mono: '"Space Mono", "Courier New", monospace',
+}
+
+function FontRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: ThemeFont
+  onChange: (v: ThemeFont) => void
+}) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px]">{label}</Label>
+      <div className="grid grid-cols-5 gap-1">
+        {FONT_CHOICES.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChange(f.value)}
+            title={f.note}
+            className={cn(
+              'rounded-md border px-1 py-1.5 text-center transition-colors',
+              value === f.value
+                ? 'border-indigo-500 bg-indigo-50'
+                : 'border-slate-200 hover:bg-slate-50',
+            )}
+          >
+            <span
+              className="block text-base leading-none text-slate-900"
+              style={{ fontFamily: PREVIEW_STACK[f.value] }}
+            >
+              {f.sample}
+            </span>
+            <span className="mt-1 block text-[9px] leading-tight text-slate-500">
+              {f.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function ThemeSectionEditor({
+  theme,
+  onUpdate,
+  onApplyPalette,
+}: {
+  theme: TemplateTheme
+  onUpdate: (patch: Partial<TemplateTheme>) => void
+  /** A palette spans the theme and the masthead, so applying one needs a
+   *  handler that can reach both sections. */
+  onApplyPalette?: (palette: Palette) => void
+}) {
+  const swatch = (
+    label: string,
+    key: 'primaryColor' | 'inkColor' | 'mutedColor' | 'bodyBgColor' | 'pageBgColor',
+    fallback: string,
+    hint: string,
+  ) => (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={theme[key] ?? fallback}
+        onChange={(e) => onUpdate({ [key]: e.target.value })}
+        className="h-7 w-9 shrink-0 cursor-pointer rounded border border-slate-300"
+      />
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium leading-tight text-slate-900">{label}</p>
+        <p className="text-[10px] leading-tight text-slate-500">{hint}</p>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-3">
+      {onApplyPalette && (
+        <PaletteRow theme={theme} onApply={onApplyPalette} />
+      )}
+
+      <ContrastReadout theme={theme} />
+
+      <div className="grid grid-cols-2 gap-2">
+        {swatch('Brand', 'primaryColor', '#BE1623', 'Every button and link')}
+        {swatch('Ink', 'inkColor', '#0f172a', 'Body copy and headings')}
+        {swatch('Muted', 'mutedColor', '#6b7280', 'Captions, small print')}
+        {swatch('Card', 'bodyBgColor', '#ffffff', 'Behind the content')}
+      </div>
+
+      <PageBackgroundRow
+        value={theme.pageBgColor ?? '#f9fafb'}
+        onChange={(pageBgColor) => onUpdate({ pageBgColor })}
+      />
+
+      <FontRow
+        label="Headings"
+        value={theme.headingFont ?? 'system'}
+        onChange={(v) => onUpdate({ headingFont: v })}
+      />
+      <FontRow
+        label="Body"
+        value={theme.bodyFont ?? 'system'}
+        onChange={(v) => onUpdate({ bodyFont: v })}
+      />
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[11px]">Text size</Label>
+          <div className="flex gap-1">
+            {[15, 16, 17, 18].map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => onUpdate({ baseFontSize: size })}
+                className={cn(
+                  'flex-1 rounded-md border py-1 text-[11px] transition-colors',
+                  (theme.baseFontSize ?? 16) === size
+                    ? 'border-indigo-500 bg-indigo-50 text-slate-900'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                )}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[11px]">Headings</Label>
+          <div className="flex gap-1">
+            {([
+              { v: 0.9, l: 'S' },
+              { v: 1, l: 'M' },
+              { v: 1.15, l: 'L' },
+              { v: 1.3, l: 'XL' },
+            ] as const).map((o) => (
+              <button
+                key={o.l}
+                type="button"
+                onClick={() => onUpdate({ headingScale: o.v })}
+                className={cn(
+                  'flex-1 rounded-md border py-1 text-[11px] transition-colors',
+                  (theme.headingScale ?? 1) === o.v
+                    ? 'border-indigo-500 bg-indigo-50 text-slate-900'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                )}
+              >
+                {o.l}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[11px]">Corners</Label>
+          <div className="flex gap-1">
+            {(['square', 'soft', 'pill'] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onUpdate({ corners: c })}
+                className={cn(
+                  'flex-1 rounded-md border py-1 text-[10px] capitalize transition-colors',
+                  (theme.corners ?? 'soft') === c
+                    ? 'border-indigo-500 bg-indigo-50 text-slate-900'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[11px]">Spacing</Label>
+          <div className="flex gap-1">
+            {(['compact', 'comfortable', 'airy'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => onUpdate({ rhythm: r })}
+                className={cn(
+                  'flex-1 rounded-md border py-1 text-[10px] capitalize transition-colors',
+                  (theme.rhythm ?? 'comfortable') === r
+                    ? 'border-indigo-500 bg-indigo-50 text-slate-900'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                )}
+              >
+                {r === 'comfortable' ? 'normal' : r}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="rounded-md bg-amber-50 p-2 text-[10px] leading-relaxed text-amber-800">
+        Outlook ignores webfonts and rounded corners, so readers there see the
+        fallback face and square buttons. Everywhere else — Gmail, Apple Mail,
+        phones — gets the full treatment.
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Whole schemes, in one click.
+ *
+ * Five colours that agree with each other is a design decision, not a
+ * preference, and the failure mode of getting it wrong is quiet: grey small
+ * print on a grey card reads fine on the laptop it was chosen on and vanishes
+ * on a phone outdoors. Every palette here is contrast-checked in CI by
+ * scripts/verify-palettes.mjs.
+ */
+function PaletteRow({
+  theme,
+  onApply,
+}: {
+  theme: TemplateTheme
+  onApply: (palette: Palette) => void
+}) {
+  const active = matchPalette(theme)
+  const current = PALETTES.find((p) => p.id === active)
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between">
+        <Label className="text-[11px]">Colour palette</Label>
+        <span className="text-[10px] text-slate-500">Page, card, text and brand together</span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        {PALETTES.map((palette) => (
+          <button
+            key={palette.id}
+            type="button"
+            onClick={() => onApply(palette)}
+            title={palette.hint}
+            className={cn(
+              'overflow-hidden rounded border text-left transition-all',
+              active === palette.id
+                ? 'border-indigo-500 ring-2 ring-indigo-200'
+                : 'border-slate-300 hover:border-slate-400',
+            )}
+          >
+            {/* A miniature of the actual scheme: page, card, a line of text
+                and the brand — not a row of abstract dots. */}
+            <span
+              className="flex h-9 items-center justify-center"
+              style={{ backgroundColor: palette.theme.pageBgColor }}
+            >
+              <span
+                className="flex h-6 w-[80%] items-center gap-1 rounded-sm px-1.5"
+                style={{ backgroundColor: palette.theme.bodyBgColor }}
+              >
+                <span
+                  className="h-1 flex-1 rounded-full"
+                  style={{ backgroundColor: palette.theme.inkColor }}
+                />
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: palette.theme.primaryColor }}
+                />
+              </span>
+            </span>
+            <span className="block truncate px-1.5 py-1 text-[10px] font-medium text-slate-700">
+              {palette.name}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {current?.caution ? (
+        <p className="rounded bg-amber-50 p-1.5 text-[10px] leading-relaxed text-amber-800">
+          {current.caution}
+        </p>
+      ) : (
+        <p className="text-[10px] leading-relaxed text-slate-500">
+          {current ? current.hint : 'Custom colours — the checks below apply to them too.'}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Live legibility check on whatever colours are currently set.
+ *
+ * Present for the custom case above all: the palettes are already verified,
+ * but nothing stopped someone dragging the muted colour up until the small
+ * print disappeared. AA wants 4.5:1 for body copy, 3:1 for a bold button
+ * label.
+ */
+function ContrastReadout({ theme }: { theme: TemplateTheme }) {
+  const card = theme.bodyBgColor ?? '#ffffff'
+  const rows: { label: string; ratio: number; large: boolean }[] = [
+    { label: 'Body text', ratio: contrastRatio(theme.inkColor ?? '#0f172a', card), large: false },
+    { label: 'Small print', ratio: contrastRatio(theme.mutedColor ?? '#6b7280', card), large: false },
+    {
+      label: 'Button label',
+      ratio: contrastRatio('#ffffff', theme.primaryColor ?? '#BE1623'),
+      large: true,
+    },
+  ]
+
+  const tone = {
+    good: 'text-emerald-700',
+    ok: 'text-slate-600',
+    poor: 'text-red-700 font-semibold',
+  }
+
+  return (
+    <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2">
+        {rows.map((row) => {
+          const verdict = contrastVerdict(row.ratio, row.large)
+          return (
+            <span key={row.label} className="text-[10px] leading-tight">
+              <span className="block text-slate-500">{row.label}</span>
+              <span className={tone[verdict]}>
+                {row.ratio.toFixed(1)}:1 {verdict === 'poor' ? '· too low' : ''}
+              </span>
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The colour around the email card.
+ *
+ * Split out from the swatch grid because it behaves differently from the
+ * others: it is the one colour that changes how the whole email FEELS, and a
+ * hex picker is a poor way to choose it — most values look wrong, and the good
+ * ones are a narrow band. The presets are the band; the picker is still there
+ * for a brand colour that isn't in it.
+ */
+const PAGE_PRESETS: { value: string; label: string }[] = [
+  { value: '#ffffff', label: 'None' },
+  { value: '#f9fafb', label: 'Paper' },
+  { value: '#f3f0ea', label: 'Warm' },
+  { value: '#e2e8f0', label: 'Slate' },
+  { value: '#1e293b', label: 'Deep' },
+  { value: '#0f172a', label: 'Ink' },
+]
+
+function PageBackgroundRow({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between">
+        <Label className="text-[11px]">Page background</Label>
+        <span className="text-[10px] text-slate-500">Around the email, not behind the text</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {PAGE_PRESETS.map((preset) => (
+          <button
+            key={preset.value}
+            type="button"
+            onClick={() => onChange(preset.value)}
+            title={preset.label}
+            className={cn(
+              'h-7 flex-1 rounded border transition-all',
+              value.toLowerCase() === preset.value
+                ? 'border-indigo-500 ring-2 ring-indigo-200'
+                : 'border-slate-300 hover:border-slate-400',
+            )}
+            style={{ backgroundColor: preset.value }}
+          >
+            <span className="sr-only">{preset.label}</span>
+          </button>
+        ))}
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-7 w-9 shrink-0 cursor-pointer rounded border border-slate-300"
+          title="Custom colour"
+        />
+      </div>
+      <p className="text-[10px] leading-relaxed text-slate-500">
+        A darker page makes the email read as a card. Keep the card itself light —
+        some clients invert dark backgrounds in dark mode, and light text on a
+        dark card is where that goes wrong.
+      </p>
+    </div>
+  )
+}
+
+/** Miniature of the theme, so a change is visible without leaving the panel. */
+export function ThemePreview({ theme }: { theme: TemplateTheme }) {
+  const ink = theme.inkColor ?? '#0f172a'
+  const brand = theme.primaryColor ?? '#BE1623'
+  const muted = theme.mutedColor ?? '#6b7280'
+  const base = theme.baseFontSize ?? 16
+  const scale = theme.headingScale ?? 1
+  const radius = theme.corners === 'square' ? 0 : theme.corners === 'pill' ? 999 : 8
+  const pad = theme.rhythm === 'compact' ? 16 : theme.rhythm === 'airy' ? 32 : 24
+
+  return (
+    // Two layers, because the theme has two backgrounds: the page around the
+    // email and the card itself. Showing only the card meant the page colour
+    // could be changed with nothing on screen reacting to it.
+    <div style={{ backgroundColor: theme.pageBgColor ?? '#f9fafb', padding: 12 }}>
+    <div
+      style={{
+        backgroundColor: theme.bodyBgColor ?? '#ffffff',
+        padding: pad,
+        borderRadius: 6,
+        fontFamily: PREVIEW_STACK[theme.bodyFont ?? 'system'],
+        color: ink,
+      }}
+    >
+      <div
+        style={{
+          fontFamily: PREVIEW_STACK[theme.headingFont ?? 'system'],
+          fontSize: Math.round(base * 1.625 * scale),
+          lineHeight: 1.25,
+          fontWeight: 700,
+          marginBottom: 10,
+        }}
+      >
+        Your place at IFG
+      </div>
+      <div style={{ fontSize: base, lineHeight: 1.6 }}>
+        Every template uses these settings, so one change here restyles all of
+        them at once.
+      </div>
+      <div style={{ fontSize: Math.round(base * 0.8), color: muted, marginTop: 8 }}>
+        Small print and captions sit in the muted colour.
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <span
+          style={{
+            display: 'inline-block',
+            backgroundColor: brand,
+            color: '#ffffff',
+            padding: '12px 24px',
+            borderRadius: radius,
+            fontWeight: 700,
+            fontSize: base,
+          }}
+        >
+          Start your application
+        </span>
+      </div>
+    </div>
     </div>
   )
 }

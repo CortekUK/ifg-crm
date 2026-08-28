@@ -14,6 +14,10 @@ import { VideoBlock } from './blocks/VideoBlock'
 import { SocialBlock } from './blocks/SocialBlock'
 import { HTMLBlock } from './blocks/HTMLBlock'
 import { ColumnsBlock } from './blocks/ColumnsBlock'
+import { SectionBlock } from './blocks/SectionBlock'
+import { HeroBlock } from './blocks/HeroBlock'
+import { CardsBlock } from './blocks/CardsBlock'
+import { QuoteBlock } from './blocks/QuoteBlock'
 import { ConditionalBlock } from './blocks/ConditionalBlock'
 import { RecruiterSignatureBlock } from './blocks/RecruiterSignatureBlock'
 import { CompanySignatureBlock } from './blocks/CompanySignatureBlock'
@@ -110,6 +114,22 @@ export function CanvasBlock({
             isSelected={isSelected}
             onUpdate={onUpdate}
           />
+        )
+      case 'section':
+        return (
+          <SectionBlock content={blockContent} isSelected={isSelected} onUpdate={onUpdate} />
+        )
+      case 'hero':
+        return (
+          <HeroBlock content={blockContent} isSelected={isSelected} onUpdate={onUpdate} />
+        )
+      case 'cards':
+        return (
+          <CardsBlock content={blockContent} isSelected={isSelected} onUpdate={onUpdate} />
+        )
+      case 'quote':
+        return (
+          <QuoteBlock content={blockContent} isSelected={isSelected} onUpdate={onUpdate} />
         )
       case 'columns':
         return (

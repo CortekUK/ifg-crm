@@ -25,7 +25,7 @@
 //   * users only need preview during review, not while authoring
 //   * a slide animation makes the show/hide intent obvious
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { PanelLeft, Eye, X } from 'lucide-react'
@@ -38,6 +38,7 @@ import { PreviewModal } from './PreviewModal'
 import { AiPromptPanel } from './AiPromptPanel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEmailEditor } from '@/lib/hooks/useEmailEditor'
+import { useBrandingDraft } from '@/lib/hooks/useEmailBranding'
 import { useDeleteTemplate } from '@/lib/hooks/useTemplates'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { toast } from '@/lib/hooks/use-toast'
@@ -88,6 +89,20 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
     canRedo,
     saveTemplate,
   } = useEmailEditor(templateId)
+
+  // The global-branding draft lives here rather than inside the canvas, so
+  // the canvas AND both previews see the same theme — including edits that
+  // haven't been applied yet. While it lived in the canvas, changing a font
+  // or the brand colour left the preview drawer showing the old one until
+  // "Apply to all templates" was pressed.
+  const brandingDraft = useBrandingDraft()
+
+  // What everything paints with: the global theme (draft included), with any
+  // per-template override on top. Same precedence as the send path.
+  const effectiveTheme = useMemo(
+    () => ({ ...(brandingDraft.branding?.theme ?? {}), ...(settings.theme ?? {}) }),
+    [brandingDraft.branding?.theme, settings.theme],
+  )
 
   const handleClose = () => router.push('/templates')
 
@@ -263,7 +278,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
             <EditorCanvas
               blocks={blocks}
               selectedBlockId={selectedBlockId}
-              theme={settings.theme}
+              theme={effectiveTheme}
               onSelectBlock={(id) => {
                 setSelectedBlockId(id)
                 if (id) setSelectedGlobalSection(null)
@@ -272,6 +287,8 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
               onUpdateBlock={updateBlock}
               onDeleteBlock={deleteBlock}
               onDuplicateBlock={duplicateBlock}
+              brandingDraft={brandingDraft}
+              useGlobalBranding={settings.useGlobalBranding !== false}
               selectedGlobalSection={selectedGlobalSection}
               onSelectGlobalSection={(section) => {
                 setSelectedGlobalSection(section)
@@ -300,6 +317,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
             <EditorPreview
               blocks={blocks}
               settings={settings}
+              theme={effectiveTheme}
               onClose={() => setPreviewVisible(false)}
             />
           </div>
@@ -353,6 +371,7 @@ export function EmailEditorPage({ templateId }: EmailEditorPageProps) {
         onClose={() => setShowPreviewModal(false)}
         blocks={blocks}
         settings={settings}
+        theme={effectiveTheme}
       />
     </div>
   )

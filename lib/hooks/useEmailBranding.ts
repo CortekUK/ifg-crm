@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { EmailBranding } from '@/lib/templates/branding-types'
 import type { BrandingSlots } from '@/lib/templates/render-html'
+import type { TemplateTheme } from '@/lib/templates/editor-types'
 
 interface BrandingResponse {
   config: EmailBranding
@@ -127,4 +128,27 @@ export function useBrandingDraft() {
     discard,
     publish,
   }
+}
+
+/**
+ * The theme a template actually renders with.
+ *
+ * Two themes exist: the global one in email branding, and an optional
+ * per-template override. `restyleAllTemplates` on the branding save path
+ * merges them global-first so a one-off design isn't flattened by a global
+ * change — but the editor was rendering the per-template theme alone, so a
+ * template only picked up the client's brand the next time branding was
+ * saved. Anything that renders a template in the editor should use this, so
+ * the canvas, the preview and the saved HTML agree with each other and with
+ * the send path.
+ */
+export function useEffectiveTheme(
+  templateTheme?: TemplateTheme | null,
+): TemplateTheme | undefined {
+  const { data } = useEmailBrandingConfig()
+  const globalTheme = data?.config?.theme
+  return useMemo(() => {
+    if (!globalTheme && !templateTheme) return undefined
+    return { ...(globalTheme ?? {}), ...(templateTheme ?? {}) }
+  }, [globalTheme, templateTheme])
 }

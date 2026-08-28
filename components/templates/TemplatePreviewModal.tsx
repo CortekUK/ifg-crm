@@ -24,6 +24,8 @@ import { Monitor, Smartphone, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { previewMergeTags } from '@/lib/utils/mergeTags'
 import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
+import { applyBrandingSlots } from '@/lib/templates/render-branding'
+import { useEmailBrandingConfig } from '@/lib/hooks/useEmailBranding'
 import type { Template } from '@/lib/types/templates'
 
 interface TemplatePreviewModalProps {
@@ -46,6 +48,7 @@ export function TemplatePreviewModal({
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [selectedContactId, setSelectedContactId] = useState(sampleContacts[0].id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const { data: branding } = useEmailBrandingConfig()
 
   const selectedContact =
     sampleContacts.find((c) => c.id === selectedContactId) || sampleContacts[0]
@@ -54,7 +57,11 @@ export function TemplatePreviewModal({
   // first/last/email substituted in, the same two-pass replacement we
   // use in the editor's side preview.
   const rawHtml = template?.body_html ?? ''
-  const seeded = previewMergeTags(rawHtml)
+  // Substitute the global header/footer/legal markers before seeding merge
+  // tags — otherwise the preview shows a template stripped of its branding,
+  // which is not what the recipient receives.
+  const branded = branding?.rendered ? applyBrandingSlots(rawHtml, branding.rendered) : rawHtml
+  const seeded = previewMergeTags(branded)
   const previewHtml = replaceMergeTags(seeded, {
     first_name: selectedContact.first_name,
     last_name: selectedContact.last_name,
