@@ -1,136 +1,162 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useDashboardStats } from '@/lib/hooks/useDashboardStats'
+// The dashboard.
+//
+// What it replaces: four stat cards carrying invented sparklines, four widgets
+// about unmatched replies (all empty in this database), a revenue card reading
+// £0, and no mention of contacts, campaigns, brochures, templates, lists or
+// tags — most of what the CRM does.
+//
+// Two principles here. Every figure is counted in SQL by dashboard_overview(),
+// because anything summed in the browser is summed over at most 1000 rows and
+// this database holds 105,285 contacts. And nothing is drawn that isn't real:
+// no sparkline without history behind it, no percentage of a zero baseline,
+// no queue rendered as four empty boxes.
+
+import { useState } from 'react'
+import {
+  Activity,
+  BadgePoundSterling,
+  CalendarCheck,
+  Mail,
+  Receipt,
+  Users,
+  Zap,
+} from 'lucide-react'
+import { useDashboardOverview, deltaPercent } from '@/lib/hooks/useDashboardOverview'
 import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner'
-import { DashboardStatsCard } from '@/components/dashboard/DashboardStatsCard'
-import { UnmatchedRepliesWidget } from '@/components/dashboard/UnmatchedRepliesWidget'
-import { FollowUpsWidget } from '@/components/dashboard/FollowUpsWidget'
-import { LeadSourcesChart } from '@/components/dashboard/LeadSourcesChart'
-import { ProgrammeInterestChart } from '@/components/dashboard/ProgrammeInterestChart'
-import { DealsByStageChart } from '@/components/dashboard/DealsByStageChart'
-import { CallsBookedCard } from '@/components/dashboard/CallsBookedCard'
-import { RevenueSummaryCard } from '@/components/dashboard/RevenueSummaryCard'
+import { QuickActions } from '@/components/dashboard/QuickActions'
+import { KpiCard } from '@/components/dashboard/KpiCard'
+import { NeedsAttention } from '@/components/dashboard/NeedsAttention'
+import { PipelineHealth } from '@/components/dashboard/PipelineHealth'
+import { MarketingSnapshot } from '@/components/dashboard/MarketingSnapshot'
+import { AudienceSnapshot } from '@/components/dashboard/AudienceSnapshot'
 import { RecentActivityTimeline } from '@/components/dashboard/RecentActivityTimeline'
 import { CreateContactModal } from '@/components/contacts/CreateContactModal'
-import { formatNumber } from '@/lib/utils/format'
-import {
-  Users,
-  MessageSquareWarning,
-  GraduationCap,
-  Activity,
-} from 'lucide-react'
-
-// Seeded pseudo-random for stable sparkline data across renders
-function seededRandom(seed: number) {
-  const values: number[] = []
-  for (let i = 0; i < 12; i++) {
-    seed = (seed * 16807 + 0) % 2147483647
-    values.push((seed % 10) + 2)
-  }
-  return values
-}
+import { formatCurrency, formatNumber } from '@/lib/utils/format'
 
 export default function DashboardPage() {
-  const { data: stats, isLoading } = useDashboardStats()
+  const { data, isLoading, error } = useDashboardOverview()
   const [createContactOpen, setCreateContactOpen] = useState(false)
 
-  // Stable sparkline data — only regenerate when stats change
-  const sparklines = useMemo(() => ({
-    leads: seededRandom(1),
-    unmatched: seededRandom(2),
-    programmes: seededRandom(3),
-    activity: seededRandom(4),
-  }), [])
+  const attention = data
+    ? data.attention.unmatched_sms +
+      data.attention.unmatched_email +
+      data.attention.overdue_invoices +
+      data.deals.stalled
+    : 0
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Banner */}
+    <div className="space-y-4">
       <WelcomeBanner onNewLead={() => setCreateContactOpen(true)} />
 
-      {/* Primary Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardStatsCard
-          title="Total Leads"
-          value={formatNumber(stats?.totalLeads || 0)}
+      <QuickActions onNewContact={() => setCreateContactOpen(true)} />
+
+      {error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950">
+          Could not load the dashboard figures: {error.message}
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <KpiCard
+          label="Contacts"
+          value={formatNumber(data?.contacts.total ?? 0)}
+          detail={data ? `${formatNumber(data.contacts.added_7d)} added this week` : undefined}
+          delta={data ? deltaPercent(data.contacts.added_7d, data.contacts.added_prev_7d) : null}
+          deltaLabel="vs last week"
           icon={Users}
-          trend={stats?.totalLeadsTrend}
-          trendLabel="vs last month"
-          colour="blue"
-          sparklineData={sparklines.leads}
+          href="/contacts"
           isLoading={isLoading}
-          href="/pipelines"
         />
-        <DashboardStatsCard
-          title="Unmatched Replies"
-          value={formatNumber(stats?.unmatchedReplies || 0)}
-          icon={MessageSquareWarning}
-          trend={stats?.unmatchedRepliesTrend != null ? -stats.unmatchedRepliesTrend : undefined}
-          trendLabel="vs last month"
-          colour={
-            stats?.unmatchedReplies && stats.unmatchedReplies > 0
-              ? 'orange'
-              : 'green'
+        <KpiCard
+          label="Open deals"
+          value={formatNumber(data?.deals.open ?? 0)}
+          detail={data ? formatCurrency(data.deals.open_value) : undefined}
+          delta={
+            data
+              ? deltaPercent(data.deals.created_this_month, data.deals.created_last_month)
+              : null
           }
-          sparklineData={sparklines.unmatched}
-          isLoading={isLoading}
-          href="/sms-replies"
-        />
-        <DashboardStatsCard
-          title="Active Programmes"
-          value={formatNumber(stats?.activeProgrammes || 0)}
-          icon={GraduationCap}
-          trend={stats?.activeProgrammesTrend}
-          trendLabel="vs last month"
-          colour="green"
-          sparklineData={sparklines.programmes}
-          isLoading={isLoading}
+          deltaLabel="new vs last month"
+          icon={BadgePoundSterling}
           href="/pipelines"
-        />
-        <DashboardStatsCard
-          title="Today's Activity"
-          value={formatNumber(stats?.todayActivities || 0)}
-          icon={Activity}
-          trend={stats?.todayActivitiesTrend}
-          trendLabel="vs yesterday"
-          colour="purple"
-          sparklineData={sparklines.activity}
           isLoading={isLoading}
+        />
+        <KpiCard
+          label="Automations"
+          value={formatNumber(data?.automation.active ?? 0)}
+          detail={data ? `${formatNumber(data.automation.enrolled)} people enrolled` : undefined}
+          icon={Zap}
           href="/automations"
+          isLoading={isLoading}
+        />
+        <KpiCard
+          label="Emails sent"
+          value={formatNumber(data?.email.sent_7d ?? 0)}
+          detail={
+            data
+              ? `${formatNumber(data.email.sent_today)} today · ${formatNumber(data.email.opened_7d)} opened`
+              : undefined
+          }
+          icon={Mail}
+          href="/campaigns"
+          isLoading={isLoading}
+        />
+        <KpiCard
+          label="Needs attention"
+          value={formatNumber(attention)}
+          detail={attention === 0 ? 'all clear' : 'replies, invoices, stalled deals'}
+          icon={Activity}
+          tone={attention > 0 ? 'warning' : 'good'}
+          isLoading={isLoading}
         />
       </div>
 
-      {/* Unmatched Replies Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <UnmatchedRepliesWidget type="sms" />
-        <UnmatchedRepliesWidget type="email" />
-      </div>
+      <NeedsAttention data={data} isLoading={isLoading} />
 
-      {/* Follow-ups Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <FollowUpsWidget type="sms" />
-        <FollowUpsWidget type="email" />
-      </div>
-
-      {/* Secondary Stats: Calls Booked & Revenue */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <CallsBookedCard />
-        <RevenueSummaryCard />
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DealsByStageChart />
-        <ProgrammeInterestChart />
-      </div>
-
-      {/* Lead Sources & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <LeadSourcesChart />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PipelineHealth data={data} isLoading={isLoading} />
         <RecentActivityTimeline />
       </div>
 
-      {/* Create Contact Modal */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard
+          label="Meetings booked"
+          value={formatNumber(data?.meetings.this_month ?? 0)}
+          detail={data ? `${formatNumber(data.meetings.this_week)} this week` : undefined}
+          icon={CalendarCheck}
+          href="/pipelines"
+          isLoading={isLoading}
+        />
+        <KpiCard
+          label="Paid this month"
+          value={formatCurrency(data?.finance.paid_this_month ?? 0)}
+          delta={
+            data ? deltaPercent(data.finance.paid_this_month, data.finance.paid_last_month) : null
+          }
+          deltaLabel="vs last month"
+          icon={BadgePoundSterling}
+          href="/invoices"
+          isLoading={isLoading}
+        />
+        <KpiCard
+          label="Outstanding"
+          value={formatCurrency(data?.finance.outstanding ?? 0)}
+          detail={
+            data ? `${formatNumber(data.finance.outstanding_count)} unpaid invoices` : undefined
+          }
+          icon={Receipt}
+          tone={data && data.attention.overdue_invoices > 0 ? 'warning' : 'default'}
+          href="/invoices"
+          isLoading={isLoading}
+        />
+      </div>
+
+      <MarketingSnapshot data={data} isLoading={isLoading} />
+
+      <AudienceSnapshot data={data} isLoading={isLoading} />
+
       <CreateContactModal
         isOpen={createContactOpen}
         onClose={() => setCreateContactOpen(false)}
