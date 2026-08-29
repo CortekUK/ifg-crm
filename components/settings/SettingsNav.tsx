@@ -3,14 +3,11 @@
 import { cn } from '@/lib/utils'
 import {
   Settings,
-  Plug,
   Mail,
-  MessageSquare,
   Bell,
   Shield,
   User,
   Calendar,
-  GitBranch,
   SlidersHorizontal,
 } from 'lucide-react'
 import type { SettingsSection } from '@/lib/types/settings'
@@ -28,11 +25,8 @@ interface SettingsNavProps {
 export const navItems: SettingsNavItem[] = [
   { id: 'profile', label: 'My Profile', icon: User },
   { id: 'general', label: 'General', icon: Settings },
-  { id: 'pipelines', label: 'Pipelines', icon: GitBranch },
-  { id: 'integrations', label: 'Integrations', icon: Plug },
   { id: 'calendly', label: 'Calendly', icon: Calendar },
   { id: 'email', label: 'Email Settings', icon: Mail },
-  { id: 'sms', label: 'SMS Settings', icon: MessageSquare },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'custom-fields', label: 'Custom Fields', icon: SlidersHorizontal },
   { id: 'data', label: 'Data & Privacy', icon: Shield },

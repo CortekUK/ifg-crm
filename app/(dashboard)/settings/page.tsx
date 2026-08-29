@@ -10,11 +10,8 @@ import { cn } from '@/lib/utils'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { ProfileSettings } from '@/components/settings/ProfileSettings'
 import { GeneralSettings } from '@/components/settings/GeneralSettings'
-import { PipelineManagementSettings } from '@/components/settings/PipelineManagementSettings'
-import { IntegrationsSettings } from '@/components/settings/IntegrationsSettings'
 import { CalendlySettings } from '@/components/settings/CalendlySettings'
 import { EmailSettingsSection } from '@/components/settings/EmailSettingsSection'
-import { SMSSettingsSection } from '@/components/settings/SMSSettingsSection'
 import { NotificationsSettings } from '@/components/settings/NotificationsSettings'
 import { CustomFieldsSettings } from '@/components/settings/CustomFieldsSettings'
 import { DataPrivacySettings } from '@/components/settings/DataPrivacySettings'
@@ -45,16 +42,10 @@ export default function SettingsPage() {
         return <ProfileSettings />
       case 'general':
         return <GeneralSettings />
-      case 'pipelines':
-        return <PipelineManagementSettings />
-      case 'integrations':
-        return <IntegrationsSettings />
       case 'calendly':
         return <CalendlySettings />
       case 'email':
         return <EmailSettingsSection />
-      case 'sms':
-        return <SMSSettingsSection />
       case 'notifications':
         return <NotificationsSettings />
       case 'custom-fields':

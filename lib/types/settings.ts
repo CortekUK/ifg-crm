@@ -1,11 +1,8 @@
 export type SettingsSection =
   | 'profile'
   | 'general'
-  | 'pipelines'
-  | 'integrations'
   | 'calendly'
   | 'email'
-  | 'sms'
   | 'notifications'
   | 'custom-fields'
   | 'data'
@@ -53,12 +50,6 @@ export interface EmailSettings {
   replyToEmail: string
   emailSignature: string
   unsubscribeFooter: string
-}
-
-export interface SMSSettings {
-  defaultSMSNumber: string
-  smsSignature: string
-  characterLimitWarning: number
 }
 
 export interface NotificationSettings {
