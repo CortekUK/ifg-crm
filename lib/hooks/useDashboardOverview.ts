@@ -45,7 +45,8 @@ export interface DashboardOverview {
     outstanding: number
     outstanding_count: number
   }
-  meetings: { this_week: number; this_month: number }
+  meetings: { this_week: number; this_month: number; waiting_now: number }
+  top_automations: { id: string; name: string; enrolled: number }[]
   last_campaign: {
     id: string
     name: string

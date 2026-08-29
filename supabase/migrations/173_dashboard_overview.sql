@@ -113,19 +113,43 @@ SELECT jsonb_build_object(
     'outstanding_count', (SELECT count(*) FROM invoices WHERE status IN ('sent', 'overdue'))
   ),
 
-  -- A meeting is a deal moving into a stage of type 'meeting' — Zoom
-  -- Scheduled and the like. The activity log records the stage id it moved to.
+  -- A call is a DEAL that entered a stage of type 'meeting' — Zoom Scheduled
+  -- and the like. Counted DISTINCT: the activity log records every movement,
+  -- and a deal dragged out of the stage and back in is one call, not two.
+  -- Counting rows said 7 where the honest answer was 5.
   'meetings', jsonb_build_object(
-    'this_week', (SELECT count(*) FROM deal_activities a
+    'this_week', (SELECT count(DISTINCT a.deal_id) FROM deal_activities a
       WHERE a.activity_type = 'stage_changed'
         AND a.created_at >= date_trunc('week', now())
         AND (a.new_value->>'stage_id')::uuid IN
             (SELECT id FROM pipeline_stages WHERE stage_type = 'meeting')),
-    'this_month', (SELECT count(*) FROM deal_activities a, month_start
+    'this_month', (SELECT count(DISTINCT a.deal_id) FROM deal_activities a, month_start
       WHERE a.activity_type = 'stage_changed'
         AND a.created_at >= month_start.d
         AND (a.new_value->>'stage_id')::uuid IN
-            (SELECT id FROM pipeline_stages WHERE stage_type = 'meeting'))
+            (SELECT id FROM pipeline_stages WHERE stage_type = 'meeting')),
+    -- How many are sitting in that stage right now, which is the number
+    -- someone actually has to prepare for.
+    'waiting_now', (SELECT count(*) FROM deals d
+      JOIN pipeline_stages s ON s.id = d.current_stage_id
+      WHERE s.stage_type = 'meeting')
+  ),
+
+  -- Which sequences people are actually in. 22 automations exist; the useful
+  -- question is which ones are doing anything.
+  'top_automations', (
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'id', id, 'name', name, 'enrolled', enrolled) ORDER BY enrolled DESC), '[]'::jsonb)
+    FROM (
+      SELECT au.id, au.name,
+             count(e.id) FILTER (WHERE e.status = 'active') AS enrolled
+      FROM automations au
+      LEFT JOIN automation_enrollments e ON e.automation_id = au.id
+      WHERE au.is_active
+      GROUP BY au.id, au.name
+      HAVING count(e.id) FILTER (WHERE e.status = 'active') > 0
+      ORDER BY enrolled DESC LIMIT 5
+    ) t
   ),
 
   'last_campaign', (

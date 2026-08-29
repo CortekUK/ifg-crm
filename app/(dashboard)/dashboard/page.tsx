@@ -29,6 +29,7 @@ import { QuickActions } from '@/components/dashboard/QuickActions'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { NeedsAttention } from '@/components/dashboard/NeedsAttention'
 import { PipelineHealth } from '@/components/dashboard/PipelineHealth'
+import { AutomationsAtWork } from '@/components/dashboard/AutomationsAtWork'
 import { MarketingSnapshot } from '@/components/dashboard/MarketingSnapshot'
 import { AudienceSnapshot } from '@/components/dashboard/AudienceSnapshot'
 import { RecentActivityTimeline } from '@/components/dashboard/RecentActivityTimeline'
@@ -115,16 +116,26 @@ export default function DashboardPage() {
 
       <NeedsAttention data={data} isLoading={isLoading} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <PipelineHealth data={data} isLoading={isLoading} />
+      {/* items-start so a short card stays short. "Where the deals are" was
+          being stretched to the height of the activity timeline beside it,
+          leaving two thirds of it empty. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          <PipelineHealth data={data} isLoading={isLoading} />
+          <AutomationsAtWork data={data} isLoading={isLoading} />
+        </div>
         <RecentActivityTimeline />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard
-          label="Meetings booked"
+          label="Calls booked"
           value={formatNumber(data?.meetings.this_month ?? 0)}
-          detail={data ? `${formatNumber(data.meetings.this_week)} this week` : undefined}
+          detail={
+            data
+              ? `${formatNumber(data.meetings.waiting_now)} waiting now · ${formatNumber(data.meetings.this_week)} this week`
+              : undefined
+          }
           icon={CalendarCheck}
           href="/pipelines"
           isLoading={isLoading}

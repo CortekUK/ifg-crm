@@ -51,6 +51,16 @@ const checks = [
                 order by count(*) desc limit 8) t2;`) === 0 ? 0 : await one(
       `select coalesce(sum(n),0) from (select count(*) as n from contacts
         group by coalesce(nullif(source,''),'unknown') order by n desc limit 8) t;`)],
+  // Distinct deals, not stage movements: the label says "calls booked", and
+  // a deal moved into the stage twice is one call.
+  ['meetings.this_month', d.meetings.this_month,
+    await one(`select count(distinct a.deal_id) from deal_activities a
+      where a.activity_type='stage_changed' and a.created_at >= date_trunc('month', now())
+        and (a.new_value->>'stage_id')::uuid in
+            (select id from pipeline_stages where stage_type='meeting');`)],
+  ['meetings.waiting_now', d.meetings.waiting_now,
+    await one(`select count(*) from deals d join pipeline_stages s on s.id=d.current_stage_id
+      where s.stage_type='meeting';`)],
   ['top_lists[0]', Number(d.top_lists[0]?.count ?? 0),
     await one(`select count(*) from contact_lists where list_id =
       (select list_id from contact_lists group by list_id order by count(*) desc limit 1);`)],
