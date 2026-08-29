@@ -116,10 +116,10 @@ export default function DashboardPage() {
 
       <NeedsAttention data={data} isLoading={isLoading} />
 
-      {/* items-start so a short card stays short. "Where the deals are" was
-          being stretched to the height of the activity timeline beside it,
-          leaving two thirds of it empty. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      {/* The left column sets the height and the timeline fills it, scrolling
+          its own list. Stretching the short card was wrong; so was letting the
+          tall one leave a hole beneath the short one. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <PipelineHealth data={data} isLoading={isLoading} />
           <AutomationsAtWork data={data} isLoading={isLoading} />
@@ -128,14 +128,18 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* The headline is the current state, which is a fact: this many deals
+            are sitting in a call stage. "Calls booked" was an interpretation —
+            the CRM never learns whether a call happened, only that a card was
+            moved, and the stages are named differently per pipeline (Zoom
+            Scheduled, Interview), so no single label can define itself. */}
         <KpiCard
-          label="Calls booked"
-          value={formatNumber(data?.meetings.this_month ?? 0)}
+          label="Awaiting a call"
+          value={formatNumber(data?.meetings.waiting_now ?? 0)}
           detail={
-            data
-              ? `${formatNumber(data.meetings.waiting_now)} waiting now · ${formatNumber(data.meetings.this_week)} this week`
-              : undefined
+            data ? `${formatNumber(data.meetings.this_month)} entered this month` : undefined
           }
+          hint="Deals sitting in a call stage right now — Zoom Scheduled, or Interview on the University pipeline. Counted per deal, not per move."
           icon={CalendarCheck}
           href="/pipelines"
           isLoading={isLoading}

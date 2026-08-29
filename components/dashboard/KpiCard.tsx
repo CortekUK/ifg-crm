@@ -26,6 +26,9 @@ export interface KpiCardProps {
   tone?: 'default' | 'warning' | 'good'
   href?: string
   isLoading?: boolean
+  /** Hover text saying exactly what was counted, for figures where the label
+   *  alone cannot carry the definition. */
+  hint?: string
 }
 
 export function KpiCard({
@@ -39,9 +42,11 @@ export function KpiCard({
   tone = 'default',
   href,
   isLoading,
+  hint,
 }: KpiCardProps) {
   const body = (
     <div
+      title={hint}
       className={cn(
         'group h-full rounded-xl border bg-white p-4 transition-all dark:bg-slate-900',
         tone === 'warning'

@@ -73,7 +73,10 @@ export function RecentActivityTimeline() {
   })
 
   return (
-    <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+    // h-full + an internally scrolling body: the card fills whatever height
+    // the row is, so a shorter neighbouring column no longer leaves a block of
+    // dead space beneath it.
+    <Card className="flex h-full flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
@@ -87,7 +90,7 @@ export function RecentActivityTimeline() {
           Latest updates from your CRM
         </p>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="flex-1 overflow-y-auto pt-0">
         {isLoading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
