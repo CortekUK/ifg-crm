@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Sheet,
   SheetContent,
@@ -86,7 +87,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/lib/hooks/use-toast'
-import { createClient } from '@/lib/supabase/client'
 import { OwnerSelect } from '@/components/ui/owner-select'
 import type { Deal } from '@/lib/types/pipelines'
 
@@ -107,6 +107,7 @@ export function DealDetailSheet({
   const { data: liveDeal } = useDeal(dealProp?.id || null)
   const deal = liveDeal || dealProp
 
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [newNote, setNewNote] = useState('')
   const [isEditingProbability, setIsEditingProbability] = useState(false)
@@ -176,7 +177,6 @@ export function DealDetailSheet({
   useEffect(() => {
     if (isOpen) {
       // Reset the drawer's transient form/navigation state for the new deal.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('overview')
       setNewNote('')
       setIsEditingProbability(false)
@@ -218,31 +218,49 @@ export function DealDetailSheet({
     }
   }
 
-  const handleMarkWon = async () => {
+  // Closing a deal goes through /api/deals/[id]/close.
+  //
+  // An earlier version wrote a `closed_at` column that was never in the
+  // schema. PostgREST returned an error, nothing checked it, and the toast
+  // still said "Congratulations" — so every deal stayed `active`, which is
+  // why conversion and revenue read zero everywhere. The route writes the
+  // columns that exist (`won_at`/`lost_at`), reports failure as failure,
+  // and is also where the "Deal won" staff alert can be sent from.
+  const closeDeal = async (outcome: 'won' | 'lost') => {
     if (!deal) return
-    const supabase = createClient()
     try {
-      await supabase.from('deals').update({ status: 'won', closed_at: new Date().toISOString() }).eq('id', deal.id)
-      await supabase.from('deal_activities').insert({ deal_id: deal.id, activity_type: 'deal_won', description: 'Deal marked as won', performed_by_id: userId })
-      toast({ title: 'Deal won!', description: 'Congratulations on closing this deal.' })
+      const res = await fetch(`/api/deals/${deal.id}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Failed to close the deal (HTTP ${res.status})`)
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['deal-activities'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics'] })
+
+      toast(
+        outcome === 'won'
+          ? { title: 'Deal won!', description: 'Congratulations on closing this deal.' }
+          : { title: 'Deal lost', description: 'This deal has been marked as lost.' },
+      )
       onClose()
     } catch (error) {
-      toast({ title: 'Failed to update deal', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
+      toast({
+        title: 'Failed to update deal',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
     }
   }
 
-  const handleMarkLost = async () => {
-    if (!deal) return
-    const supabase = createClient()
-    try {
-      await supabase.from('deals').update({ status: 'lost', closed_at: new Date().toISOString() }).eq('id', deal.id)
-      await supabase.from('deal_activities').insert({ deal_id: deal.id, activity_type: 'deal_lost', description: 'Deal marked as lost', performed_by_id: userId })
-      toast({ title: 'Deal lost', description: 'This deal has been marked as lost.' })
-      onClose()
-    } catch (error) {
-      toast({ title: 'Failed to update deal', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
-    }
-  }
+  const handleMarkWon = () => closeDeal('won')
+  const handleMarkLost = () => closeDeal('lost')
 
   const handleAddNote = async () => {
     if (!deal || !newNote.trim()) return
