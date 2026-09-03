@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
@@ -31,9 +30,8 @@ import type { List, ListFilters } from '@/lib/types/lists'
 
 export default function ListsPage() {
   // ⚠️ All hooks must be declared before any early-return; otherwise React
-  // sees a different hook order on renders that take the redirect branch
+  // sees a different hook order on renders that take the loading branch
   // versus the normal branch and throws "change in the order of Hooks".
-  const router = useRouter()
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const isAdmin =
     currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
@@ -53,13 +51,6 @@ export default function ListsPage() {
   const { data: stats, isLoading: statsLoading } = useListStats()
   const deleteList = useDeleteList()
   const bulkDeleteLists = useBulkDeleteLists()
-
-  // List management is admin-only. Recruiters get bounced back to /contacts.
-  useEffect(() => {
-    if (!userLoading && currentUser && !isAdmin) {
-      router.replace('/contacts')
-    }
-  }, [userLoading, currentUser, isAdmin, router])
 
   const handleSearch = (search: string) => {
     setFilters((prev) => ({ ...prev, search }))
@@ -134,10 +125,9 @@ export default function ListsPage() {
     .filter((l) => selectedIds.has(l.id))
     .reduce((sum, l) => sum + (l.contact_count || 0), 0)
 
-  // While we're checking the role, or while a non-admin is being redirected
-  // out, render only a spinner. All hooks above already ran in their stable
-  // order, so this branch is safe to take after them.
-  if (userLoading || (currentUser && !isAdmin)) {
+  // Recruiters manage lists too, so the only reason to hold the page back is
+  // not yet knowing the role — `isAdmin` still decides who may delete.
+  if (userLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -170,7 +160,7 @@ export default function ListsPage() {
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
-        {selectedIds.size > 0 && (
+        {isAdmin && selectedIds.size > 0 && (
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm text-muted-foreground">
               {selectedIds.size} selected
@@ -193,7 +183,7 @@ export default function ListsPage() {
         isLoading={listsLoading}
         onView={handleView}
         onEdit={handleEdit}
-        onDelete={setListToDelete}
+        onDelete={isAdmin ? setListToDelete : undefined}
         selectedIds={selectedIds}
         onSelectedIdsChange={setSelectedIds}
         page={page}

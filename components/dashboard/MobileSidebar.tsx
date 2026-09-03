@@ -32,6 +32,7 @@ import {
   Menu,
   ListIcon,
   BookOpen,
+  Tag,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 
@@ -55,17 +56,22 @@ const navSections = [
     ],
   },
   {
+    // Mirrors the desktop Sidebar: recruiters get Lists and Tags, nothing else
+    // in this group.
     label: 'MARKETING',
-    adminOnly: true,
     items: [
-      { href: '/campaigns', label: 'Campaigns', icon: Send },
-      { href: '/brochures', label: 'Brochures', icon: BookOpen },
+      { href: '/campaigns', label: 'Campaigns', icon: Send, adminOnly: true },
+      { href: '/brochures', label: 'Brochures', icon: BookOpen, adminOnly: true },
       { href: '/lists', label: 'Lists', icon: ListIcon },
-      { href: '/templates', label: 'Templates', icon: FileText },
+      { href: '/tags', label: 'Tags', icon: Tag },
+      { href: '/templates', label: 'Templates', icon: FileText, adminOnly: true },
     ],
   },
   {
+    // adminOnly, like the desktop sidebar. Without it recruiters saw an
+    // Automations link that the middleware then bounced to /unauthorized.
     label: 'AUTOMATION',
+    adminOnly: true,
     items: [
       { href: '/automations', label: 'Automations', icon: Zap },
     ],
@@ -99,9 +105,15 @@ export function MobileSidebar({ user }: MobileSidebarProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
-  const visibleSections = navSections.filter(
-    (section) => !section.adminOnly || isAdmin
-  )
+  const visibleSections = navSections
+    .filter((section) => !section.adminOnly || isAdmin)
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !('adminOnly' in item && item.adminOnly) || isAdmin,
+      ),
+    }))
+    .filter((section) => section.items.length > 0)
 
   const getInitials = (name: string | null | undefined, email: string) => {
     if (name) {

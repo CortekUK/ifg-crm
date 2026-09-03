@@ -42,25 +42,27 @@ export function ContactsPageHeader({
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            onClick={onExportClick}
-            disabled={isExporting}
-            className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
-          >
-            {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            {isExporting ? 'Exporting...' : 'Export'}
-          </Button>
-
+          {/* Export takes the whole contact book out of the CRM, so it is
+              admin-only. Adding one contact is ordinary recruiter work. */}
           {isAdmin && (
             <Button
-              onClick={onAddContact}
-              className="bg-white text-blue-600 hover:bg-blue-50"
+              variant="outline"
+              onClick={onExportClick}
+              disabled={isExporting}
+              className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
             >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Contact
+              {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+              {isExporting ? 'Exporting...' : 'Export'}
             </Button>
           )}
+
+          <Button
+            onClick={onAddContact}
+            className="bg-white text-blue-600 hover:bg-blue-50"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Contact
+          </Button>
         </div>
       </div>
     </div>

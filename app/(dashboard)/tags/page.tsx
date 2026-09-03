@@ -58,6 +58,7 @@ import {
   Eye,
 } from 'lucide-react'
 import { useTagsWithCounts, useDeleteTag, useBulkDeleteTags, useMergeTags, useUpdateTag } from '@/lib/hooks/useTags'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import type { TagWithCount } from '@/lib/hooks/useTags'
 import { CreateTagModal } from '@/components/tags/CreateTagModal'
 import { TagDetailSheet } from '@/components/tags/TagDetailSheet'
@@ -129,6 +130,12 @@ export default function TagsPage() {
   const deleteTag = useDeleteTag()
   const bulkDeleteTags = useBulkDeleteTags()
   const mergeTags = useMergeTags()
+
+  // Recruiters create and edit tags; deleting and merging (which deletes the
+  // tags being merged away) stay with admins, matching the RLS policies.
+  const { data: currentUser } = useCurrentUser()
+  const isAdmin =
+    currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
   const updateTag = useUpdateTag()
 
   // Focus inline edit input when it appears
@@ -439,7 +446,7 @@ export default function TagsPage() {
           </SelectContent>
         </Select>
 
-        {selectedTagIds.size > 0 && (
+        {isAdmin && selectedTagIds.size > 0 && (
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm text-muted-foreground">
               {selectedTagIds.size} selected
@@ -663,14 +670,18 @@ export default function TagsPage() {
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setTagToDelete(tag)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setTagToDelete(tag)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

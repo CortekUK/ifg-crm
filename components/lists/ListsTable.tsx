@@ -33,7 +33,8 @@ interface ListsTableProps {
   isLoading: boolean
   onView: (list: List) => void
   onEdit: (list: List) => void
-  onDelete: (list: List) => void
+  /** Omit to hide the Delete action — deleting lists is admin-only. */
+  onDelete?: (list: List) => void
   selectedIds?: Set<string>
   onSelectedIdsChange?: (ids: Set<string>) => void
   page?: number
@@ -255,14 +256,18 @@ export function ListsTable({
                         <Pencil className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => onDelete(list)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                      {onDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => onDelete(list)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

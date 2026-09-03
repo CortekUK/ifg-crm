@@ -89,8 +89,11 @@ export async function updateSession(request: NextRequest) {
     // NOTE: /settings is intentionally NOT here — recruiters need it to manage
     // their own profile (email signature, phone, title) and connect their
     // Calendly. The settings page itself restricts admin-only sections by role.
+    // /lists and /tags are absent on purpose — recruiters manage both.
+    // /brochures is present because it was only ever hidden from the sidebar,
+    // so anyone who typed the URL walked straight in.
     const adminOnlyPaths = [
-      '/campaigns', '/lists', '/templates', '/automations',
+      '/campaigns', '/brochures', '/templates', '/automations',
       '/invoices', '/payments', '/analytics', '/reports',
       '/users', '/form-submissions', '/website-content',
     ]

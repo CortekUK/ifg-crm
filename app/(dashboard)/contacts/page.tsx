@@ -517,13 +517,17 @@ function ContactsPageContent() {
 
           <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
 
-          {/* Export Selected */}
-          <Button variant="ghost" size="sm" onClick={handleBulkExport} className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50">
-            <Download className="h-4 w-4 mr-1.5" />
-            Export
-          </Button>
+          {/* Export Selected — admin-only, same as the page-level export. */}
+          {isAdmin && (
+            <>
+              <Button variant="ghost" size="sm" onClick={handleBulkExport} className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                <Download className="h-4 w-4 mr-1.5" />
+                Export
+              </Button>
 
-          <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
+              <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
+            </>
+          )}
 
           {/* Add to List */}
           <DropdownMenu>
@@ -583,18 +587,22 @@ function ContactsPageContent() {
             Edit
           </Button>
 
-          <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
+          {/* Delete — admin-only, and blocked by RLS regardless. */}
+          {isAdmin && (
+            <>
+              <div className="w-px h-5 bg-blue-200 dark:bg-blue-700 mx-0.5" />
 
-          {/* Delete */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50"
-            onClick={() => setBulkDeleteDialogOpen(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-1.5" />
-            Delete
-          </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50"
+                onClick={() => setBulkDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Delete
+              </Button>
+            </>
+          )}
 
           <div className="flex-1" />
 

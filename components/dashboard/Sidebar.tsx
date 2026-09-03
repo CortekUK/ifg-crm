@@ -64,14 +64,15 @@ const navSections = [
     ],
   },
   {
+    // Not adminOnly as a section: recruiters need Lists and Tags. The three
+    // items they should not have are marked individually instead.
     label: 'MARKETING',
-    adminOnly: true,
     items: [
-      { href: '/campaigns', label: 'Campaigns', icon: Send },
-      { href: '/brochures', label: 'Brochures', icon: BookOpen },
+      { href: '/campaigns', label: 'Campaigns', icon: Send, adminOnly: true },
+      { href: '/brochures', label: 'Brochures', icon: BookOpen, adminOnly: true },
       { href: '/lists', label: 'Lists', icon: ListIcon },
       { href: '/tags', label: 'Tags', icon: Tag },
-      { href: '/templates', label: 'Templates', icon: FileText, ai: true },
+      { href: '/templates', label: 'Templates', icon: FileText, ai: true, adminOnly: true },
     ],
   },
   {
@@ -153,8 +154,9 @@ export function Sidebar({ user }: SidebarProps) {
 
   // Two-level filter: section-level (drops the whole group when the
   // role can't see ANY of its items) and item-level (drops one item
-  // out of an otherwise-visible group, e.g. "OpenAI Usage" inside the
-  // shared INSIGHTS section is super_admin-only).
+  // out of an otherwise-visible group — "OpenAI Usage" inside the shared
+  // INSIGHTS section is super_admin-only, and MARKETING is visible to
+  // recruiters for Lists and Tags while its other items are not).
   const visibleSections = navSections
     .filter((section) => {
       if ('superAdminOnly' in section && section.superAdminOnly && !isSuperAdmin) {
@@ -167,6 +169,9 @@ export function Sidebar({ user }: SidebarProps) {
       ...section,
       items: section.items.filter((item) => {
         if ('superAdminOnly' in item && item.superAdminOnly && !isSuperAdmin) {
+          return false
+        }
+        if ('adminOnly' in item && item.adminOnly && !isAdmin) {
           return false
         }
         return true
