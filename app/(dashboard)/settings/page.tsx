@@ -11,9 +11,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { ProfileSettings } from '@/components/settings/ProfileSettings'
 import { GeneralSettings } from '@/components/settings/GeneralSettings'
 import { CalendlySettings } from '@/components/settings/CalendlySettings'
-import { EmailSettingsSection } from '@/components/settings/EmailSettingsSection'
 import { NotificationsSettings } from '@/components/settings/NotificationsSettings'
-import { CustomFieldsSettings } from '@/components/settings/CustomFieldsSettings'
 import { DataPrivacySettings } from '@/components/settings/DataPrivacySettings'
 import type { SettingsSection } from '@/lib/types/settings'
 
@@ -44,12 +42,8 @@ export default function SettingsPage() {
         return <GeneralSettings />
       case 'calendly':
         return <CalendlySettings />
-      case 'email':
-        return <EmailSettingsSection />
       case 'notifications':
         return <NotificationsSettings />
-      case 'custom-fields':
-        return <CustomFieldsSettings />
       case 'data':
         return <DataPrivacySettings />
       default:

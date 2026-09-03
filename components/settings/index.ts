@@ -1,6 +1,5 @@
 export { SettingsPageHeader } from './SettingsPageHeader'
 export { SettingsNav } from './SettingsNav'
 export { GeneralSettings } from './GeneralSettings'
-export { EmailSettingsSection } from './EmailSettingsSection'
 export { NotificationsSettings } from './NotificationsSettings'
 export { DataPrivacySettings } from './DataPrivacySettings'

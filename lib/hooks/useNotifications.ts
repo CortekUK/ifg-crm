@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
+import { showBrowserNotification } from '@/lib/notifications/browser'
 
 export interface Notification {
   id: string
@@ -33,27 +34,54 @@ export function useNotifications(limit = 20) {
     refetchInterval: 60000, // Poll every 60s as fallback
   })
 
-  // Realtime subscription for instant updates
+  // Realtime subscription for instant updates.
+  //
+  // An INSERT also raises a desktop notification when the user has opted
+  // in on this browser — that is what the "Desktop notifications" toggle
+  // in Settings switches on.
   useEffect(() => {
     const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
 
-    const channel = supabase
-      .channel('notifications-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['notifications'] })
-        }
-      )
-      .subscribe()
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user || cancelled) return
+
+      channel = supabase
+        .channel('notifications-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            // RLS already scopes this stream to the signed-in user. The
+            // filter is belt and braces: a desktop notification renders
+            // whatever arrives, so it must never carry a colleague's row.
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] })
+
+            if (payload.eventType === 'INSERT') {
+              const row = payload.new as Partial<Notification>
+              showBrowserNotification(
+                row.title || 'New activity',
+                row.message || '',
+                row.href ?? null,
+              )
+            }
+          },
+        )
+        .subscribe()
+    })()
 
     return () => {
-      supabase.removeChannel(channel)
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
     }
   }, [queryClient])
 

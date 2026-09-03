@@ -2,9 +2,7 @@ export type SettingsSection =
   | 'profile'
   | 'general'
   | 'calendly'
-  | 'email'
   | 'notifications'
-  | 'custom-fields'
   | 'data'
 
 export interface GeneralSettings {
@@ -42,14 +40,6 @@ export interface StripeSettings {
 
 export interface XeroSettings {
   connected: boolean
-}
-
-export interface EmailSettings {
-  defaultFromName: string
-  defaultFromEmail: string
-  replyToEmail: string
-  emailSignature: string
-  unsubscribeFooter: string
 }
 
 export interface NotificationSettings {
