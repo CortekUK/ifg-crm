@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { AnalyticsPageHeader } from '@/components/analytics/AnalyticsPageHeader'
 import { AnalyticsKPIs } from '@/components/analytics/AnalyticsKPIs'
 import { AnalyticsCharts } from '@/components/analytics/AnalyticsCharts'
+import { StagePerformance } from '@/components/analytics/StagePerformance'
+import { AnalyticsBreakdown } from '@/components/analytics/AnalyticsBreakdown'
 import { ErrorState } from '@/components/ui/error-state'
 import { useAnalytics } from '@/lib/hooks/useAnalytics'
 
@@ -14,8 +16,7 @@ export default function AnalyticsPage() {
   const { data, isLoading, error, refetch, isFetching } = useAnalytics(dateRange, pipelineId)
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
+    <div className="space-y-4">
       <AnalyticsPageHeader
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
@@ -23,7 +24,6 @@ export default function AnalyticsPage() {
         onPipelineChange={setPipelineId}
       />
 
-      {/* Error State */}
       {error && (
         <ErrorState
           title="Failed to load analytics"
@@ -34,23 +34,10 @@ export default function AnalyticsPage() {
         />
       )}
 
-      {/* KPI Cards */}
-      <AnalyticsKPIs isLoading={isLoading} data={data?.kpis} />
-
-      {/* Charts Grid */}
-      <AnalyticsCharts
-        isLoading={isLoading}
-        data={data ? {
-          leadsOverTime: data.leadsOverTime,
-          pipelineFunnel: data.pipelineFunnel,
-          stageConversionRates: data.stageConversionRates,
-          avgTimePerStage: data.avgTimePerStage,
-          revenueByMonth: data.revenueByMonth,
-          leadsBySource: data.leadsBySource,
-          topRecruiters: data.topRecruiters,
-          programmePerformance: data.programmePerformance,
-        } : undefined}
-      />
+      <AnalyticsKPIs isLoading={isLoading} data={data} />
+      <AnalyticsCharts isLoading={isLoading} data={data} />
+      <StagePerformance isLoading={isLoading} data={data} />
+      <AnalyticsBreakdown isLoading={isLoading} data={data} />
     </div>
   )
 }
