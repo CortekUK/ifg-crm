@@ -24,6 +24,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useDashboardOverview, deltaPercent } from '@/lib/hooks/useDashboardOverview'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { KpiCard } from '@/components/dashboard/KpiCard'
@@ -38,20 +39,42 @@ import { formatCurrency, formatNumber } from '@/lib/utils/format'
 
 export default function DashboardPage() {
   const { data, isLoading, error } = useDashboardOverview()
+  const { data: currentUser } = useCurrentUser()
   const [createContactOpen, setCreateContactOpen] = useState(false)
 
+  // Recruiters cannot open campaigns, automations, invoices, brochures or
+  // templates, so cards and panels about them were counting work they are not
+  // allowed to do and linking to /unauthorized.
+  const isAdmin =
+    currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+
+  // Overdue invoices only belong in this total for someone who can act on one.
   const attention = data
     ? data.attention.unmatched_sms +
       data.attention.unmatched_email +
-      data.attention.overdue_invoices +
+      (isAdmin ? data.attention.overdue_invoices : 0) +
       data.deals.stalled
     : 0
+
+  // Defined once: it sits in the second row for admins, but a recruiter's
+  // second row is all finance and disappears, so it moves up to the first.
+  const awaitingCall = (
+    <KpiCard
+      label="Awaiting a call"
+      value={formatNumber(data?.meetings.waiting_now ?? 0)}
+      detail={data ? `${formatNumber(data.meetings.this_month)} entered this month` : undefined}
+      hint="Deals sitting in a call stage right now — Zoom Scheduled, or Interview on the University pipeline. Counted per deal, not per move."
+      icon={CalendarCheck}
+      href="/pipelines"
+      isLoading={isLoading}
+    />
+  )
 
   return (
     <div className="space-y-4">
       <WelcomeBanner onNewLead={() => setCreateContactOpen(true)} />
 
-      <QuickActions onNewContact={() => setCreateContactOpen(true)} />
+      <QuickActions onNewContact={() => setCreateContactOpen(true)} isAdmin={isAdmin} />
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950">
@@ -59,7 +82,13 @@ export default function DashboardPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div
+        className={
+          isAdmin
+            ? 'grid grid-cols-2 gap-3 lg:grid-cols-5'
+            : 'grid grid-cols-2 gap-3 lg:grid-cols-4'
+        }
+      >
         <KpiCard
           label="Contacts"
           value={formatNumber(data?.contacts.total ?? 0)}
@@ -84,37 +113,49 @@ export default function DashboardPage() {
           href="/pipelines"
           isLoading={isLoading}
         />
-        <KpiCard
-          label="Automations"
-          value={formatNumber(data?.automation.active ?? 0)}
-          detail={data ? `${formatNumber(data.automation.enrolled)} people enrolled` : undefined}
-          icon={Zap}
-          href="/automations"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Emails sent"
-          value={formatNumber(data?.email.sent_7d ?? 0)}
-          detail={
-            data
-              ? `${formatNumber(data.email.sent_today)} today · ${formatNumber(data.email.opened_7d)} opened`
-              : undefined
-          }
-          icon={Mail}
-          href="/campaigns"
-          isLoading={isLoading}
-        />
+        {isAdmin ? (
+          <>
+            <KpiCard
+              label="Automations"
+              value={formatNumber(data?.automation.active ?? 0)}
+              detail={data ? `${formatNumber(data.automation.enrolled)} people enrolled` : undefined}
+              icon={Zap}
+              href="/automations"
+              isLoading={isLoading}
+            />
+            <KpiCard
+              label="Emails sent"
+              value={formatNumber(data?.email.sent_7d ?? 0)}
+              detail={
+                data
+                  ? `${formatNumber(data.email.sent_today)} today · ${formatNumber(data.email.opened_7d)} opened`
+                  : undefined
+              }
+              icon={Mail}
+              href="/campaigns"
+              isLoading={isLoading}
+            />
+          </>
+        ) : (
+          awaitingCall
+        )}
         <KpiCard
           label="Needs attention"
           value={formatNumber(attention)}
-          detail={attention === 0 ? 'all clear' : 'replies, invoices, stalled deals'}
+          detail={
+            attention === 0
+              ? 'all clear'
+              : isAdmin
+                ? 'replies, invoices, stalled deals'
+                : 'replies, stalled deals'
+          }
           icon={Activity}
           tone={attention > 0 ? 'warning' : 'good'}
           isLoading={isLoading}
         />
       </div>
 
-      <NeedsAttention data={data} isLoading={isLoading} />
+      <NeedsAttention data={data} isLoading={isLoading} isAdmin={isAdmin} />
 
       {/* The left column sets the height and the timeline fills it, scrolling
           its own list. Stretching the short card was wrong; so was letting the
@@ -122,53 +163,45 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <PipelineHealth data={data} isLoading={isLoading} />
-          <AutomationsAtWork data={data} isLoading={isLoading} />
+          {isAdmin && <AutomationsAtWork data={data} isLoading={isLoading} />}
         </div>
         <RecentActivityTimeline />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {/* The headline is the current state, which is a fact: this many deals
-            are sitting in a call stage. "Calls booked" was an interpretation —
-            the CRM never learns whether a call happened, only that a card was
-            moved, and the stages are named differently per pipeline (Zoom
-            Scheduled, Interview), so no single label can define itself. */}
-        <KpiCard
-          label="Awaiting a call"
-          value={formatNumber(data?.meetings.waiting_now ?? 0)}
-          detail={
-            data ? `${formatNumber(data.meetings.this_month)} entered this month` : undefined
-          }
-          hint="Deals sitting in a call stage right now — Zoom Scheduled, or Interview on the University pipeline. Counted per deal, not per move."
-          icon={CalendarCheck}
-          href="/pipelines"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Paid this month"
-          value={formatCurrency(data?.finance.paid_this_month ?? 0)}
-          delta={
-            data ? deltaPercent(data.finance.paid_this_month, data.finance.paid_last_month) : null
-          }
-          deltaLabel="vs last month"
-          icon={BadgePoundSterling}
-          href="/invoices"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Outstanding"
-          value={formatCurrency(data?.finance.outstanding ?? 0)}
-          detail={
-            data ? `${formatNumber(data.finance.outstanding_count)} unpaid invoices` : undefined
-          }
-          icon={Receipt}
-          tone={data && data.attention.overdue_invoices > 0 ? 'warning' : 'default'}
-          href="/invoices"
-          isLoading={isLoading}
-        />
-      </div>
+      {isAdmin && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* The headline is the current state, which is a fact: this many deals
+              are sitting in a call stage. "Calls booked" was an interpretation —
+              the CRM never learns whether a call happened, only that a card was
+              moved, and the stages are named differently per pipeline (Zoom
+              Scheduled, Interview), so no single label can define itself. */}
+          {awaitingCall}
+          <KpiCard
+            label="Paid this month"
+            value={formatCurrency(data?.finance.paid_this_month ?? 0)}
+            delta={
+              data ? deltaPercent(data.finance.paid_this_month, data.finance.paid_last_month) : null
+            }
+            deltaLabel="vs last month"
+            icon={BadgePoundSterling}
+            href="/invoices"
+            isLoading={isLoading}
+          />
+          <KpiCard
+            label="Outstanding"
+            value={formatCurrency(data?.finance.outstanding ?? 0)}
+            detail={
+              data ? `${formatNumber(data.finance.outstanding_count)} unpaid invoices` : undefined
+            }
+            icon={Receipt}
+            tone={data && data.attention.overdue_invoices > 0 ? 'warning' : 'default'}
+            href="/invoices"
+            isLoading={isLoading}
+          />
+        </div>
+      )}
 
-      <MarketingSnapshot data={data} isLoading={isLoading} />
+      {isAdmin && <MarketingSnapshot data={data} isLoading={isLoading} />}
 
       <AudienceSnapshot data={data} isLoading={isLoading} />
 

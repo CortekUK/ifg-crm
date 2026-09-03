@@ -21,13 +21,17 @@ interface Item {
   icon: LucideIcon
   /** Advisory items are worth knowing but nobody is blocked on them. */
   severity: 'urgent' | 'note'
+  /** Links to a route recruiters cannot open, so it is theirs to ignore. */
+  adminOnly?: boolean
 }
 
 export function NeedsAttention({
   data,
   isLoading,
+  isAdmin,
 }: {
   data?: DashboardOverview
+  isAdmin?: boolean
   isLoading?: boolean
 }) {
   if (isLoading || !data) {
@@ -44,19 +48,19 @@ export function NeedsAttention({
 
   const items: Item[] = ([
     { label: 'replies we could not match to a contact', count: unmatched, href: '/replies', icon: MessageSquareWarning, severity: 'urgent' },
-    { label: 'invoices overdue', count: a.overdue_invoices, href: '/invoices', icon: Receipt, severity: 'urgent' },
+    { label: 'invoices overdue', count: a.overdue_invoices, href: '/invoices', icon: Receipt, severity: 'urgent', adminOnly: true },
     { label: 'deals with no activity for a fortnight', count: data.deals.stalled, href: '/pipelines', icon: Timer, severity: 'urgent' },
-    { label: 'brochures still waiting to be pre-rendered', count: a.brochures_unrendered, href: '/brochures', icon: BookOpen, severity: 'note' },
-    { label: 'templates still in draft', count: a.draft_templates, href: '/templates', icon: FileEdit, severity: 'note' },
-  ] as Item[]).filter((i) => i.count > 0)
+    { label: 'brochures still waiting to be pre-rendered', count: a.brochures_unrendered, href: '/brochures', icon: BookOpen, severity: 'note', adminOnly: true },
+    { label: 'templates still in draft', count: a.draft_templates, href: '/templates', icon: FileEdit, severity: 'note', adminOnly: true },
+  ] as Item[]).filter((i) => i.count > 0 && (isAdmin || !i.adminOnly))
 
   if (items.length === 0) {
     return (
       <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/40">
         <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
         <p className="text-sm text-emerald-800 dark:text-emerald-300">
-          Nothing needs attention — no unmatched replies, no overdue invoices, no
-          stalled deals.
+          Nothing needs attention — no unmatched replies, no stalled deals
+          {isAdmin ? ', no overdue invoices' : ''}.
         </p>
       </div>
     )

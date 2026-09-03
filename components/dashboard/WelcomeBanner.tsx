@@ -12,6 +12,10 @@ interface WelcomeBannerProps {
 export function WelcomeBanner({ onNewLead }: WelcomeBannerProps) {
   const { data: user, isLoading } = useCurrentUser()
 
+  // "Send Campaign" points at an admin-only route, so for a recruiter it was
+  // a button that led to /unauthorized.
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+
   // Extract first name from full_name or email
   const getFirstName = () => {
     if (!user) return ''
@@ -50,16 +54,18 @@ export function WelcomeBanner({ onNewLead }: WelcomeBannerProps) {
             <Plus className="h-4 w-4 mr-1.5" />
             New Lead
           </Button>
-          <Link href="/campaigns">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
-            >
-              <Send className="h-4 w-4 mr-1.5" />
-              Send Campaign
-            </Button>
-          </Link>
+          {isAdmin && (
+            <Link href="/campaigns">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/30 text-white hover:bg-white/10 hover:text-white bg-transparent"
+              >
+                <Send className="h-4 w-4 mr-1.5" />
+                Send Campaign
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </div>
