@@ -18,32 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, FileText, AlertCircle } from 'lucide-react'
+import { Loader2, FileText, AlertCircle, Info } from 'lucide-react'
 import { useToast } from '@/lib/hooks/use-toast'
-import { generateReport, ReportType } from '@/lib/utils/generateReport'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { useUsers } from '@/lib/hooks/useUsers'
-
-const reportInfo: Record<string, {
-  name: string
-  formats: string[]
-  reportType: ReportType | null
-  supportsPipelineFilter?: boolean
-  supportsRecruiterFilter?: boolean
-}> = {
-  'contacts-export': { name: 'Contacts Export', formats: ['csv'], reportType: 'contacts' },
-  'pipeline-report': { name: 'Pipeline Report', formats: ['csv'], reportType: 'pipeline', supportsPipelineFilter: true, supportsRecruiterFilter: true },
-  'revenue-report': { name: 'Revenue Report', formats: ['csv'], reportType: 'revenue', supportsPipelineFilter: true },
-  'campaign-performance': { name: 'Campaign Performance', formats: ['csv'], reportType: 'campaign' },
-  'campaign-conversions': { name: 'Campaign Conversions', formats: ['csv'], reportType: 'campaign-conversions', supportsPipelineFilter: true },
-  'recruiter-performance': { name: 'Recruiter Performance', formats: ['csv'], reportType: 'recruiter', supportsRecruiterFilter: true },
-  'monthly-summary': { name: 'Monthly Summary', formats: ['csv'], reportType: 'monthly', supportsPipelineFilter: true },
-  'automation-report': { name: 'Automation Report', formats: ['csv'], reportType: 'automation', supportsPipelineFilter: true },
-  'sms-email-responses': { name: 'SMS/Email Responses', formats: ['csv'], reportType: 'responses' },
-  'invoice-ageing': { name: 'Invoice Ageing Report', formats: ['csv'], reportType: 'invoice-ageing', supportsPipelineFilter: true },
-  'sms-campaign-costs': { name: 'SMS Campaign Costs', formats: ['csv'], reportType: 'sms-costs' },
-  'deposit-conversion': { name: 'Deposit Conversion Rate', formats: ['csv'], reportType: 'deposit-conversion', supportsPipelineFilter: true },
-}
+import { findReport } from '@/lib/reports/catalogue'
 
 interface GenerateReportModalProps {
   reportId: string | null
@@ -51,12 +30,20 @@ interface GenerateReportModalProps {
   onClose: () => void
 }
 
-export function GenerateReportModal({
-  reportId,
-  isOpen,
-  onClose,
-}: GenerateReportModalProps) {
-  const [format, setFormat] = useState('csv')
+const PRESETS = [
+  { id: '30d', label: 'Last 30 days', days: 30 },
+  { id: '90d', label: 'Last 90 days', days: 90 },
+  { id: '365d', label: 'Last 12 months', days: 365 },
+  { id: 'all', label: 'All time', days: null },
+  { id: 'custom', label: 'Custom range', days: null },
+] as const
+
+function isoDay(date: Date) {
+  return date.toISOString().split('T')[0]
+}
+
+export function GenerateReportModal({ reportId, isOpen, onClose }: GenerateReportModalProps) {
+  const [preset, setPreset] = useState<string>('90d')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [pipelineId, setPipelineId] = useState<string | null>(null)
@@ -68,42 +55,36 @@ export function GenerateReportModal({
   const { data: pipelines = [] } = usePipelines()
   const { data: users = [] } = useUsers()
 
-  const report = reportId ? reportInfo[reportId] : null
+  const report = reportId ? findReport(reportId) : undefined
 
-  // Set default dates when modal opens
   useEffect(() => {
-    if (isOpen) {
-      const today = new Date()
-      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-      setDateFrom(thirtyDaysAgo.toISOString().split('T')[0])
-      setDateTo(today.toISOString().split('T')[0])
-      setPipelineId(null)
-      setRecruiterId(null)
-      setError(null)
-    }
+    if (!isOpen) return
+    const today = new Date()
+    setPreset('90d')
+    setDateFrom(isoDay(new Date(today.getTime() - 90 * 86_400_000)))
+    setDateTo(isoDay(today))
+    setPipelineId(null)
+    setRecruiterId(null)
+    setError(null)
   }, [isOpen])
 
+  const applyPreset = (id: string) => {
+    setPreset(id)
+    setError(null)
+    const option = PRESETS.find((p) => p.id === id)
+    if (option?.days) {
+      const today = new Date()
+      setDateFrom(isoDay(new Date(today.getTime() - option.days * 86_400_000)))
+      setDateTo(isoDay(today))
+    }
+  }
+
   const handleGenerate = async () => {
-    if (!report || !report.reportType) {
-      toast({
-        title: 'Not available',
-        description: 'This report type is not yet implemented.',
-        variant: 'destructive',
-      })
-      return
-    }
+    if (!report) return
 
-    if (!dateFrom || !dateTo) {
-      setError('Please select both start and end dates')
-      return
-    }
-
-    const startDate = new Date(dateFrom)
-    const endDate = new Date(dateTo)
-    endDate.setHours(23, 59, 59, 999) // Include the full end day
-
-    if (startDate > endDate) {
-      setError('Start date must be before end date')
+    const wholeHistory = report.snapshot || preset === 'all'
+    if (!wholeHistory && (!dateFrom || !dateTo)) {
+      setError('Please choose both a start and an end date.')
       return
     }
 
@@ -111,28 +92,57 @@ export function GenerateReportModal({
     setError(null)
 
     try {
-      await generateReport({
-        type: report.reportType,
-        dateRange: { start: startDate, end: endDate },
-        format: format as 'csv' | 'pdf',
-        pipelineId,
-        recruiterId,
-      })
+      const params = new URLSearchParams()
+      if (!wholeHistory) {
+        params.set('from', dateFrom)
+        params.set('to', dateTo)
+      }
+      if (report.pipelineFilter && pipelineId) params.set('pipelineId', pipelineId)
+      if (report.recruiterFilter && recruiterId) params.set('recruiterId', recruiterId)
+
+      const res = await fetch(`/api/reports/${report.id}?${params.toString()}`)
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Report failed (HTTP ${res.status})`)
+      }
+
+      // An empty report is not an error — the old modal showed a red
+      // "Generation failed" for any period with no matching rows, which
+      // is most periods when a table is still filling up.
+      const rowCount = Number(res.headers.get('X-Report-Rows') ?? '0')
+      if (rowCount === 0) {
+        setError(
+          report.snapshot
+            ? 'There is nothing to report yet — no matching records exist.'
+            : 'No records in that date range. Try a wider range, or "All time".',
+        )
+        setIsGenerating(false)
+        return
+      }
+
+      const blob = await res.blob()
+      const filename =
+        res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ??
+        `${report.id}.csv`
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
 
       toast({
-        title: 'Report generated',
-        description: `Your ${report.name} has been downloaded.`,
+        title: 'Report downloaded',
+        description: `${report.name} — ${rowCount.toLocaleString()} ${rowCount === 1 ? 'row' : 'rows'}.`,
       })
-
       onClose()
     } catch (err) {
       console.error('Report generation error:', err)
       setError(err instanceof Error ? err.message : 'Failed to generate report')
-      toast({
-        title: 'Generation failed',
-        description: 'Failed to generate the report. Please try again.',
-        variant: 'destructive',
-      })
     } finally {
       setIsGenerating(false)
     }
@@ -140,54 +150,77 @@ export function GenerateReportModal({
 
   if (!report) return null
 
+  const showDates = !report.snapshot
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Generate {report.name}
+            {report.name}
           </DialogTitle>
-          <DialogDescription>
-            Configure your report settings and generate.
-          </DialogDescription>
+          <DialogDescription>{report.description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label>Report Type</Label>
-            <Input value={report.name} disabled className="bg-gray-50" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="dateFrom">Date From</Label>
-              <Input
-                id="dateFrom"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => {
-                  setDateFrom(e.target.value)
-                  setError(null)
-                }}
-              />
+        <div className="mt-4 space-y-4">
+          {report.snapshot ? (
+            <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-muted-foreground dark:border-slate-700 dark:bg-slate-800/60">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                This report describes the position right now, so it does not take a date range.
+              </span>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateTo">Date To</Label>
-              <Input
-                id="dateTo"
-                type="date"
-                value={dateTo}
-                onChange={(e) => {
-                  setDateTo(e.target.value)
-                  setError(null)
-                }}
-              />
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>Period</Label>
+                <Select value={preset} onValueChange={applyPreset}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRESETS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Pipeline Filter */}
-          {report.supportsPipelineFilter && (
+              {preset === 'custom' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="dateFrom">From</Label>
+                    <Input
+                      id="dateFrom"
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => {
+                        setDateFrom(e.target.value)
+                        setError(null)
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dateTo">To</Label>
+                    <Input
+                      id="dateTo"
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => {
+                        setDateTo(e.target.value)
+                        setError(null)
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {report.pipelineFilter && (
             <div className="space-y-2">
               <Label>Programme (optional)</Label>
               <Select
@@ -195,10 +228,10 @@ export function GenerateReportModal({
                 onValueChange={(v) => setPipelineId(v === '__all__' ? null : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All Programmes" />
+                  <SelectValue placeholder="All programmes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">All Programmes</SelectItem>
+                  <SelectItem value="__all__">All programmes</SelectItem>
                   {pipelines.map((pipeline) => (
                     <SelectItem key={pipeline.id} value={pipeline.id}>
                       {pipeline.name}
@@ -209,8 +242,7 @@ export function GenerateReportModal({
             </div>
           )}
 
-          {/* Recruiter Filter */}
-          {report.supportsRecruiterFilter && (
+          {report.recruiterFilter && (
             <div className="space-y-2">
               <Label>Recruiter (optional)</Label>
               <Select
@@ -218,10 +250,10 @@ export function GenerateReportModal({
                 onValueChange={(v) => setRecruiterId(v === '__all__' ? null : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All Recruiters" />
+                  <SelectValue placeholder="All recruiters" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">All Recruiters</SelectItem>
+                  <SelectItem value="__all__">All recruiters</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || user.email}
@@ -232,48 +264,34 @@ export function GenerateReportModal({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Format</Label>
-            <Select value={format} onValueChange={setFormat}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {report.formats.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {f.toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               {error}
             </div>
           )}
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-2">
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="flex-1"
-            >
+            <Button onClick={handleGenerate} disabled={isGenerating} className="flex-1">
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  Generating…
                 </>
               ) : (
-                'Download Report'
+                'Download CSV'
               )}
             </Button>
           </div>
+
+          {showDates && (
+            <p className="text-center text-xs text-muted-foreground">
+              Downloads as a CSV. Large exports may take a few seconds.
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

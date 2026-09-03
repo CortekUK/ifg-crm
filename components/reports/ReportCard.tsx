@@ -14,7 +14,6 @@ interface ReportCardProps {
   icon: LucideIcon
   name: string
   description: string
-  format: string
   onGenerate: () => void
 }
 
