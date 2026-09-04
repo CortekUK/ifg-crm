@@ -58,7 +58,13 @@ export async function POST(request: NextRequest) {
       // checkout says which programme's terms and which version were on
       // screen. Terms get rewritten, so without the version a payment
       // cannot be tied to the wording that was actually agreed to.
-      const consented = session.consent?.terms_of_service === 'accepted'
+      // Consent is recorded either by Stripe's own tick box, or by the
+      // website's deposit dialogue before the customer ever reached Stripe.
+      // Trusting only Stripe's field would silently lose the record for every
+      // website deposit.
+      const consented =
+        session.consent?.terms_of_service === 'accepted' ||
+        session.metadata?.terms_source === 'website'
       const termsVersion = Number(session.metadata?.terms_version)
 
       // Update invoice to paid

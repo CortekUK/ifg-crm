@@ -366,10 +366,29 @@ export async function POST(request: NextRequest) {
 
     // programmeKey is already 'residency' | 'university' here, the same keys
     // website_terms uses; the gap-year journey does not run through this route.
-    const terms = await getPublishedTerms(
+    const published = await getPublishedTerms(
       supabase,
       programmeKey === 'residency' || programmeKey === 'university' ? programmeKey : null,
     )
+
+    // The tick box lives on the website's deposit dialogue, which is a client
+    // component and therefore cannot be the thing that enforces it. Refusing
+    // here is what makes it a gate rather than a decoration: without this,
+    // anyone posting straight to the API would skip the terms entirely.
+    //
+    // Nothing to agree to means nothing to enforce — a programme with no
+    // published terms pays exactly as it did before any of this existed.
+    if (published && body.termsAccepted !== true) {
+      return NextResponse.json(
+        {
+          error: 'Please confirm you have read and agree to the Terms & Conditions.',
+          code: 'TERMS_NOT_ACCEPTED',
+        },
+        { status: 400 },
+      )
+    }
+
+    const terms = published ? { ...published, acceptedUpstream: true } : null
 
     const session = await createCheckoutSession({
       payment_method_types: ['card'],

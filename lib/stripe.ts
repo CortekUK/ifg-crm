@@ -13,6 +13,13 @@ export interface TermsRef {
   version: number
   /** Public URL of the terms, for the link on the Stripe page. */
   url: string
+  /**
+   * The customer already ticked a box agreeing to these terms before reaching
+   * Stripe — on the website's deposit dialogue. Stripe is then told what was
+   * agreed to but does not ask again, because being made to tick the same box
+   * twice reads as a broken checkout, not as extra diligence.
+   */
+  acceptedUpstream?: boolean
 }
 
 /**
@@ -50,7 +57,7 @@ export async function createCheckoutSession(
 ): Promise<Stripe.Checkout.Session> {
   return stripe.checkout.sessions.create({
     ...params,
-    ...(terms && {
+    ...(terms && !terms.acceptedUpstream && {
       consent_collection: { terms_of_service: 'required' },
       custom_text: {
         ...params.custom_text,
@@ -64,6 +71,9 @@ export async function createCheckoutSession(
       ...(terms && {
         terms_programme: terms.programme,
         terms_version: String(terms.version),
+        // Where the tick happened, so the webhook knows whether to trust
+        // Stripe's consent field or our own.
+        terms_source: terms.acceptedUpstream ? 'website' : 'stripe',
       }),
     },
   })

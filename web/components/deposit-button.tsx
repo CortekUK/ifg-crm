@@ -32,6 +32,9 @@ const APPLY_BASE = "/programmes/macclesfield/apply";
 
 interface PaidInvoice { number?: string; amount?: number; date?: string; kind?: string }
 
+/** Published terms for this programme, or null when none are published. */
+interface TermsInfo { published: boolean; version?: number; url?: string }
+
 export function DepositButton({
   programme,
   className,
@@ -66,8 +69,25 @@ export function DepositButton({
   const [error, setError] = useState<string | null>(null);
   const [paid, setPaid] = useState<PaidInvoice | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [terms, setTerms] = useState<TermsInfo | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  // Look up the programme's terms when the dialogue opens. Nothing is shown
+  // until this resolves, so the tick box cannot flash in after someone has
+  // already reached for Continue.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch(`/api/terms/${programme}`)
+      .then((r) => (r.ok ? r.json() : { published: false }))
+      .then((d: TermsInfo) => { if (!cancelled) setTerms(d); })
+      // Terms being unreachable must not block a payment; the tick box is
+      // simply not shown, exactly as when none are published.
+      .catch(() => { if (!cancelled) setTerms({ published: false }); });
+    return () => { cancelled = true; };
+  }, [open, programme]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,6 +101,8 @@ export function DepositButton({
     setStatus("idle");
     setError(null);
     setPaid(null);
+    setAgreed(false);
+    setTerms(null);
   }
   function close() {
     if (status === "loading") return;
@@ -92,13 +114,27 @@ export function DepositButton({
     e.preventDefault();
     const addr = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setError("Please enter a valid email."); return; }
+    if (terms?.published && !agreed) {
+      setError("Please confirm you have read and agree to the Terms & Conditions.");
+      return;
+    }
     setError(null);
     setStatus("loading");
     try {
       const res = await fetch("/api/deposit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ programme, mode, amount: isFull ? amount : undefined, email: addr }),
+        body: JSON.stringify({
+          programme,
+          mode,
+          amount: isFull ? amount : undefined,
+          email: addr,
+          // Agreed here rather than on the Stripe page, so nobody is asked to
+          // tick the same box twice. The server checks this again before it
+          // will create a payment.
+          termsAccepted: terms?.published ? agreed : undefined,
+          termsVersion: terms?.published ? terms.version : undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -122,6 +158,10 @@ export function DepositButton({
         mode,
         email: addr,
       });
+      if (terms?.published && agreed) {
+        params.set("termsAccepted", "1");
+        if (terms.version) params.set("termsVersion", String(terms.version));
+      }
       if (isFull && typeof amount === "number") params.set("amount", String(amount));
       if (!isFull && typeof deposit === "number") params.set("depositAmount", String(deposit));
       window.location.href = `${APPLY_BASE}?${params.toString()}`;
@@ -192,8 +232,35 @@ export function DepositButton({
                     autoFocus
                     required
                   />
+                  {terms?.published && (
+                    <label className="ei-terms">
+                      <input
+                        type="checkbox"
+                        checked={agreed}
+                        onChange={(e) => { setAgreed(e.target.checked); setError(null); }}
+                        required
+                        aria-describedby={`terms-link-${programme}`}
+                      />
+                      <span>
+                        I have read and agree to the{" "}
+                        <a
+                          id={`terms-link-${programme}`}
+                          href={terms.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {DEPOSIT_LABEL[programme]} Terms &amp; Conditions
+                        </a>
+                        .
+                      </span>
+                    </label>
+                  )}
                   {error && <p className="ei-error">{error}</p>}
-                  <button type="submit" className="btn btn-primary ei-submit" disabled={status === "loading"}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary ei-submit"
+                    disabled={status === "loading" || (!!terms?.published && !agreed)}
+                  >
                     {status === "loading" ? "Checking…" : "Continue"}
                     {status !== "loading" && <Icon name="arrow-right" className="ic" size={18} />}
                   </button>

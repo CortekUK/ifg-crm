@@ -1628,6 +1628,16 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .ei-form input:focus{border-color:var(--pitch-500)}
 .ei-submit{justify-content:center;margin-top:2px}
 .ei-error{color:var(--pitch-500);font-family:var(--f-archivo);font-size:13px;margin:0}
+/* Terms tick box in the deposit dialogue. Required before Continue, so it sits
+   directly above the button rather than in the small print below it. */
+.ei-terms{display:flex;align-items:flex-start;gap:10px;font-family:var(--f-archivo);font-size:13px;line-height:1.5;color:var(--fg);opacity:.9;cursor:pointer;margin:2px 0 4px;text-align:left}
+.ei-terms input[type=checkbox]{flex:0 0 auto;width:17px;height:17px;margin-top:1px;accent-color:var(--pitch-500);cursor:pointer}
+.ei-terms a{color:var(--pitch-400);text-decoration:underline;text-underline-offset:2px}
+.ei-terms a:hover{color:var(--pitch-300)}
+.ei-submit:disabled{opacity:.5;cursor:not-allowed}
+/* Shown when the application saved but the hand-off to Stripe failed. Silence
+   here once let a broken checkout look like a finished application. */
+.apply-pay-warn{margin:22px auto 0;max-width:46ch;padding:16px 18px;border-radius:12px;border:1px solid rgba(220,38,38,.4);background:rgba(220,38,38,.08);font-family:var(--f-archivo);font-size:14px;line-height:1.6}
 .ei-alt{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:16px;font-family:var(--f-archivo);font-size:14px}
 .ei-alt a{color:var(--pitch-500);text-decoration:none;font-weight:600}
 .ei-alt a:hover{text-decoration:underline}

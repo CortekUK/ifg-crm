@@ -9,7 +9,7 @@ import { PhoneInput } from "./phone-input";
 import { COUNTRIES, VIDEO_SRC, VIDEO_POSTER } from "@/lib/data";
 import { type FieldDef, type FormDef, FORMS, DEPOSIT_PROGRAMME, validateField } from "@/lib/apply-fields";
 
-interface DepositCtx { on: boolean; mode: string; amount?: string; email?: string; depositAmount?: string }
+interface DepositCtx { on: boolean; mode: string; amount?: string; email?: string; depositAmount?: string; termsAccepted?: boolean; termsVersion?: string }
 
 function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCtx }) {
   const depProgramme = DEPOSIT_PROGRAMME[form.id];
@@ -20,6 +20,7 @@ function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCt
     ? `£${Number(deposit.depositAmount).toLocaleString("en-GB")} deposit`
     : "deposit";
   const [values, setValues] = useState<Record<string, string>>({});
+  const [paymentFailed, setPaymentFailed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [sent, setSent] = useState(false);
@@ -135,6 +136,8 @@ function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCt
               mode: deposit!.mode,
               amount: deposit!.amount ? Number(deposit!.amount) : undefined,
               email: (values.email || "").trim(),
+              termsAccepted: deposit!.termsAccepted || undefined,
+              termsVersion: deposit!.termsVersion || undefined,
             }),
           });
           const ddata = (await dres.json().catch(() => ({}))) as { status?: string; url?: string };
@@ -142,8 +145,12 @@ function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCt
             window.location.href = ddata.url;
             return;
           }
+          // The application is safely captured either way, but the payment did
+          // not start and the applicant must be told so rather than shown a
+          // screen that implies everything is done.
+          setPaymentFailed(true);
         } catch {
-          /* fall through to the received screen — the application is captured */
+          setPaymentFailed(true);
         }
       }
       setSent(true);
@@ -162,9 +169,28 @@ function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCt
         <p style={{ color: "var(--fg-muted)", margin: "12px auto 0", maxWidth: "42ch" }}>
           Thank you{values.firstName ? ", " + values.firstName : ""}. Our team will review your {form.title.toLowerCase()} and be in touch shortly with the next steps.
         </p>
-        <div style={{ marginTop: 26 }}>
-          <Button variant="ghost" onClick={() => { setSent(false); setValues({}); setErrors({}); setSubmitted(false); setCountryIso(""); setStates([]); }}>Submit another application</Button>
-        </div>
+
+        {paymentFailed && (
+          <div className="apply-pay-warn" role="alert">
+            <p>
+              <strong>Your payment did not start.</strong> Your application is saved, but we
+              could not take you through to the payment page.
+            </p>
+            <p style={{ marginTop: 6 }}>
+              Please try again, or contact us and we will send you a payment link.
+            </p>
+            <div style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <Button onClick={() => window.location.reload()}>Try payment again</Button>
+              <a href="/contact" className="btn btn-ghost">Contact the team</a>
+            </div>
+          </div>
+        )}
+
+        {!paymentFailed && (
+          <div style={{ marginTop: 26 }}>
+            <Button variant="ghost" onClick={() => { setSent(false); setValues({}); setErrors({}); setSubmitted(false); setCountryIso(""); setStates([]); }}>Submit another application</Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -302,6 +328,12 @@ export function ApplyView() {
         amount: sp.get("amount") || undefined,
         email: sp.get("email") || undefined,
         depositAmount: sp.get("depositAmount") || undefined,
+        // Carried over from the deposit dialogue, where the terms were
+        // already agreed to. The payment API refuses checkout without it when
+        // a programme has published terms, so losing it here would mean the
+        // form completes and the payment silently never starts.
+        termsAccepted: sp.get("termsAccepted") === "1",
+        termsVersion: sp.get("termsVersion") || undefined,
       });
     }
   }, []);
