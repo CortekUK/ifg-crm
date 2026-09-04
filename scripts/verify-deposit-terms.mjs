@@ -25,6 +25,9 @@ const env = Object.fromEntries(
 
 const argUrl = process.argv.indexOf('--url')
 const BASE = argUrl > -1 ? process.argv[argUrl + 1] : 'https://ifg-crm.vercel.app'
+const SITE = process.argv.includes('--site')
+  ? process.argv[process.argv.indexOf('--site') + 1]
+  : 'https://ifg-crm-cvz9.vercel.app'
 // Any contact with an active Summer Residency deal will do — the resolver
 // only reaches the terms gate once it has found a deal to invoice against.
 // Resolved at run time because test contacts get cleaned up.
@@ -74,6 +77,14 @@ const { data: before } = await sb
 try {
   // ── 1. No published terms — the state this shipped in ─────────────────────
   await sb.from('website_terms').update({ published: false }).eq('programme', 'residency')
+
+  // The public terms page must track the published flag both ways. It was
+  // prerendered with generateStaticParams, so at build time (nothing
+  // published) all three baked as a cached 404 that never recovered once the
+  // terms went live — the tick box linked straight to a dead page.
+  let page = await fetch(`${SITE}/terms/summer-residency`, { cache: 'no-store' })
+  check('unpublished → terms page 404s', page.status === 404, `HTTP ${page.status}`)
+
   let r = await deposit({})
   check('no terms published → checkout still works',
     r.status === 200 && r.data.status === 'checkout', `HTTP ${r.status} ${r.data.error ?? ''}`)
@@ -82,6 +93,16 @@ try {
   await sb.from('website_terms').update({
     body: '<h2>Test</h2><p>Terms body.</p>', published: true, version: 3,
   }).eq('programme', 'residency')
+
+  page = await fetch(`${SITE}/terms/summer-residency`, { cache: 'no-store' })
+  const html = page.ok ? await page.text() : ''
+  check('published → terms page renders', page.status === 200, `HTTP ${page.status}`)
+  check('published → page shows the terms text', html.includes('Terms body.'))
+
+  const api = await fetch(`${SITE}/api/terms/residency`, { cache: 'no-store' })
+    .then((x) => x.json()).catch(() => ({}))
+  check('published → dialogue is told to show the tick box',
+    api.published === true && api.version === 3, JSON.stringify(api))
 
   r = await deposit({})
   check('terms published, not agreed → refused',

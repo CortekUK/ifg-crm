@@ -14,7 +14,11 @@ import { getProgrammeTerms, termsProgrammeKey } from "@/lib/content";
  * agreement to a document that has not been written would either block every
  * payment or link to a page that 404s.
  */
-export const revalidate = 60;
+// Never cached: this answer decides whether the payment dialogue shows a
+// required tick box, and three separately-cached responses from three
+// different moments is how one programme reported published while another
+// reported draft.
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: Request,

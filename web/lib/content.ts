@@ -16,13 +16,16 @@ function cfg() {
   return { url: url.replace(/\/$/, ""), key };
 }
 
-async function rest<T>(path: string): Promise<T[] | null> {
+async function rest<T>(path: string, fresh = false): Promise<T[] | null> {
   const c = cfg();
   if (!c) return null;
   try {
     const res = await fetch(`${c.url}/rest/v1/${path}`, {
       headers: { apikey: c.key, Authorization: `Bearer ${c.key}` },
-      next: { revalidate: REVALIDATE_SECONDS },
+      // Most content can be a minute stale — nobody is harmed by an old FAQ.
+      // `fresh` is for data that gates a payment, where a stale answer is a
+      // wrong answer.
+      ...(fresh ? { cache: "no-store" as const } : { next: { revalidate: REVALIDATE_SECONDS } }),
     });
     if (!res.ok) return null;
     return (await res.json()) as T[];
@@ -412,13 +415,20 @@ export async function getProgrammeTerms(slug: string): Promise<ProgrammeTerms | 
   const key = termsProgrammeKey(slug);
   if (!key) return null;
 
+  // Read fresh, never cached. Publishing terms turns on a tick box that blocks
+  // payment, and unpublishing turns it off again; a cached answer here means
+  // the payment dialogue and the terms page disagree about whether the terms
+  // exist.
   const rows = await rest<{
     programme: string;
     title: string;
     body: string;
     version: number;
     updated_at: string;
-  }>(`website_terms?programme=eq.${key}&published=is.true&select=programme,title,body,version,updated_at`);
+  }>(
+    `website_terms?programme=eq.${key}&published=is.true&select=programme,title,body,version,updated_at`,
+    true,
+  );
 
   const row = rows?.[0];
   if (!row || !row.body?.trim()) return null;

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import DOMPurify from "isomorphic-dompurify";
 import { Eyebrow } from "@/components/primitives";
-import { getProgrammeTerms, TERMS_SLUG_LIST } from "@/lib/content";
+import { getProgrammeTerms } from "@/lib/content";
 
 // One page per programme's Terms & Conditions, managed in the CRM.
 //
@@ -12,11 +12,17 @@ import { getProgrammeTerms, TERMS_SLUG_LIST } from "@/lib/content";
 // showing a blank page headed "Terms & Conditions" would be worse than not
 // having one.
 
-export const revalidate = 60;
-
-export async function generateStaticParams() {
-  return TERMS_SLUG_LIST.map((programme) => ({ programme }));
-}
+/**
+ * Rendered on request, never prerendered.
+ *
+ * These were statically generated from TERMS_SLUG_LIST with ISR. At build time
+ * no programme had published terms, so all three baked as `notFound()` — and a
+ * cached 404 does not recover on revalidation, so publishing the terms left
+ * the pages 404ing with no way back short of a redeploy. For a page linked
+ * from a checkout tick box that is the wrong trade: it gets very little
+ * traffic, and being right matters more than being cached.
+ */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
