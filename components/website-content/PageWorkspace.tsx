@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { getCmsPage } from '@/lib/website-content/pages'
 import { PageContentEditor } from './PageContentEditor'
 import { ProgrammePricingEditor, AllProgrammePricing } from './ProgrammePricing'
+import { ProgrammeTermsManager } from './ProgrammeTerms'
 import {
   CoursesManager, StaffManager, FaqsManager, ClinicsManager, StoriesManager, GalleryManager, NewsManager, SquadsManager,
 } from './managers'
@@ -55,6 +56,7 @@ export function PageWorkspace({ slug }: { slug: string }) {
         {has('content') && <PageContentEditor slug={slug} />}
         {has('pricing-all') && <AllProgrammePricing />}
         {has('pricing') && page.programme && <ProgrammePricingEditor programme={page.programme} />}
+        {has('terms') && <ProgrammeTermsManager />}
         {has('courses') && <CoursesManager />}
         {has('staff') && <StaffManager />}
         {has('faqs') && <FaqsManager />}

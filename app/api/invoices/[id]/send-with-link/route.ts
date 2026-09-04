@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { stripe } from '@/lib/stripe'
+import { createCheckoutSession } from '@/lib/stripe'
+import { getPublishedTerms, programmeFromPipelineName } from '@/lib/website-content/terms'
 import { Resend } from 'resend'
 
 export async function POST(
@@ -30,7 +31,7 @@ export async function POST(
     // Get invoice with contact
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, invoice_number, description, amount, currency, status, due_date, contact_id, deal_id, recipient_type')
+      .select('id, invoice_number, description, amount, currency, status, due_date, contact_id, deal_id, recipient_type, deal:deals(pipeline:pipelines(name))')
       .eq('id', invoiceId)
       .single()
 
@@ -80,8 +81,11 @@ export async function POST(
       year: 'numeric',
     })
 
+    const pipelineName = (invoice.deal as { pipeline?: { name?: string } } | null)?.pipeline?.name
+    const terms = await getPublishedTerms(supabase, programmeFromPipelineName(pipelineName))
+
     // Create Stripe Checkout Session for the payment link
-    const session = await stripe.checkout.sessions.create({
+    const session = await createCheckoutSession({
       payment_method_types: ['card'],
       line_items: [
         {
@@ -105,7 +109,7 @@ export async function POST(
         invoice_number: invoice.invoice_number,
         contact_id: contact.id,
       },
-    })
+    }, terms)
 
     // Send email FIRST. Resend's SDK returns { data, error } instead of
     // throwing on API errors (rate limit, unverified domain, invalid

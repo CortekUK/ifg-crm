@@ -382,3 +382,52 @@ export async function getStaff(): Promise<StaffGroup[]> {
     .sort((a, b) => rank(a) - rank(b))
     .map((label) => ({ label, people: byGroup.get(label)! }));
 }
+
+// ── Programme Terms & Conditions ─────────────────────────────────────────────
+// Managed in the CRM (Website Content → Terms & Conditions) and linked from the
+// Stripe payment page, where the customer must tick a box agreeing to them.
+// RLS exposes only published rows, so an unpublished programme returns null and
+// the page 404s rather than showing a blank legal document.
+export type ProgrammeTerms = {
+  programme: string;
+  title: string;
+  body: string;
+  version: number;
+  updatedAt: string;
+};
+
+const TERMS_SLUGS: Record<string, string> = {
+  "summer-residency": "residency",
+  university: "university",
+  "gap-year": "gapyear",
+};
+
+export function termsProgrammeKey(slug: string): string | null {
+  return TERMS_SLUGS[slug] ?? null;
+}
+
+export const TERMS_SLUG_LIST = Object.keys(TERMS_SLUGS);
+
+export async function getProgrammeTerms(slug: string): Promise<ProgrammeTerms | null> {
+  const key = termsProgrammeKey(slug);
+  if (!key) return null;
+
+  const rows = await rest<{
+    programme: string;
+    title: string;
+    body: string;
+    version: number;
+    updated_at: string;
+  }>(`website_terms?programme=eq.${key}&published=is.true&select=programme,title,body,version,updated_at`);
+
+  const row = rows?.[0];
+  if (!row || !row.body?.trim()) return null;
+
+  return {
+    programme: row.programme,
+    title: row.title,
+    body: row.body,
+    version: row.version,
+    updatedAt: row.updated_at,
+  };
+}

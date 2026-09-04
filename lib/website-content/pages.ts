@@ -7,12 +7,12 @@
 
 import {
   Home, Sun, GraduationCap, Compass, Trophy, Images, Users, HelpCircle, CalendarClock,
-  Info, Mail, Youtube, Building2, Newspaper, Shield, PoundSterling, BookOpen,
+  Info, Mail, Youtube, Building2, Newspaper, Shield, PoundSterling, BookOpen, ScrollText,
   type LucideIcon,
 } from 'lucide-react'
 import type { ProgrammeKey } from '@/lib/types/website-content'
 
-export type CmsModule = 'content' | 'pricing' | 'pricing-all' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news' | 'squads'
+export type CmsModule = 'content' | 'pricing' | 'pricing-all' | 'terms' | 'courses' | 'staff' | 'faqs' | 'stories' | 'gallery' | 'clinics' | 'news' | 'squads'
 
 export interface CmsPage {
   slug: string              // registry id + content-schema slug + URL param
@@ -30,6 +30,8 @@ export const CMS_PAGES: CmsPage[] = [
     description: 'Packages, deposits and card fees for every programme.', modules: ['pricing-all'] },
   { slug: 'university-courses', title: 'University Courses', route: '/programmes/macclesfield/university', icon: BookOpen,
     description: 'Degree courses shown on the University page, by School.', modules: ['courses'] },
+  { slug: 'terms', title: 'Terms & Conditions', route: '/terms/summer-residency', icon: ScrollText,
+    description: 'The terms customers must accept before they can pay.', modules: ['terms'] },
 
   { slug: 'home', title: 'Home', route: '/', icon: Home,
     description: 'Hero, highlights and calls to action.', modules: ['content'] },

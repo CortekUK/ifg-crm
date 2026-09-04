@@ -52,6 +52,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, ignored: true })
       }
 
+      // Terms acceptance, recorded against the payment.
+      //
+      // Stripe reports THAT the box was ticked; the metadata we set at
+      // checkout says which programme's terms and which version were on
+      // screen. Terms get rewritten, so without the version a payment
+      // cannot be tied to the wording that was actually agreed to.
+      const consented = session.consent?.terms_of_service === 'accepted'
+      const termsVersion = Number(session.metadata?.terms_version)
+
       // Update invoice to paid
       await supabase
         .from('invoices')
@@ -61,6 +70,11 @@ export async function POST(request: NextRequest) {
           payment_method: 'stripe',
           stripe_payment_intent_id: paymentIntentId,
           updated_at: new Date().toISOString(),
+          ...(consented && {
+            terms_programme: session.metadata?.terms_programme ?? null,
+            terms_version: Number.isFinite(termsVersion) ? termsVersion : null,
+            terms_accepted_at: new Date().toISOString(),
+          }),
         })
         .eq('id', invoiceId)
 

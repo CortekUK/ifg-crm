@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import type Stripe from 'stripe'
 import { getServiceClient } from '@/lib/forms/process-submission'
 import { findOrCreateList } from '@/lib/assistant/capture'
-import { stripe } from '@/lib/stripe'
+import { createCheckoutSession } from '@/lib/stripe'
+import { getPublishedTerms } from '@/lib/website-content/terms'
 
 /**
  * Public deposit / full-payment resolver for the website (Residency & University).
@@ -363,7 +364,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // programmeKey is already 'residency' | 'university' here, the same keys
+    // website_terms uses; the gap-year journey does not run through this route.
+    const terms = await getPublishedTerms(
+      supabase,
+      programmeKey === 'residency' || programmeKey === 'university' ? programmeKey : null,
+    )
+
+    const session = await createCheckoutSession({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
@@ -380,7 +388,7 @@ export async function POST(request: NextRequest) {
         programme: programmeName,
         programme_key: programmeKey,
       },
-    })
+    }, terms)
 
     await supabase.from('invoices').update({ stripe_checkout_session_id: session.id }).eq('id', invoiceId)
 

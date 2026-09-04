@@ -10,7 +10,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { stripe } from '@/lib/stripe'
+import { stripe, createCheckoutSession } from '@/lib/stripe'
+import { getPublishedTerms, programmeFromPipelineName } from '@/lib/website-content/terms'
 
 export async function GET(
   _req: NextRequest,
@@ -27,7 +28,7 @@ export async function GET(
 
   const { data: invoice, error } = await supabase
     .from('invoices')
-    .select('id, invoice_number, description, amount, currency, status, contact_id, stripe_checkout_session_id, recipient_type')
+    .select('id, invoice_number, description, amount, currency, status, contact_id, stripe_checkout_session_id, recipient_type, deal:deals(pipeline:pipelines(name))')
     .eq('id', invoiceId)
     .single()
 
@@ -78,7 +79,11 @@ export async function GET(
         : contact.email
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const session = await stripe.checkout.sessions.create({
+
+    const pipelineName = (invoice.deal as { pipeline?: { name?: string } } | null)?.pipeline?.name
+    const terms = await getPublishedTerms(supabase, programmeFromPipelineName(pipelineName))
+
+    const session = await createCheckoutSession({
       payment_method_types: ['card'],
       line_items: [
         {
@@ -102,7 +107,7 @@ export async function GET(
         invoice_number: invoice.invoice_number,
         contact_id: invoice.contact_id,
       },
-    })
+    }, terms)
 
     await supabase
       .from('invoices')

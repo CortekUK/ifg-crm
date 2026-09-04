@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { stripe } from '@/lib/stripe'
+import { createCheckoutSession } from '@/lib/stripe'
+import { getPublishedTerms, programmeFromPipelineName } from '@/lib/website-content/terms'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     // Fetch invoice and verify ownership
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, invoice_number, description, amount, currency, status, contact_id')
+      .select('id, invoice_number, description, amount, currency, status, contact_id, deal:deals(pipeline:pipelines(name))')
       .eq('id', invoice_id)
       .eq('contact_id', playerContactId)
       .single()
@@ -60,8 +61,11 @@ export async function POST(request: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
+    const pipelineName = (invoice.deal as { pipeline?: { name?: string } } | null)?.pipeline?.name
+    const terms = await getPublishedTerms(supabase, programmeFromPipelineName(pipelineName))
+
     // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    const session = await createCheckoutSession({
       payment_method_types: ['card'],
       line_items: [
         {
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
         invoice_number: invoice.invoice_number,
         contact_id: playerContactId,
       },
-    })
+    }, terms)
 
     // Save checkout session ID on invoice
     await supabase
