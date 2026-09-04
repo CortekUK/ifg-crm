@@ -19,12 +19,12 @@ import { Loader2, Save, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { StatusPill } from './_shared'
+import { RichTextField, sanitiseTerms } from './RichTextField'
 import { useWebsiteTerms, useSaveTerms, type WebsiteTerms } from '@/lib/hooks/useWebsiteTerms'
 import { TERMS_PROGRAMMES, termsUrl } from '@/lib/website-content/terms'
 
@@ -38,7 +38,9 @@ function TermsEditor({ row }: { row: WebsiteTerms }) {
 
   const bodyChanged = body.trim() !== row.body.trim()
   const dirty = bodyChanged || title !== row.title || published !== row.published
-  const isEmpty = !body.trim()
+  // contentEditable leaves <p><br></p> behind when the text is deleted, so a
+  // string-length check would call an empty document non-empty.
+  const isEmpty = !body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
 
   const handleSave = async () => {
     if (published && isEmpty) {
@@ -53,7 +55,7 @@ function TermsEditor({ row }: { row: WebsiteTerms }) {
       const { bumped } = await save.mutateAsync({
         programme: row.programme,
         title,
-        body,
+        body: sanitiseTerms(body),
         published,
         previousBody: row.body,
         previousVersion: row.version,
@@ -118,17 +120,16 @@ function TermsEditor({ row }: { row: WebsiteTerms }) {
 
         <div className="space-y-1.5">
           <Label htmlFor={`body-${row.programme}`}>Terms &amp; Conditions</Label>
-          <Textarea
+          <RichTextField
             id={`body-${row.programme}`}
             value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={14}
-            placeholder="Paste the terms for this programme here. A blank line starts a new paragraph."
-            className="font-mono text-xs leading-relaxed"
+            onChange={setBody}
+            placeholder="Write or paste the terms for this programme here."
           />
           <p className="text-xs text-muted-foreground">
-            Plain text. Leave a blank line between paragraphs; a line starting with
-            &ldquo;#&rdquo; becomes a heading.
+            Headings, bold, and bulleted or numbered lists all carry through to the
+            website exactly as you see them here. Pasting from Word is fine — the
+            formatting is cleaned up automatically.
           </p>
         </div>
 

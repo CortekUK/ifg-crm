@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import DOMPurify from "isomorphic-dompurify";
 import { Eyebrow } from "@/components/primitives";
 import { getProgrammeTerms, TERMS_SLUG_LIST } from "@/lib/content";
 
@@ -34,38 +35,25 @@ export async function generateMetadata({
 }
 
 /**
- * Render the plain text IFG pastes into the CRM.
+ * Render the terms written in the CRM.
  *
- * Deliberately not a markdown library: this is one legal document, the only
- * formatting anyone needs is headings and paragraphs, and a dependency that
- * renders arbitrary HTML into a page is the wrong thing to reach for when the
- * input is pasted from a Word document.
+ * The body is HTML from the CRM's rich-text editor, which sanitises on the way
+ * in. It is sanitised again here because this is the point where it reaches a
+ * visitor's browser, and a page that renders stored HTML should never trust
+ * that something upstream already cleaned it.
+ *
+ * The allowlist matches the editor's: text, structure and links. No images,
+ * styles, scripts or iframes — a legal document needs none of them.
  */
-function renderBody(body: string) {
-  return body
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .map((block, i) => {
-      if (block.startsWith("#")) {
-        const text = block.replace(/^#+\s*/, "");
-        return (
-          <h2 key={i} style={{ marginTop: 32, marginBottom: 8 }} className="t-h4">
-            {text}
-          </h2>
-        );
-      }
-      return (
-        <p key={i} style={{ marginBottom: 16, lineHeight: 1.7 }}>
-          {block.split("\n").map((line, j, all) => (
-            <span key={j}>
-              {line}
-              {j < all.length - 1 && <br />}
-            </span>
-          ))}
-        </p>
-      );
-    });
+function cleanTerms(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "p", "br", "strong", "b", "em", "i", "u",
+      "h2", "h3", "h4", "ul", "ol", "li", "a", "blockquote",
+    ],
+    ALLOWED_ATTR: ["href", "target", "rel"],
+    KEEP_CONTENT: true,
+  });
 }
 
 export default async function Page({
@@ -98,10 +86,30 @@ export default async function Page({
       </section>
 
       <section style={{ paddingBottom: 96 }}>
-        <div className="c-wrap" style={{ maxWidth: 820 }}>
-          {renderBody(terms.body)}
-        </div>
+        <div
+          className="c-wrap terms-body"
+          style={{ maxWidth: 820 }}
+          dangerouslySetInnerHTML={{ __html: cleanTerms(terms.body) }}
+        />
       </section>
+
+      {/* Scoped to .terms-body so the site's own type scale is untouched. */}
+      <style>{`
+        .terms-body { line-height: 1.75; }
+        .terms-body h2 { font-size: 1.5rem; font-weight: 700; margin: 2.2rem 0 0.6rem; }
+        .terms-body h3 { font-size: 1.15rem; font-weight: 700; margin: 1.6rem 0 0.5rem; }
+        .terms-body h4 { font-size: 1rem; font-weight: 700; margin: 1.3rem 0 0.4rem; }
+        .terms-body p { margin: 0 0 1rem; }
+        .terms-body ul, .terms-body ol { margin: 0 0 1rem; padding-left: 1.6rem; }
+        .terms-body ul { list-style: disc; }
+        .terms-body ol { list-style: decimal; }
+        .terms-body li { margin: 0.35rem 0; }
+        .terms-body a { color: var(--pitch-400, #dc2626); text-decoration: underline; }
+        .terms-body blockquote {
+          margin: 0 0 1rem; padding-left: 1rem;
+          border-left: 3px solid rgba(255,255,255,0.2); opacity: 0.85;
+        }
+      `}</style>
     </div>
   );
 }
