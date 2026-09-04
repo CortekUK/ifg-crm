@@ -88,8 +88,46 @@ check('version recorded on the payment',
   live.metadata?.terms_version === '7' && live.metadata?.terms_programme === 'residency',
   `metadata=${JSON.stringify(live.metadata)}`)
 
-// Clean up.
 await stripe.checkout.sessions.expire(session.id)
+
+// ── The path that actually broke production ──────────────────────────────────
+// No published terms is the NORMAL state until IFG writes them, and it is the
+// state this feature shipped in. Stripe refuses `terms_of_service: 'required'`
+// with no URL behind it, so requesting consent unconditionally 400'd every
+// payment. Checking only the happy path is what let that reach the client.
+await sb.from('website_terms').update({ published: false }).eq('programme', 'residency')
+
+const { data: unpublished } = await sb
+  .from('website_terms').select('programme').eq('programme', 'residency')
+  .eq('published', true).maybeSingle()
+check('unpublished terms are not readable', unpublished === null)
+
+let fallbackSession = null
+try {
+  // Exactly what createCheckoutSession builds when terms === null: no
+  // consent_collection, no custom_text.
+  fallbackSession = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    mode: 'payment',
+    line_items: [{
+      price_data: { currency: 'gbp', product_data: { name: 'No-terms check' }, unit_amount: 100 },
+      quantity: 1,
+    }],
+    success_url: 'https://example.test/ok',
+    cancel_url: 'https://example.test/no',
+  })
+  check('payment still works with no terms published', true)
+} catch (err) {
+  check('payment still works with no terms published', false, err.message)
+}
+
+if (fallbackSession) {
+  check('no tick box when there are no terms to show',
+    fallbackSession.consent_collection?.terms_of_service == null)
+  await stripe.checkout.sessions.expire(fallbackSession.id)
+}
+
+// Clean up.
 await sb.from('website_terms').update({
   body: before.body, published: before.published, version: before.version,
 }).eq('programme', 'residency')

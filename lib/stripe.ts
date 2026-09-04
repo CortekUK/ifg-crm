@@ -32,8 +32,17 @@ export interface TermsRef {
  * version, a payment taken today cannot be tied to the wording that was on
  * screen when it was made — which is the whole point of collecting consent.
  *
- * With no terms published for the programme, the tick box still appears and
- * links to the Terms of Service URL configured in the Stripe Dashboard.
+ * Consent is requested ONLY when there are terms to link to. Stripe rejects
+ * `terms_of_service: 'required'` outright unless it has a URL to put behind
+ * the tick box — from the Dashboard's public business details, or from the
+ * message we supply here. Asking for consent unconditionally therefore broke
+ * every payment while no programme had published terms yet: Stripe returned
+ * 400, the deposit route caught it, and the website quietly showed
+ * "Application received" instead of taking the money.
+ *
+ * So with no published terms a payment behaves exactly as it did before this
+ * feature existed. The tick box appears the moment terms are published for
+ * that programme, which is the only state in which it can mean anything.
  */
 export async function createCheckoutSession(
   params: Stripe.Checkout.SessionCreateParams,
@@ -41,8 +50,8 @@ export async function createCheckoutSession(
 ): Promise<Stripe.Checkout.Session> {
   return stripe.checkout.sessions.create({
     ...params,
-    consent_collection: { terms_of_service: 'required' },
     ...(terms && {
+      consent_collection: { terms_of_service: 'required' },
       custom_text: {
         ...params.custom_text,
         terms_of_service_acceptance: {
