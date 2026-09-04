@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/popover'
 import { Search, User, GitBranch, FileText, Zap, Loader2 } from 'lucide-react'
 import { useGlobalSearch, SearchResult } from '@/lib/hooks/useGlobalSearch'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 
@@ -36,8 +37,12 @@ export function GlobalSearch() {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   
+  const { data: currentUser } = useCurrentUser()
+  const isAdmin =
+    currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+
   const debouncedQuery = useDebouncedValue(query, 300)
-  const { data: results = [], isLoading } = useGlobalSearch(debouncedQuery)
+  const { data: results = [], isLoading } = useGlobalSearch(debouncedQuery, isAdmin)
 
   // Keyboard shortcut (Cmd+K or Ctrl+K)
   useEffect(() => {

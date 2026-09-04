@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchRankedContactIds, orderByIds } from '@/lib/contacts/search'
 
 export interface SearchResult {
   id: string
@@ -9,11 +10,24 @@ export interface SearchResult {
   href: string
 }
 
-export function useGlobalSearch(query: string) {
+/**
+ * The navbar search.
+ *
+ * Contacts are matched by `search_contacts_ranked`, the same database
+ * function the Contacts page uses. This hook used to hand the whole typed
+ * string to each column separately — `first_name ILIKE '%Tylie Aldridge%'`
+ * — so searching anyone's full name, the most natural thing to type,
+ * returned nothing while an exact email worked. 164 and 168 fixed that
+ * everywhere else; this was the copy they missed.
+ *
+ * Templates and automations are only searched for admins, since a recruiter
+ * cannot open either route and the result would lead to /unauthorized.
+ */
+export function useGlobalSearch(query: string, isAdmin = false) {
   const supabase = createClient()
 
   return useQuery<SearchResult[]>({
-    queryKey: ['global-search', query || '__recent__'],
+    queryKey: ['global-search', query || '__recent__', isAdmin],
     queryFn: async () => {
       const results: SearchResult[] = []
 
@@ -42,15 +56,23 @@ export function useGlobalSearch(query: string) {
 
       const searchTerm = `%${query}%`
 
-      // Search contacts
-      const { data: contacts } = await supabase
-        .from('contacts')
-        .select('id, first_name, last_name, email')
-        .or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`)
-        .limit(5)
+      // Contacts — ranked, word-aware, and RLS-scoped by the function itself.
+      const { ids } = await fetchRankedContactIds(supabase, {
+        search: query,
+        contactIds: null,
+        limit: 5,
+        offset: 0,
+      })
 
-      if (contacts) {
-        contacts.forEach((contact) => {
+      if (ids.length > 0) {
+        const { data: contacts } = await supabase
+          .from('contacts')
+          .select('id, first_name, last_name, email')
+          .in('id', ids)
+
+        // .in() returns rows in the planner's order, which would throw the
+        // relevance ranking away.
+        orderByIds(contacts ?? [], ids).forEach((contact) => {
           results.push({
             id: contact.id,
             type: 'contact',
@@ -85,6 +107,8 @@ export function useGlobalSearch(query: string) {
       }
 
       // Search templates
+      if (!isAdmin) return results
+
       const { data: templates } = await supabase
         .from('email_templates')
         .select('id, name, subject')
