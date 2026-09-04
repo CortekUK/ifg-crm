@@ -25,9 +25,12 @@ const env = Object.fromEntries(
 
 const argUrl = process.argv.indexOf('--url')
 const BASE = argUrl > -1 ? process.argv[argUrl + 1] : 'https://ifg-crm.vercel.app'
-const EMAIL = process.argv.includes('--email')
+// Any contact with an active Summer Residency deal will do — the resolver
+// only reaches the terms gate once it has found a deal to invoice against.
+// Resolved at run time because test contacts get cleaned up.
+let EMAIL = process.argv.includes('--email')
   ? process.argv[process.argv.indexOf('--email') + 1]
-  : 'mian@gmail.com'
+  : null
 
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
@@ -48,6 +51,22 @@ async function deposit(body) {
   })
   return { status: res.status, data: await res.json().catch(() => ({})) }
 }
+
+if (!EMAIL) {
+  const { data: candidates } = await sb
+    .from('deals')
+    .select('status, contact:contacts(email), pipeline:pipelines(name)')
+    .eq('status', 'active')
+  const match = (candidates ?? []).find(
+    (d) => /residency/i.test(d.pipeline?.name ?? '') && d.contact?.email,
+  )
+  if (!match) {
+    console.error('No contact with an active Summer Residency deal — nothing to test against.')
+    process.exit(1)
+  }
+  EMAIL = match.contact.email
+}
+console.log(`Testing deposit checkout as ${EMAIL}\n`)
 
 const { data: before } = await sb
   .from('website_terms').select('*').eq('programme', 'residency').single()
