@@ -7,8 +7,8 @@
 // can pay. Two things follow from that, and the UI says both out loud:
 //
 //   * Publishing is what puts the terms in front of paying customers. Until a
-//     programme is published, its payments fall back to the default terms set
-//     in Stripe.
+//     programme is published there is NO tick box on its payment dialogue at
+//     all — a box that links to an unwritten page would be worse than none.
 //   * Editing the wording bumps the version, and the version is stamped onto
 //     every payment taken afterwards. Old payments keep the version they
 //     agreed to, which is the only way to answer "what did they actually
@@ -92,7 +92,10 @@ function TermsEditor({ row }: { row: WebsiteTerms }) {
             {row.published ? (
               <>Linked from the payment page for this programme.</>
             ) : (
-              <>Not live — payments currently fall back to the default terms set in Stripe.</>
+              <>
+                <strong>Draft — no tick box is shown yet.</strong> Publish to make customers
+                agree to these terms before they can pay.
+              </>
             )}
           </p>
         </div>
@@ -198,11 +201,11 @@ export function ProgrammeTermsManager() {
       >
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Customers must tick a box agreeing to these terms before they can pay —
-          on the website and on invoice payment links. {live} of {(rows ?? []).length}{' '}
-          programmes have terms published.
+          Publishing a programme&apos;s terms puts a required tick box on its payment
+          dialogue and its invoice payment links — nobody can pay without agreeing
+          first. <strong>{live} of {(rows ?? []).length}</strong> programmes are published.
           {live < (rows ?? []).length &&
-            ' The rest fall back to the default terms set in Stripe until they are published here.'}
+            ' The rest take payment with no tick box until you publish them here.'}
         </p>
       </div>
 
