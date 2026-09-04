@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import { Eyebrow } from "@/components/primitives";
 import { getProgrammeTerms } from "@/lib/content";
 
@@ -48,17 +48,29 @@ export async function generateMetadata({
  * visitor's browser, and a page that renders stored HTML should never trust
  * that something upstream already cleaned it.
  *
+ * sanitize-html rather than DOMPurify: DOMPurify needs a DOM, so on the server
+ * it pulls in jsdom, which built fine and then failed at runtime on Vercel —
+ * every terms page returned 500 while working locally in both dev and a
+ * production build. This parses HTML directly and needs no DOM.
+ *
  * The allowlist matches the editor's: text, structure and links. No images,
  * styles, scripts or iframes — a legal document needs none of them.
  */
 function cleanTerms(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
+  return sanitizeHtml(html, {
+    allowedTags: [
       "p", "br", "strong", "b", "em", "i", "u",
       "h2", "h3", "h4", "ul", "ol", "li", "a", "blockquote",
     ],
-    ALLOWED_ATTR: ["href", "target", "rel"],
-    KEEP_CONTENT: true,
+    allowedAttributes: { a: ["href", "target", "rel"] },
+    allowedSchemes: ["http", "https", "mailto"],
+    // Anything outside the list loses its tag but keeps its words, so a
+    // clause pasted inside unexpected markup still reaches the reader.
+    disallowedTagsMode: "discard",
+    transformTags: {
+      // Terms link out to third-party pages; never hand them window.opener.
+      a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }),
+    },
   });
 }
 
