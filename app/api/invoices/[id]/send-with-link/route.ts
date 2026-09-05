@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/stripe'
-import { getPublishedTerms, programmeFromPipelineName } from '@/lib/website-content/terms'
+import { getTermsForInvoice } from '@/lib/website-content/terms'
 import { Resend } from 'resend'
 
 export async function POST(
@@ -81,8 +81,10 @@ export async function POST(
       year: 'numeric',
     })
 
-    const pipelineName = (invoice.deal as { pipeline?: { name?: string } } | null)?.pipeline?.name
-    const terms = await getPublishedTerms(supabase, programmeFromPipelineName(pipelineName))
+    const terms = await getTermsForInvoice(supabase, {
+      pipelineName: (invoice.deal as { pipeline?: { name?: string } } | null)?.pipeline?.name,
+      contactId: invoice.contact_id,
+    })
 
     // Create Stripe Checkout Session for the payment link
     const session = await createCheckoutSession({

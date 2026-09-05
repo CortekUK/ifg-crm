@@ -81,3 +81,39 @@ export async function getPublishedTerms(
     url: termsUrl(data.programme as TermsProgramme),
   }
 }
+
+/**
+ * The terms that apply to an invoice.
+ *
+ * An invoice does not always carry a deal: one raised straight against a
+ * contact has `deal_id = null`, and resolving the programme from the deal
+ * alone then found nothing, so the payment page showed no tick box at all.
+ * That is how an invoice went out with terms silently not applied.
+ *
+ * So the deal is tried first, and the contact's most recent deal after it.
+ * A contact with no deal in any programme pipeline still yields nothing,
+ * which is correct — there is no programme whose terms could apply.
+ */
+export async function getTermsForInvoice(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  { pipelineName, contactId }: { pipelineName?: string | null; contactId?: string | null },
+): Promise<TermsRef | null> {
+  let programme = programmeFromPipelineName(pipelineName)
+
+  if (!programme && contactId) {
+    const { data } = await supabase
+      .from('deals')
+      .select('pipeline:pipelines(name)')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    programme = programmeFromPipelineName(
+      (data?.pipeline as { name?: string } | null)?.name,
+    )
+  }
+
+  return getPublishedTerms(supabase, programme)
+}

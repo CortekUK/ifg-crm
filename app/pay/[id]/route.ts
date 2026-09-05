@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { stripe, createCheckoutSession } from '@/lib/stripe'
-import { getPublishedTerms, programmeFromPipelineName } from '@/lib/website-content/terms'
+import { getTermsForInvoice } from '@/lib/website-content/terms'
 
 export async function GET(
   _req: NextRequest,
@@ -80,8 +80,10 @@ export async function GET(
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
 
-    const pipelineName = (invoice.deal as { pipeline?: { name?: string } } | null)?.pipeline?.name
-    const terms = await getPublishedTerms(supabase, programmeFromPipelineName(pipelineName))
+    const terms = await getTermsForInvoice(supabase, {
+      pipelineName: (invoice.deal as { pipeline?: { name?: string } } | null)?.pipeline?.name,
+      contactId: invoice.contact_id,
+    })
 
     const session = await createCheckoutSession({
       payment_method_types: ['card'],
