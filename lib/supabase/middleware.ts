@@ -43,7 +43,14 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/set-password') ||
     request.nextUrl.pathname.startsWith('/unauthorized') ||
     request.nextUrl.pathname === '/portal/login' ||
-    request.nextUrl.pathname.startsWith('/landing')
+    request.nextUrl.pathname.startsWith('/landing') ||
+    // Invoice payment links. /pay/<invoice> is emailed to players and parents
+    // who have no CRM account at all — it was redirecting them to /login, so
+    // every "Pay Now" button in an invoice email led to a sign-in page they
+    // could never get past. It only ever looked fine to staff, who are
+    // already signed in. The route resolves the invoice with the service key
+    // and 307s to Stripe; it exposes nothing beyond the payment page.
+    request.nextUrl.pathname.startsWith('/pay/')
 
   if (!user && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
