@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
@@ -7,14 +8,38 @@ import { YouTubeLite } from "./youtube";
 import { CTABand } from "./sections";
 import { DepositButton } from "./deposit-button";
 import { SUMMER_RESIDENCY, type ScheduleDay } from "@/lib/data";
-import type { SummerOption } from "@/lib/content";
+import type { SummerOption, ResidencyBlock } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=training";
+
+/** Map a free-text activity to a colour tone. Unknown text falls back to plain,
+ *  so IFG can invent new activity names in the CMS without breaking the layout. */
+function toneOf(activity: string): string {
+  const a = activity.toLowerCase();
+  if (a.includes("arriv")) return "start";
+  if (a.includes("depart")) return "end";
+  if (a.includes("match")) return "match";
+  if (a.includes("trip") || a.includes("tour")) return "trip";
+  if (a.includes("train")) return "train";
+  return "plain";
+}
 const BROCHURE = "/programmes/macclesfield/brochure/summer";
 
-export function SummerResidencyView({ options, data }: { options?: SummerOption[]; data?: typeof SUMMER_RESIDENCY }) {
+export function SummerResidencyView({
+  options,
+  blocks,
+  data,
+}: {
+  options?: SummerOption[];
+  /** Dated blocks with day-by-day schedules, from the CMS. */
+  blocks?: ResidencyBlock[];
+  data?: typeof SUMMER_RESIDENCY;
+}) {
   const router = useRouter();
   const s = data ?? SUMMER_RESIDENCY;
+  const dated = blocks?.filter((b) => b.days.length > 0) ?? [];
+  const [activeBlock, setActiveBlock] = useState(0);
+  const block = dated[Math.min(activeBlock, Math.max(dated.length - 1, 0))];
 
   const heroCtas = (
     <>
@@ -121,6 +146,52 @@ export function SummerResidencyView({ options, data }: { options?: SummerOption[
           </div>
         </div>
       </section>
+
+      {/* block dates — only when the CMS has a schedule to show */}
+      {block && (
+        <section id="dates" className="section" style={{ scrollMarginTop: 90 }}>
+          <div className="wrap">
+            <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
+              <Eyebrow style={{ justifyContent: "center" }}>2027 dates</Eyebrow>
+              <h2 className="t-h2" style={{ marginTop: 12 }}>Day by day</h2>
+              <p style={{ color: "var(--fg-muted)", marginTop: 10 }}>
+                Exactly what each block looks like, from arrival to departure.
+              </p>
+            </div>
+
+            {dated.length > 1 && (
+              <div className="sr-blocks-tabs" role="tablist" aria-label="Choose a block" data-anim="up">
+                {dated.map((b, i) => (
+                  <button
+                    key={b.key}
+                    role="tab"
+                    aria-selected={i === activeBlock}
+                    className={"sr-blocks-tab" + (i === activeBlock ? " on" : "")}
+                    onClick={() => setActiveBlock(i)}
+                  >
+                    <span className="sr-blocks-tab-t">{b.label}</span>
+                    <span className="sr-blocks-tab-s">{b.duration}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p className="sr-blocks-range" data-anim="up">
+              <Icon name="calendar" size={15} /> {block.dates}
+            </p>
+
+            <ol className="sr-blocks-list" data-anim="up">
+              {block.days.map((d, i) => (
+                <li key={`${block.key}-${i}`} className={"sr-block-day t-" + toneOf(d.activity)}>
+                  <span className="sr-block-day-n">{i + 1}</span>
+                  <span className="sr-block-day-d">{d.date}</span>
+                  <span className="sr-block-day-a">{d.activity}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      )}
 
       {/* video */}
       <section className="section tight">

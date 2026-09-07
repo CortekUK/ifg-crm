@@ -1732,3 +1732,32 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .bro-gate-title{font-size:25px}
   .bro-gate-row{grid-template-columns:1fr}
 }
+
+/* ── Summer Residency: block dates ──────────────────────────────────────────
+   A month of dates read as a wall of text, so each day is a row that can be
+   skimmed: number, date, and a colour-coded activity chip. The tone classes
+   come from the activity text, so IFG can add new activity names in the CMS
+   without anything here needing to change. */
+.sr-blocks-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:34px 0 26px}
+.sr-blocks-tab{display:flex;flex-direction:column;gap:2px;padding:12px 22px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;transition:border-color .18s,background .18s,transform .18s;font-family:var(--f-archivo)}
+.sr-blocks-tab:hover{border-color:var(--pitch-500);transform:translateY(-1px)}
+.sr-blocks-tab.on{background:var(--pitch-500);border-color:var(--pitch-500);color:#fff}
+.sr-blocks-tab-t{font-weight:700;font-size:15px;letter-spacing:.01em}
+.sr-blocks-tab-s{font-size:12px;opacity:.75}
+.sr-blocks-range{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 22px;font-family:var(--f-archivo);font-size:14px;color:var(--fg-muted)}
+.sr-blocks-list{list-style:none;margin:0 auto;padding:0;max-width:760px;display:flex;flex-direction:column;gap:6px}
+.sr-block-day{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:14px;padding:12px 16px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.02);font-family:var(--f-archivo)}
+.sr-block-day-n{font-size:12px;font-weight:700;color:var(--fg-muted);text-align:right;font-variant-numeric:tabular-nums}
+.sr-block-day-d{font-size:15px;color:var(--fg)}
+.sr-block-day-a{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:5px 11px;border-radius:999px;white-space:nowrap;background:rgba(255,255,255,.07);color:var(--fg-muted)}
+.sr-block-day.t-start .sr-block-day-a,
+.sr-block-day.t-end .sr-block-day-a{background:rgba(255,255,255,.14);color:var(--fg)}
+.sr-block-day.t-match .sr-block-day-a{background:rgba(220,38,38,.16);color:var(--pitch-300)}
+.sr-block-day.t-trip .sr-block-day-a{background:rgba(56,189,248,.14);color:#7dd3fc}
+.sr-block-day.t-train .sr-block-day-a{background:rgba(74,222,128,.13);color:#86efac}
+.sr-block-day.t-start,.sr-block-day.t-end{border-color:rgba(255,255,255,.18)}
+@media (max-width:560px){
+  .sr-block-day{grid-template-columns:26px 1fr;gap:10px;padding:11px 13px}
+  .sr-block-day-a{grid-column:2;justify-self:start;margin-top:5px}
+  .sr-blocks-tab{flex:1 1 auto;align-items:center;padding:11px 16px}
+}

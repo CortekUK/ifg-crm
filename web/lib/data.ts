@@ -513,14 +513,14 @@ export const SUMMER_RESIDENCY = {
     dates: "Summer 2026 residency starts on June 20th and finishes on August 1st. Sign up via our enquiry form to secure your place this summer!",
     images: ["/summer/52647156393_db255d94b5_o.jpg", "/summer/53244287184_8f568349d2_o.jpg", "/summer/53283355490_a3b0905c26_o.jpg"],
   },
-  optionsNote: "Multiple experiences available, from 2, 4 & 6 weeks.",
+  optionsNote: "Two dated blocks, or the full four weeks.",
+  // Fallback only — the live figures come from the CMS (website_packages).
+  // Kept in step with 2027 so that if the CMS is ever unreachable the page
+  // still shows what is actually being sold.
   options: [
-    { label: "A", weeks: "Full 6 Weeks", dur: "6 weeks", dates: "June 20th – Aug 1st", total: "£8,000", deposit: "£2,000", featured: true },
-    { label: "B", weeks: "First 4 Weeks", dur: "4 weeks", dates: "June 20th – July 18th", total: "£6,000", deposit: "£2,000", featured: false },
-    { label: "C", weeks: "Last 4 Weeks", dur: "4 weeks", dates: "June 5th – Aug 1st", total: "£6,000", deposit: "£2,000", featured: false },
-    { label: "D", weeks: "First 2 Weeks", dur: "2 weeks", dates: "June 20th – July 4th", total: "£3,500", deposit: "£2,000", featured: false },
-    { label: "E", weeks: "Middle 2 Weeks", dur: "2 weeks", dates: "July 5th – July 18th", total: "£3,500", deposit: "£2,000", featured: false },
-    { label: "F", weeks: "Last 2 Weeks", dur: "2 weeks", dates: "July 19th – Aug 1st", total: "£3,500", deposit: "£2,000", featured: false },
+    { label: "A", weeks: "Block A", dur: "2 weeks", dates: "June 28th – July 12th", total: "£2,995", deposit: "£1,000", featured: false },
+    { label: "B", weeks: "Block B", dur: "2 weeks", dates: "July 12th – July 26th", total: "£2,995", deposit: "£1,000", featured: false },
+    { label: "C", weeks: "Block C", dur: "4 weeks", dates: "June 28th – July 26th", total: "£5,495", deposit: "£1,000", featured: true },
   ],
   video: { title: "Summer Residency in the UK | My IFG Experience", ytId: "7ezDdQM_gbI" },
   scheduleNote: "This two-week schedule shows the typical programme structure, but be aware that the final schedule and events may vary.",
@@ -1376,13 +1376,11 @@ export const FOOTBALL_POSITIONS: string[] = [
 
 export const GENDER_OPTIONS: string[] = ["Male", "Female", "Other", "Prefer not to say"];
 
+// Fallback only — the apply form reads the live blocks from the CMS.
 export const LENGTH_OF_STAY_OPTIONS: string[] = [
-  "Option A · First 2 weeks",
-  "Option B · Middle 2 weeks",
-  "Option C · Last 2 weeks",
-  "Option D · First 4 weeks",
-  "Option E · Last 4 weeks",
-  "Option F · Full 6 weeks",
+  "Block A · 2 weeks · June 28th – July 12th",
+  "Block B · 2 weeks · July 12th – July 26th",
+  "Block C · 4 weeks · June 28th – July 26th",
 ];
 
 export const YEAR_OF_ENTRY_OPTIONS: string[] = ["2026", "2027", "2028", "2029", "2030"];

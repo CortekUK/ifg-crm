@@ -6,7 +6,7 @@ import { UniversityView } from "@/components/university";
 import { GapYearView } from "@/components/gap-year";
 import { MACC_SUBPROGRAMMES, SUMMER_RESIDENCY, UNIVERSITY, GAP_YEAR } from "@/lib/data";
 import {
-  getUniversityCourses, getResidencyOptions, getUniversityPricing, getGapYearCosts, getPage,
+  getUniversityCourses, getResidencyOptions, getResidencyBlocks, getUniversityPricing, getGapYearCosts, getPage,
 } from "@/lib/content";
 import { mergePage } from "@/lib/cms";
 
@@ -30,8 +30,18 @@ export default async function Page({ params }: { params: Promise<{ sub: string }
   // Summer Residency has its own bespoke page; the other two use the generic
   // sub-programme layout until their dedicated pages are built.
   if (s.id === "summer-residency") {
-    const [options, page] = await Promise.all([getResidencyOptions(), getPage("summer-residency")]);
-    return <SummerResidencyView options={options ?? undefined} data={mergePage(SUMMER_RESIDENCY, page)} />;
+    const [options, blocks, page] = await Promise.all([
+      getResidencyOptions(),
+      getResidencyBlocks(),
+      getPage("summer-residency"),
+    ]);
+    return (
+      <SummerResidencyView
+        options={options ?? undefined}
+        blocks={blocks}
+        data={mergePage(SUMMER_RESIDENCY, page)}
+      />
+    );
   }
   if (s.id === "university") {
     const [courses, pricing, page] = await Promise.all([getUniversityCourses(), getUniversityPricing(), getPage("university")]);

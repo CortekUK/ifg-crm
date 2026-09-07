@@ -1,13 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { Tag, Plus, Trash2, AlertTriangle } from 'lucide-react'
+import { Tag, Plus, Trash2, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/lib/hooks/use-toast'
 import { useSavePackage } from '@/lib/hooks/useWebsitePricing'
-import type { WebsitePackage, WebsitePackageInput, PriceLine, ProgrammeKey } from '@/lib/types/website-content'
+import type { WebsitePackage, WebsitePackageInput, PriceLine, ItineraryDay, ProgrammeKey } from '@/lib/types/website-content'
 import { ContentDialog, FormSection, Field, FieldRow, PublishControls } from './_form'
 
 const PROGRAMME_LABEL: Record<string, string> = {
@@ -38,6 +38,7 @@ export function PackageModal({
   const [depositEnabled, setDepositEnabled] = React.useState(true)
   const [depositAmount, setDepositAmount] = React.useState('')
   const [breakdown, setBreakdown] = React.useState<PriceLine[]>([])
+  const [itinerary, setItinerary] = React.useState<ItineraryDay[]>([])
   const [featured, setFeatured] = React.useState(false)
   const [published, setPublished] = React.useState(true)
   const [sortOrder, setSortOrder] = React.useState('0')
@@ -54,6 +55,7 @@ export function PackageModal({
     setDepositEnabled(item?.deposit_enabled ?? true)
     setDepositAmount(item?.deposit_amount != null ? String(item.deposit_amount) : '')
     setBreakdown(item?.breakdown?.length ? item.breakdown : [])
+    setItinerary(item?.itinerary?.length ? item.itinerary : [])
     setFeatured(item?.featured ?? false)
     setPublished(item?.published ?? true)
     setSortOrder(String(item?.sort_order ?? defaultSort ?? 0))
@@ -63,6 +65,19 @@ export function PackageModal({
     setBreakdown((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
   const addLine = () => setBreakdown((rows) => [...rows, { label: '', value: '' }])
   const removeLine = (i: number) => setBreakdown((rows) => rows.filter((_, idx) => idx !== i))
+
+  const setDay = (i: number, patch: Partial<ItineraryDay>) =>
+    setItinerary((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
+  const addDay = () => setItinerary((rows) => [...rows, { date: '', activity: '' }])
+  const removeDay = (i: number) => setItinerary((rows) => rows.filter((_, idx) => idx !== i))
+  const moveDay = (i: number, by: number) =>
+    setItinerary((rows) => {
+      const to = i + by
+      if (to < 0 || to >= rows.length) return rows
+      const next = [...rows]
+      ;[next[i], next[to]] = [next[to], next[i]]
+      return next
+    })
 
   async function submit() {
     const k = key.trim()
@@ -92,6 +107,7 @@ export function PackageModal({
       deposit_enabled: depositEnabled,
       full_enabled: fullEnabled,
       breakdown: breakdown.filter((ln) => ln.label.trim() || ln.value.trim()),
+      itinerary: itinerary.filter((d) => d.date.trim() || d.activity.trim()),
       featured,
       published,
       sort_order: Number(sortOrder) || 0,
@@ -192,6 +208,43 @@ export function PackageModal({
           ))}
           <Button type="button" variant="outline" size="sm" onClick={addLine}>
             <Plus className="mr-2 h-4 w-4" />Add line
+          </Button>
+        </div>
+      </FormSection>
+
+      <FormSection title="Day-by-day schedule">
+        <p className="text-xs text-muted-foreground">
+          The dates for this block, shown on the programme page. Leave empty and no
+          schedule is shown for it.
+        </p>
+        <div className="space-y-2">
+          {itinerary.map((d, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{i + 1}</span>
+              <Input
+                value={d.date}
+                onChange={(e) => setDay(i, { date: e.target.value })}
+                placeholder="Monday June 28th"
+              />
+              <Input
+                value={d.activity}
+                onChange={(e) => setDay(i, { activity: e.target.value })}
+                placeholder="Training"
+                className="w-44"
+              />
+              <Button type="button" variant="outline" size="icon" onClick={() => moveDay(i, -1)} disabled={i === 0} aria-label="Move up">
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="outline" size="icon" onClick={() => moveDay(i, 1)} disabled={i === itinerary.length - 1} aria-label="Move down">
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="outline" size="icon" onClick={() => removeDay(i)} aria-label="Remove day">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={addDay}>
+            <Plus className="mr-2 h-4 w-4" />Add day
           </Button>
         </div>
       </FormSection>

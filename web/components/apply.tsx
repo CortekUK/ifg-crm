@@ -309,10 +309,22 @@ function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCt
   );
 }
 
-export function ApplyView() {
+export function ApplyView({ stayOptions }: { stayOptions?: string[] }) {
   const [active, setActive] = useState(FORMS[0].id);
   const [deposit, setDeposit] = useState<DepositCtx>({ on: false, mode: "deposit" });
-  const form = FORMS.find((f) => f.id === active)!;
+  const base = FORMS.find((f) => f.id === active)!;
+
+  // "Length of stay" is the list of residency blocks, which IFG changes each
+  // year in the CMS. Swapped in here rather than baked into FORMS so the form
+  // cannot go on offering a block that is no longer sold.
+  const form = stayOptions?.length
+    ? {
+        ...base,
+        fields: base.fields.map((f) =>
+          f.key === "lengthOfStay" ? { ...f, options: stayOptions } : f,
+        ),
+      }
+    : base;
 
   // Preselect a tab when deep-linked, e.g. /apply?programme=university, and pick
   // up the deposit flow (?deposit=1&mode=&amount=&email=). Read in an effect so

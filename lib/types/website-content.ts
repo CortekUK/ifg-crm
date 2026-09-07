@@ -53,6 +53,12 @@ export interface SiteContentItem {
 // Programme keys used by the pricing tables and the deposit checkout.
 export type ProgrammeKey = 'residency' | 'university' | 'gapyear'
 
+// One day of a block's schedule, e.g. { date: 'Monday June 28th', activity: 'Arrivals' }.
+export interface ItineraryDay {
+  date: string
+  activity: string
+}
+
 // A display-only breakdown line, e.g. { label: 'Accommodation', value: '£6,500' }.
 export interface PriceLine {
   label: string
@@ -72,6 +78,8 @@ export interface WebsitePackage {
   full_enabled: boolean
   currency: string
   breakdown: PriceLine[]
+  /** Day-by-day schedule for this block. Empty for packages that aren't dated. */
+  itinerary: ItineraryDay[]
   featured: boolean
   published: boolean
   sort_order: number

@@ -254,18 +254,21 @@ export async function getPage(slug: string): Promise<Record<string, unknown> | n
 // charge amount). Returns [] on empty/error so pages fall back to the bundled
 // SUMMER_RESIDENCY.options / UNIVERSITY / GAP_YEAR pricing.
 export type ProgrammeKey = "residency" | "university" | "gapyear";
+/** One day of a dated block's schedule. */
+export type ItineraryDay = { date: string; activity: string };
 export type ProgrammePackage = {
   programme: ProgrammeKey; key: string; label: string; subtitle: string; duration: string;
   fullAmount: number | null; depositAmount: number | null;
   depositEnabled: boolean; fullEnabled: boolean;
-  breakdown: { label: string; value: string }[]; featured: boolean;
+  breakdown: { label: string; value: string }[]; itinerary: ItineraryDay[]; featured: boolean;
 };
 
 type PackageRow = {
   programme: string; key: string; label: string; subtitle: string | null; duration: string | null;
   full_amount: number | null; deposit_amount: number | null;
   deposit_enabled: boolean; full_enabled: boolean;
-  breakdown: { label: string; value: string }[] | null; featured: boolean;
+  breakdown: { label: string; value: string }[] | null;
+  itinerary: ItineraryDay[] | null; featured: boolean;
 };
 
 export async function getPackages(programme: ProgrammeKey): Promise<ProgrammePackage[]> {
@@ -278,7 +281,7 @@ export async function getPackages(programme: ProgrammeKey): Promise<ProgrammePac
     subtitle: r.subtitle ?? "", duration: r.duration ?? "",
     fullAmount: r.full_amount, depositAmount: r.deposit_amount,
     depositEnabled: r.deposit_enabled, fullEnabled: r.full_enabled,
-    breakdown: r.breakdown ?? [], featured: r.featured,
+    breakdown: r.breakdown ?? [], itinerary: r.itinerary ?? [], featured: r.featured,
   }));
 }
 
@@ -316,6 +319,25 @@ export async function getResidencyOptions(): Promise<SummerOption[] | null> {
     });
   }
   return out;
+}
+
+/**
+ * The dated blocks of the Summer Residency, with their day-by-day schedules.
+ *
+ * Only blocks that actually have an itinerary come back, so a programme whose
+ * packages carry no dates simply shows no schedule rather than an empty tab.
+ */
+export type ResidencyBlock = {
+  key: string; label: string; duration: string; dates: string; days: ItineraryDay[];
+};
+export async function getResidencyBlocks(): Promise<ResidencyBlock[]> {
+  const pkgs = await getPackages("residency");
+  return pkgs
+    .filter((p) => p.itinerary.length > 0)
+    .map((p) => ({
+      key: p.key, label: p.label, duration: p.duration,
+      dates: p.subtitle, days: p.itinerary,
+    }));
 }
 
 // University plans & pricing (costs = the package's breakdown; full + deposit CTAs).
