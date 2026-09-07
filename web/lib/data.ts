@@ -481,14 +481,6 @@ export const STAFF_GROUPS: StaffGroup[] = [
 ];
 
 // ---- Summer Residency sub-programme (Macclesfield) ----
-export type ScheduleDay = {
-  day: string;
-  weekday: string;
-  img: string;
-  tone?: "red" | "navy" | "ink"; // others fall back to the themed surface
-  sessions: { title: string; place?: string }[];
-};
-
 export const SUMMER_RESIDENCY = {
   hero: {
     title: "Summer Residency Programme",
@@ -523,22 +515,6 @@ export const SUMMER_RESIDENCY = {
     { label: "C", weeks: "Block C", dur: "4 weeks", dates: "June 28th – July 26th", total: "£5,495", deposit: "£1,000", featured: true },
   ],
   video: { title: "Summer Residency in the UK | My IFG Experience", ytId: "7ezDdQM_gbI" },
-  scheduleNote: "This two-week schedule shows the typical programme structure, but be aware that the final schedule and events may vary.",
-  schedule: [
-    { day: "Day 1", weekday: "Monday", img: "/summer/53035529767_ab0183f004_o.jpg", sessions: [{ title: "Training @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
-    { day: "Day 2", weekday: "Tuesday", tone: "red", img: "/summer/54661849377_ae6918fc8d_o-scaled.jpg", sessions: [{ title: "University of Lancashire", place: "Tour & introduction" }] },
-    { day: "Day 3", weekday: "Wednesday", img: "/summer/53283355490_a3b0905c26_o.jpg", sessions: [{ title: "Matchday @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
-    { day: "Day 4", weekday: "Thursday", tone: "navy", img: "/summer/54291511311_1b0382a44f_o.jpg", sessions: [{ title: "Recovery training session", place: "The Leasing.com Stadium" }, { title: "Match analysis", place: "The Leasing.com Stadium" }] },
-    { day: "Day 5", weekday: "Friday", tone: "ink", img: "/summer/53035856526_2f23eeb351_o.jpg", sessions: [{ title: "Training session", place: "The Leasing.com Stadium" }] },
-    { day: "Day 6", weekday: "Saturday", tone: "navy", img: "/summer/Macclesfield-FC-Leasing.com-Stadium-5.jpeg", sessions: [{ title: "Watch Macclesfield FC", place: "First team game" }] },
-    { day: "Day 7", weekday: "Sunday", img: "/summer/54600313098_aa6b27cf3f_o.jpg", sessions: [{ title: "Rest day" }] },
-    { day: "Day 8", weekday: "Monday", img: "/summer/Macclesfield-Stealth-Gym-2.webp", sessions: [{ title: "Training @ Macclesfield FC", place: "Stealth Gymnasium" }] },
-    { day: "Day 9", weekday: "Tuesday", tone: "ink", img: "/summer/54291747614_2393236ba1_o.jpg", sessions: [{ title: "Gym", place: "Hybrid Training Centre" }, { title: "Training", place: "University Sports Arena" }] },
-    { day: "Day 10", weekday: "Wednesday", tone: "navy", img: "/summer/53283355490_a3b0905c26_o.jpg", sessions: [{ title: "Matchday @ Macclesfield FC", place: "The Leasing.com Stadium" }] },
-    { day: "Day 11", weekday: "Thursday", img: "/summer/52647156393_db255d94b5_o.jpg", sessions: [{ title: "Trip to London" }] },
-    { day: "Day 12", weekday: "Friday", tone: "ink", img: "/summer/53035529767_ab0183f004_o.jpg", sessions: [{ title: "Training @ Macclesfield FC", place: "The Leasing.com Stadium" }, { title: "Training", place: "Stealth Gymnasium" }] },
-    { day: "Day 13", weekday: "Saturday", tone: "red", img: "/summer/54291747614_2393236ba1_o.jpg", sessions: [{ title: "Visit Manchester", place: "Padel club" }] },
-  ] as ScheduleDay[],
   facilitiesIntro: "Granted unlimited access to our fantastic on-site gymnasium, Stealth Gymnasium.",
   facilities: [
     { name: "Stealth Gymnasium", img: "/summer/Macclesfield-Stealth-Gym-2.webp" },

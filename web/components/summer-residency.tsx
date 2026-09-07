@@ -7,21 +7,39 @@ import { MediaCarousel, CardCarousel } from "./carousels";
 import { YouTubeLite } from "./youtube";
 import { CTABand } from "./sections";
 import { DepositButton } from "./deposit-button";
-import { SUMMER_RESIDENCY, type ScheduleDay } from "@/lib/data";
+import { SUMMER_RESIDENCY } from "@/lib/data";
 import type { SummerOption, ResidencyBlock } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=training";
 
-/** Map a free-text activity to a colour tone. Unknown text falls back to plain,
+/** Map a free-text activity to a tone + icon. Unknown text falls back to plain,
  *  so IFG can invent new activity names in the CMS without breaking the layout. */
-function toneOf(activity: string): string {
+function toneOf(activity: string): { tone: string; icon: string } {
   const a = activity.toLowerCase();
-  if (a.includes("arriv")) return "start";
-  if (a.includes("depart")) return "end";
-  if (a.includes("match")) return "match";
-  if (a.includes("trip") || a.includes("tour")) return "trip";
-  if (a.includes("train")) return "train";
-  return "plain";
+  if (a.includes("arriv")) return { tone: "start", icon: "map-pin" };
+  if (a.includes("depart")) return { tone: "end", icon: "arrow-up-right" };
+  if (a.includes("match")) return { tone: "match", icon: "award" };
+  if (a.includes("trip") || a.includes("tour") || a.includes("visit")) return { tone: "trip", icon: "building" };
+  if (a.includes("train") || a.includes("gym") || a.includes("session")) return { tone: "train", icon: "dumbbell" };
+  return { tone: "plain", icon: "calendar" };
+}
+
+/** "Monday June 28th" -> ["Monday", "June 28th"]. Anything that is not
+ *  weekday-first stays whole, so odd CMS entries still read correctly. */
+function splitDate(s: string): [string, string] {
+  const i = s.indexOf(" ");
+  return i > 0 && /day$/i.test(s.slice(0, i)) ? [s.slice(0, i), s.slice(i + 1)] : ["", s];
+}
+
+/** Chunk the days into weeks. Blocks start on a Monday, so a plain 7-day chunk
+ *  lines up with the calendar without parsing the free-text dates. A trailing
+ *  stub (Block C ends on a lone changeover-to-departure day) joins the week
+ *  before it rather than sitting under a heading of its own. */
+function weeksOf<T>(days: T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < days.length; i += 7) out.push(days.slice(i, i + 7));
+  if (out.length > 1 && out[out.length - 1].length < 3) out[out.length - 2].push(...out.pop()!);
+  return out;
 }
 const BROCHURE = "/programmes/macclesfield/brochure/summer";
 
@@ -147,48 +165,66 @@ export function SummerResidencyView({
         </div>
       </section>
 
-      {/* block dates — only when the CMS has a schedule to show */}
+      {/* day by day — only when the CMS has a schedule to show */}
       {block && (
         <section id="dates" className="section" style={{ scrollMarginTop: 90 }}>
           <div className="wrap">
-            <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
+            <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 660, margin: "0 auto" }}>
               <Eyebrow style={{ justifyContent: "center" }}>2027 dates</Eyebrow>
               <h2 className="t-h2" style={{ marginTop: 12 }}>Day by day</h2>
-              <p style={{ color: "var(--fg-muted)", marginTop: 10 }}>
-                Exactly what each block looks like, from arrival to departure.
-              </p>
+              <p>Exactly what each block looks like, from arrival to departure.</p>
             </div>
 
             {dated.length > 1 && (
-              <div className="sr-blocks-tabs" role="tablist" aria-label="Choose a block" data-anim="up">
+              <div className="sr-seg" role="tablist" aria-label="Choose a block" data-anim="up">
                 {dated.map((b, i) => (
                   <button
                     key={b.key}
                     role="tab"
                     aria-selected={i === activeBlock}
-                    className={"sr-blocks-tab" + (i === activeBlock ? " on" : "")}
+                    className={"sr-seg-b" + (i === activeBlock ? " on" : "")}
                     onClick={() => setActiveBlock(i)}
                   >
-                    <span className="sr-blocks-tab-t">{b.label}</span>
-                    <span className="sr-blocks-tab-s">{b.duration}</span>
+                    <span className="sr-seg-t">{b.label}</span>
+                    <span className="sr-seg-s">{b.duration}</span>
                   </button>
                 ))}
               </div>
             )}
 
-            <p className="sr-blocks-range" data-anim="up">
-              <Icon name="calendar" size={15} /> {block.dates}
-            </p>
+            <div className="sr-itin-meta" data-anim="up">
+              <span><Icon name="calendar" size={15} />{block.dates}</span>
+              <i className="sr-itin-dot" />
+              <span>{block.days.length} days</span>
+            </div>
 
-            <ol className="sr-blocks-list" data-anim="up">
-              {block.days.map((d, i) => (
-                <li key={`${block.key}-${i}`} className={"sr-block-day t-" + toneOf(d.activity)}>
-                  <span className="sr-block-day-n">{i + 1}</span>
-                  <span className="sr-block-day-d">{d.date}</span>
-                  <span className="sr-block-day-a">{d.activity}</span>
-                </li>
+            <div className="sr-itin" data-anim="up" key={block.key}>
+              {weeksOf(block.days.map((d, i) => ({ d, n: i + 1 }))).map((week, wi) => (
+                <div className="sr-wk" key={wi}>
+                  <div className="sr-wk-h">
+                    <span>Week {wi + 1}</span>
+                    <i />
+                  </div>
+                  <div className="sr-wk-g">
+                    {week.map(({ d, n }) => {
+                      const { tone, icon } = toneOf(d.activity);
+                      const [weekday, date] = splitDate(d.date);
+                      return (
+                        <article className={"sr-dc t-" + tone} key={n}>
+                          <span className="sr-dc-n">{String(n).padStart(2, "0")}</span>
+                          {weekday && <span className="sr-dc-wd">{weekday}</span>}
+                          <h3 className="sr-dc-date">{date}</h3>
+                          <span className="sr-dc-act">
+                            <Icon name={icon} size={14} />
+                            {d.activity}
+                          </span>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
-            </ol>
+            </div>
           </div>
         </section>
       )}
@@ -198,48 +234,6 @@ export function SummerResidencyView({
         <div className="wrap">
           <div className="mh-video" data-anim="up">
             <YouTubeLite id={s.video.ytId} title={s.video.title} />
-          </div>
-        </div>
-      </section>
-
-      {/* programme schedule */}
-      <section className="section band-ink">
-        <div className="wrap">
-          <div className="section-head" data-anim="up" style={{ maxWidth: "60ch" }}>
-            <h2 className="t-h2">Programme schedule</h2>
-            <p style={{ color: "var(--fg-muted)", marginTop: 12 }}>{s.scheduleNote}</p>
-          </div>
-          <div data-anim="up">
-          <CardCarousel<ScheduleDay>
-            items={s.schedule}
-            lg={4}
-            md={2}
-            base={1}
-            render={(d) => (
-              <article className="sr-day">
-                <div className="sr-day-media">
-                  <img src={d.img} alt="" loading="lazy" />
-                  <div className="sr-day-grad" />
-                  <span className="sr-day-num">{d.day.replace(/\D/g, "")}</span>
-                  <div className="sr-day-head">
-                    <span className="sr-day-kicker">{d.day}</span>
-                    <span className="sr-day-wd">{d.weekday}</span>
-                  </div>
-                </div>
-                <div className="sr-day-body">
-                  {d.sessions.map((ss, i) => (
-                    <div className="sr-day-s" key={i}>
-                      <span className="sr-day-s-ic"><Icon name="map-pin" size={13} /></span>
-                      <span>
-                        <span className="sr-day-s-t">{ss.title}</span>
-                        {ss.place && <span className="sr-day-s-p">{ss.place}</span>}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </article>
-            )}
-          />
           </div>
         </div>
       </section>

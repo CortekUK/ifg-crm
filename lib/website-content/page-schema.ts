@@ -243,7 +243,6 @@ const SUMMER: PageSchema = {
     { section: 'Video', path: 'video.title', label: 'Video title', type: 'text', default: 'Summer Residency in the UK | My IFG Experience' },
     { section: 'Video', path: 'video.ytId', label: 'YouTube ID', type: 'text', hint: 'The id after watch?v= in the URL.', default: '7ezDdQM_gbI' },
 
-    { section: 'Schedule', path: 'scheduleNote', label: 'Schedule note', type: 'textarea', hint: 'The day-by-day schedule grid itself is fixed by design.', default: 'This two-week schedule shows the typical programme structure, but be aware that the final schedule and events may vary.' },
 
     { section: 'Facilities', path: 'facilitiesIntro', label: 'Intro', type: 'textarea', default: 'Granted unlimited access to our fantastic on-site gymnasium, Stealth Gymnasium.' },
     { section: 'Facilities', path: 'facilities', label: 'Facility cards', type: 'cards',
