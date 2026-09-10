@@ -52,7 +52,7 @@ const FORM_ID_BY_PROGRAMME: Record<string, string> = {
 // website_packages / website_pricing_settings via resolvePricing().
 const FALLBACK_DEPOSIT = Number(process.env.DEPOSIT_AMOUNT || 2000)
 const FALLBACK_FULL_AMOUNTS: Record<string, number[]> = {
-  residency: [3500, 6000, 8000],
+  residency: [2995, 5495],
   university: [Number(process.env.UNIVERSITY_FULL_AMOUNT || 18500)],
 }
 const FALLBACK_FEE_RATE = Number(process.env.DEPOSIT_FEE_RATE || 0.035)

@@ -510,9 +510,9 @@ export const SUMMER_RESIDENCY = {
   // Kept in step with 2027 so that if the CMS is ever unreachable the page
   // still shows what is actually being sold.
   options: [
-    { label: "A", weeks: "Block A", dur: "2 weeks", dates: "June 28th – July 12th", total: "£2,995", deposit: "£1,000", featured: false },
-    { label: "B", weeks: "Block B", dur: "2 weeks", dates: "July 12th – July 26th", total: "£2,995", deposit: "£1,000", featured: false },
-    { label: "C", weeks: "Block C", dur: "4 weeks", dates: "June 28th – July 26th", total: "£5,495", deposit: "£1,000", featured: true },
+    { label: "A", weeks: "Block A", dur: "2 weeks", dates: "June 28th – July 12th", total: "£2,995", deposit: "£2,000", featured: false },
+    { label: "B", weeks: "Block B", dur: "2 weeks", dates: "July 12th – July 26th", total: "£2,995", deposit: "£2,000", featured: false },
+    { label: "C", weeks: "Block C", dur: "4 weeks", dates: "June 28th – July 26th", total: "£5,495", deposit: "£2,000", featured: true },
   ],
   video: { title: "Summer Residency in the UK | My IFG Experience", ytId: "7ezDdQM_gbI" },
   facilitiesIntro: "Granted unlimited access to our fantastic on-site gymnasium, Stealth Gymnasium.",
