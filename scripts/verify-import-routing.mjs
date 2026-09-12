@@ -37,8 +37,9 @@ const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } })
 // Unmistakably fake, and a shared suffix so cleanup can find every row.
 const SUFFIX = '@import-verify.invalid'
 const EMAILS = ['alpha', 'bravo', 'charlie'].map((n) => `${n}${SUFFIX}`)
-// A cohort year far enough out that the list cannot already exist.
+// Cohort years far enough out that the lists cannot already exist.
 const NEW_COHORT = '2031 MENS'
+const CREATED_LISTS = ['2031 MENS', '2032 MENS', '2032 WOMENS', '2033 WOMENS']
 
 let passed = 0
 let failed = 0
@@ -94,13 +95,16 @@ async function cleanup() {
     await admin.from('contact_tags').delete().in('contact_id', ids)
     await admin.from('contacts').delete().in('id', ids)
   }
-  const created = await listIdByName(NEW_COHORT)
-  if (created) {
-    await admin.from('contact_lists').delete().eq('list_id', created)
-    await admin.from('lists').delete().eq('id', created)
+  const removedLists = []
+  for (const name of CREATED_LISTS) {
+    const id = await listIdByName(name)
+    if (!id) continue
+    await admin.from('contact_lists').delete().eq('list_id', id)
+    await admin.from('lists').delete().eq('id', id)
+    removedLists.push(name)
   }
   const { data: left } = await admin.from('contacts').select('email').like('email', `%${SUFFIX}`)
-  return { contacts: ids.length, list: created ? NEW_COHORT : null, leftover: left ?? [] }
+  return { contacts: ids.length, lists: removedLists, leftover: left ?? [] }
 }
 
 try {
@@ -111,9 +115,11 @@ try {
     console.error(`Leftover verification contacts found (${pre.length}). Clean them first.`)
     process.exit(1)
   }
-  if (await listIdByName(NEW_COHORT)) {
-    console.error(`"${NEW_COHORT}" already exists — pick a different NEW_COHORT.`)
-    process.exit(1)
+  for (const name of CREATED_LISTS) {
+    if (await listIdByName(name)) {
+      console.error(`"${name}" already exists — pick different cohort years.`)
+      process.exit(1)
+    }
   }
 
   const cookie = await sessionCookie('superadmin@theinternationalfootballgroup.com')
@@ -263,12 +269,111 @@ try {
     (after2 ?? []).length === (memberships ?? []).length,
     `${(memberships ?? []).length} -> ${(after2 ?? []).length}`,
   )
+
+  // ==================================================================
+  // Phase 2 — routing is PER CONTACT, not per file.
+  //
+  // The question this answers: import a mixed file and does each row go
+  // only into the lists and tags its OWN data implies, or does every row
+  // get the union of everything in the file? No whole-file lists are
+  // chosen here, so anything a contact lands in came from their own row.
+  // ==================================================================
+  console.log('\nphase 2 — per-contact routing, no whole-file lists chosen:')
+
+  const MIX = [
+    // email suffix, first, gender, year, state, position
+    ['mix-a', 'Mixa', 'Male', '2032', 'CA', 'Goalkeeper'],
+    ['mix-b', 'Mixb', 'Male', '2032', 'TX', 'Striker'],
+    ['mix-c', 'Mixc', 'Female', '2032', 'NY', 'Striker'],
+    ['mix-d', 'Mixd', 'Female', '2033', 'FL', 'Centre Back'],
+    ['mix-e', 'Mixe', '', '', 'ON', 'Winger'], // no gender, no year
+  ]
+  const mixRows = MIX.map(([slug, first, gender, year, state, position]) => [
+    `${slug}${SUFFIX}`, first, 'Verify', gender, year, state, position,
+  ])
+
+  const res3 = await fetch(`${BASE}/api/contacts/bulk-import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', cookie },
+    body: JSON.stringify({
+      rows: mixRows, mapping, headers,
+      listIds: [], // nothing chosen for the whole file
+      duplicateStrategy: 'update',
+      routing: {
+        cohortLists: {
+          'ALL MENS': 'ALL MENS', 'ALL WOMENS': 'ALL WOMENS',
+          '2032 MENS': '2032 MENS', '2032 WOMENS': '2032 WOMENS',
+          '2033 WOMENS': '2033 WOMENS',
+        },
+        tagCategories: ['gender', 'year', 'position', 'location'],
+      },
+      dateOrder: 'DMY', rowOffset: 0,
+    }),
+  })
+  const body3 = await res3.json().catch(() => ({}))
+  check('mixed file imports', res3.ok && body3.created === 5, `${res3.status} created=${body3.created}`)
+
+  const { data: mixMade } = await admin
+    .from('contacts').select('id, email').like('email', `%mix-%${SUFFIX}`)
+  const mixId = new Map((mixMade ?? []).map((c) => [c.email, c.id]))
+  const mixIds = [...mixId.values()]
+
+  const { data: mixLists } = await admin
+    .from('contact_lists').select('contact_id, lists(name)').in('contact_id', mixIds)
+  const { data: mixTags } = await admin
+    .from('contact_tags').select('contact_id, tags(name)').in('contact_id', mixIds)
+
+  const L = (slug) => (mixLists ?? [])
+    .filter((m) => m.contact_id === mixId.get(`${slug}${SUFFIX}`))
+    .map((m) => m.lists.name).sort()
+  const T = (slug) => (mixTags ?? [])
+    .filter((m) => m.contact_id === mixId.get(`${slug}${SUFFIX}`))
+    .map((m) => m.tags.name).sort()
+
+  for (const [slug, expected] of [
+    ['mix-a', ['2032 MENS', 'ALL CONTACTS EVERYONE', 'ALL MENS']],
+    ['mix-c', ['2032 WOMENS', 'ALL CONTACTS EVERYONE', 'ALL WOMENS']],
+    ['mix-d', ['2033 WOMENS', 'ALL CONTACTS EVERYONE', 'ALL WOMENS']],
+    ['mix-e', ['ALL CONTACTS EVERYONE']], // no gender/year -> no cohort at all
+  ]) {
+    check(`${slug} lists are only its own`, JSON.stringify(L(slug)) === JSON.stringify(expected), JSON.stringify(L(slug)))
+  }
+
+  check('no man is in ALL WOMENS', !L('mix-a').includes('ALL WOMENS') && !L('mix-b').includes('ALL WOMENS'))
+  check('no woman is in ALL MENS', !L('mix-c').includes('ALL MENS') && !L('mix-d').includes('ALL MENS'))
+  check('2033 woman is not in 2032 WOMENS', !L('mix-d').includes('2032 WOMENS'), JSON.stringify(L('mix-d')))
+
+  check('California tag only on the California row',
+    T('mix-a').includes('CA') && !T('mix-b').includes('CA') && !T('mix-c').includes('CA'),
+    `a=${JSON.stringify(T('mix-a'))} b=${JSON.stringify(T('mix-b'))}`)
+  check('Goalkeeper tag only on the goalkeeper',
+    T('mix-a').includes('Goalkeeper') && !T('mix-b').includes('Goalkeeper') && !T('mix-c').includes('Goalkeeper'),
+    `b=${JSON.stringify(T('mix-b'))}`)
+  // Positions are normalised, so the tag is the canonical name: "Striker"
+  // folds to "Forward", "Winger" to "Outside Midfielder". That is the point —
+  // one tag per position rather than one per spelling.
+  check('the striker is tagged Forward, not Goalkeeper',
+    T('mix-b').includes('Forward') && !T('mix-b').includes('Goalkeeper'),
+    JSON.stringify(T('mix-b')))
+  check('gender tags do not cross over',
+    T('mix-a').includes('Mens') && !T('mix-a').includes('Womens') &&
+    T('mix-c').includes('Womens') && !T('mix-c').includes('Mens'))
+  check('year tags do not cross over',
+    T('mix-a').includes('2032') && !T('mix-a').includes('2033') &&
+    T('mix-d').includes('2033') && !T('mix-d').includes('2032'))
+  check('the row with no gender or year gets neither tag',
+    !T('mix-e').includes('Mens') && !T('mix-e').includes('Womens') &&
+    !T('mix-e').some((t) => /^20\d\d$/.test(t)),
+    JSON.stringify(T('mix-e')))
+  check('but it still gets its own location and position tags',
+    T('mix-e').includes('ON') && T('mix-e').includes('Outside Midfielder') && T('mix-e').includes('Canada'),
+    JSON.stringify(T('mix-e')))
 } finally {
   if (KEEP) {
     console.log('\n--keep: leaving the verification rows in place')
   } else {
     const c = await cleanup()
-    console.log(`\ncleanup: removed ${c.contacts} contacts${c.list ? ` and the list "${c.list}"` : ''}`)
+    console.log(`\ncleanup: removed ${c.contacts} contacts${c.lists.length ? ` and the lists ${c.lists.map((n) => `"${n}"`).join(', ')}` : ''}`)
     if (c.leftover.length) console.error(`LEFTOVER, delete by hand: ${c.leftover.map((r) => r.email).join(', ')}`)
   }
   console.log(failed === 0 ? `\nPASS (${passed} checks)` : `\nFAIL (${failed} of ${passed + failed})`)
