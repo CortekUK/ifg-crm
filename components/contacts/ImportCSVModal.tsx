@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -19,29 +19,37 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { Upload, FileText, CheckCircle2, AlertTriangle, ArrowLeft, ArrowRight, Loader2, Plus } from 'lucide-react'
+import { Upload, FileText, CheckCircle2, AlertTriangle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { parseCSV, autoMapColumns, validateRow, hasNameMapping, CONTACT_FIELDS, type RowValidationError } from '@/lib/utils/csv'
-import { useImportContacts, type DuplicateStrategy, type ImportResult } from '@/lib/hooks/useImportContacts'
-import { Input } from '@/components/ui/input'
+import {
+  useImportContacts,
+  detectFileDateOrder,
+  type DuplicateStrategy,
+  type ImportResult,
+} from '@/lib/hooks/useImportContacts'
+import { detectRouting, TAG_CATEGORIES, TAG_CATEGORY_LABEL, type TagCategory } from '@/lib/utils/import-detect'
+import { deriveFromListName } from '@/lib/utils/import-normalise'
+import { ImportRoutingStep } from './ImportRoutingStep'
 import { useLists, useCreateList } from '@/lib/hooks/useLists'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface ImportCSVModalProps {
   isOpen: boolean
   onClose: () => void
-  requireList?: boolean
 }
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 4
 
-export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportCSVModalProps) {
+export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   const [step, setStep] = useState<Step>(1)
   const [file, setFile] = useState<File | null>(null)
   const [headers, setHeaders] = useState<string[]>([])
   const [rows, setRows] = useState<string[][]>([])
   const [mapping, setMapping] = useState<Record<number, string>>({})
   const [skippedColumns, setSkippedColumns] = useState<Set<number>>(new Set())
-  const [listId, setListId] = useState<string | null>(null)
+  const [listIds, setListIds] = useState<string[]>([])
+  const [cohortOverrides, setCohortOverrides] = useState<Record<string, string | null>>({})
+  const [tagCategories, setTagCategories] = useState<Set<TagCategory>>(new Set(TAG_CATEGORIES))
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('update')
   const [validationErrors, setValidationErrors] = useState<RowValidationError[]>([])
   const [duplicateEmails, setDuplicateEmails] = useState<Set<string>>(new Set())
@@ -49,9 +57,6 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [importProgress, setImportProgress] = useState<{ processed: number; total: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [creatingList, setCreatingList] = useState(false)
-  const [newListName, setNewListName] = useState('')
 
   const { data: lists = [] } = useLists()
   const createListMutation = useCreateList()
@@ -64,9 +69,9 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
     setRows([])
     setMapping({})
     setSkippedColumns(new Set())
-    setListId(null)
-    setCreatingList(false)
-    setNewListName('')
+    setListIds([])
+    setCohortOverrides({})
+    setTagCategories(new Set(TAG_CATEGORIES))
     setDuplicateStrategy('update')
     setValidationErrors([])
     setDuplicateEmails(new Set())
@@ -237,6 +242,49 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
 
   const validRows = rows.filter((_, idx) => !validationErrors.find((e) => e.row === idx + 1))
 
+  /**
+   * Gender / graduation year implied by the lists chosen for the whole file.
+   * Mirrors the server: several lists that disagree (ALL MENS + ALL WOMENS)
+   * cancel to null rather than letting whichever sorted first decide.
+   */
+  const listFallback = useMemo(() => {
+    const chosen = lists.filter((l) => listIds.includes(l.id)).map((l) => deriveFromListName(l.name))
+    const genders = new Set(chosen.map((d) => d.gender).filter(Boolean))
+    const years = new Set(chosen.map((d) => d.graduationYear).filter(Boolean))
+    return {
+      gender: genders.size === 1 ? [...genders][0]! : null,
+      graduationYear: years.size === 1 ? [...years][0]! : null,
+    }
+  }, [lists, listIds])
+
+  // Detection is derived, never stored: it has to describe the import that is
+  // actually about to run, and the rows, the mapping and the chosen lists can
+  // all still change. Memoised because it walks every row.
+  const detection = useMemo(() => {
+    if (step < 3 || validRows.length === 0) return null
+    return detectRouting(validRows, mapping, detectFileDateOrder(headers, validRows), listFallback)
+  }, [step, validRows, mapping, headers, listFallback])
+
+  /**
+   * Only the cohorts the operator actually changed. Everything detected is ON
+   * under its own name until they say otherwise, so an override of `null` is
+   * "switched off" and a string is a rename or a remap. Storing the decisions
+   * rather than the full state is what stops a re-detect resurrecting a cohort
+   * they just unticked.
+   */
+  const cohortChoices = useMemo(() => {
+    const out: Record<string, string | null> = {}
+    for (const c of detection?.cohortLists ?? []) {
+      out[c.name] = c.name in cohortOverrides ? cohortOverrides[c.name] : c.name
+    }
+    return out
+  }, [detection, cohortOverrides])
+
+  const cohortOn = useMemo(
+    () => [...new Set(Object.values(cohortChoices).filter((v): v is string => v !== null))].sort(),
+    [cohortChoices],
+  )
+
   const handleImport = async () => {
     try {
       setImportProgress({ processed: 0, total: validRows.length })
@@ -245,8 +293,17 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
         mapping,
         headers,
         skippedColumns: [...skippedColumns],
-        listId,
+        listIds,
         tagId: null,
+        routing: {
+          // Strip the switched-off cohorts: the server treats an absent key as
+          // "don't create this list", so there is no second enabled flag to
+          // fall out of step with the names.
+          cohortLists: Object.fromEntries(
+            Object.entries(cohortChoices).filter((e): e is [string, string] => e[1] !== null),
+          ),
+          tagCategories: [...tagCategories],
+        },
         duplicateStrategy,
         onProgress: (processed, total) => {
           setImportProgress({ processed, total })
@@ -266,19 +323,20 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="flex max-h-[88vh] w-[min(96vw,1100px)] max-w-none flex-col sm:max-w-none">
         <DialogHeader>
           <DialogTitle>Import Contacts from CSV</DialogTitle>
           <DialogDescription>
             {step === 1 && 'Upload a CSV file to import contacts.'}
             {step === 2 && 'Map CSV columns to contact fields.'}
-            {step === 3 && (importResult ? 'Import complete.' : 'Review and import contacts.')}
+            {step === 3 && 'Choose the lists and tags these contacts land in.'}
+            {step === 4 && (importResult ? 'Import complete.' : 'Review and import contacts.')}
           </DialogDescription>
         </DialogHeader>
 
         {/* Step indicators */}
         <div className="flex items-center gap-2 py-2">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div key={s} className="flex items-center gap-2">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
@@ -291,13 +349,14 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
               >
                 {step > s ? <CheckCircle2 className="w-4 h-4" /> : s}
               </div>
-              {s < 3 && <div className={`w-8 h-0.5 ${step > s ? 'bg-green-300' : 'bg-muted'}`} />}
+              {s < 4 && <div className={`w-8 h-0.5 ${step > s ? 'bg-green-300' : 'bg-muted'}`} />}
             </div>
           ))}
           <span className="ml-2 text-sm text-muted-foreground">
             {step === 1 && 'Upload'}
             {step === 2 && 'Map Columns'}
-            {step === 3 && 'Review & Import'}
+            {step === 3 && 'Lists & Tags'}
+            {step === 4 && 'Review & Import'}
           </span>
         </div>
 
@@ -334,79 +393,6 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
                     <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
                     <p className="text-sm font-medium">Click to select or drag & drop a CSV file</p>
                     <p className="text-xs text-muted-foreground mt-1">Supports .csv files</p>
-                  </div>
-                )}
-              </div>
-
-              {/* List selection */}
-              <div className="space-y-2">
-                <Label>Add to List{requireList ? ' *' : ' (optional)'}</Label>
-                {creatingList ? (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="New list name..."
-                      value={newListName}
-                      onChange={(e) => setNewListName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newListName.trim()) {
-                          e.preventDefault()
-                          createListMutation.mutate(
-                            { name: newListName.trim() },
-                            {
-                              onSuccess: (data) => {
-                                setListId(data.id)
-                                setCreatingList(false)
-                                setNewListName('')
-                                toast({ title: 'List created', description: `"${data.name}" is ready.` })
-                              },
-                            }
-                          )
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <Button
-                      size="sm"
-                      disabled={!newListName.trim() || createListMutation.isPending}
-                      onClick={() => {
-                        if (!newListName.trim()) return
-                        createListMutation.mutate(
-                          { name: newListName.trim() },
-                          {
-                            onSuccess: (data) => {
-                              setListId(data.id)
-                              setCreatingList(false)
-                              setNewListName('')
-                              toast({ title: 'List created', description: `"${data.name}" is ready.` })
-                            },
-                          }
-                        )
-                      }}
-                    >
-                      {createListMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => { setCreatingList(false); setNewListName('') }}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Select value={listId || '__none__'} onValueChange={(v) => setListId(v === '__none__' ? null : v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a list..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">No list</SelectItem>
-                        {lists.map((list) => (
-                          <SelectItem key={list.id} value={list.id}>
-                            {list.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button size="sm" variant="outline" onClick={() => setCreatingList(true)}>
-                      <Plus className="w-4 h-4 mr-1" /> New
-                    </Button>
                   </div>
                 )}
               </div>
@@ -541,7 +527,34 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
           )}
 
           {/* Step 3: Review & Import */}
+          {/* Step 3: Lists & tags */}
           {step === 3 && (
+            <div className="h-full min-h-[420px]">
+              {detection ? (
+                <ImportRoutingStep
+                  detection={detection}
+                  lists={lists}
+                  selectedListIds={listIds}
+                  onSelectedListIds={setListIds}
+                  cohortLists={cohortChoices}
+                  onCohortLists={setCohortOverrides}
+                  tagCategories={tagCategories}
+                  onTagCategories={setTagCategories}
+                  onCreateList={async (name) => {
+                    const created = await createListMutation.mutateAsync({ name })
+                    setListIds((prev) => [...prev, created.id])
+                    toast({ title: 'List created', description: `"${created.name}" is ready.` })
+                  }}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reading the file…
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 4 && (
             <div className="space-y-4">
               {importResult ? (
                 /* Results */
@@ -613,9 +626,24 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
 
                   <div className="text-sm space-y-1">
                     <p><span className="text-muted-foreground">Strategy:</span> {duplicateStrategy === 'skip' ? 'Skip duplicates' : 'Update duplicates'}</p>
-                    {listId && (
-                      <p><span className="text-muted-foreground">List:</span> {lists.find((l) => l.id === listId)?.name}</p>
+                    {listIds.length > 0 && (
+                      <p>
+                        <span className="text-muted-foreground">Lists:</span>{' '}
+                        {lists.filter((l) => listIds.includes(l.id)).map((l) => l.name).join(', ')}
+                      </p>
                     )}
+                    {cohortOn.length > 0 && (
+                      <p>
+                        <span className="text-muted-foreground">Lists from the data:</span>{' '}
+                        {cohortOn.join(', ')}
+                      </p>
+                    )}
+                    <p>
+                      <span className="text-muted-foreground">Auto-tags:</span>{' '}
+                      {tagCategories.size === 0
+                        ? 'none'
+                        : [...tagCategories].map((c) => TAG_CATEGORY_LABEL[c].toLowerCase()).join(', ')}
+                    </p>
                     <p><span className="text-muted-foreground">Fields mapped:</span> {Object.keys(mapping).length} of {headers.length}</p>
                     {(() => {
                       const customCount = headers.filter((_, i) => !mapping[i] && !skippedColumns.has(i)).length
@@ -694,7 +722,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
           {step === 1 && (
             <>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button onClick={goToStep2} disabled={!file || rows.length === 0 || (requireList && !listId)}>
+              <Button onClick={goToStep2} disabled={!file || rows.length === 0}>
                 Next <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </>
@@ -713,9 +741,19 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
               </Button>
             </>
           )}
-          {step === 3 && !importResult && (
+          {step === 3 && (
             <>
-              <Button variant="outline" onClick={() => setStep(2)} disabled={importMutation.isPending}>
+              <Button variant="outline" onClick={() => setStep(2)}>
+                <ArrowLeft className="w-4 h-4 mr-1" /> Back
+              </Button>
+              <Button onClick={() => setStep(4)} disabled={!detection}>
+                Next <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </>
+          )}
+          {step === 4 && !importResult && (
+            <>
+              <Button variant="outline" onClick={() => setStep(3)} disabled={importMutation.isPending}>
                 <ArrowLeft className="w-4 h-4 mr-1" /> Back
               </Button>
               <Button onClick={handleImport} disabled={importMutation.isPending || validRows.length === 0}>
@@ -727,7 +765,7 @@ export function ImportCSVModal({ isOpen, onClose, requireList = false }: ImportC
               </Button>
             </>
           )}
-          {step === 3 && importResult && (
+          {step === 4 && importResult && (
             <Button onClick={handleClose}>
               <CheckCircle2 className="w-4 h-4 mr-1" /> Done
             </Button>

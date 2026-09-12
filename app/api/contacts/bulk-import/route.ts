@@ -20,6 +20,7 @@ import {
   extractTagsFromRow,
   type DateOrder,
 } from '@/lib/utils/csv'
+import { cohortListNames, genderTagName } from '@/lib/forms/lead-routing'
 import {
   normalisePositions,
   normaliseState,
@@ -27,6 +28,7 @@ import {
   countryFromState,
   deriveFromListName,
   resolveFieldConflict,
+  type ListDerivation,
 } from '@/lib/utils/import-normalise'
 
 export const runtime = 'nodejs'
@@ -46,9 +48,26 @@ interface BulkImportBody {
   mapping: Record<number, string>
   headers: string[]
   skippedColumns?: number[]
-  listId: string | null
+  /** Lists every contact in the file joins, chosen by the operator. */
+  listIds?: string[]
   /** Optional tag applied to every contact in the chunk, on top of derived tags. */
   tagId?: string | null
+  /**
+   * The operator's routing decisions, made against the preview in the import
+   * dialog. Absent means "behave as the importer always did": no cohort lists,
+   * every auto-tag category on.
+   */
+  routing?: {
+    /**
+     * Detected cohort list name -> the list name to actually use. A rename or a
+     * remap is just a different value; a group the operator switched off is
+     * simply absent, so there is no separate "enabled" flag to keep in sync
+     * with the keys.
+     */
+    cohortLists?: Record<string, string>
+    /** Auto-tag categories to apply. Omitted = all of them. */
+    tagCategories?: string[]
+  }
   duplicateStrategy: 'skip' | 'update'
   /**
    * Day-first or month-first, detected from the whole file by the client.
@@ -97,6 +116,37 @@ const CONTACT_COLUMNS = [
   'degree_choice', 'football_highlights', 'preferred_programme', 'job_title',
   'custom_fields', 'source', 'sport', 'created_at',
 ] as const
+
+/**
+ * Columns the database refuses to hold NULL, and what to write instead when a
+ * new contact's row didn't supply one.
+ *
+ * The padding below gives every record in a batch an identical key set, which
+ * it has to: a key present on one record and absent from another is written as
+ * NULL for the second. But padding a NOT NULL column with null is worse than
+ * the problem — it writes over the column default and Postgres rejects the
+ * whole chunk, taking the other 499 rows with it.
+ *
+ * Two ways to hit this, both silent until they aren't:
+ *   - a CSV with no "Subscription Status" column (subscription_status is
+ *     NOT NULL DEFAULT 'subscribed'),
+ *   - a CSV with no "Date Created" column (created_at is NOT NULL DEFAULT now()),
+ *   - a row with a first name but no last name, which validateRow allows.
+ *
+ * The historic ActiveCampaign export happened to carry all of those columns,
+ * so the 105k migration never tripped it. A plainer file — name, email,
+ * gender, year, state — fails on the first chunk.
+ *
+ * A function is evaluated per record, for defaults like now() that can't be a
+ * constant.
+ */
+const NOT_NULL_FALLBACKS: Record<string, unknown | (() => unknown)> = {
+  first_name: '',
+  last_name: '',
+  subscription_status: 'subscribed',
+  sport: 'football',
+  created_at: () => new Date().toISOString(),
+}
 
 /**
  * Run a `.in()` select in URL-safe batches and concatenate the rows.
@@ -190,12 +240,22 @@ function collectTags(
   row: string[],
   mapping: Record<number, string>,
   contact: Record<string, unknown>,
-  fromList: TagRef[]
+  fromList: TagRef[],
+  allowed: Set<string> | null
 ): TagRef[] {
   const tags: TagRef[] = []
 
   for (const name of extractTagsFromRow(row, mapping)) {
     tags.push({ name, category: 'other' })
+  }
+
+  // Gender and graduation year, from the row's own data. Previously these only
+  // ever arrived via `fromList` (derived from the chosen list's NAME), so a
+  // file with a real Gender column produced no gender tag at all.
+  const genderTag = genderTagName(contact.gender as 'male' | 'female' | undefined)
+  if (genderTag) tags.push({ name: genderTag, category: 'gender' })
+  if (contact.graduation_year) {
+    tags.push({ name: String(contact.graduation_year), category: 'year' })
   }
 
   for (const position of normalisePositions(contact.position as string | undefined)) {
@@ -210,13 +270,14 @@ function collectTags(
 
   tags.push(...fromList)
 
-  // De-duplicate case-insensitively, keeping the first category seen.
+  // De-duplicate case-insensitively, keeping the first category seen, and drop
+  // any category the operator switched off in the preview.
   const seen = new Set<string>()
   return tags.filter((t) => {
     const key = t.name.trim().toLowerCase()
     if (!key || seen.has(key)) return false
     seen.add(key)
-    return true
+    return allowed === null || allowed.has(t.category)
   })
 }
 
@@ -248,8 +309,9 @@ export async function POST(request: NextRequest) {
       mapping,
       headers,
       skippedColumns = [],
-      listId,
+      listIds = [],
       tagId = null,
+      routing,
       duplicateStrategy,
       dateOrder = 'DMY',
       rowOffset = 0,
@@ -268,11 +330,12 @@ export async function POST(request: NextRequest) {
     const admin = getSupabaseAdmin()
     const errors: { row: number; message: string }[] = []
 
-    // 2. Resolve the target list and the master "everyone" list.
-    let targetListName: string | null = null
-    if (listId) {
-      const { data: list } = await admin.from('lists').select('name').eq('id', listId).maybeSingle()
-      targetListName = list?.name ?? null
+    // 2. Resolve the chosen lists and the master "everyone" list.
+    const chosenListIds = listIds.filter((id): id is string => typeof id === 'string' && !!id)
+    let chosenListNames: string[] = []
+    if (chosenListIds.length > 0) {
+      const { data: chosen } = await admin.from('lists').select('name').in('id', chosenListIds)
+      chosenListNames = (chosen ?? []).map((l) => l.name as string)
     }
 
     const { data: everyoneList } = await admin
@@ -284,7 +347,35 @@ export async function POST(request: NextRequest) {
 
     // The list a file is imported into is the strongest gender/year signal in
     // this dataset — the Gender column is populated on only 3.4% of rows.
-    const listDerived = deriveFromListName(targetListName)
+    //
+    // With several lists selected the signals can disagree (ALL MENS and
+    // ALL WOMENS together, say). resolveFieldConflict's rule applies: two
+    // lists that contradict each other mean "unknown", not whichever sorted
+    // first. A single unambiguous signal is still used.
+    const derivations = chosenListNames.map(deriveFromListName)
+    const genders = new Set(derivations.map((d) => d.gender).filter(Boolean))
+    const years = new Set(derivations.map((d) => d.graduationYear).filter(Boolean))
+    const listDerived: ListDerivation = {
+      gender: genders.size === 1 ? [...genders][0]! : null,
+      graduationYear: years.size === 1 ? [...years][0]! : null,
+      tags: [],
+    }
+    if (listDerived.gender) {
+      listDerived.tags.push({
+        name: listDerived.gender === 'male' ? 'Mens' : 'Womens',
+        category: 'gender',
+      })
+    }
+    if (listDerived.graduationYear) {
+      listDerived.tags.push({ name: String(listDerived.graduationYear), category: 'year' })
+    }
+
+    // The operator's decisions from the preview. Absent = legacy behaviour:
+    // no cohort lists, every auto-tag category on.
+    const cohortMap = routing?.cohortLists ?? null
+    const allowedTagCategories = routing?.tagCategories
+      ? new Set(routing.tagCategories)
+      : null
 
     // 3. Build records, de-duplicating by email within the chunk.
     // Postgres rejects an ON CONFLICT upsert that touches the same key twice,
@@ -324,7 +415,7 @@ export async function POST(request: NextRequest) {
 
       byEmail.set(email, {
         record,
-        tags: collectTags(row, mapping, contact, listDerived.tags),
+        tags: collectTags(row, mapping, contact, listDerived.tags, allowedTagCategories),
         row: rowNumber,
       })
     })
@@ -365,6 +456,11 @@ export async function POST(request: NextRequest) {
 
     // 5. Merge each record against what's already stored.
     const toUpsert: Record<string, unknown>[] = []
+    // Cohort lists (ALL MENS / 2027 MENS) per contact. Derived from the SETTLED
+    // gender and year below, not the raw cell: a row whose gender conflicts
+    // with the stored value resolves to null, and that contact should join no
+    // cohort rather than one the merge just decided it can't stand behind.
+    const cohortByEmail = new Map<string, string[]>()
     let skipped = 0
 
     for (const [email, entry] of byEmail) {
@@ -375,6 +471,13 @@ export async function POST(request: NextRequest) {
       // importing the per-list exports on top of the master file.
       if (existing && duplicateStrategy === 'skip') {
         skipped++
+        cohortByEmail.set(
+          email,
+          cohortListNames(
+            existing.gender as 'male' | 'female' | null,
+            existing.graduation_year as number | null
+          )
+        )
         continue
       }
 
@@ -442,6 +545,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      cohortByEmail.set(
+        email,
+        cohortListNames(
+          record.gender as 'male' | 'female' | null,
+          record.graduation_year as number | null
+        )
+      )
+
       // Pad to the full column set so every record in the batch has identical
       // keys. Without this, a column supplied by one row and omitted by another
       // is written as NULL for the second — silently blanking data the incoming
@@ -449,11 +560,17 @@ export async function POST(request: NextRequest) {
       // value, new ones to null.
       const padded: Record<string, unknown> = {}
       for (const column of CONTACT_COLUMNS) {
-        padded[column] = column in record
+        const value = column in record
           ? record[column]
           : existing
             ? existing[column] ?? null
             : null
+        if (value !== null && value !== undefined) {
+          padded[column] = value
+        } else {
+          const fallback = NOT_NULL_FALLBACKS[column]
+          padded[column] = typeof fallback === 'function' ? fallback() : (fallback ?? null)
+        }
       }
 
       toUpsert.push(padded)
@@ -487,15 +604,99 @@ export async function POST(request: NextRequest) {
     const created = contactIds.filter((c) => !existingByEmail.has(c.email.toLowerCase())).length
     const updated = contactIds.length - created
 
-    // 7. List memberships — the chosen list plus the master everyone list.
-    const listIds = [listId, everyoneList?.id].filter(Boolean) as string[]
-    if (listIds.length > 0 && allIds.length > 0) {
-      const memberships = listIds.flatMap((lid) =>
-        allIds.map((c) => ({ list_id: lid, contact_id: c.id }))
-      )
+    // 7. List memberships.
+    //
+    //   a) the lists the operator chose, applied to every row,
+    //   b) the master "everyone" list,
+    //   c) per-contact cohort lists (ALL MENS / 2027 MENS) from their own data.
+    //
+    // All three go into one upsert. (c) is the new part: previously gender and
+    // year only ever reached the contact RECORD, so a file full of 2027 boys
+    // updated 8,769 contacts without one of them joining "2027 MENS".
+    const membershipListIds = [...chosenListIds, everyoneList?.id].filter(Boolean) as string[]
+    const memberships: { list_id: string; contact_id: string }[] = []
+
+    for (const lid of membershipListIds) {
+      for (const c of allIds) memberships.push({ list_id: lid, contact_id: c.id })
+    }
+
+    if (cohortMap && cohortByEmail.size > 0) {
+      // Map detected name -> the name the operator settled on, then resolve
+      // that to an id. A cohort the operator switched off is absent from the
+      // map and silently produces no membership.
+      const wantedNames = new Set<string>()
+      for (const names of cohortByEmail.values()) {
+        for (const n of names) {
+          const target = cohortMap[n]
+          if (target) wantedNames.add(target)
+        }
+      }
+
+      const cohortIdByName = new Map<string, string>()
+      if (wantedNames.size > 0) {
+        const { data: found } = await selectIn<{ id: string; name: string }>(
+          (batch) => admin.from('lists').select('id, name').in('name', batch),
+          [...wantedNames]
+        )
+        for (const l of found) cohortIdByName.set(l.name.toLowerCase(), l.id)
+
+        const missing = [...wantedNames].filter((n) => !cohortIdByName.has(n.toLowerCase()))
+        if (missing.length > 0) {
+          const { data: createdLists, error: createErr } = await admin
+            .from('lists')
+            .insert(
+              missing.map((name) => ({
+                name,
+                description: 'Created automatically by a CSV import',
+                sport: 'football',
+                is_dynamic: false,
+              }))
+            )
+            .select('id, name')
+
+          if (createErr) {
+            // A concurrent chunk almost certainly created them first — re-read
+            // rather than failing the import over a race we expect to lose.
+            const { data: refetched } = await selectIn<{ id: string; name: string }>(
+              (batch) => admin.from('lists').select('id, name').in('name', batch),
+              missing
+            )
+            for (const l of refetched) cohortIdByName.set(l.name.toLowerCase(), l.id)
+          } else {
+            for (const l of createdLists ?? []) {
+              cohortIdByName.set((l.name as string).toLowerCase(), l.id as string)
+            }
+          }
+        }
+      }
+
+      for (const [email, names] of cohortByEmail) {
+        const contactId = idByEmail.get(email)
+        if (!contactId) continue
+        for (const n of names) {
+          const target = cohortMap[n]
+          if (!target) continue
+          const lid = cohortIdByName.get(target.toLowerCase())
+          if (lid) memberships.push({ list_id: lid, contact_id: contactId })
+        }
+      }
+    }
+
+    // Postgres rejects an ON CONFLICT upsert that touches the same key twice,
+    // and the three sources above overlap by design: pick "ALL MENS" as a
+    // whole-file list and every male row also derives it as a cohort.
+    const seenMembership = new Set<string>()
+    const uniqueMemberships = memberships.filter((m) => {
+      const key = `${m.list_id}:${m.contact_id}`
+      if (seenMembership.has(key)) return false
+      seenMembership.add(key)
+      return true
+    })
+
+    if (uniqueMemberships.length > 0) {
       const { error: listErr } = await admin
         .from('contact_lists')
-        .upsert(memberships, { onConflict: 'contact_id,list_id', ignoreDuplicates: true })
+        .upsert(uniqueMemberships, { onConflict: 'contact_id,list_id', ignoreDuplicates: true })
 
       if (listErr) errors.push({ row: rowOffset, message: `List membership: ${listErr.message}` })
     }

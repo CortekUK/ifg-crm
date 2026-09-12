@@ -59,17 +59,45 @@ export interface Routing {
  * Compute the full set of lists + tags for a lead from their attributes.
  * Pure and deterministic — no DB access — so it's trivially testable.
  */
+/**
+ * The cohort lists a contact belongs in, from gender + graduation year alone:
+ * ["ALL MENS", "2027 MENS"]. Grounded in IFG's real lists, where "ALL MENS"
+ * holds 51,142 contacts and "2027 MENS" 8,769.
+ *
+ * Exported because the CSV importer derives the same membership from a
+ * spreadsheet column that this derives from a form field. Two copies of the
+ * naming would drift the first time someone renamed a list, and the drift
+ * would be silent — contacts quietly landing in "2027 Mens" alongside
+ * "2027 MENS". One function, one convention.
+ */
+export function cohortListNames(
+  gender: 'male' | 'female' | null | undefined,
+  graduationYear: number | null | undefined,
+): string[] {
+  if (gender !== 'male' && gender !== 'female') return []
+  const word = gender === 'male' ? 'MENS' : 'WOMENS'
+  const names = [`ALL ${word}`]
+  if (graduationYear) names.push(`${graduationYear} ${word}`)
+  return names
+}
+
+/** The gender tag label matching a gender value ("Mens" / "Womens"). */
+export function genderTagName(gender: 'male' | 'female' | null | undefined): string | null {
+  if (gender === 'male') return 'Mens'
+  if (gender === 'female') return 'Womens'
+  return null
+}
+
 export function computeApplicationRouting(input: RoutingInput): Routing {
   const lists: string[] = [EVERYONE_LIST]
   if (input.includeMaster) lists.unshift(MASTER_LIST)
   const tags: { name: string; category: string }[] = []
 
   // Gender → ALL MENS/WOMENS, {year} MENS/WOMENS cohort, gender tag.
-  if (input.gender === 'male' || input.gender === 'female') {
-    const word = input.gender === 'male' ? 'MENS' : 'WOMENS'
-    lists.push(`ALL ${word}`)
-    if (input.graduationYear) lists.push(`${input.graduationYear} ${word}`)
-    tags.push({ name: input.gender === 'male' ? 'Mens' : 'Womens', category: 'gender' })
+  const genderTag = genderTagName(input.gender)
+  if (genderTag) {
+    lists.push(...cohortListNames(input.gender, input.graduationYear))
+    tags.push({ name: genderTag, category: 'gender' })
   }
 
   // Graduation year tag.

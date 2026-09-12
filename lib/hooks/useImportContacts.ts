@@ -8,10 +8,20 @@ export interface ImportOptions {
   mapping: Record<number, string>
   headers: string[]
   skippedColumns?: number[]
-  listId: string | null
+  /** Lists every contact in the file joins. */
+  listIds: string[]
   tagId: string | null
+  /** The operator's routing decisions from the preview step. */
+  routing?: ImportRouting
   duplicateStrategy: DuplicateStrategy
   onProgress?: (processed: number, total: number) => void
+}
+
+export interface ImportRouting {
+  /** Detected cohort list name -> the list name to use. Absent key = switched off. */
+  cohortLists: Record<string, string>
+  /** Auto-tag categories to apply. */
+  tagCategories: string[]
 }
 
 export interface ImportResult {
@@ -40,7 +50,7 @@ const DATE_HEADER_RE = /date|dob|birth/i
  * early rows may all be ambiguous (both components 12 or under) while later
  * ones settle it. Falls back to day-first, the previous behaviour.
  */
-function detectFileDateOrder(headers: string[], rows: string[][]) {
+export function detectFileDateOrder(headers: string[], rows: string[][]) {
   const dateColumns = headers
     .map((header, index) => ({ header, index }))
     .filter(({ header }) => DATE_HEADER_RE.test(header))
@@ -75,8 +85,9 @@ export function useImportContacts() {
         mapping,
         headers,
         skippedColumns = [],
-        listId,
+        listIds,
         tagId,
+        routing,
         duplicateStrategy,
         onProgress,
       } = options
@@ -102,8 +113,9 @@ export function useImportContacts() {
             mapping,
             headers,
             skippedColumns,
-            listId,
+            listIds,
             tagId,
+            routing,
             duplicateStrategy,
             dateOrder,
             rowOffset: i,
