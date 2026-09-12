@@ -5,7 +5,10 @@
 // wrote. The pure preview logic is covered by verify-import-detect.mjs; this
 // covers the part that touches Postgres: several chosen lists at once, the
 // cohort lists derived per contact, the tag categories the operator left on,
-// and the de-duplication when a chosen list and a derived cohort collide.
+// the de-duplication when a chosen list and a derived cohort collide, and —
+// the question that decides whether an import is safe to run twice — that
+// importing into a list that already has members ADDS to it rather than
+// replacing it, and that a repeat import changes nothing.
 //
 //   npm run dev                              # in another terminal
 //   node scripts/verify-import-routing.mjs   # add --keep to skip cleanup
@@ -70,6 +73,14 @@ async function sessionCookie(email) {
   return parts.join('; ')
 }
 
+async function memberCount(listId) {
+  const { count } = await admin
+    .from('contact_lists')
+    .select('contact_id', { count: 'exact', head: true })
+    .eq('list_id', listId)
+  return count ?? 0
+}
+
 async function listIdByName(name) {
   const { data } = await admin.from('lists').select('id').eq('name', name).maybeSingle()
   return data?.id ?? null
@@ -114,6 +125,12 @@ try {
   const uniId = await listIdByName('UNIVERSITY 2027')
   if (!allMensId || !uniId) throw new Error('expected lists ALL MENS / UNIVERSITY 2027 to exist')
 
+  // "UNIVERSITY 2027" already has members. They must all still be there
+  // afterwards — an import adds to a list, it never replaces its contents.
+  const uniBefore = await memberCount(uniId)
+  const allMensBefore = await memberCount(allMensId)
+  console.log(`before: UNIVERSITY 2027 = ${uniBefore} members, ALL MENS = ${allMensBefore}\n`)
+
   const headers = ['Email', 'First Name', 'Last Name', 'Gender', 'Graduation Year', 'State', 'Position']
   const mapping = { 0: 'email', 1: 'first_name', 2: 'last_name', 3: 'gender', 4: 'graduation_year', 5: 'state', 6: 'position' }
   const rows = [
@@ -122,24 +139,26 @@ try {
     [EMAILS[2], 'Charlie', 'Verify', 'Female', '2031', '', 'Striker'],
   ]
 
-  const res = await fetch(`${BASE}/api/contacts/bulk-import`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', cookie },
-    body: JSON.stringify({
-      rows, mapping, headers,
-      listIds: [allMensId, uniId],
-      duplicateStrategy: 'update',
-      routing: {
-        // "2031 WOMENS" is deliberately absent: Charlie's cohort is switched
-        // off, and she must end up in no cohort list at all.
-        cohortLists: { 'ALL MENS': 'ALL MENS', '2031 MENS': NEW_COHORT },
-        tagCategories: ['gender', 'year', 'position'], // location switched off
-      },
-      dateOrder: 'DMY',
-      rowOffset: 0,
-    }),
-  })
+  const runImport = () =>
+    fetch(`${BASE}/api/contacts/bulk-import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie },
+      body: JSON.stringify({
+        rows, mapping, headers,
+        listIds: [allMensId, uniId],
+        duplicateStrategy: 'update',
+        routing: {
+          // "2031 WOMENS" is deliberately absent: Charlie's cohort is switched
+          // off, and she must end up in no cohort list at all.
+          cohortLists: { 'ALL MENS': 'ALL MENS', '2031 MENS': NEW_COHORT },
+          tagCategories: ['gender', 'year', 'position'], // location switched off
+        },
+        dateOrder: 'DMY',
+        rowOffset: 0,
+      }),
+    })
 
+  const res = await runImport()
   const body = await res.json().catch(() => ({}))
   check('route returns 200', res.ok, `${res.status} ${JSON.stringify(body).slice(0, 200)}`)
   if (!res.ok) throw new Error('route failed; nothing else can be checked')
@@ -207,6 +226,43 @@ try {
 
   const bTags = tagsFor(EMAILS[1])
   check('position normalised (CAM -> Attacking Midfielder)', bTags.includes('Attacking Midfielder'), JSON.stringify(bTags))
+
+  // ---- importing into a list that already has members ----
+  const uniAfter = await memberCount(uniId)
+  const allMensAfter = await memberCount(allMensId)
+  check(
+    'existing members of UNIVERSITY 2027 survive; the 3 new ones are added',
+    uniAfter === uniBefore + 3,
+    `${uniBefore} -> ${uniAfter}, expected ${uniBefore + 3}`,
+  )
+  check(
+    'existing members of ALL MENS survive',
+    allMensAfter === allMensBefore + 3,
+    `${allMensBefore} -> ${allMensAfter}, expected ${allMensBefore + 3}`,
+  )
+
+  // ---- running the same import twice ----
+  const res2 = await runImport()
+  const body2 = await res2.json().catch(() => ({}))
+  check('second run succeeds', res2.ok, `${res2.status} ${JSON.stringify(body2).slice(0, 200)}`)
+  check(
+    'second run creates nothing new, updates the same 3',
+    body2.created === 0 && body2.updated === 3,
+    `created=${body2.created} updated=${body2.updated}`,
+  )
+  check(
+    'membership counts unchanged after re-import',
+    (await memberCount(uniId)) === uniAfter && (await memberCount(allMensId)) === allMensAfter,
+  )
+  const { data: after2 } = await admin
+    .from('contact_lists')
+    .select('contact_id')
+    .in('contact_id', ids)
+  check(
+    'no duplicate membership rows',
+    (after2 ?? []).length === (memberships ?? []).length,
+    `${(memberships ?? []).length} -> ${(after2 ?? []).length}`,
+  )
 } finally {
   if (KEEP) {
     console.log('\n--keep: leaving the verification rows in place')
