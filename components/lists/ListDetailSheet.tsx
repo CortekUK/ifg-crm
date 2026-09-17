@@ -37,6 +37,8 @@ import { Search, UserPlus, Trash2, ChevronLeft, ChevronRight, Users, Download, L
 import { useList, useListContacts, useRemoveContactFromList, useBulkRemoveContactsFromList, useExportListContacts } from '@/lib/hooks/useLists'
 import { formatDate } from '@/lib/utils/format'
 import { toast } from '@/lib/hooks/use-toast'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
+import { downloadCSV, exportFilename } from '@/lib/contacts/export'
 import type { Contact } from '@/lib/types/contacts'
 
 interface ListDetailSheetProps {
@@ -77,6 +79,8 @@ export function ListDetailSheet({
   const removeContact = useRemoveContactFromList()
   const bulkRemove = useBulkRemoveContactsFromList()
   const exportContacts = useExportListContacts()
+  const { data: currentUser } = useCurrentUser()
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
 
   const contacts = contactsData?.contacts || []
   const totalContacts = contactsData?.total || 0
@@ -147,28 +151,16 @@ export function ListDetailSheet({
 
     setIsExporting(true)
     try {
-      const csvData = await exportContacts.mutateAsync(listId)
-      
-      // Create and download the file
-      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `${list.name.replace(/[^a-z0-9]/gi, '_')}_contacts.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-
+      const { csv, count } = await exportContacts.mutateAsync(listId)
+      downloadCSV(csv, exportFilename(list.name))
       toast({
         title: 'Export complete',
-        description: `${totalContacts} contact(s) exported to CSV.`,
+        description: `${count.toLocaleString()} contact(s) exported to CSV.`,
       })
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to export contacts.',
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       })
     }
@@ -234,19 +226,23 @@ export function ListDetailSheet({
                     </SheetDescription>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportCSV}
-                      disabled={isExporting || totalContacts === 0}
-                    >
-                      {isExporting ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4 mr-2" />
-                      )}
-                      Export CSV
-                    </Button>
+                    {/* Admin-only, like the Contacts page export: recruiters can
+                        view and edit contacts but not take them out of the CRM. */}
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportCSV}
+                        disabled={isExporting || totalContacts === 0}
+                      >
+                        {isExporting ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4 mr-2" />
+                        )}
+                        {isExporting ? 'Exporting…' : 'Export CSV'}
+                      </Button>
+                    )}
                     <Button onClick={onAddContacts} className="bg-blue-600 hover:bg-blue-700">
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Players

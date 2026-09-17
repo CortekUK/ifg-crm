@@ -88,3 +88,98 @@ export function orderByIds<T extends { id: string }>(rows: T[], ids: string[]): 
     (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
   )
 }
+
+// ---- Shared filtering ------------------------------------------------------
+//
+// The contact list, its select-all and its export each used to rebuild these
+// filters by hand, and the copies drifted: the export silently ignored the
+// subscription-status and owner filters the list applied, and every copy
+// resolved a tag filter by fetching the tag's members — capped at 1000 rows —
+// then putting every id into the request URL, which PostgREST rejects past a
+// few hundred. Filtering by a 1,926-contact tag failed outright.
+
+type AnyFilterBuilder = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  eq(column: string, value: any): AnyFilterBuilder
+  or(filters: string): AnyFilterBuilder
+}
+
+/**
+ * Contacts a pipeline and/or recruiter filter restricts to, or null when
+ * neither is set. An empty array means "the filter matches nobody".
+ */
+export async function resolveDealContactIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  filters: UseContactsParams['filters'] = {},
+): Promise<string[] | null> {
+  const pipelineId = orNull(filters.pipeline_id)
+  const recruiterId = orNull(filters.recruiter_id)
+  if (!pipelineId && !recruiterId) return null
+
+  // ponytail: deals are unpaged and passed to .in('id') — fine while a
+  // pipeline holds hundreds of deals, not tens of thousands. Page with
+  // fetchAll and switch to a deals!inner embed if that ever changes.
+  let q = supabase.from('deals').select('contact_id').not('contact_id', 'is', null)
+  if (pipelineId) q = q.eq('pipeline_id', pipelineId)
+  if (recruiterId) q = q.eq('deal_owner_id', recruiterId)
+  const { data, error } = await q
+  if (error) throw error
+  return [...new Set((data ?? []).map((d) => d.contact_id as string))]
+}
+
+/** Select clause that restricts rows to a tag's members inside the database. */
+export function tagJoin(tagId: string | null): string {
+  return tagId ? ', contact_tags!inner(tag_id)' : ''
+}
+
+/** The column filters the list, select-all and export must agree on. */
+export function applyContactFilters<Q extends AnyFilterBuilder>(
+  query: Q,
+  filters: UseContactsParams['filters'] = {},
+): Q {
+  let q: AnyFilterBuilder = query
+  const tagId = orNull(filters.tag_id)
+  if (tagId) q = q.eq('contact_tags.tag_id', tagId)
+  if (orNull(filters.subscription_status)) q = q.eq('subscription_status', filters.subscription_status)
+  if (filters.graduation_year) q = q.eq('graduation_year', filters.graduation_year)
+  if (orNull(filters.gender)) q = q.eq('gender', filters.gender)
+  if (orNull(filters.country)) q = q.eq('country', filters.country)
+  if (orNull(filters.position)) q = q.eq('position', filters.position)
+  if (orNull(filters.owner_id)) q = q.eq('owner_id', filters.owner_id)
+  if (orNull(filters.state)) q = q.eq('state', filters.state)
+  if (filters.phone_prefix) {
+    // Area codes appear after an optional country code: +1 949..., (949)..., 0161...
+    const p = filters.phone_prefix
+    q = q.or(
+      [
+        `phone.ilike.${p}%`,        // 9491234567
+        `phone.ilike.+_${p}%`,      // +19491234567
+        `phone.ilike.+__${p}%`,     // +441234567890
+        `phone.ilike.+___${p}%`,    // +3901234567890
+        `phone.ilike.+_ ${p}%`,     // +1 9491234567
+        `phone.ilike.+__ ${p}%`,    // +44 2012345678
+        `phone.ilike.+___ ${p}%`,   // +391 021234567
+        `phone.ilike.(${p})%`,      // (949) 1234567
+        `phone.ilike.+_(${p})%`,    // +1(949)1234567
+        `phone.ilike.+_ (${p})%`,   // +1 (949) 1234567
+        `phone.ilike.0${p}%`,       // 02012345678
+      ].join(','),
+    )
+  }
+  return q as Q
+}
+
+/** Sort column plus an id tiebreak, so range pages never skip or repeat a row. */
+export function orderContacts<Q extends { order(column: string, opts?: { ascending?: boolean }): Q }>(
+  query: Q,
+  sortBy: string | undefined,
+  sortOrder: 'asc' | 'desc' | undefined,
+): Q {
+  // Thousands of contacts share a created_at to the millisecond after a bulk
+  // import. Paging on a non-unique sort lets rows slide between pages, which
+  // shows up as duplicates on screen and as silently missing rows in exports.
+  return query
+    .order(sortBy || 'created_at', { ascending: sortBy ? sortOrder === 'asc' : false })
+    .order('id', { ascending: true })
+}

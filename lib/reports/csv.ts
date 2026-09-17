@@ -43,7 +43,8 @@ const PAGE = 1000
  *
  * Pages are fetched in waves rather than one at a time. The limit is round
  * trips, not database work — 106 sequential pages take about a minute,
- * where twelve at a time take eight seconds.
+ * where twelve at a time take eight seconds. Waves start at one page and
+ * double, so a small result costs one query rather than twelve.
  *
  * The trade-off of fetching pages concurrently is that they no longer see
  * one instant: a row inserted mid-export shifts later page boundaries. Rows
@@ -60,9 +61,14 @@ export async function fetchAll<T = Row>(
   const collected: T[] = []
   const maxPages = Math.ceil(max / PAGE)
 
-  for (let page = 0; page < maxPages; page += concurrency) {
+  // Waves ramp up 1, 2, 4, 8 … to `concurrency`. Firing a full wave blind
+  // meant a 7-row result still ran twelve competing queries — a seven-contact
+  // list took 4.5s to export — while a result that needs many pages loses only
+  // a few round trips to the ramp.
+  let width = 1
+  for (let page = 0; page < maxPages; page += width, width = Math.min(width * 2, concurrency)) {
     const wave = []
-    for (let i = page; i < Math.min(page + concurrency, maxPages); i++) {
+    for (let i = page; i < Math.min(page + width, maxPages); i++) {
       wave.push(build().range(i * PAGE, i * PAGE + PAGE - 1))
     }
 

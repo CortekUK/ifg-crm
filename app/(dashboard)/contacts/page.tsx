@@ -16,7 +16,8 @@ import { BulkEditModal } from '@/components/contacts/BulkEditModal'
 import { useContacts, useBulkDeleteContacts, useBulkUpdateContactSubscription } from '@/lib/hooks/useContacts'
 import { useContactStats } from '@/lib/hooks/useContactStats'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
-import { fetchRankedContactIds, orderByIds, IN_CHUNK_SIZE } from '@/lib/contacts/search'
+import { fetchContactsForExport, contactsToCSV, downloadCSV, exportFilename } from '@/lib/contacts/export'
+import type { Row } from '@/lib/reports/csv'
 import { useAddContactsToList, useLists } from '@/lib/hooks/useLists'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { createClient } from '@/lib/supabase/client'
@@ -219,166 +220,37 @@ function ContactsPageContent() {
   // Export helpers
   const [isExporting, setIsExporting] = useState(false)
 
-  const buildExportQuery = useCallback(async () => {
-    const supabase = createClient()
-
-    // Replicate the same filter logic from useContacts but without pagination
-    let contactIdsFromDeals: string[] | null = null
-
-    if (filters.pipeline_id) {
-      const { data: deals } = await supabase
-        .from('deals')
-        .select('contact_id')
-        .eq('pipeline_id', filters.pipeline_id)
-        .not('contact_id', 'is', null)
-      contactIdsFromDeals = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
-      if (contactIdsFromDeals.length === 0) return []
-    }
-
-    if (filters.recruiter_id) {
-      const { data: deals } = await supabase
-        .from('deals')
-        .select('contact_id')
-        .eq('deal_owner_id', filters.recruiter_id)
-        .not('contact_id', 'is', null)
-      const recruiterContactIds = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
-      if (contactIdsFromDeals) {
-        contactIdsFromDeals = contactIdsFromDeals.filter(id => recruiterContactIds.includes(id))
-      } else {
-        contactIdsFromDeals = recruiterContactIds
-      }
-      if (contactIdsFromDeals.length === 0) return []
-    }
-
-    if (filters.tag_id) {
-      const { data: tagEntries } = await supabase
-        .from('contact_tags')
-        .select('contact_id')
-        .eq('tag_id', filters.tag_id)
-      const tagContactIds = [...new Set((tagEntries || []).map(e => e.contact_id))] as string[]
-      if (contactIdsFromDeals) {
-        contactIdsFromDeals = contactIdsFromDeals.filter(id => tagContactIds.includes(id))
-      } else {
-        contactIdsFromDeals = tagContactIds
-      }
-      if (contactIdsFromDeals.length === 0) return []
-    }
-
-    // When searching, go through the same ranked database function the list
-    // uses. Building the predicate a second time here is how this drifted
-    // before: select-all and export silently disagreed with what was on
-    // screen, because both copies had the same full-name bug.
-    const searchTerm = debouncedSearch.trim()
-    if (searchTerm) {
-      const { ids } = await fetchRankedContactIds(supabase, {
-        search: searchTerm,
-        contactIds: contactIdsFromDeals,
+  // All three contact exports — this page, a list, a tag — share one query
+  // definition and one CSV writer in lib/contacts/export.ts, and all of them
+  // page past the 1000-row cap. This export used to stop at exactly 1000.
+  const runExport = useCallback(
+    () =>
+      fetchContactsForExport(createClient(), {
         filters,
+        search: debouncedSearch,
         sortBy,
         sortOrder,
-        // Export covers the whole result set rather than one page. The cap
-        // is a guard against an accidental unbounded fetch, not a limit
-        // anyone is expected to reach.
-        limit: 50000,
-        offset: 0,
-      })
-      if (ids.length === 0) return []
-
-      const rows: Contact[] = []
-      for (let i = 0; i < ids.length; i += IN_CHUNK_SIZE) {
-        const { data, error } = await supabase
-          .from('contacts')
-          .select('*')
-          .in('id', ids.slice(i, i + IN_CHUNK_SIZE))
-        if (error) throw error
-        rows.push(...((data || []) as Contact[]))
-      }
-      return orderByIds(rows, ids)
-    }
-
-    let query = supabase.from('contacts').select('*')
-
-    if (contactIdsFromDeals) {
-      query = query.in('id', contactIdsFromDeals)
-    }
-    if (filters.graduation_year) query = query.eq('graduation_year', filters.graduation_year)
-    if (filters.gender) query = query.eq('gender', filters.gender)
-    if (filters.country) query = query.eq('country', filters.country)
-    if (filters.position) query = query.eq('position', filters.position)
-    if (filters.state) query = query.eq('state', filters.state)
-    if (filters.phone_prefix) {
-      const p = filters.phone_prefix
-      query = query.or(
-        [
-          `phone.ilike.${p}%`,
-          `phone.ilike.+_${p}%`,
-          `phone.ilike.+__${p}%`,
-          `phone.ilike.+___${p}%`,
-          `phone.ilike.+_ ${p}%`,
-          `phone.ilike.+__ ${p}%`,
-          `phone.ilike.+___ ${p}%`,
-          `phone.ilike.(${p})%`,
-          `phone.ilike.+_(${p})%`,
-          `phone.ilike.+_ (${p})%`,
-          `phone.ilike.0${p}%`,
-        ].join(',')
-      )
-    }
-
-    if (sortBy) {
-      query = query.order(sortBy, { ascending: sortOrder === 'asc' })
-    } else {
-      query = query.order('created_at', { ascending: false })
-    }
-
-    const { data, error } = await query
-    if (error) throw error
-    return data || []
-  }, [filters, debouncedSearch, sortBy, sortOrder])
-
-  const exportToCSV = useCallback((rows: Contact[], filename: string) => {
-    const headers = [
-      'First Name', 'Last Name', 'Email', 'Phone', 'Country', 'State', 'City',
-      'Position', 'Club', 'Graduation Year', 'Gender', 'GPA', 'Date of Birth',
-      'Parent Name', 'Parent Email', 'Parent Phone',
-      'Source', 'Subscription Status', 'Notes',
-    ]
-    const csvRows = rows.map((c) => [
-      c.first_name || '', c.last_name || '', c.email || '', c.phone || '',
-      c.country || '', c.state || '', c.city || '',
-      c.position || '', c.club_name || '',
-      c.graduation_year?.toString() || '', c.gender || '', c.gpa?.toString() || '',
-      c.date_of_birth || '',
-      c.parent_name || '', c.parent_email || '', c.parent_phone || '',
-      c.source || '', c.subscription_status || '', c.notes || '',
-    ])
-    const csv = [headers, ...csvRows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [])
+      }),
+    [filters, debouncedSearch, sortBy, sortOrder],
+  )
 
   // Handle export - fetches ALL filtered contacts, not just current page
   const handleExport = useCallback(async () => {
     setIsExporting(true)
     try {
-      const allContacts = await buildExportQuery()
+      const allContacts = await runExport()
       if (allContacts.length === 0) {
         toast({ title: 'Nothing to export', description: 'No contacts match the current filters.' })
         return
       }
-      exportToCSV(allContacts, `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`)
-      toast({ title: 'Exported', description: `${allContacts.length} contact(s) exported to CSV.` })
+      downloadCSV(contactsToCSV(allContacts), exportFilename('all'))
+      toast({ title: 'Exported', description: `${allContacts.length.toLocaleString()} contact(s) exported to CSV.` })
     } catch {
       toast({ title: 'Export failed', description: 'Something went wrong. Please try again.', variant: 'destructive' })
     } finally {
       setIsExporting(false)
     }
-  }, [buildExportQuery, exportToCSV])
+  }, [runExport])
 
   // Grid view handlers
   const handleEmailClick = useCallback((contact: Contact) => {
@@ -395,9 +267,9 @@ function ContactsPageContent() {
   const handleBulkExport = useCallback(() => {
     const selected = contacts.filter((c) => selectedIds.has(c.id))
     if (selected.length === 0) return
-    exportToCSV(selected, `contacts-selected-${new Date().toISOString().slice(0, 10)}.csv`)
+    downloadCSV(contactsToCSV(selected as unknown as Row[]), exportFilename('selected'))
     toast({ title: 'Exported', description: `${selected.length} contact(s) exported to CSV.` })
-  }, [contacts, selectedIds, exportToCSV])
+  }, [contacts, selectedIds])
 
   const handleBulkDelete = useCallback(async () => {
     try {

@@ -22,7 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, ChevronLeft, ChevronRight, Users } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Users, Download, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
+import { toast } from '@/lib/hooks/use-toast'
+import { fetchTagContactsForExport, contactsToCSV, downloadCSV, exportFilename } from '@/lib/contacts/export'
 import { useTagContacts } from '@/lib/hooks/useTags'
 import type { TagWithCount } from '@/lib/hooks/useTags'
 import { formatDate } from '@/lib/utils/format'
@@ -38,7 +42,31 @@ export function TagDetailSheet({ tag, isOpen, onClose }: TagDetailSheetProps) {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [isExporting, setIsExporting] = useState(false)
   const pageSize = 20
+
+  const { data: currentUser } = useCurrentUser()
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+
+  // Same export as the Contacts page and lists (lib/contacts/export.ts): every
+  // contact carrying the tag, paged past the 1000-row cap.
+  const handleExportCSV = async () => {
+    if (!tag) return
+    setIsExporting(true)
+    try {
+      const rows = await fetchTagContactsForExport(createClient(), tag.id)
+      downloadCSV(contactsToCSV(rows), exportFilename(tag.name))
+      toast({ title: 'Export complete', description: `${rows.length.toLocaleString()} contact(s) exported to CSV.` })
+    } catch (error) {
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300)
@@ -94,6 +122,24 @@ export function TagDetailSheet({ tag, isOpen, onClose }: TagDetailSheetProps) {
                     {tag.description || 'No description'}
                   </SheetDescription>
                 </div>
+                {/* Admin-only, matching the Contacts page and list exports. The
+                    right margin keeps it clear of the sheet's close button. */}
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportCSV}
+                    disabled={isExporting || totalContacts === 0}
+                    className="mr-8 shrink-0"
+                  >
+                    {isExporting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    {isExporting ? 'Exporting…' : 'Export CSV'}
+                  </Button>
+                )}
               </div>
               <div className="flex items-center gap-3 mt-3">
                 <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">

@@ -1,7 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Contact, ContactTag, UseContactsParams } from '@/lib/types/contacts'
-import { fetchRankedContactIds, orderByIds } from '@/lib/contacts/search'
+import {
+  applyContactFilters,
+  fetchRankedContactIds,
+  orderByIds,
+  orderContacts,
+  resolveDealContactIds,
+  tagJoin,
+} from '@/lib/contacts/search'
 
 /**
  * Batch-fetch tags for a page of contacts and attach them in place.
@@ -46,62 +53,17 @@ export function useContacts(params?: UseContactsParams) {
   return useQuery<{ contacts: Contact[]; total: number }>({
     queryKey: ['contacts', params],
     queryFn: async () => {
-      // If filtering by pipeline or recruiter, we need to get contact IDs first
-      let contactIdsFromDeals: string[] | null = null
-
-      if (params?.filters?.pipeline_id && params.filters.pipeline_id !== 'all') {
-        const { data: deals } = await supabase
-          .from('deals')
-          .select('contact_id')
-          .eq('pipeline_id', params.filters.pipeline_id)
-          .not('contact_id', 'is', null)
-
-        contactIdsFromDeals = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
-        if (contactIdsFromDeals.length === 0) {
-          return { contacts: [], total: 0 }
-        }
+      // Pipeline / recruiter narrow by deal; the tag filter is applied inside
+      // the database (a contact_tags inner join), never as an id list — a
+      // 1,926-contact tag used to be fetched capped at 1000 and then sent as
+      // ids in the URL, which PostgREST rejects. Filters are shared with the
+      // export (lib/contacts/search.ts) so the two can't disagree.
+      const filters = params?.filters ?? {}
+      const contactIdsFromDeals = await resolveDealContactIds(supabase, filters)
+      if (contactIdsFromDeals && contactIdsFromDeals.length === 0) {
+        return { contacts: [], total: 0 }
       }
-
-      if (params?.filters?.recruiter_id && params.filters.recruiter_id !== 'all') {
-        const { data: deals } = await supabase
-          .from('deals')
-          .select('contact_id')
-          .eq('deal_owner_id', params.filters.recruiter_id)
-          .not('contact_id', 'is', null)
-
-        const recruiterContactIds = [...new Set(deals?.map(d => d.contact_id).filter(Boolean))] as string[]
-
-        if (contactIdsFromDeals) {
-          // Intersect with pipeline filter
-          contactIdsFromDeals = contactIdsFromDeals.filter(id => recruiterContactIds.includes(id))
-        } else {
-          contactIdsFromDeals = recruiterContactIds
-        }
-
-        if (contactIdsFromDeals.length === 0) {
-          return { contacts: [], total: 0 }
-        }
-      }
-
-      // Filter by tag
-      if (params?.filters?.tag_id && params.filters.tag_id !== 'all') {
-        const { data: tagEntries } = await supabase
-          .from('contact_tags')
-          .select('contact_id')
-          .eq('tag_id', params.filters.tag_id)
-
-        const tagContactIds = [...new Set((tagEntries || []).map(e => e.contact_id))] as string[]
-
-        if (contactIdsFromDeals) {
-          contactIdsFromDeals = contactIdsFromDeals.filter(id => tagContactIds.includes(id))
-        } else {
-          contactIdsFromDeals = tagContactIds
-        }
-
-        if (contactIdsFromDeals.length === 0) {
-          return { contacts: [], total: 0 }
-        }
-      }
+      const tagId = filters.tag_id && filters.tag_id !== 'all' ? filters.tag_id : null
 
       // Searching takes a different route: matching and relevance ranking
       // happen in the `search_contacts_ranked` database function, which
@@ -116,7 +78,8 @@ export function useContacts(params?: UseContactsParams) {
         const { ids, total } = await fetchRankedContactIds(supabase, {
           search: searchTerm,
           contactIds: contactIdsFromDeals,
-          filters: params?.filters,
+          filters,
+          tagId,
           sortBy: params?.sortBy,
           sortOrder: params?.sortOrder,
           limit: pageSize,
@@ -140,61 +103,13 @@ export function useContacts(params?: UseContactsParams) {
 
       let query = supabase
         .from('contacts')
-        .select('*', { count: 'exact' })
+        .select('*' + tagJoin(tagId), { count: 'exact' })
 
-      // Filter by contact IDs if we have pipeline/recruiter filters
       if (contactIdsFromDeals) {
         query = query.in('id', contactIdsFromDeals)
       }
-
-      // Apply filters
-      if (params?.filters?.subscription_status && params.filters.subscription_status !== 'all') {
-        query = query.eq('subscription_status', params.filters.subscription_status)
-      }
-      if (params?.filters?.graduation_year) {
-        query = query.eq('graduation_year', params.filters.graduation_year)
-      }
-      if (params?.filters?.gender && params.filters.gender !== 'all') {
-        query = query.eq('gender', params.filters.gender)
-      }
-      if (params?.filters?.country && params.filters.country !== 'all') {
-        query = query.eq('country', params.filters.country)
-      }
-      if (params?.filters?.position && params.filters.position !== 'all') {
-        query = query.eq('position', params.filters.position)
-      }
-      if (params?.filters?.owner_id && params.filters.owner_id !== 'all') {
-        query = query.eq('owner_id', params.filters.owner_id)
-      }
-      if (params?.filters?.state && params.filters.state !== 'all') {
-        query = query.eq('state', params.filters.state)
-      }
-      if (params?.filters?.phone_prefix) {
-        // Area codes appear after optional country code: +1 949..., (949)..., 0161..., etc.
-        const p = params.filters.phone_prefix
-        query = query.or(
-          [
-            `phone.ilike.${p}%`,         // 9491234567
-            `phone.ilike.+_${p}%`,        // +19491234567 (1-digit country code)
-            `phone.ilike.+__${p}%`,       // +441234567890 (2-digit country code)
-            `phone.ilike.+___${p}%`,      // +3901234567890 (3-digit country code)
-            `phone.ilike.+_ ${p}%`,       // +1 9491234567
-            `phone.ilike.+__ ${p}%`,      // +44 2012345678
-            `phone.ilike.+___ ${p}%`,     // +391 021234567
-            `phone.ilike.(${p})%`,        // (949) 1234567
-            `phone.ilike.+_(${p})%`,      // +1(949)1234567
-            `phone.ilike.+_ (${p})%`,     // +1 (949) 1234567
-            `phone.ilike.0${p}%`,         // 02012345678 (domestic UK/EU)
-          ].join(',')
-        )
-      }
-
-      // Apply sorting
-      if (params?.sortBy) {
-        query = query.order(params.sortBy, { ascending: params.sortOrder === 'asc' })
-      } else {
-        query = query.order('created_at', { ascending: false })
-      }
+      query = applyContactFilters(query, filters)
+      query = orderContacts(query, params?.sortBy, params?.sortOrder)
 
       // Apply pagination
       if (params?.page && params?.pageSize) {
@@ -207,7 +122,10 @@ export function useContacts(params?: UseContactsParams) {
 
       if (error) throw error
 
-      return { contacts: await attachTags(supabase, data || []), total: count || 0 }
+      // The select string is computed (the tag join is optional), which
+      // supabase-js can't type-infer; the columns are still `*` from contacts.
+      const rows = (data || []) as unknown as Contact[]
+      return { contacts: await attachTags(supabase, rows), total: count || 0 }
     },
   })
 }

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { fetchRankedContactIds } from '@/lib/contacts/search'
 import type { List, ListWithContacts, ListFilters, CreateListInput, UpdateListInput, ListStats } from '@/lib/types/lists'
+import { fetchListContactsForExport, contactsToCSV } from '@/lib/contacts/export'
 
 export function useLists(filters?: ListFilters) {
   const supabase = createClient()
@@ -412,53 +413,13 @@ export function useExportListContacts() {
   const supabase = createClient()
 
   return useMutation({
+    // Shared with the Contacts page and tag exports (lib/contacts/export.ts).
+    // This used to select a `grad_year` column that doesn't exist, so every
+    // list export failed — and it was unpaged, so fixing only the column
+    // would still have stopped at 1000 contacts.
     mutationFn: async (listId: string) => {
-      // Get all contacts in the list
-      const { data, error } = await supabase
-        .from('contact_lists')
-        .select(`
-          contact:contacts(
-            first_name,
-            last_name,
-            email,
-            phone,
-            grad_year
-          )
-        `)
-        .eq('list_id', listId)
-        .order('added_at', { ascending: false })
-
-      if (error) throw error
-
-      // Convert to CSV
-      const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Grad Year']
-      const rows = (data || []).map((item) => {
-        const contactData = item.contact
-        const contact = Array.isArray(contactData) ? contactData[0] : contactData
-        if (!contact) return []
-        return [
-          contact.first_name || '',
-          contact.last_name || '',
-          contact.email || '',
-          contact.phone || '',
-          contact.grad_year?.toString() || '',
-        ]
-      }).filter((row) => row.length > 0)
-
-      // Build CSV string
-      const escapeCSV = (value: string) => {
-        if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-          return `"${value.replace(/"/g, '""')}"`
-        }
-        return value
-      }
-
-      const csvLines = [
-        headers.map(escapeCSV).join(','),
-        ...rows.map((row) => row.map(escapeCSV).join(',')),
-      ]
-
-      return csvLines.join('\n')
+      const rows = await fetchListContactsForExport(supabase, listId)
+      return { csv: contactsToCSV(rows), count: rows.length }
     },
   })
 }
