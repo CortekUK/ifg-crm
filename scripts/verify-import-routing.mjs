@@ -368,6 +368,56 @@ try {
   check('but it still gets its own location and position tags',
     T('mix-e').includes('ON') && T('mix-e').includes('Outside Midfielder') && T('mix-e').includes('Canada'),
     JSON.stringify(T('mix-e')))
+
+  // ==================================================================
+  // Phase 3 — parent email as the contact email.
+  //
+  // The dialog fills a blank email from the Parent Email column before it
+  // sends (lib/utils/import-parent-email.ts, unit-tested separately), so the
+  // route receives rows whose email equals their parent email. Those must be
+  // tagged "Parent Email" and marked on the record — even with every auto-tag
+  // category switched off, because that tag belongs to the parent-email
+  // checkbox, not to the categories.
+  // ==================================================================
+  console.log('\nphase 3 — parent email as the contact email:')
+
+  const PARENT = `parent-kid${SUFFIX}`
+  const pHeaders = ['Email', 'First Name', 'Last Name', 'Parent Email']
+  const pMapping = { 0: 'email', 1: 'first_name', 2: 'last_name', 3: 'parent_email' }
+  const pRows = [
+    [PARENT, 'Kid', 'Parentmail', PARENT],                               // email filled from parent
+    [`own-kid${SUFFIX}`, 'Own', 'Email', `someone-else${SUFFIX}`],       // has their own: no tag
+  ]
+
+  const res4 = await fetch(`${BASE}/api/contacts/bulk-import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', cookie },
+    body: JSON.stringify({
+      rows: pRows, mapping: pMapping, headers: pHeaders,
+      listIds: [], duplicateStrategy: 'update',
+      routing: { cohortLists: {}, tagCategories: [] }, // every auto-tag category OFF
+      dateOrder: 'DMY', rowOffset: 0,
+    }),
+  })
+  const body4 = await res4.json().catch(() => ({}))
+  check('parent-email rows import', res4.ok && body4.created === 2, `${res4.status} ${JSON.stringify(body4).slice(0, 160)}`)
+
+  const { data: pMade } = await admin
+    .from('contacts')
+    .select('id, email, parent_email, custom_fields')
+    .in('email', [PARENT, `own-kid${SUFFIX}`])
+  const kid = (pMade ?? []).find((c) => c.email === PARENT)
+  const own = (pMade ?? []).find((c) => c.email === `own-kid${SUFFIX}`)
+
+  check('contact saved with the parent address as its email', kid?.email === PARENT && kid?.parent_email === PARENT)
+  check('marked email_source = parent on the record', kid?.custom_fields?.email_source === 'parent', JSON.stringify(kid?.custom_fields))
+  check('a player with their own email is not marked', !own?.custom_fields?.email_source, JSON.stringify(own?.custom_fields))
+
+  const { data: pTags } = await admin
+    .from('contact_tags').select('contact_id, tags(name)').in('contact_id', [kid?.id, own?.id].filter(Boolean))
+  const tagNames = (id) => (pTags ?? []).filter((t) => t.contact_id === id).map((t) => t.tags.name)
+  check('tagged Parent Email even with every auto-tag category off', tagNames(kid?.id).includes('Parent Email'), JSON.stringify(tagNames(kid?.id)))
+  check('the own-email player is not tagged Parent Email', !tagNames(own?.id).includes('Parent Email'), JSON.stringify(tagNames(own?.id)))
 } finally {
   if (KEEP) {
     console.log('\n--keep: leaving the verification rows in place')

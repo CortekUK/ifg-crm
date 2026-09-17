@@ -84,6 +84,9 @@ interface TagRef {
   category: string
 }
 
+/** Marks a contact whose email address belongs to their parent. */
+const PARENT_EMAIL_TAG = 'Parent Email'
+
 /** Hard ceiling per request — keeps each call inside maxDuration. */
 const MAX_ROWS_PER_REQUEST = 1000
 
@@ -405,19 +408,39 @@ export async function POST(request: NextRequest) {
       const customFields = buildCustomFields(row, headers, mapping, skippedColumns)
       const createdAt = createdAtCol !== null ? parseCreatedAt(row[createdAtCol], dateOrder) : null
 
+      // An email that IS the parent's email reaches a parent, not the player —
+      // whether the importer filled it in from the Parent Email column or the
+      // file already held it that way. Derived from the data rather than a
+      // client flag, so it stays true however the row arrived. Recorded on the
+      // contact and as a tag, so campaigns written in the player's voice can
+      // exclude them.
+      const reachesParent =
+        typeof contact.parent_email === 'string' &&
+        contact.parent_email.trim().toLowerCase() === email
+
       const record: Record<string, unknown> = {
         ...contact,
-        ...(customFields ? { custom_fields: customFields } : {}),
+        ...(customFields || reachesParent
+          ? {
+              custom_fields: {
+                ...(customFields ?? {}),
+                ...(reachesParent ? { email_source: 'parent' } : {}),
+              },
+            }
+          : {}),
         ...(createdAt ? { created_at: createdAt } : {}),
         source: 'csv_import',
         sport: 'football',
       }
 
-      byEmail.set(email, {
-        record,
-        tags: collectTags(row, mapping, contact, listDerived.tags, allowedTagCategories),
-        row: rowNumber,
-      })
+      const tags = collectTags(row, mapping, contact, listDerived.tags, allowedTagCategories)
+      // Governed by the parent-email checkbox, not by the auto-tag categories,
+      // so switching off e.g. "From the Tags column" can't silently drop it.
+      if (reachesParent && !tags.some((t) => t.name.toLowerCase() === PARENT_EMAIL_TAG.toLowerCase())) {
+        tags.push({ name: PARENT_EMAIL_TAG, category: 'source' })
+      }
+
+      byEmail.set(email, { record, tags, row: rowNumber })
     })
 
     const emails = [...byEmail.keys()]

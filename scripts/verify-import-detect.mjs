@@ -44,6 +44,7 @@ try {
         path.join(ROOT, 'lib/utils/csv.ts'),
         path.join(ROOT, 'lib/utils/import-normalise.ts'),
         path.join(ROOT, 'lib/forms/lead-routing.ts'),
+        path.join(ROOT, 'lib/utils/import-parent-email.ts'),
       ],
     }),
   )
@@ -69,6 +70,7 @@ try {
     countryFromState,
   } = require_(path.join(BUILD, 'lib/utils/import-normalise.js'))
   const { cohortListNames, genderTagName } = require_(path.join(BUILD, 'lib/forms/lead-routing.js'))
+  const { applyParentEmailFallback } = require_(path.join(BUILD, 'lib/utils/import-parent-email.js'))
 
   const MAPPING = {
     0: 'email', 1: 'first_name', 2: 'last_name', 3: 'gender',
@@ -160,6 +162,64 @@ try {
   } else {
     console.log(`\n  ok    row accounting — ${d.totalRows} counted, ${d.skippedRows} skipped for no email`)
   }
+
+  // ---- parent email as the contact email ---------------------------------
+  //
+  // One address, one contact: an address goes to a row only when nobody else
+  // has a claim on it, and a clash is named, never resolved silently.
+  console.log('\nparent email fallback:')
+  const check = (label, cond, detail = '') => {
+    if (cond) console.log(`  ok    ${label}`)
+    else { console.error(`  FAIL  ${label}${detail ? ` — ${detail}` : ''}`); ok = false }
+  }
+
+  const PM = { 0: 'email', 1: 'first_name', 2: 'last_name', 3: 'parent_email' }
+  const P = [
+    ['own@x.com', 'Olly', 'Own', 'p0@x.com'],    // 0 has own email: untouched
+    ['', 'Sole', 'Kid', 'solo@x.com'],           // 1 only child: takes parent email
+    ['', 'Tom', 'Smith', 'fam@x.com'],           // 2 first sibling: takes it
+    ['', 'Sam', 'Smith', 'fam@x.com'],           // 3 second sibling: clash
+    ['', 'Tom', 'Smith', 'FAM@x.com '],          // 4 Tom's row repeated: same person, fine
+    ['', 'Kid', 'Zero', 'own@x.com'],            // 5 address is row 0's OWN email: clash
+    ['', 'Bob', 'Doe', 'crm@x.com'],             // 6 CRM holds it under another name: clash
+    ['', 'Liam', 'Ray', 'crm2@x.com'],           // 7 CRM holds it under THIS name: re-run, fine
+    ['', 'No', 'Contact', ''],                   // 8 nothing to use
+    ['', 'Tom', 'Lee', 'fam2@x.com'],            // 9 CRM has Sam Lee on it: clash
+    ['', 'Sam', 'Lee', 'fam2@x.com'],            // 10 Sam Lee himself: fine, even though row 9 came first
+  ]
+  const owners = new Map([
+    ['crm@x.com', { first_name: 'Jane', last_name: 'Doe' }],
+    ['crm2@x.com', { first_name: 'Liam', last_name: 'Ray' }],
+    ['fam2@x.com', { first_name: 'Sam', last_name: 'Lee' }],
+  ])
+
+  const on = applyParentEmailFallback(P, PM, owners, true)
+  check('only child takes the parent email', on.fromParent.has(1) && on.rows[1][0] === 'solo@x.com')
+  check('first sibling takes it', on.fromParent.has(2) && on.rows[2][0] === 'fam@x.com')
+  check('second sibling is named, not merged',
+    on.clashes.get(3) === 'Shares a parent email with Tom Smith (row 3)', on.clashes.get(3))
+  check('a repeated row for the same player is not a clash', on.fromParent.has(4) && !on.clashes.has(4))
+  check("another row's own email is never handed out",
+    on.clashes.get(5) === "Parent email is already Olly Own's own email (row 1)", on.clashes.get(5))
+  check("a different person's CRM address is never handed out",
+    on.clashes.get(6) === 'Parent email already belongs to Jane Doe in the CRM', on.clashes.get(6))
+  check('the same player already in the CRM is a re-run, not a clash',
+    on.fromParent.has(7) && !on.clashes.has(7))
+  check('the CRM owner wins over whichever sibling comes first in the file',
+    on.clashes.has(9) && on.fromParent.has(10) && !on.clashes.has(10),
+    `9=${on.clashes.get(9)} 10 used=${on.fromParent.has(10)}`)
+  check('a row with its own email is left alone', !on.fromParent.has(0) && on.rows[0][0] === 'own@x.com')
+  check('a row with nothing to use is left alone', !on.fromParent.has(8) && !on.clashes.has(8))
+  check('eligible counts every row that could use a parent email', on.eligible === 9, `eligible=${on.eligible}`)
+  check('input rows are not mutated', P[1][0] === '' && P[2][0] === '')
+
+  const off = applyParentEmailFallback(P, PM, owners, false)
+  check('unticked: nothing substituted, nothing flagged',
+    off.fromParent.size === 0 && off.clashes.size === 0 && off.eligible === 9)
+
+  const unmapped = applyParentEmailFallback(P, { 0: 'email', 1: 'first_name', 2: 'last_name' }, owners, true)
+  check('no Parent Email column mapped: feature stays out of the way',
+    unmapped.eligible === 0 && unmapped.fromParent.size === 0)
 
   console.log(ok ? '\nPASS' : '\nFAIL')
   process.exit(ok ? 0 : 1)

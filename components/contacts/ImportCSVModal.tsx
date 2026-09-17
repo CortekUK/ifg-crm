@@ -21,6 +21,8 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { Upload, FileText, CheckCircle2, AlertTriangle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { parseCSV, autoMapColumns, validateRow, hasNameMapping, CONTACT_FIELDS, type RowValidationError } from '@/lib/utils/csv'
+import { applyParentEmailFallback, type EmailOwners } from '@/lib/utils/import-parent-email'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   useImportContacts,
   detectFileDateOrder,
@@ -51,8 +53,9 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   const [cohortOverrides, setCohortOverrides] = useState<Record<string, string | null>>({})
   const [tagCategories, setTagCategories] = useState<Set<TagCategory>>(new Set(TAG_CATEGORIES))
   const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('update')
-  const [validationErrors, setValidationErrors] = useState<RowValidationError[]>([])
-  const [duplicateEmails, setDuplicateEmails] = useState<Set<string>>(new Set())
+  /** Who already holds each address in the CRM — own emails AND parent emails. */
+  const [emailOwners, setEmailOwners] = useState<EmailOwners>(new Map())
+  const [useParentEmail, setUseParentEmail] = useState(true)
   const [checkingDuplicates, setCheckingDuplicates] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [importProgress, setImportProgress] = useState<{ processed: number; total: number } | null>(null)
@@ -73,8 +76,8 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     setCohortOverrides({})
     setTagCategories(new Set(TAG_CATEGORIES))
     setDuplicateStrategy('update')
-    setValidationErrors([])
-    setDuplicateEmails(new Set())
+    setEmailOwners(new Map())
+    setUseParentEmail(true)
     setCheckingDuplicates(false)
     setImportResult(null)
     setImportProgress(null)
@@ -195,44 +198,40 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       return
     }
 
-    // Validate rows
-    const errors: RowValidationError[] = []
-    rows.forEach((row, idx) => {
-      const err = validateRow(row, mapping, idx + 1)
-      if (err) errors.push(err)
-    })
-    setValidationErrors(errors)
-
-    // Check for duplicate emails in the database
+    // Look up who already holds every address this file could use: each row's
+    // own email, and the parent email of every row that has none. Fetched once
+    // for both, so the parent-email checkbox can be toggled on the review
+    // screen without another round of queries.
     setCheckingDuplicates(true)
     try {
-      const emailColIndex = Object.entries(mapping).find(([, v]) => v === 'email')?.[0]
-      if (emailColIndex !== undefined) {
-        const emails = rows
-          .map((row) => row[Number(emailColIndex)]?.trim().toLowerCase())
-          .filter(Boolean)
-
-        const uniqueEmails = [...new Set(emails)]
-        const dupes = new Set<string>()
-
-        // Check in batches of 100
-        const supabase = (await import('@/lib/supabase/client')).createClient()
-        for (let i = 0; i < uniqueEmails.length; i += 100) {
-          const batch = uniqueEmails.slice(i, i + 100)
-          const { data } = await supabase
-            .from('contacts')
-            .select('email')
-            .in('email', batch)
-
-          data?.forEach((c) => {
-            if (c.email) dupes.add(c.email.toLowerCase())
-          })
+      const emailCol = Object.entries(mapping).find(([, v]) => v === 'email')?.[0]
+      const parentCol = Object.entries(mapping).find(([, v]) => v === 'parent_email')?.[0]
+      const candidates = new Set<string>()
+      for (const row of rows) {
+        const own = emailCol !== undefined ? row[Number(emailCol)]?.trim().toLowerCase() : ''
+        if (own) {
+          candidates.add(own)
+        } else if (parentCol !== undefined) {
+          const parent = row[Number(parentCol)]?.trim().toLowerCase()
+          if (parent) candidates.add(parent)
         }
-
-        setDuplicateEmails(dupes)
       }
+
+      const unique = [...candidates]
+      const owners: EmailOwners = new Map()
+      const supabase = (await import('@/lib/supabase/client')).createClient()
+      for (let i = 0; i < unique.length; i += 100) {
+        const { data } = await supabase
+          .from('contacts')
+          .select('email, first_name, last_name')
+          .in('email', unique.slice(i, i + 100))
+        data?.forEach((c) => {
+          if (c.email) owners.set(c.email.toLowerCase(), { first_name: c.first_name, last_name: c.last_name })
+        })
+      }
+      setEmailOwners(owners)
     } catch {
-      // Non-blocking: if dedup check fails, proceed anyway
+      // Non-blocking: if the lookup fails, proceed without duplicate detection.
     } finally {
       setCheckingDuplicates(false)
     }
@@ -240,7 +239,51 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     setStep(3)
   }
 
-  const validRows = rows.filter((_, idx) => !validationErrors.find((e) => e.row === idx + 1))
+  const prepared = useMemo(
+    () => applyParentEmailFallback(rows, mapping, emailOwners, useParentEmail),
+    [rows, mapping, emailOwners, useParentEmail],
+  )
+
+  // Derived rather than stored, so ticking the parent-email box updates the
+  // skipped list immediately. A sibling clash replaces the generic "Email is
+  // required" with a reason that names who holds the address.
+  const validationErrors = useMemo(() => {
+    const errors: RowValidationError[] = []
+    prepared.rows.forEach((row, idx) => {
+      const clash = prepared.clashes.get(idx)
+      if (clash) {
+        errors.push({ row: idx + 1, field: 'email', message: clash })
+        return
+      }
+      const err = validateRow(row, mapping, idx + 1)
+      if (err) errors.push(err)
+    })
+    return errors
+  }, [prepared, mapping])
+
+  // Memoised with a Set: the previous inline filter ran a linear find per row
+  // on every render (~18M comparisons on a 10k file with 1.7k skipped rows),
+  // and handed useMemo a fresh array each time so detection re-ran constantly.
+  const validRows = useMemo(() => {
+    const bad = new Set(validationErrors.map((e) => e.row))
+    return prepared.rows.filter((_, idx) => !bad.has(idx + 1))
+  }, [prepared, validationErrors])
+
+  const usedParentEmail = useMemo(() => {
+    const bad = new Set(validationErrors.map((e) => e.row))
+    return [...prepared.fromParent].filter((idx) => !bad.has(idx + 1)).length
+  }, [prepared, validationErrors])
+
+  const duplicateCount = useMemo(() => {
+    const emailCol = Object.entries(mapping).find(([, v]) => v === 'email')?.[0]
+    if (emailCol === undefined) return 0
+    const seen = new Set<string>()
+    for (const row of validRows) {
+      const e = row[Number(emailCol)]?.trim().toLowerCase()
+      if (e && emailOwners.has(e)) seen.add(e)
+    }
+    return seen.size
+  }, [validRows, mapping, emailOwners])
 
   /**
    * Gender / graduation year implied by the lists chosen for the whole file.
@@ -608,12 +651,12 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
                     </div>
                   </div>
 
-                  {duplicateEmails.size > 0 && (
+                  {duplicateCount > 0 && (
                     <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                       <div className="text-sm">
                         <p className="font-medium text-amber-800 dark:text-amber-200">
-                          {duplicateEmails.size} duplicate email{duplicateEmails.size !== 1 ? 's' : ''} found
+                          {duplicateCount.toLocaleString()} duplicate email{duplicateCount !== 1 ? 's' : ''} found
                         </p>
                         <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
                           {duplicateStrategy === 'skip'
@@ -653,45 +696,132 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
                     })()}
                   </div>
 
-                  {validationErrors.length > 0 && (
-                    <div className="border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-950/30 max-h-48 overflow-y-auto">
-                      <div className="flex items-center gap-1 mb-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                        <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Validation warnings (these rows will be skipped):</p>
-                      </div>
-                      <div className="space-y-2">
-                        {validationErrors.slice(0, 10).map((err, i) => {
-                          const row = rows[err.row - 1]
-                          const emailCol = Object.entries(mapping).find(([, v]) => v === 'email')?.[0]
-                          const firstNameCol = Object.entries(mapping).find(([, v]) => v === 'first_name')?.[0]
-                          const lastNameCol = Object.entries(mapping).find(([, v]) => v === 'last_name')?.[0]
-                          const fullNameCol = Object.entries(mapping).find(([, v]) => v === 'full_name')?.[0]
-                          const fieldCol = Object.entries(mapping).find(([, v]) => v === err.field)?.[0]
-
-                          const email = emailCol != null ? row?.[Number(emailCol)] : undefined
-                          const name = fullNameCol != null
-                            ? row?.[Number(fullNameCol)]
-                            : [firstNameCol != null ? row?.[Number(firstNameCol)] : '', lastNameCol != null ? row?.[Number(lastNameCol)] : ''].filter(Boolean).join(' ')
-                          const fieldValue = fieldCol != null ? row?.[Number(fieldCol)] : undefined
-
-                          return (
-                            <div key={i} className="text-xs text-yellow-700 dark:text-yellow-300 border-l-2 border-yellow-300 dark:border-yellow-700 pl-2">
-                              <p className="font-medium">Row {err.row}: {err.message}</p>
-                              <p className="text-yellow-600 dark:text-yellow-400 mt-0.5">
-                                {name && <span>{name}</span>}
-                                {name && email && <span> &middot; </span>}
-                                {email && <span>{email}</span>}
-                                {fieldValue && <span> &middot; {err.field}: <span className="font-mono">{fieldValue}</span></span>}
-                              </p>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {validationErrors.length > 10 && (
-                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">...and {validationErrors.length - 10} more</p>
-                      )}
+                  {prepared.eligible > 0 && (
+                    <div className="rounded-lg border border-border p-3">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <Checkbox
+                          checked={useParentEmail}
+                          onCheckedChange={(v) => setUseParentEmail(v === true)}
+                          className="mt-0.5"
+                        />
+                        <div className="text-sm">
+                          <p className="font-medium">
+                            Use the parent email for players who don&apos;t have their own
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {useParentEmail ? (
+                              <>
+                                {usedParentEmail.toLocaleString()} of {prepared.eligible.toLocaleString()}{' '}
+                                {prepared.eligible === 1 ? 'player' : 'players'} will be imported with their
+                                parent&apos;s email and tagged <strong className="font-medium">Parent Email</strong>,
+                                so campaigns can tell they reach a parent.
+                              </>
+                            ) : (
+                              <>
+                                {prepared.eligible.toLocaleString()}{' '}
+                                {prepared.eligible === 1 ? 'player has' : 'players have'} a parent email but no
+                                email of their own. Tick to import them instead of skipping.
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </label>
                     </div>
                   )}
+
+                  {(() => {
+                    const col = (field: string) => {
+                      const hit = Object.entries(mapping).find(([, v]) => v === field)?.[0]
+                      return hit === undefined ? undefined : Number(hit)
+                    }
+                    const nameOf = (row: string[] | undefined) => {
+                      if (!row) return ''
+                      const full = col('__full_name__')
+                      if (full !== undefined && row[full]?.trim()) return row[full].trim()
+                      const first = col('first_name')
+                      const last = col('last_name')
+                      return [first !== undefined ? row[first] : '', last !== undefined ? row[last] : '']
+                        .map((v) => v?.trim())
+                        .filter(Boolean)
+                        .join(' ')
+                    }
+                    const parentCol = col('parent_email')
+                    const emailCol = col('email')
+                    const clashes = [...prepared.clashes.entries()]
+                    const others = validationErrors.filter((e) => !prepared.clashes.has(e.row - 1))
+
+                    return (
+                      <>
+                        {clashes.length > 0 && (
+                          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+                            <div className="mb-1 flex items-center gap-1.5">
+                              <AlertTriangle className="h-4 w-4 text-amber-600" />
+                              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                                {clashes.length} {clashes.length === 1 ? 'player shares' : 'players share'} a parent
+                                email with someone else — not imported
+                              </p>
+                            </div>
+                            <p className="mb-2 text-xs text-amber-800 dark:text-amber-300">
+                              Each email can belong to only one contact, so these need their own email before
+                              they can be added.
+                            </p>
+                            <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                              {clashes.map(([idx, reason]) => (
+                                <div
+                                  key={idx}
+                                  className="border-l-2 border-amber-400 pl-2 text-xs text-amber-900 dark:border-amber-700 dark:text-amber-200"
+                                >
+                                  <p>
+                                    <span className="font-medium">Row {idx + 1}: {nameOf(rows[idx]) || 'Unnamed'}</span>
+                                    {parentCol !== undefined && rows[idx]?.[parentCol] && (
+                                      <span className="font-mono"> · {rows[idx][parentCol].trim()}</span>
+                                    )}
+                                  </p>
+                                  <p className="text-amber-700 dark:text-amber-400">{reason}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {others.length > 0 && (
+                          <div className="border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-950/30 max-h-48 overflow-y-auto">
+                            <div className="flex items-center gap-1 mb-2">
+                              <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                                Validation warnings (these rows will be skipped):
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              {others.slice(0, 10).map((err, i) => {
+                                const row = rows[err.row - 1]
+                                const name = nameOf(row)
+                                const email = emailCol !== undefined ? row?.[emailCol] : undefined
+                                const fieldCol = col(err.field)
+                                const fieldValue = fieldCol !== undefined ? row?.[fieldCol] : undefined
+                                return (
+                                  <div key={i} className="text-xs text-yellow-700 dark:text-yellow-300 border-l-2 border-yellow-300 dark:border-yellow-700 pl-2">
+                                    <p className="font-medium">Row {err.row}: {err.message}</p>
+                                    <p className="text-yellow-600 dark:text-yellow-400 mt-0.5">
+                                      {name && <span>{name}</span>}
+                                      {name && email && <span> &middot; </span>}
+                                      {email && <span>{email}</span>}
+                                      {fieldValue && <span> &middot; {err.field}: <span className="font-mono">{fieldValue}</span></span>}
+                                    </p>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            {others.length > 10 && (
+                              <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                                ...and {(others.length - 10).toLocaleString()} more
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
 
                   {importMutation.isPending && importProgress && (
                     <div className="space-y-2">
