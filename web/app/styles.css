@@ -440,8 +440,8 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .sr-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:50px}
 .sr-price{position:relative;display:flex;flex-direction:column;border-radius:18px;padding:26px;
   background:var(--surface-card);border:1px solid var(--hairline);
-  transition:box-shadow .4s var(--ease-out),border-color .4s}
-.sr-price:hover{box-shadow:0 28px 60px rgba(0,0,0,.35);border-color:var(--hairline-strong)}
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),border-color .4s}
+.sr-price:hover{transform:translateY(-6px);box-shadow:0 28px 60px rgba(0,0,0,.35);border-color:var(--hairline-strong)}
 .sr-price.feat{border-color:var(--pitch-500);box-shadow:0 0 0 1px var(--pitch-500),0 28px 60px rgba(190,22,35,.18)}
 .sr-price-badge{position:absolute;top:-12px;left:26px;display:inline-flex;align-items:center;gap:6px;
   padding:5px 12px;border-radius:999px;background:var(--pitch-500);color:#fff;
@@ -572,8 +572,8 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 /* cost cards */
 .uni-costs{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
 .uni-cost{border-radius:16px;padding:28px;background:var(--surface-card);border:1px solid var(--hairline);
-  transition:border-color .4s}
-.uni-cost:hover{border-color:var(--pitch-500)}
+  transition:transform .4s var(--ease-out),border-color .4s}
+.uni-cost:hover{transform:translateY(-5px);border-color:var(--pitch-500)}
 .uni-cost-l{display:block;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-subtle)}
 .uni-cost-v{display:block;margin-top:8px;font-family:var(--font-display);font-size:30px;color:var(--fg)}
 @media(max-width:760px){.uni-costs{grid-template-columns:1fr}}
@@ -582,8 +582,8 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .gy-costs{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
 .gy-cost{position:relative;display:flex;flex-direction:column;border-radius:18px;padding:30px 28px;
   background:var(--surface-card);border:1px solid var(--hairline);
-  transition:box-shadow .4s var(--ease-out),border-color .4s}
-.gy-cost:hover{box-shadow:0 28px 60px rgba(0,0,0,.35);border-color:var(--hairline-strong)}
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),border-color .4s}
+.gy-cost:hover{transform:translateY(-6px);box-shadow:0 28px 60px rgba(0,0,0,.35);border-color:var(--hairline-strong)}
 .gy-cost.feat{border-color:var(--pitch-500);box-shadow:0 0 0 1px var(--pitch-500),0 28px 60px rgba(190,22,35,.18)}
 .gy-cost-badge{position:absolute;top:-12px;left:28px;display:inline-flex;align-items:center;gap:6px;
   padding:5px 12px;border-radius:999px;background:var(--pitch-500);color:#fff;
