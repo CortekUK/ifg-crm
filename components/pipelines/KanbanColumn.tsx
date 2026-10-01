@@ -1,15 +1,16 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Droppable } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, ChevronRight, PoundSterling, Users } from 'lucide-react'
+import { Plus, ChevronRight, ChevronDown, PoundSterling, Users } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { DealCard } from './DealCard'
 import { ColumnControls } from './ColumnControls'
+import { groupDealsByDate, groupingDateFor, type DealDateGroup } from './dealDateGroups'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
 import type { SortOption } from '@/lib/hooks/useColumnPreferences'
 
@@ -25,6 +26,15 @@ interface KanbanColumnProps {
   canMoveDeal?: (deal: Deal) => boolean
   columnWidth?: number
   compact?: boolean
+  // True while a search or filter is narrowing the board. Every date
+  // group opens so a match is never hidden inside a collapsed section.
+  isFiltering?: boolean
+}
+
+// Recent groups open by default; older history starts folded so a stage
+// with hundreds of leads opens as a short list of dated headers.
+function isOpenByDefault(group: DealDateGroup, index: number): boolean {
+  return index === 0 || group.key === 'today' || group.key === 'yesterday'
 }
 
 function sortDeals(deals: Deal[], sortBy: SortOption): Deal[] {
@@ -74,10 +84,94 @@ export function KanbanColumn({
   canMoveDeal,
   columnWidth = 320,
   compact = false,
+  isFiltering = false,
 }: KanbanColumnProps) {
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
-  
+
   const sortedDeals = useMemo(() => sortDeals(deals, sortBy), [deals, sortBy])
+
+  // null = the sort isn't date-based, render a flat list as before.
+  const groups = useMemo(() => {
+    const getDate = groupingDateFor(sortBy)
+    return getDate ? groupDealsByDate(sortedDeals, getDate) : null
+  }, [sortedDeals, sortBy])
+
+  // Only groups the user has explicitly toggled are stored; everything
+  // else falls back to isOpenByDefault.
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>({})
+
+  const isGroupOpen = (group: DealDateGroup, index: number) =>
+    isFiltering || (groupOverrides[group.key] ?? isOpenByDefault(group, index))
+
+  const toggleGroup = (group: DealDateGroup, index: number) =>
+    setGroupOverrides((prev) => ({ ...prev, [group.key]: !isGroupOpen(group, index) }))
+
+  const setAllGroups = (open: boolean) =>
+    setGroupOverrides(Object.fromEntries((groups ?? []).map((g) => [g.key, open])))
+
+  const renderCard = (deal: Deal, index: number) => (
+    <DealCard
+      key={deal.id}
+      deal={deal}
+      index={index}
+      onClick={onDealClick ? () => onDealClick(deal) : undefined}
+      isDragDisabled={canMoveDeal ? !canMoveDeal(deal) : false}
+      compact={compact}
+    />
+  )
+
+  // Draggable indices must be contiguous across the whole droppable, so
+  // cards in collapsed groups are skipped rather than numbered.
+  const renderGroups = (dateGroups: DealDateGroup[]) => {
+    let index = 0
+    return dateGroups.map((group, groupIndex) => {
+      const open = isGroupOpen(group, groupIndex)
+      return (
+        <section key={group.key} className={cn(open ? 'mb-1' : 'mb-0.5')}>
+          <button
+            type="button"
+            onClick={() => toggleGroup(group, groupIndex)}
+            aria-expanded={open}
+            disabled={isFiltering}
+            className={cn(
+              'sticky top-0 z-[5] flex w-full items-center gap-1.5 rounded-md bg-card text-left',
+              'text-muted-foreground hover:text-foreground transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'disabled:cursor-default disabled:hover:text-muted-foreground',
+              compact ? 'px-1 py-1' : 'px-1.5 py-1.5',
+            )}
+          >
+            <ChevronDown
+              className={cn(
+                'shrink-0 transition-transform duration-200',
+                compact ? 'h-3 w-3' : 'h-3.5 w-3.5',
+                !open && '-rotate-90',
+              )}
+            />
+            <span
+              className={cn(
+                'font-semibold uppercase tracking-wider',
+                compact ? 'text-[9px]' : 'text-[11px]',
+                group.key === 'today' && 'text-foreground',
+              )}
+            >
+              {group.label}
+            </span>
+            <span className="h-px flex-1 bg-border" aria-hidden />
+            <span
+              className={cn(
+                'tabular-nums rounded-full bg-muted px-1.5 font-medium',
+                compact ? 'text-[9px]' : 'text-[11px]',
+              )}
+            >
+              {formatNumber(group.deals.length)}
+            </span>
+          </button>
+          {open && <div className="pt-1">{group.deals.map((deal) => renderCard(deal, index++))}</div>}
+        </section>
+      )
+    })
+  }
 
   // Collapsed state
   if (isCollapsed) {
@@ -156,6 +250,7 @@ export function KanbanColumn({
               onCollapse={onToggleCollapse}
               onAddDeal={() => onAddClick(stage)}
               dealCount={deals.length}
+              onSetAllGroups={groups && groups.length > 1 && !isFiltering ? setAllGroups : undefined}
             />
           )}
         </div>
@@ -213,17 +308,10 @@ export function KanbanColumn({
                     </p>
                   )}
                 </div>
+              ) : groups ? (
+                renderGroups(groups)
               ) : (
-                sortedDeals.map((deal, index) => (
-                  <DealCard
-                    key={deal.id}
-                    deal={deal}
-                    index={index}
-                    onClick={onDealClick ? () => onDealClick(deal) : undefined}
-                    isDragDisabled={canMoveDeal ? !canMoveDeal(deal) : false}
-                    compact={compact}
-                  />
-                ))
+                sortedDeals.map(renderCard)
               )}
               {provided.placeholder}
             </div>

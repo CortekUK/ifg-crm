@@ -174,6 +174,10 @@ export default function PipelinesPage() {
     return true
   }), [deals, search, ownerFilter, statusFilter])
 
+  // While searching, every date group opens so a match is never hidden
+  // inside a collapsed section.
+  const isFiltering = search.trim() !== ''
+
   // Trigger automation processing immediately after deal move
   const triggerAutomationProcessing = useCallback(async () => {
     try {
@@ -537,6 +541,7 @@ export default function PipelinesPage() {
           onDealClick={handleDealClick}
           canMoveDeal={canMoveDeal}
           onOpenSettings={() => setSettingsModalOpen(true)}
+          isFiltering={isFiltering}
         />
       ) : (
         <PipelineListView

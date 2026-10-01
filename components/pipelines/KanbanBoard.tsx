@@ -20,6 +20,7 @@ interface KanbanBoardProps {
   onDealClick?: (deal: Deal) => void
   canMoveDeal?: (deal: Deal) => boolean
   onOpenSettings?: () => void
+  isFiltering?: boolean
 }
 
 function LoadingSkeleton() {
@@ -105,6 +106,7 @@ export function KanbanBoard({
   onDealClick,
   canMoveDeal,
   onOpenSettings,
+  isFiltering = false,
 }: KanbanBoardProps) {
   const {
     isLoaded: prefsLoaded,
@@ -216,6 +218,7 @@ export function KanbanBoard({
               canMoveDeal={canMoveDeal}
               columnWidth={columnWidth}
               compact={compact}
+              isFiltering={isFiltering}
             />
           ))}
         </div>
