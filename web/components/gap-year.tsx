@@ -158,7 +158,7 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
             <Eyebrow style={{ justifyContent: "center" }}>Pricing &amp; dates</Eyebrow>
             <h2 className="t-h2" style={{ marginTop: 12 }}>Programme costs</h2>
           </div>
-          <div className="gy-costs" data-anim="stagger">
+          <div className="gy-costs">
             {gyCosts.map((c, i) => (
               <article className={"gy-cost" + (c.featured ? " feat" : "")} key={c.title + i}>
                 {c.featured && <span className="gy-cost-badge"><Icon name="sparkles" size={13} /> Best value</span>}

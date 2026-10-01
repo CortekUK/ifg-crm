@@ -7,7 +7,7 @@ export function Footer() {
     <footer className="ftr">
       <div className="wrap">
         <div className="ftr-grid">
-          <div>
+          <div className="ftr-brand">
             <img src="/assets/logo/ifg-wordmark-white.webp" alt="IFG" style={{ height: 56, marginBottom: 18 }} />
             <p style={{ color: "var(--fg-muted)", maxWidth: 320, fontSize: 15, margin: 0 }}>
               World-class football education and experiences — integrating degrees with the methodologies of world-renowned clubs.

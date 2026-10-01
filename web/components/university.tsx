@@ -179,7 +179,7 @@ export function UniversityView({ courses, pricing, content }: { courses?: UniCou
             <Eyebrow style={{ justifyContent: "center" }}>IFG University Programme</Eyebrow>
             <h2 className="t-h2" style={{ marginTop: 12 }}>Plans &amp; pricing</h2>
           </div>
-          <div className="uni-costs" data-anim="stagger">
+          <div className="uni-costs">
             {costs.map((c) => (
               <article className="uni-cost" key={c.label}>
                 <span className="uni-cost-l">{c.label}</span>

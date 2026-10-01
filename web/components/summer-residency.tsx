@@ -131,7 +131,7 @@ export function SummerResidencyView({
             <h2 className="t-h2">Programme options &amp; cost</h2>
             <p style={{ color: "var(--fg-muted)", marginTop: 10, fontWeight: 600 }}>{s.optionsNote}</p>
           </div>
-          <div className="sr-prices" data-anim="stagger">
+          <div className="sr-prices">
             {(options && options.length ? options : s.options).map((o) => (
               <article className={"sr-price" + (o.featured ? " feat" : "")} key={o.label}>
                 {o.featured && <span className="sr-price-badge"><Icon name="sparkles" size={13} /> Most popular</span>}

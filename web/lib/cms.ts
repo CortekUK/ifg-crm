@@ -12,14 +12,16 @@ function isPlainObject(v: unknown): v is Plain {
 
 // Deep-merge `over` onto `base`. Objects merge key-by-key; arrays and scalars from
 // `over` REPLACE the base value (editing a list swaps the whole list). `undefined`
-// / `null` in `over` is treated as "no override" so a blank field can't wipe a
-// default by accident.
+// / `null` / a blank string in `over` is treated as "no override" so a blank field
+// can't wipe a default by accident; this matches the CMS's own isSet() rule.
+const isBlank = (v: unknown) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+
 export function deepMerge<T>(base: T, over: unknown): T {
-  if (over === undefined || over === null) return base;
+  if (isBlank(over)) return base;
   if (!isPlainObject(base) || !isPlainObject(over)) return over as T;
   const out: Plain = { ...(base as Plain) };
   for (const [k, v] of Object.entries(over)) {
-    if (v === undefined || v === null) continue;
+    if (isBlank(v)) continue;
     out[k] = k in out ? deepMerge((base as Plain)[k], v) : v;
   }
   return out as T;

@@ -43,7 +43,6 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/set-password') ||
     request.nextUrl.pathname.startsWith('/unauthorized') ||
     request.nextUrl.pathname === '/portal/login' ||
-    request.nextUrl.pathname.startsWith('/landing') ||
     // Invoice payment links. /pay/<invoice> is emailed to players and parents
     // who have no CRM account at all — it was redirecting them to /login, so
     // every "Pay Now" button in an invoice email led to a sign-in page they

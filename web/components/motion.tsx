@@ -10,7 +10,7 @@ declare global {
 }
 
 // Global showcase motion layer: Lenis smooth scroll + GSAP/ScrollTrigger
-// reveals, parallax, counters, magnetic buttons, custom cursor, nav-condense.
+// reveals, parallax, counters, card tilt, custom cursor, nav-condense.
 // Built so that if motion never runs, content stays fully visible (gsap.from).
 export function MotionProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -119,15 +119,8 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           gsap.to(o, { v: end, duration: 1.6, ease: "power2.out", scrollTrigger: { trigger: el, start: "top 92%", once: true }, onUpdate: () => { el.textContent = Math.round(o.v) + suffix; } });
         });
         if (fine) {
-          gsap.utils.toArray<HTMLElement>(".btn-lg, [data-magnetic]").forEach((el) => {
-            const move = (e: MouseEvent) => {
-              const r = el.getBoundingClientRect();
-              gsap.to(el, { x: (e.clientX - r.left - r.width / 2) * 0.3, y: (e.clientY - r.top - r.height / 2) * 0.3, duration: 0.4, ease: "power3" });
-            };
-            const reset = () => gsap.to(el, { x: 0, y: 0, duration: 0.6, ease: "elastic.out(1,0.4)" });
-            el.addEventListener("mousemove", move);
-            el.addEventListener("mouseleave", reset);
-          });
+          // Buttons deliberately stay put on hover (no magnetic pull) — the
+          // hover state is colour/border only, see .btn-* in styles.css.
 
           // 3D pointer tilt on cards (overrides the CSS hover-lift while pointing).
           gsap.utils.toArray<HTMLElement>(".pcard, .vcard, .gal-cat").forEach((card) => {
