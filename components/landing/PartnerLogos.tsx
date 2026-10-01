@@ -12,7 +12,7 @@ const partners: {
   logoClass?: string
 }[] = [
   {
-    name: 'University of Central Lancashire',
+    name: 'University of Lancashire',
     logo: '/landing/logos/uclan-white.png',
     logoWidth: 160,
     logoHeight: 60,

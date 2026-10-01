@@ -60,7 +60,7 @@ export function InTheClassroom() {
           </h2>
           <p className="mt-5 text-base text-gray-600 leading-relaxed">
             Earn a fully accredited UK university degree while you train. IFG players
-            study at the University of Central Lancashire — one of the UK&apos;s largest
+            study at the University of Lancashire — one of the UK&apos;s largest
             universities — with timetables designed around football, not the other way around.
           </p>
         </FadeIn>
@@ -82,7 +82,7 @@ export function InTheClassroom() {
             <div className="flex items-center gap-5 bg-white border-t border-gray-200 px-6 py-4">
               <Image
                 src="/landing/logos/uclan-white.png"
-                alt="University of Central Lancashire"
+                alt="University of Lancashire"
                 width={120}
                 height={44}
                 className="h-8 w-auto shrink-0 invert"
@@ -93,7 +93,7 @@ export function InTheClassroom() {
                   Official Academic Partner
                 </span>
                 <span className="text-[13px] font-medium text-gray-600 leading-snug mt-0.5">
-                  University of Central Lancashire
+                  University of Lancashire
                 </span>
               </div>
             </div>

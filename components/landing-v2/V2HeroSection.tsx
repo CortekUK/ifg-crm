@@ -70,7 +70,7 @@ export function V2HeroSection() {
               </span>
               <Image
                 src="/landing/logos/uclan-white.png"
-                alt="University of Central Lancashire"
+                alt="University of Lancashire"
                 width={140}
                 height={52}
                 className="h-9 w-auto opacity-60 hover:opacity-100 transition-opacity"

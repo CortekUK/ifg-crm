@@ -1,6 +1,6 @@
 -- Seed Programmes
 INSERT INTO programmes (id, name, type, sport, description, default_deposit_amount, default_total_cost, university_partner) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'UCLan 2026', 'university', 'football', 'University of Central Lancashire Football Programme', 1000.00, 15000.00, 'UCLan'),
+  ('11111111-1111-1111-1111-111111111111', 'UCLan 2026', 'university', 'football', 'University of Lancashire Football Programme', 1000.00, 15000.00, 'UCLan'),
   ('22222222-2222-2222-2222-222222222222', 'Salford 2026', 'university', 'football', 'University of Salford Football Programme', 1000.00, 14000.00, 'Salford'),
   ('33333333-3333-3333-3333-333333333333', 'UK Gap Year 2026', 'gap_year', 'football', 'Gap Year Football Programme in the UK', 1500.00, 18000.00, NULL),
   ('44444444-4444-4444-4444-444444444444', 'UK Residency 2026', 'residency', 'football', 'UK Football Residency Programme', 1000.00, 12000.00, NULL),

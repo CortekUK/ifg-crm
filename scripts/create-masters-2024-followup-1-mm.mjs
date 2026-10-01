@@ -20,7 +20,7 @@ const blocks = [
 
   heading('Education'),
   para(
-    `<p>Our University Programme provides a unique opportunity to combine your degree studies with training and playing competitive football via a structured weekly programme. You will have the opportunity to earn an Internationally recognised Masters degree from the globally renowned, University of Central Lancashire (UCLan), in the North West of England.</p>`,
+    `<p>Our University Programme provides a unique opportunity to combine your degree studies with training and playing competitive football via a structured weekly programme. You will have the opportunity to earn an Internationally recognised Masters degree from the globally renowned, University of Lancashire, in the North West of England.</p>`,
   ),
 
   heading(`Globally Recognised Master's Degree`),

@@ -44,7 +44,7 @@ export function UniversityPartnership() {
             <div className="rounded-2xl bg-[#1a1a2e] p-10 flex flex-col items-center justify-center gap-6">
               <Image
                 src="/landing/logos/uclan-white.png"
-                alt="University of Central Lancashire"
+                alt="University of Lancashire"
                 width={280}
                 height={80}
                 className="object-contain"
@@ -54,7 +54,7 @@ export function UniversityPartnership() {
                   Official Academic Partner
                 </p>
                 <p className="mt-2 text-white/50 text-sm leading-relaxed max-w-sm">
-                  University of Central Lancashire — one of the UK&apos;s largest universities with over 38,000 students from 120+ countries.
+                  University of Lancashire — one of the UK&apos;s largest universities with over 38,000 students from 120+ countries.
                 </p>
               </div>
             </div>
@@ -72,7 +72,7 @@ export function UniversityPartnership() {
               Study at UCLan
             </h2>
             <p className="text-gray-600 dark:text-muted-foreground leading-relaxed mb-8">
-              The University of Central Lancashire (UCLan) is our official academic partner. Based in Preston, UCLan provides a world-class learning environment where you can pursue your degree while continuing your football development with IFG and Macclesfield FC.
+              The University of Lancashire is our official academic partner. Based in Preston, the university provides a world-class learning environment where you can pursue your degree while continuing your football development with IFG and Macclesfield FC.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

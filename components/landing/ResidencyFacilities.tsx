@@ -17,7 +17,7 @@ const facilities = [
   },
   {
     title: 'UCLan Campus',
-    description: 'University of Central Lancashire — our academic partner.',
+    description: 'University of Lancashire — our academic partner.',
     image: '/landing/photos/graduation-1.jpg',
     span: 'col-span-1 row-span-1',
     tall: false,
@@ -51,7 +51,7 @@ export function ResidencyFacilities() {
           </h2>
           <p className="mt-4 text-gray-600 dark:text-muted-foreground max-w-2xl leading-relaxed">
             Combined unlimited access to our facilities at Macclesfield FC&apos;s stadium and the
-            University of Central Lancashire.
+            University of Lancashire.
           </p>
         </div>
 

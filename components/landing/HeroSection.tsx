@@ -75,7 +75,7 @@ export function HeroSection() {
             <div className="flex flex-wrap items-center gap-8 md:gap-10">
               <Image
                 src="/landing/logos/uclan-white.png"
-                alt="University of Central Lancashire"
+                alt="University of Lancashire"
                 width={140}
                 height={52}
                 className="h-10 w-auto opacity-70 hover:opacity-100 transition-opacity"

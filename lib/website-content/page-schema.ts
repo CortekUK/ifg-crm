@@ -567,7 +567,7 @@ const FACILITIES: PageSchema = {
           title: 'Athletic & academic fusion',
           paragraphs: [
             "Macclesfield Football Club's facilities have undergone a remarkable transformation, with over £4m invested in the stadium over the last two years — making it the most sought-after venue in the local area. The all-weather 4G surface ensures that training sessions and games are unaffected by the elements all year round. Beyond the field, athletes have access to the Stealth Gym, a fitness facility tailored to meet the demands of modern footballers.",
-            "Meanwhile, at the University of Central Lancashire (UCLan), aspiring footballers are greeted with an array of exceptional facilities designed to foster both athletic and academic excellence. The crown jewel of UCLan's offerings is the Sir Tom Finney Sports Centre, named in honour of the legendary footballer, while the UCLan Sports Arena provides an expansive platform to refine skills and compete at the highest level — seamlessly integrating sports training with academic pursuits.",
+            "Meanwhile, at the University of Lancashire, aspiring footballers are greeted with an array of exceptional facilities designed to foster both athletic and academic excellence. The crown jewel of the university's offerings is the Sir Tom Finney Sports Centre, named in honour of the legendary footballer, while the University of Lancashire Sports Arena provides an expansive platform to refine skills and compete at the highest level — seamlessly integrating sports training with academic pursuits.",
           ],
           images: [
             '/summer/DJI_20240719121925_0067_D-scaled.jpg',

@@ -143,7 +143,7 @@ export function LandingFooter() {
               Partners
             </h4>
             <div className="space-y-2.5 text-sm text-gray-500">
-              <p>University of Central Lancashire</p>
+              <p>University of Lancashire</p>
               <p>Macclesfield FC</p>
             </div>
           </div>
@@ -154,7 +154,7 @@ export function LandingFooter() {
           <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 mb-8">
             <Image
               src="/landing/logos/uclan-white.png"
-              alt="University of Central Lancashire"
+              alt="University of Lancashire"
               width={120}
               height={45}
               className="h-8 w-auto opacity-40 hover:opacity-70 transition-opacity"

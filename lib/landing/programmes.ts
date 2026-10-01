@@ -35,7 +35,7 @@ export const programmes: Programme[] = [
     slug: 'university',
     name: 'IFG University Programme',
     tagline: 'Combine a globally recognised degree with elite football development',
-    description: 'Study for a fully accredited degree at the University of Central Lancashire while training and playing competitively with Macclesfield FC.',
+    description: 'Study for a fully accredited degree at the University of Lancashire while training and playing competitively with Macclesfield FC.',
     longDescription: 'The IFG University Programme gives student-athletes from all over the world the unique opportunity to combine studying for a globally recognised degree qualification with continuing their football journey in a truly world-class, professional and inspiring environment. UCLan have designed a range of three or four year undergraduate bachelor\'s degree courses where timetables are tailored to provide the perfect balance between learning, training, strength conditioning, and match fixtures.',
     category: 'degree',
     quickFacts: [

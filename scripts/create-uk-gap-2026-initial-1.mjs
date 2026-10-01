@@ -19,7 +19,7 @@ const blocks = [
     `<p>As part of our International Academy, you'll take part in a <strong>9–10 month competitive season</strong>, training and playing in prestigious U.K. leagues across the country.</p>`,
   ),
   para(
-    `<p>You'll live in premium accommodation in Preston city centre, just minutes from the University of Central Lancashire's Sports Arena—where you'll train daily under the guidance of our <strong>UEFA-licensed coaches</strong>.</p>`,
+    `<p>You'll live in premium accommodation in Preston city centre, just minutes from the University of Lancashire's Sports Arena—where you'll train daily under the guidance of our <strong>UEFA-licensed coaches</strong>.</p>`,
   ),
   para(
     `<p>If you'd like to explore this opportunity further, please use the link below to schedule a Zoom call with us.</p>`,

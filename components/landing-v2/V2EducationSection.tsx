@@ -22,7 +22,7 @@ export function V2EducationSection() {
             </h2>
 
             <p className="text-base text-gray-600 leading-relaxed mb-4 max-w-xl">
-              IFG players study at the University of Central Lancashire — one of the
+              IFG players study at the University of Lancashire — one of the
               UK&apos;s largest universities with over 38,000 students from 120+ countries.
               Timetables are designed around training and match schedules, not the other
               way around.
@@ -83,7 +83,7 @@ export function V2EducationSection() {
               <div className="flex items-center gap-5 bg-white border border-gray-200 rounded-xl px-5 py-4">
                 <Image
                   src="/landing/logos/uclan-white.png"
-                  alt="University of Central Lancashire"
+                  alt="University of Lancashire"
                   width={100}
                   height={38}
                   className="h-7 w-auto shrink-0 invert"
@@ -94,7 +94,7 @@ export function V2EducationSection() {
                     Official Academic Partner
                   </span>
                   <span className="text-[13px] font-medium text-gray-600 leading-snug mt-0.5 block">
-                    University of Central Lancashire
+                    University of Lancashire
                   </span>
                 </div>
               </div>
