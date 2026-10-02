@@ -279,12 +279,13 @@ export function PipelineListView({
         <TableBody>
           {sortedDeals.map((deal) => {
             const contact = deal.contact
-            const contactName = contact
-              ? `${contact.first_name} ${contact.last_name}`
-              : deal.title
-            const initials = contact
-              ? getInitials(contact.first_name, contact.last_name)
-              : deal.title.slice(0, 2).toUpperCase()
+            // Website deposit leads start as email-only contacts (names arrive with
+            // the payment), so fall back to the deal title / email rather than a blank.
+            const fullName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : ''
+            const contactName = fullName || deal.title || contact?.email || ''
+            const initials = fullName
+              ? getInitials(contact?.first_name || '', contact?.last_name || '')
+              : contactName.slice(0, 2).toUpperCase()
             const avatarColor = getAvatarColor(contactName)
             const currentStage = stages.find((s) => s.id === deal.current_stage_id)
             const status = getDealStatus(deal)

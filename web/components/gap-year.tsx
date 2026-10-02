@@ -4,20 +4,38 @@ import { Eyebrow, Button } from "./primitives";
 import { Icon } from "./icons";
 import { MediaCarousel, CardCarousel } from "./carousels";
 import { CTABand } from "./sections";
+import { DepositButton } from "./deposit-button";
 import { GAP_YEAR } from "@/lib/data";
 import type { GapCost } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=gap-year";
 const BROCHURE = "/programmes/macclesfield/brochure/gap-year";
 
+// Short mark for the card's tile, like Summer's block letters: "F" for the full
+// season, "H1"/"H2" for the halves in the order they appear.
+function seasonMark(c: GapCost, i: number, all: GapCost[]): string {
+  if (!/half/i.test(c.title)) return c.title.trim().charAt(0).toUpperCase() || String(i + 1);
+  const halves = all.filter((x) => /half/i.test(x.title));
+  return halves.length > 1 ? `H${halves.indexOf(c) + 1}` : "H";
+}
+
+// Row icon for a cost line, by what it is.
+function lineIcon(line: string): string {
+  const l = line.toLowerCase();
+  if (l.includes("accommodation")) return "bed";
+  if (l.includes("athletic") || l.includes("football") || l.includes("training")) return "dumbbell";
+  return "check";
+}
+
 export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: typeof GAP_YEAR }) {
   const router = useRouter();
   const g = content ?? GAP_YEAR;
-  const gyCosts = costs && costs.length ? costs : g.costs;
+  const gyCosts: GapCost[] = costs && costs.length ? costs : g.costs;
 
   const heroCtas = (
     <>
       <Button variant="primary" iconRight="arrow-right" onClick={() => router.push(APPLY)}>Apply Now</Button>
+      <Button variant="solid" iconRight="chevron-down" as="a" href="#plans">See plans &amp; pricing</Button>
       <Button variant="solid" icon="download" onClick={() => router.push(BROCHURE)}>View Brochure</Button>
       <Button variant="solid" onClick={() => router.push("/contact")}>Book a Call</Button>
     </>
@@ -152,26 +170,46 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
       </section>
 
       {/* pricing & dates */}
-      <section className="section">
+      {/* options & cost — same card as the Summer Residency price cards */}
+      <section id="plans" className="section band-ink" style={{ scrollMarginTop: 90 }}>
         <div className="wrap">
-          <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto 48px" }}>
-            <Eyebrow style={{ justifyContent: "center" }}>Pricing &amp; dates</Eyebrow>
-            <h2 className="t-h2" style={{ marginTop: 12 }}>Programme costs</h2>
+          <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
+            <h2 className="t-h2">Programme options &amp; cost</h2>
+            <p style={{ color: "var(--fg-muted)", marginTop: 10, fontWeight: 600 }}>The full season, or either half of it.</p>
           </div>
-          <div className="gy-costs">
+          <div className="sr-prices">
             {gyCosts.map((c, i) => (
-              <article className={"gy-cost" + (c.featured ? " feat" : "")} key={c.title + i}>
-                {c.featured && <span className="gy-cost-badge"><Icon name="sparkles" size={13} /> Best value</span>}
-                <span className="gy-cost-t">{c.title}</span>
-                <span className="gy-cost-season">{c.season}</span>
-                <span className="gy-cost-p">{c.price}</span>
-                <ul>{c.lines.map((l) => <li key={l}>{l}</li>)}</ul>
+              <article className={"sr-price" + (c.featured ? " feat" : "")} key={c.title + c.season + i}>
+                {c.featured && <span className="sr-price-badge"><Icon name="sparkles" size={13} /> Best value</span>}
+                <div className="sr-price-head">
+                  <span className="sr-price-letter">{seasonMark(c, i, gyCosts)}</span>
+                  <div>
+                    <span className="sr-price-dur">{c.season}</span>
+                    <h3 className="sr-price-weeks">{c.title}</h3>
+                  </div>
+                </div>
+                <div className="sr-price-amt">{c.price}<span>total cost</span></div>
+                <div className="sr-price-rows">
+                  <span className="sr-price-row"><Icon name="calendar" size={15} />{c.season}</span>
+                  {c.lines.map((l) => (
+                    <span className="sr-price-row" key={l}><Icon name={lineIcon(l)} size={15} />{l}</span>
+                  ))}
+                  {typeof c.deposit === "number" && (
+                    <span className="sr-price-row"><Icon name="check" size={15} />£{c.deposit.toLocaleString("en-GB")} deposit to secure</span>
+                  )}
+                </div>
+                {typeof c.deposit === "number" && (
+                  <DepositButton programme="gapyear" deposit={c.deposit} className="sr-price-cta">
+                    Pay £{c.deposit.toLocaleString("en-GB")} deposit <Icon name="arrow-right" size={15} />
+                  </DepositButton>
+                )}
+                {typeof c.full === "number" && (
+                  <DepositButton programme="gapyear" mode="full" amount={c.full} label={`${c.title} (${c.season})`} className="sr-price-full">
+                    Or pay in full ({c.price})
+                  </DepositButton>
+                )}
               </article>
             ))}
-          </div>
-          <div className="uni-apply-cta">
-            <Button variant="primary" size="lg" iconRight="arrow-right" onClick={() => router.push(APPLY)}>Apply &amp; pay deposit</Button>
-            <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Speak to the team</Button>
           </div>
         </div>
       </section>

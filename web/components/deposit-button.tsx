@@ -6,29 +6,22 @@ import { Icon } from "./icons";
 /**
  * "Pay deposit" / "Pay in full" button.
  *
- * Form-first journey: we ask only for the visitor's email, then the resolver
- * (/api/deposit) decides what happens:
- *   - need_form    → send them to the programme application form (deposit mode),
- *                    which creates their contact + deal, then returns to Stripe.
- *   - checkout     → they've already applied → straight to Stripe.
- *   - already_paid → show a "you've already paid" receipt.
+ * Stripe-first journey: we ask only for the visitor's email (plus the T&C tick
+ * where terms are published). The CRM records them as a lead, then:
+ *   - checkout     → straight to Stripe, where name, phone and player name
+ *                    are collected.
+ *   - already_paid → they've paid this programme before: show what and when,
+ *                    and let them choose to pay again (sent with confirmRepeat).
  */
 
-type Programme = "residency" | "university";
+type Programme = "residency" | "university" | "gapyear";
 type Mode = "deposit" | "full";
 
 const DEPOSIT_LABEL: Record<Programme, string> = {
   residency: "Summer Residency",
   university: "University Programme",
+  gapyear: "Gap Year Programme",
 };
-
-// Deposit programme → the apply form tab id.
-const APPLY_FORM_KEY: Record<Programme, string> = {
-  residency: "training",
-  university: "university",
-};
-
-const APPLY_BASE = "/programmes/macclesfield/apply";
 
 interface PaidInvoice { number?: string; amount?: number; date?: string; kind?: string }
 
@@ -48,11 +41,12 @@ export function DepositButton({
   className?: string;
   children: React.ReactNode;
   mode?: Mode;
-  /** Full-payment amount (residency only — the selected package total). */
+  /** Full-payment amount (the selected package total). */
   amount?: number;
   /** Short label for the thing being paid for, e.g. "Full 6 Weeks". */
   label?: string;
-  /** CMS-managed deposit (whole GBP) shown in deposit mode. */
+  /** CMS-managed deposit (whole GBP). Shown, and sent so the server can pick
+   *  the right one when a programme has several (Gap Year seasons). */
   deposit?: number;
 }) {
   const isFull = mode === "full";
@@ -110,8 +104,8 @@ export function DepositButton({
     setError(null);
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(e?: React.FormEvent, confirmRepeat = false) {
+    e?.preventDefault();
     const addr = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setError("Please enter a valid email."); return; }
     if (terms?.published && !agreed) {
@@ -127,13 +121,14 @@ export function DepositButton({
         body: JSON.stringify({
           programme,
           mode,
-          amount: isFull ? amount : undefined,
+          amount: isFull ? amount : deposit,
           email: addr,
           // Agreed here rather than on the Stripe page, so nobody is asked to
           // tick the same box twice. The server checks this again before it
           // will create a payment.
           termsAccepted: terms?.published ? agreed : undefined,
           termsVersion: terms?.published ? terms.version : undefined,
+          confirmRepeat: confirmRepeat || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -151,20 +146,8 @@ export function DepositButton({
         setStatus("idle");
         return;
       }
-      // need_form (default): send them to the application form in deposit mode.
-      const params = new URLSearchParams({
-        programme: APPLY_FORM_KEY[programme],
-        deposit: "1",
-        mode,
-        email: addr,
-      });
-      if (terms?.published && agreed) {
-        params.set("termsAccepted", "1");
-        if (terms.version) params.set("termsVersion", String(terms.version));
-      }
-      if (isFull && typeof amount === "number") params.set("amount", String(amount));
-      if (!isFull && typeof deposit === "number") params.set("depositAmount", String(deposit));
-      window.location.href = `${APPLY_BASE}?${params.toString()}`;
+      setError("Could not start checkout. Please try again.");
+      setStatus("error");
     } catch {
       setError("Could not continue. Please try again.");
       setStatus("error");
@@ -172,6 +155,11 @@ export function DepositButton({
   }
 
   const money = (n?: number) => (typeof n === "number" ? `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : "");
+  const day = (d?: string) => {
+    if (!d) return "";
+    const t = new Date(d);
+    return Number.isNaN(t.getTime()) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  };
 
   return (
     <>
@@ -193,16 +181,25 @@ export function DepositButton({
 
             {paid ? (
               <div className="ei-done">
-                <div className="ei-tick"><Icon name="check" size={22} /></div>
-                <h3>You&apos;re already paid</h3>
-                <p>
-                  Our records show you&apos;ve already paid the {paid.kind === "full" ? "full fee" : "deposit"} for the{" "}
-                  {DEPOSIT_LABEL[programme]}{paid.number ? ` (invoice ${paid.number}` : ""}
-                  {paid.number && paid.amount ? `, ${money(paid.amount)}` : paid.number ? "" : ""}
-                  {paid.number ? ")" : ""}. The IFG team will be in touch about your next steps.
+                <p className="ei-kicker">{DEPOSIT_LABEL[programme]}</p>
+                <h3 className="ei-title">You&apos;ve paid before</h3>
+                <p className="ei-sub">
+                  You already paid {paid.amount ? money(paid.amount) : paid.kind === "full" ? "the full fee" : "a deposit"} for the{" "}
+                  {DEPOSIT_LABEL[programme]}{paid.date ? ` on ${day(paid.date)}` : ""}
+                  . Do you want to make another payment?
                 </p>
+                {error && <p className="ei-error">{error}</p>}
                 <div className="ei-actions">
-                  <a href="/contact" className="btn btn-primary">Speak to the team<Icon name="arrow-right" className="ic" size={18} /></a>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={status === "loading"}
+                    onClick={() => submit(undefined, true)}
+                  >
+                    {status === "loading" ? "Starting…" : "Pay again"}
+                    {status !== "loading" && <Icon name="arrow-right" className="ic" size={18} />}
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={close} disabled={status === "loading"}>Cancel</button>
                 </div>
               </div>
             ) : (
@@ -210,8 +207,8 @@ export function DepositButton({
                 <p className="ei-kicker">{DEPOSIT_LABEL[programme]}{isFull && label ? ` · ${label}` : ""}</p>
                 <h3 className="ei-title">{isFull ? "Pay in full" : "Secure your place"}</h3>
                 <p className="ei-sub">
-                  Enter your email to continue. New applicants complete a short application form first;
-                  if you&apos;ve already applied we&apos;ll take you straight to secure payment.
+                  Enter your email to continue to secure payment. You&apos;ll add the player&apos;s details on the
+                  payment page.
                 </p>
 
                 {amountDisplay && (

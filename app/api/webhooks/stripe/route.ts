@@ -7,6 +7,14 @@ import {
   sendStaffAlert,
   ownerEmail,
 } from '@/lib/notifications/staff-email'
+import {
+  PAYMENT_PROGRAMMES,
+  isPaymentProgramme,
+  CHECKOUT_PLAYER_NAME_KEY,
+  CHECKOUT_GENDER_KEY,
+  CHECKOUT_GRAD_YEAR_KEY,
+} from '@/lib/payments/programmes'
+import { computeApplicationRouting, applyRouting } from '@/lib/forms/lead-routing'
 
 export async function POST(request: NextRequest) {
   const payload = await request.text()
@@ -84,11 +92,18 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', invoiceId)
 
+      // Website deposits start as email-only contacts. Fill in what Stripe
+      // collected before anything below reads the contact's name.
+      if (contactId && session.metadata?.source === 'website_deposit') {
+        await enrichContactFromCheckout(supabase, contactId, session.metadata?.deal_id ?? null, programmeKey, session)
+      }
+
       // They paid — take them out of the "Abandoned … Deposits" follow-up list
       // for this programme, so it only ever holds people who haven't paid.
       if (contactId && programmeKey) {
-        const abandonedList =
-          programmeKey === 'university' ? 'Abandoned University Deposits' : 'Abandoned Summer Deposits'
+        const abandonedList = isPaymentProgramme(programmeKey)
+          ? PAYMENT_PROGRAMMES[programmeKey].abandonedList.name
+          : 'Abandoned Summer Deposits'
         const { data: list } = await supabase.from('lists').select('id').eq('name', abandonedList).maybeSingle()
         if (list?.id) {
           await supabase.from('contact_lists').delete().eq('contact_id', contactId).eq('list_id', list.id)
@@ -146,7 +161,7 @@ export async function POST(request: NextRequest) {
 
         if (contact) {
           contactEmail = contact.email
-          contactName = `${contact.first_name} ${contact.last_name}`
+          contactName = `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || contact.email
         }
       }
 
@@ -427,4 +442,102 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+interface CheckoutDetails {
+  customer_details?: { name?: string | null; phone?: string | null; address?: { country?: string | null } | null } | null
+  custom_fields?: { key: string; text?: { value?: string | null } | null; dropdown?: { value?: string | null } | null }[] | null
+}
+
+/**
+ * Copy the details collected on the Stripe page onto the contact.
+ *
+ * The cardholder is the payer — usually a parent, not the player — so their
+ * name and phone go to parent_name / parent_phone (the phone also fills the
+ * contact's main phone if empty), the billing country fills the contact's
+ * country, and the "Player full name" custom field becomes the contact's name. Only blank fields are filled:
+ * an existing contact's data is never overwritten. Best-effort — a failure
+ * here must never stop the payment being recorded.
+ */
+async function enrichContactFromCheckout(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  contactId: string,
+  dealId: string | null,
+  programmeKey: string | undefined,
+  session: CheckoutDetails,
+) {
+  try {
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('email, first_name, last_name, phone, parent_name, parent_phone, country, gender, graduation_year')
+      .eq('id', contactId)
+      .single()
+    if (!contact) return
+
+    const clean = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : '')
+    const blank = (v: unknown) => !clean(v)
+
+    const field = (key: string) => session.custom_fields?.find((f) => f.key === key)
+    const playerName = clean(field(CHECKOUT_PLAYER_NAME_KEY)?.text?.value)
+    const genderRaw = clean(field(CHECKOUT_GENDER_KEY)?.dropdown?.value).toLowerCase()
+    const gender = genderRaw === 'male' || genderRaw === 'female' ? genderRaw : null
+    const yearRaw = Number(clean(field(CHECKOUT_GRAD_YEAR_KEY)?.dropdown?.value))
+    const graduationYear = Number.isInteger(yearRaw) && yearRaw >= 1900 && yearRaw <= 2100 ? yearRaw : null
+    const payerName = clean(session.customer_details?.name)
+    const payerPhone = clean(session.customer_details?.phone)
+    // Stripe gives the billing country as an ISO code ("GB"); contacts store
+    // the country name ("United Kingdom"), like the website forms do.
+    const countryCode = clean(session.customer_details?.address?.country).toUpperCase()
+    let country = ''
+    if (/^[A-Z]{2}$/.test(countryCode)) {
+      try { country = new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) ?? '' } catch { country = '' }
+    }
+
+    const update: Record<string, string | number> = {}
+    if (playerName && blank(contact.first_name) && blank(contact.last_name)) {
+      const cut = playerName.lastIndexOf(' ')
+      update.first_name = cut > 0 ? playerName.slice(0, cut) : playerName
+      update.last_name = cut > 0 ? playerName.slice(cut + 1) : ''
+    }
+    if (payerName && blank(contact.parent_name)) update.parent_name = payerName
+    if (payerPhone && blank(contact.parent_phone)) update.parent_phone = payerPhone
+    // Also the contact's main phone when they have none, so recruiters have a
+    // number to call from the Contacts list; parent_phone records whose it is.
+    if (payerPhone && blank(contact.phone)) update.phone = payerPhone
+    if (country && blank(contact.country)) update.country = country
+    if (gender && blank(contact.gender)) update.gender = gender
+    if (graduationYear && !contact.graduation_year) update.graduation_year = graduationYear
+
+    if (Object.keys(update).length) {
+      await supabase.from('contacts').update(update).eq('id', contactId)
+    }
+
+    // File them into the cohort lists + tags ("ALL MENS", "2027 MENS", gender,
+    // year and programme tags) the same way a website form lead is routed.
+    // Uses the contact's own values where they already had them.
+    const finalGender = (contact.gender as 'male' | 'female' | null) || gender
+    const finalYear = Number(contact.graduation_year) || graduationYear
+    if (finalGender || finalYear) {
+      await applyRouting(
+        supabase,
+        contactId,
+        computeApplicationRouting({
+          formId: isPaymentProgramme(programmeKey) ? PAYMENT_PROGRAMMES[programmeKey].formId : '',
+          gender: finalGender,
+          graduationYear: finalYear || null,
+        }),
+      )
+    }
+
+    // The deal was titled with the email while the name was unknown.
+    if (dealId && playerName) {
+      const { data: deal } = await supabase.from('deals').select('title').eq('id', dealId).single()
+      if (deal && (blank(deal.title) || clean(deal.title).toLowerCase() === clean(contact.email).toLowerCase())) {
+        await supabase.from('deals').update({ title: playerName }).eq('id', dealId)
+      }
+    }
+  } catch (err) {
+    console.error('Contact enrichment from Stripe failed (payment unaffected):', err)
+  }
 }

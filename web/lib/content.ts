@@ -341,18 +341,34 @@ export async function getResidencyBlocks(): Promise<ResidencyBlock[]> {
 }
 
 // University plans & pricing (costs = the package's breakdown; full + deposit CTAs).
-export type UniversityPricing = { costs: { label: string; value: string }[]; fullAmount: number; deposit: number };
+// One card per published University package. `deposit` / `full` are set only
+// when the CMS enables that way of paying; the card shows a button only for
+// what is present. A package with no deposit of its own uses the programme's
+// default deposit (website_pricing_settings).
+export type UniversityOption = {
+  key: string; label: string; subtitle: string; featured: boolean;
+  costs: { label: string; value: string }[]; full?: number; deposit?: number;
+};
+export type UniversityPricing = { options: UniversityOption[] };
 export async function getUniversityPricing(): Promise<UniversityPricing | null> {
-  const [pkgs, deposit] = await Promise.all([getPackages("university"), getProgrammeDeposit("university")]);
-  const p = pkgs.find((x) => x.fullEnabled && x.fullAmount != null) ?? pkgs[0];
-  if (!p || p.fullAmount == null) return null;
-  const dep = p.depositAmount ?? deposit;
-  if (dep == null) return null;
-  return { costs: p.breakdown, fullAmount: p.fullAmount, deposit: dep };
+  const [pkgs, programmeDeposit] = await Promise.all([getPackages("university"), getProgrammeDeposit("university")]);
+  if (!pkgs.length) return null;
+  return {
+    options: pkgs.map((p) => {
+      const dep = p.depositEnabled ? p.depositAmount ?? programmeDeposit : null;
+      return {
+        key: p.key, label: p.label, subtitle: p.subtitle, featured: p.featured, costs: p.breakdown,
+        ...(p.fullEnabled && p.fullAmount != null ? { full: p.fullAmount } : {}),
+        ...(dep != null ? { deposit: dep } : {}),
+      };
+    }),
+  };
 }
 
 // Gap Year programme costs (matches GAP_YEAR.costs; display only — no deposit).
-export type GapCost = { title: string; season: string; price: string; lines: string[]; featured: boolean };
+// `deposit` / `full` (whole GBP) are set only when the CMS enables that way of
+// paying for the season; the card shows a button only for what is present.
+export type GapCost = { title: string; season: string; price: string; lines: string[]; featured: boolean; deposit?: number; full?: number };
 export async function getGapYearCosts(): Promise<GapCost[] | null> {
   const pkgs = await getPackages("gapyear");
   if (!pkgs.length) return null;
@@ -361,6 +377,8 @@ export async function getGapYearCosts(): Promise<GapCost[] | null> {
     price: p.fullAmount != null ? gbp(p.fullAmount) : "",
     lines: p.breakdown.map((b) => `${b.label}: ${b.value}`),
     featured: p.featured,
+    ...(p.depositEnabled && p.depositAmount != null ? { deposit: p.depositAmount } : {}),
+    ...(p.fullEnabled && p.fullAmount != null ? { full: p.fullAmount } : {}),
   }));
 }
 

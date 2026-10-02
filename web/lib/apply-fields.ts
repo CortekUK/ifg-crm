@@ -69,7 +69,7 @@ export function getForm(id: string): FormDef | undefined {
 }
 
 // Apply form tab id → deposit programme key (Gap Year has no deposit).
-export const DEPOSIT_PROGRAMME: Record<string, string> = { training: "residency", university: "university" };
+export const DEPOSIT_PROGRAMME: Record<string, string> = { training: "residency", university: "university", "gap-year": "gapyear" };
 
 // Single source of truth for field validity — covers the custom Select,
 // DatePicker and PhoneInput too (which the browser can't validate natively).

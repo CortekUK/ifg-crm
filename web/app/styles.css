@@ -473,6 +473,10 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .sr-price-full:hover{color:var(--pitch-500)}
 @media(max-width:980px){.sr-prices{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.sr-prices{grid-template-columns:1fr}}
+/* a programme with a single option (University): one centred card */
+.sr-prices.sr-prices-one{grid-template-columns:minmax(0,400px);justify-content:center}
+.sr-prices.sr-prices-two{grid-template-columns:repeat(2,minmax(0,400px));justify-content:center}
+@media(max-width:560px){.sr-prices.sr-prices-two{grid-template-columns:1fr}}
 /* schedule day cards */
 /* facilities showcase */
 .sr-fac-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;max-width:none;margin-bottom:0}
@@ -1657,7 +1661,9 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .ei-tick{width:52px;height:52px;border-radius:50%;background:var(--pitch-500);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
 .ei-done h3{font-family:var(--f-anton);font-size:1.6rem;margin:0 0 8px;color:var(--fg)}
 .ei-done p{font-family:var(--f-archivo);font-size:14.5px;line-height:1.55;color:var(--fg);opacity:.8;margin:0 0 18px}
-.ei-actions{display:flex;justify-content:center}
+.ei-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.ei-done .ei-sub{margin:0 0 18px}
+.ei-done .ei-error{margin:-8px 0 14px}
 
 /* Deposit result pages (success / cancelled) — centred, balanced status layout */
 .dep-status{min-height:80vh;display:flex;align-items:center;justify-content:center;text-align:center;

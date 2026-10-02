@@ -33,8 +33,12 @@ export function AbandonedDeposits({ onView }: { onView?: (invoice: Invoice) => v
 
   if (rows.length === 0) return null
 
+  // Website deposits create the contact from the email alone; the name only
+  // arrives once they pay, so an abandoned checkout is shown by its email.
   const name = (inv: Invoice) =>
-    inv.contact ? `${inv.contact.first_name || ''} ${inv.contact.last_name || ''}`.trim() || 'Unknown' : 'Unknown'
+    inv.contact
+      ? `${inv.contact.first_name || ''} ${inv.contact.last_name || ''}`.trim() || inv.contact.email || 'Unknown'
+      : 'Unknown'
 
   // "Summer Residency — deposit to secure your place" → "Summer Residency"
   const programme = (inv: Invoice) => (inv.description || '').split('—')[0].trim() || '—'

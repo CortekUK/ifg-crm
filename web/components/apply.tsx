@@ -134,7 +134,11 @@ function ApplicationForm({ form, deposit }: { form: FormDef; deposit?: DepositCt
             body: JSON.stringify({
               programme: depProgramme,
               mode: deposit!.mode,
-              amount: deposit!.amount ? Number(deposit!.amount) : undefined,
+              // Full mode names the package total; deposit mode names the
+              // deposit, which the server needs when there are several (Gap Year).
+              amount: deposit!.mode === "full"
+                ? (deposit!.amount ? Number(deposit!.amount) : undefined)
+                : (deposit!.depositAmount ? Number(deposit!.depositAmount) : undefined),
               email: (values.email || "").trim(),
               termsAccepted: deposit!.termsAccepted || undefined,
               termsVersion: deposit!.termsVersion || undefined,

@@ -7,21 +7,30 @@ import { CTABand } from "./sections";
 import { UniversityCourses } from "./university-courses";
 import { DepositButton } from "./deposit-button";
 import { UNIVERSITY, type UniCourse } from "@/lib/data";
-import type { UniversityPricing } from "@/lib/content";
+import type { UniversityOption, UniversityPricing } from "@/lib/content";
 
 const APPLY = "/programmes/macclesfield/apply?programme=university";
 const BROCHURE = "/programmes/macclesfield/brochure/university";
+
+// Row icon for a cost line, by what it is.
+function costIcon(label: string): string {
+  const l = label.toLowerCase();
+  if (l.includes("tuition") || l.includes("degree")) return "award";
+  if (l.includes("accommodation") || l.includes("housing")) return "bed";
+  if (l.includes("athletic") || l.includes("football") || l.includes("training")) return "dumbbell";
+  return "check";
+}
 
 export function UniversityView({ courses, pricing, content }: { courses?: UniCourse[]; pricing?: UniversityPricing | null; content?: typeof UNIVERSITY }) {
   const router = useRouter();
   const u = content ?? UNIVERSITY;
 
-  // Plans & pricing from the CMS (website_packages), with the bundled defaults as
-  // fallback. Defaults mirror the values previously hardcoded in this component.
-  const costs = pricing?.costs?.length ? pricing.costs : u.costs;
-  const fullAmount = pricing?.fullAmount ?? 18500;
-  const depositLabel = `£${(pricing?.deposit ?? 2000).toLocaleString("en-GB")}`;
-  const fullLabel = `£${fullAmount.toLocaleString("en-GB")}`;
+  // Plans & pricing from the CMS (website_packages): one card per package, like
+  // Summer Residency and Gap Year. Bundled defaults only if the CMS is empty.
+  const options: UniversityOption[] = pricing?.options?.length
+    ? pricing.options
+    : [{ key: "programme", label: "University Programme", subtitle: "Full academic year", featured: true, costs: u.costs, full: 18500, deposit: 2000 }];
+  const gbp = (n: number) => `£${n.toLocaleString("en-GB")}`;
 
   const heroCtas = (
     <>
@@ -172,30 +181,49 @@ export function UniversityView({ courses, pricing, content }: { courses?: UniCou
         </div>
       </section>
 
-      {/* application / costs */}
-      <section id="plans" className="section" style={{ scrollMarginTop: 90 }}>
+      {/* options & cost — same card as the Summer Residency price cards */}
+      <section id="plans" className="section band-ink" style={{ scrollMarginTop: 90 }}>
         <div className="wrap">
-          <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto 40px" }}>
-            <Eyebrow style={{ justifyContent: "center" }}>IFG University Programme</Eyebrow>
-            <h2 className="t-h2" style={{ marginTop: 12 }}>Plans &amp; pricing</h2>
+          <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
+            <h2 className="t-h2">Programme options &amp; cost</h2>
+            <p style={{ color: "var(--fg-muted)", marginTop: 10, fontWeight: 600 }}>
+              Degree, accommodation and athletics — choose your option.
+            </p>
           </div>
-          <div className="uni-costs">
-            {costs.map((c) => (
-              <article className="uni-cost" key={c.label}>
-                <span className="uni-cost-l">{c.label}</span>
-                <span className="uni-cost-v">{c.value}</span>
+          <div className={"sr-prices" + (options.length === 1 ? " sr-prices-one" : options.length === 2 ? " sr-prices-two" : "")}>
+            {options.map((o) => (
+              <article className={"sr-price" + (o.featured || options.length === 1 ? " feat" : "")} key={o.key}>
+                {o.featured && options.length > 1 && <span className="sr-price-badge"><Icon name="sparkles" size={13} /> Most popular</span>}
+                <div className="sr-price-head">
+                  <span className="sr-price-letter"><Icon name="award" size={22} /></span>
+                  <div>
+                    <span className="sr-price-dur">{o.subtitle}</span>
+                    <h3 className="sr-price-weeks">{o.label}</h3>
+                  </div>
+                </div>
+                {typeof o.full === "number" && <div className="sr-price-amt">{gbp(o.full)}<span>total cost</span></div>}
+                <div className="sr-price-rows">
+                  {o.costs.map((c) => (
+                    <span className="sr-price-row" key={c.label}>
+                      <Icon name={costIcon(c.label)} size={15} />{c.label}: {c.value}
+                    </span>
+                  ))}
+                  {typeof o.deposit === "number" && (
+                    <span className="sr-price-row"><Icon name="check" size={15} />{gbp(o.deposit)} deposit to secure</span>
+                  )}
+                </div>
+                {typeof o.deposit === "number" && (
+                  <DepositButton programme="university" deposit={o.deposit} className="sr-price-cta">
+                    Pay {gbp(o.deposit)} deposit <Icon name="arrow-right" size={15} />
+                  </DepositButton>
+                )}
+                {typeof o.full === "number" && (
+                  <DepositButton programme="university" mode="full" amount={o.full} label={o.label} className="sr-price-full">
+                    Or pay in full ({gbp(o.full)})
+                  </DepositButton>
+                )}
               </article>
             ))}
-          </div>
-          <div className="uni-apply-cta">
-            <DepositButton programme="university" deposit={pricing?.deposit ?? undefined} className="btn btn-primary btn-lg">
-              Pay {depositLabel} deposit<Icon name="arrow-right" className="ic" size={18} />
-            </DepositButton>
-            <DepositButton programme="university" mode="full" amount={fullAmount} label="Full programme" className="btn btn-ghost btn-lg">
-              Pay in full ({fullLabel})
-            </DepositButton>
-            <Button variant="ghost" size="lg" onClick={() => router.push(APPLY)}>Apply first</Button>
-            <Button variant="ghost" size="lg" onClick={() => router.push("/contact")}>Speak to the team</Button>
           </div>
         </div>
       </section>

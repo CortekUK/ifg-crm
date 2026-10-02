@@ -330,35 +330,7 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
             }
           }
         } else {
-          // Round-robin owner assignment.
-          let assignedOwnerId: string | null = null
-          let roundRobinUsers = config?.round_robin_users || []
-          // Empty selection means "round-robin across all staff" — that's what
-          // the automation builder's UI promises. Resolve it to every active
-          // recruiter, admin and super_admin here so deals always get an owner.
-          // An unowned deal silently falls back to the Nathan Bibby catch-all
-          // for the email from-name, from-address, AND signature, which looks
-          // like a bug to the operator. Ordered by created_at so the rotation
-          // array is stable across submissions (round_robin_next walks it by
-          // position).
-          if (roundRobinUsers.length === 0) {
-            const { data: staff } = await supabase
-              .from('profiles')
-              .select('id')
-              .in('role', ['recruiter', 'admin', 'super_admin'])
-              .eq('is_active', true)
-              .neq('email', 'superadmin@theinternationalfootballgroup.com')
-              .order('created_at', { ascending: true })
-            roundRobinUsers = (staff ?? []).map((r) => r.id as string)
-          }
-          if (roundRobinUsers.length > 0) {
-            const { data: nextUserId, error: rrError } = await supabase.rpc('round_robin_next', {
-              p_context_type: 'automation',
-              p_context_id: automation.id,
-              p_user_ids: roundRobinUsers,
-            })
-            assignedOwnerId = rrError ? roundRobinUsers[0] : (nextUserId as string | null)
-          }
+          const assignedOwnerId = await assignRoundRobinOwner(supabase, automation.id, config?.round_robin_users)
 
           const { data: newDeal, error: dealError } = await supabase
             .from('deals')
@@ -474,7 +446,7 @@ async function safeLogFailure(
  * or failing mail provider can never delay or fail a form submission. The
  * lead is already saved by the time this runs.
  */
-async function notifyNewLead(
+export async function notifyNewLead(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   lead: {
@@ -515,4 +487,45 @@ async function notifyNewLead(
   } catch (err) {
     console.error('New-lead alert failed (submission unaffected):', err)
   }
+}
+
+/**
+ * Pick the owner for a new deal by round-robin across the automation's chosen
+ * users. Shared by form submissions and the website deposit route so both
+ * assign owners the same way.
+ */
+export async function assignRoundRobinOwner(
+  supabase: SupabaseClient,
+  automationId: string,
+  configured: string[] | undefined,
+): Promise<string | null> {
+  let assignedOwnerId: string | null = null
+  let roundRobinUsers = configured || []
+  // Empty selection means "round-robin across all staff" — that's what
+  // the automation builder's UI promises. Resolve it to every active
+  // recruiter, admin and super_admin here so deals always get an owner.
+  // An unowned deal silently falls back to the Nathan Bibby catch-all
+  // for the email from-name, from-address, AND signature, which looks
+  // like a bug to the operator. Ordered by created_at so the rotation
+  // array is stable across submissions (round_robin_next walks it by
+  // position).
+  if (roundRobinUsers.length === 0) {
+    const { data: staff } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('role', ['recruiter', 'admin', 'super_admin'])
+      .eq('is_active', true)
+      .neq('email', 'superadmin@theinternationalfootballgroup.com')
+      .order('created_at', { ascending: true })
+    roundRobinUsers = (staff ?? []).map((r) => r.id as string)
+  }
+  if (roundRobinUsers.length > 0) {
+    const { data: nextUserId, error: rrError } = await supabase.rpc('round_robin_next', {
+      p_context_type: 'automation',
+      p_context_id: automationId,
+      p_user_ids: roundRobinUsers,
+    })
+    assignedOwnerId = rrError ? roundRobinUsers[0] : (nextUserId as string | null)
+  }
+  return assignedOwnerId
 }

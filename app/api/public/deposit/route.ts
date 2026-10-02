@@ -1,32 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type Stripe from 'stripe'
-import { getServiceClient } from '@/lib/forms/process-submission'
-import { findOrCreateList } from '@/lib/assistant/capture'
-import { createCheckoutSession } from '@/lib/stripe'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { getServiceClient, assignRoundRobinOwner, notifyNewLead } from '@/lib/forms/process-submission'
+import { findOrCreateList, EVERYONE_LIST } from '@/lib/forms/lead-routing'
+import { createCheckoutSession, stripe } from '@/lib/stripe'
 import { getPublishedTerms } from '@/lib/website-content/terms'
+import { PAYMENT_PROGRAMMES, isPaymentProgramme, checkoutCustomFields } from '@/lib/payments/programmes'
 
 /**
- * Public deposit / full-payment resolver for the website (Residency & University).
+ * Public deposit / full-payment checkout for the website (Summer Residency,
+ * University, Gap Year).
  *
- * The website deposit journey is FORM-FIRST: the applicant completes the
- * programme application form (which creates their contact + a deal at "Initial
- * Lead" via the form-submission automation) BEFORE paying. This endpoint is the
- * single decision point, called with { email, programme, mode, amount }:
+ * STRIPE-FIRST: the visitor gives only their email (plus the T&C tick where
+ * terms are published) and goes straight to Stripe. Called with
+ * { email, programme, mode, amount, confirmRepeat }:
  *
- *   - no contact / no deal in the programme pipeline  → { status: 'need_form' }
- *       (website sends them to /apply?...&deposit=1 to fill the form)
- *   - a PAID deposit/full invoice already exists       → { status: 'already_paid', invoice }
- *       (website shows "you've already paid" + the receipt)
- *   - otherwise                                        → { status: 'checkout', url }
- *       (reuses their open invoice or creates one LINKED TO THE DEAL, then Stripe)
+ *   1. find-or-create the contact (email only; the webhook fills in names)
+ *   2. find-or-create a deal in the programme's pipeline at Initial Lead
+ *   3. add them to ALL CONTACTS EVERYONE and the automation's static lists
+ *   4. a PAID deposit/full invoice already exists and confirmRepeat isn't set
+ *        → { status: 'already_paid', invoice }   (website asks "pay again?")
+ *   5. otherwise a NEW invoice for this attempt, the programme's
+ *      abandoned-deposits list (BEFORE Stripe opens, so a drop-off is still a
+ *      lead to follow up) and a Stripe session → { status: 'checkout', url }
  *
- * On payment the Stripe webhook marks the invoice paid, moves the linked deal to
- * "Deposit Paid", removes them from the abandoned list, and (for full payments)
- * tags the contact "Paid in Full".
+ * On payment the Stripe webhook fills the contact from Stripe's details, marks
+ * the invoice paid, moves the deal to "Deposit Paid" and removes them from the
+ * abandoned list.
  *
- * Pricing (amounts, deposit, card fee) is resolved from the CMS tables
- * website_packages / website_pricing_settings via resolvePricing(); the env vars
- * below are only FALLBACKS if those tables have no rows for the programme.
+ * Pricing (deposits, full amounts, card fee) comes from the CMS tables
+ * website_packages / website_pricing_settings via resolvePricing(); the env
+ * vars below are only FALLBACKS if those tables have no rows.
  *
  * Env: FORM_INGEST_SECRET (auth), STRIPE_SECRET_KEY, optionally DEPOSIT_AMOUNT
  * (2000), DEPOSIT_FEE_RATE (0.035), DEPOSIT_FEE_FIXED (0.20),
@@ -35,18 +39,6 @@ import { getPublishedTerms } from '@/lib/website-content/terms'
 
 export const runtime = 'nodejs'
 
-const PROGRAMMES: Record<string, string> = {
-  residency: 'Summer Residency',
-  university: 'University Programme',
-}
-
-// Deposit programme key → the form_id used by the form-submission automations,
-// so we can resolve the programme's pipeline dynamically (no hardcoded ids).
-const FORM_ID_BY_PROGRAMME: Record<string, string> = {
-  residency: 'summer',
-  university: 'university',
-}
-
 // Historical fallbacks — used ONLY when the CMS pricing tables have no rows for a
 // programme, so a DB hiccup can never break checkout. Live prices come from
 // website_packages / website_pricing_settings via resolvePricing().
@@ -54,6 +46,7 @@ const FALLBACK_DEPOSIT = Number(process.env.DEPOSIT_AMOUNT || 2000)
 const FALLBACK_FULL_AMOUNTS: Record<string, number[]> = {
   residency: [2995, 5495],
   university: [Number(process.env.UNIVERSITY_FULL_AMOUNT || 18500)],
+  gapyear: [18500, 10000],
 }
 const FALLBACK_FEE_RATE = Number(process.env.DEPOSIT_FEE_RATE || 0.035)
 const FALLBACK_FEE_FIXED = Number(process.env.DEPOSIT_FEE_FIXED || 0.2)
@@ -71,16 +64,20 @@ function price(base: number, rate: number, fixed: number) {
   return { base, fee, total: base + fee }
 }
 
-interface Pricing { depositBase: number | null; fullAmounts: number[]; feeRate: number; feeFixed: number }
+interface Pricing { depositAmounts: number[]; fullAmounts: number[]; feeRate: number; feeFixed: number }
+
+type Db = SupabaseClient
 
 // Resolve authoritative pricing for a programme from the CMS tables, with the
 // historical constants as a safety net. Server-side only (service client) — the
-// client can never dictate an amount; every `full` request is validated against
-// the published package amounts returned here.
-async function resolvePricing(
-  supabase: NonNullable<ReturnType<typeof getServiceClient>>,
-  programmeKey: string,
-): Promise<Pricing> {
+// client can never dictate an amount; every request is validated against the
+// published amounts returned here.
+//
+// Deposits: a programme with per-package deposits (Gap Year: one per season)
+// takes them from website_packages.deposit_amount; one without (Residency,
+// University) uses the single website_pricing_settings.deposit_default.
+async function resolvePricing(supabase: Db, programmeKey: string): Promise<Pricing> {
+  const fallbackDeposits = FALLBACK_DEPOSIT ? [FALLBACK_DEPOSIT] : []
   try {
     const [settingsRes, pkgRes] = await Promise.all([
       supabase
@@ -90,33 +87,40 @@ async function resolvePricing(
         .maybeSingle(),
       supabase
         .from('website_packages')
-        .select('full_amount, full_enabled')
+        .select('full_amount, full_enabled, deposit_amount, deposit_enabled')
         .eq('programme', programmeKey)
         .eq('published', true),
     ])
     const settings = settingsRes.data as
       | { deposit_default: number | null; deposit_enabled: boolean; fee_rate: number | null; fee_fixed: number | null }
       | null
-    const pkgs = (pkgRes.data as { full_amount: number | null; full_enabled: boolean }[] | null) ?? []
+    const pkgs =
+      (pkgRes.data as
+        | { full_amount: number | null; full_enabled: boolean; deposit_amount: number | null; deposit_enabled: boolean }[]
+        | null) ?? []
 
-    const fullAmounts = Array.from(
-      new Set(
-        pkgs.filter((p) => p.full_enabled && typeof p.full_amount === 'number').map((p) => p.full_amount as number),
-      ),
+    const unique = (xs: number[]) => Array.from(new Set(xs.map(Number)))
+    const fullAmounts = unique(
+      pkgs.filter((p) => p.full_enabled && typeof p.full_amount === 'number').map((p) => p.full_amount as number),
     )
+    const packageDeposits = unique(
+      pkgs.filter((p) => p.deposit_enabled && typeof p.deposit_amount === 'number').map((p) => p.deposit_amount as number),
+    )
+    const settingsDeposit = settings
+      ? settings.deposit_enabled && settings.deposit_default != null
+        ? [Number(settings.deposit_default)]
+        : []
+      : fallbackDeposits
+
     return {
-      depositBase: settings
-        ? settings.deposit_enabled && settings.deposit_default != null
-          ? Number(settings.deposit_default)
-          : null
-        : FALLBACK_DEPOSIT,
+      depositAmounts: packageDeposits.length ? packageDeposits : settingsDeposit,
       fullAmounts: fullAmounts.length ? fullAmounts : FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
       feeRate: settings?.fee_rate != null ? Number(settings.fee_rate) : FALLBACK_FEE_RATE,
       feeFixed: settings?.fee_fixed != null ? Number(settings.fee_fixed) : FALLBACK_FEE_FIXED,
     }
   } catch {
     return {
-      depositBase: FALLBACK_DEPOSIT,
+      depositAmounts: fallbackDeposits,
       fullAmounts: FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
       feeRate: FALLBACK_FEE_RATE,
       feeFixed: FALLBACK_FEE_FIXED,
@@ -124,24 +128,190 @@ async function resolvePricing(
   }
 }
 
-interface AutomationRow { pipeline_id: string | null; config: { form_id?: string; form_ids?: string[] } | null }
+// Pick the amount to charge: the client names one, the server accepts it only
+// if it is one of the published amounts. With a single option and none named,
+// use that option. Anything else is rejected.
+function pickAmount(raw: unknown, allowed: number[]): number | null {
+  const requested = raw != null && raw !== '' ? Math.round(Number(raw)) : null
+  if (requested != null) return !Number.isNaN(requested) && allowed.includes(requested) ? requested : null
+  return allowed.length === 1 ? allowed[0] : null
+}
 
-/** Resolve the programme's pipeline via its active form-submission automation. */
-async function resolvePipelineId(
-  supabase: NonNullable<ReturnType<typeof getServiceClient>>,
-  formId: string,
-): Promise<string | null> {
+interface ProgrammeAutomation {
+  id: string
+  name: string | null
+  pipelineId: string
+  initialStageId: string | null
+  roundRobinUsers: string[]
+  staticListIds: string[]
+}
+
+interface AutomationRow {
+  id: string
+  name: string | null
+  pipeline_id: string | null
+  trigger_stage_id: string | null
+  config: {
+    form_id?: string
+    form_ids?: string[]
+    initial_stage_id?: string
+    round_robin_users?: string[]
+    static_list_ids?: string[]
+  } | null
+}
+
+/** The programme's active form-submission automation: its pipeline, the stage
+ *  new leads land on (Initial Lead), and who owns them. */
+async function resolveAutomation(supabase: Db, formId: string): Promise<ProgrammeAutomation | null> {
   const { data } = await supabase
     .from('automations')
-    .select('pipeline_id, config')
+    .select('id, name, pipeline_id, trigger_stage_id, config')
     .eq('trigger_type', 'form_submission')
     .eq('is_active', true)
   for (const a of (data as AutomationRow[] | null) ?? []) {
     const cfg = a.config || {}
     const ids = cfg.form_ids?.length ? cfg.form_ids : cfg.form_id ? [cfg.form_id] : []
-    if (ids.includes(formId) && a.pipeline_id) return a.pipeline_id
+    if (ids.includes(formId) && a.pipeline_id) {
+      return {
+        id: a.id,
+        name: a.name,
+        pipelineId: a.pipeline_id,
+        // The automation's own initial stage — never "first by display_order",
+        // which is Dormant on every pipeline.
+        initialStageId: cfg.initial_stage_id || a.trigger_stage_id,
+        roundRobinUsers: cfg.round_robin_users ?? [],
+        staticListIds: cfg.static_list_ids ?? [],
+      }
+    }
   }
   return null
+}
+
+/** Find the contact by email (case-insensitive) or create an email-only one.
+ *  Names stay blank — the Stripe webhook fills them from the checkout. */
+async function findOrCreateContact(supabase: Db, email: string): Promise<string | null> {
+  const find = async () => {
+    const { data } = await supabase
+      .from('contacts')
+      .select('id')
+      .ilike('email', email.replace(/[%_\\]/g, '\\$&'))
+      .order('created_at', { ascending: true })
+      .limit(1)
+    return (data?.[0]?.id as string | undefined) ?? null
+  }
+  const existing = await find()
+  if (existing) return existing
+
+  const { data: created, error } = await supabase
+    .from('contacts')
+    .insert({ email, first_name: '', last_name: '', source: 'website_deposit' })
+    .select('id')
+    .single()
+  if (created?.id) return created.id as string
+  // Lost a race with a parallel request for the same email — re-read.
+  if (error) console.warn('Deposit contact insert failed, re-reading:', error.message)
+  return find()
+}
+
+/** The contact's deal in this pipeline, or a new one at Initial Lead with a
+ *  round-robin owner (the same assignment form submissions use). */
+async function findOrCreateDeal(
+  supabase: Db,
+  contactId: string,
+  email: string,
+  programmeKey: string,
+  automation: ProgrammeAutomation,
+): Promise<{ id: string; created: boolean; ownerId: string | null } | null> {
+  const { data: deals } = await supabase
+    .from('deals')
+    .select('id, deal_owner_id')
+    .eq('contact_id', contactId)
+    .eq('pipeline_id', automation.pipelineId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (deals?.[0]?.id) {
+    return { id: deals[0].id as string, created: false, ownerId: (deals[0].deal_owner_id as string | null) ?? null }
+  }
+
+  const ownerId = await assignRoundRobinOwner(supabase, automation.id, automation.roundRobinUsers)
+  const { data: deal, error } = await supabase
+    .from('deals')
+    .insert({
+      contact_id: contactId,
+      pipeline_id: automation.pipelineId,
+      current_stage_id: automation.initialStageId,
+      deal_owner_id: ownerId,
+      // Only the email is known yet; the webhook swaps in the player's name.
+      title: email,
+      deal_value: 0,
+      source: `website_deposit:${programmeKey}`,
+    })
+    .select('id')
+    .single()
+  if (error || !deal) {
+    console.error('Deposit deal create failed:', error)
+    return null
+  }
+  return { id: deal.id as string, created: true, ownerId }
+}
+
+/** Upsert the contact into lists by id. Best-effort. */
+async function addToLists(supabase: Db, contactId: string, listIds: Iterable<string>) {
+  const ids = new Set(listIds)
+  if (!ids.size) return
+  const now = new Date().toISOString()
+  await supabase
+    .from('contact_lists')
+    .upsert(
+      [...ids].map((list_id) => ({ contact_id: contactId, list_id, added_at: now })),
+      { onConflict: 'contact_id,list_id' },
+    )
+}
+
+/** Lists every deposit lead belongs to: ALL CONTACTS EVERYONE + the
+ *  programme automation's static lists. */
+async function addToLeadLists(supabase: Db, contactId: string, automation: ProgrammeAutomation) {
+  const ids = [...automation.staticListIds]
+  const everyone = await findOrCreateList(supabase, EVERYONE_LIST)
+  if (everyone) ids.push(everyone)
+  await addToLists(supabase, contactId, ids)
+}
+
+/** The programme's abandoned-deposits list — joined only when a Stripe
+ *  checkout is actually opened; the webhook removes them once they pay. */
+async function addToAbandonedList(supabase: Db, contactId: string, programmeKey: keyof typeof PAYMENT_PROGRAMMES) {
+  const { name, description } = PAYMENT_PROGRAMMES[programmeKey].abandonedList
+  const listId = await findOrCreateList(supabase, name, description)
+  if (listId) await addToLists(supabase, contactId, [listId])
+}
+
+/**
+ * Retire this deal's earlier unpaid website checkouts before starting a new
+ * one, so only one Stripe page per deal can ever take money. The old session
+ * is expired first; only if Stripe confirms it is no longer payable is the
+ * invoice cancelled. A session that already completed is left alone — its
+ * webhook will mark that invoice paid.
+ */
+async function retireOpenCheckouts(supabase: Db, dealId: string) {
+  const { data: open } = await supabase
+    .from('invoices')
+    .select('id, stripe_checkout_session_id')
+    .eq('deal_id', dealId)
+    .in('type', ['deposit', 'full_payment'])
+    .in('status', ['sent', 'overdue'])
+    .not('stripe_checkout_session_id', 'is', null)
+  for (const inv of (open as { id: string; stripe_checkout_session_id: string }[] | null) ?? []) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(inv.stripe_checkout_session_id)
+      if (session.status === 'complete') continue
+      if (session.status === 'open') await stripe.checkout.sessions.expire(session.id)
+      await supabase.from('invoices').update({ status: 'cancelled' }).eq('id', inv.id)
+    } catch (err) {
+      // Can't confirm the old page is dead → leave the invoice as it is rather
+      // than risk ignoring a payment the webhook later reports.
+      console.warn(`Could not retire checkout for invoice ${inv.id}:`, err)
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -163,10 +333,11 @@ export async function POST(request: NextRequest) {
   }
 
   const programmeKey = str(body.programme) || ''
-  const programmeName = PROGRAMMES[programmeKey]
-  if (!programmeName) {
+  if (!isPaymentProgramme(programmeKey)) {
     return NextResponse.json({ error: 'Unknown programme.' }, { status: 400 })
   }
+  const programme = PAYMENT_PROGRAMMES[programmeKey]
+  const programmeName = programme.name
 
   const email = str(body.email)?.toLowerCase()
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -185,83 +356,100 @@ export async function POST(request: NextRequest) {
 
   // Authoritative amount from the CMS pricing tables (never trust the client).
   const pricing = await resolvePricing(supabase, programmeKey)
-  let baseAmount: number
-  if (mode === 'full') {
-    const raw = body.amount
-    const requested = raw != null && raw !== '' ? Math.round(Number(raw)) : null
-    if (requested != null) {
-      if (Number.isNaN(requested) || !pricing.fullAmounts.includes(requested)) {
-        return NextResponse.json({ error: 'Invalid payment amount.' }, { status: 400 })
-      }
-      baseAmount = requested
-    } else if (pricing.fullAmounts.length === 1) {
-      baseAmount = pricing.fullAmounts[0] // single programme fee (e.g. University)
-    } else {
-      return NextResponse.json({ error: 'Invalid payment amount.' }, { status: 400 })
-    }
-  } else {
-    if (pricing.depositBase == null) {
-      return NextResponse.json({ error: 'Deposits are not available for this programme.' }, { status: 400 })
-    }
-    baseAmount = pricing.depositBase
+  const allowed = mode === 'full' ? pricing.fullAmounts : pricing.depositAmounts
+  if (mode === 'deposit' && !allowed.length) {
+    return NextResponse.json({ error: 'Deposits are not available for this programme.' }, { status: 400 })
+  }
+  const baseAmount = pickAmount(body.amount, allowed)
+  if (baseAmount == null) {
+    return NextResponse.json({ error: 'Invalid payment amount.' }, { status: 400 })
+  }
+
+  // Terms gate. The tick box lives on the website's deposit dialogue, which is
+  // a client component and therefore cannot be the thing that enforces it.
+  // Refusing here is what makes it a gate rather than a decoration. Checked
+  // before anything is written, so a refused request leaves no trace.
+  // Nothing published means nothing to enforce.
+  const published = await getPublishedTerms(supabase, programmeKey)
+  if (published && body.termsAccepted !== true) {
+    return NextResponse.json(
+      {
+        error: 'Please confirm you have read and agree to the Terms & Conditions.',
+        code: 'TERMS_NOT_ACCEPTED',
+      },
+      { status: 400 },
+    )
+  }
+
+  const originRaw = str(body.origin) || process.env.WEBSITE_URL || ''
+  const origin = /^https?:\/\//.test(originRaw) ? originRaw.replace(/\/$/, '') : ''
+  if (!origin) {
+    return NextResponse.json({ error: 'Payments are temporarily unavailable.' }, { status: 500 })
   }
 
   try {
-    const formId = FORM_ID_BY_PROGRAMME[programmeKey]
-    const pipelineId = await resolvePipelineId(supabase, formId)
-    if (!pipelineId) {
-      // Automation/pipeline not configured — send them through the form anyway.
-      return NextResponse.json({ status: 'need_form' })
+    const automation = await resolveAutomation(supabase, programme.formId)
+    if (!automation) {
+      console.error(`Deposit: no active form-submission automation for form "${programme.formId}"`)
+      return NextResponse.json({ error: 'Payments are temporarily unavailable.' }, { status: 503 })
     }
 
-    // 1. Do we know this person yet? (Form-first: contact + deal must exist.)
-    const { data: contact } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle()
-    if (!contact?.id) return NextResponse.json({ status: 'need_form' })
-
-    // 2. Have they applied to THIS programme (deal in its pipeline)?
-    const { data: deals } = await supabase
-      .from('deals')
-      .select('id')
-      .eq('contact_id', contact.id)
-      .eq('pipeline_id', pipelineId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-    const deal = deals?.[0]
-    if (!deal?.id) return NextResponse.json({ status: 'need_form' })
-
-    // 3. Already paid this programme's deposit/fee? → show the receipt.
-    const { data: paidRows } = await supabase
-      .from('invoices')
-      .select('invoice_number, amount, paid_at, description, type')
-      .eq('deal_id', deal.id)
-      .in('type', ['deposit', 'full_payment'])
-      .eq('status', 'paid')
-      .order('paid_at', { ascending: false })
-      .limit(1)
-    if (paidRows?.[0]) {
-      const p = paidRows[0]
-      return NextResponse.json({
-        status: 'already_paid',
-        invoice: {
-          number: p.invoice_number,
-          amount: p.amount,
-          date: p.paid_at,
-          description: p.description,
-          kind: p.type === 'full_payment' ? 'full' : 'deposit',
-        },
+    // 1-2. The lead exists in the CRM before Stripe opens, so closing the
+    // Stripe tab still leaves a contact and a deal.
+    const contactId = await findOrCreateContact(supabase, email)
+    if (!contactId) {
+      return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
+    }
+    const deal = await findOrCreateDeal(supabase, contactId, email, programmeKey, automation)
+    if (!deal) {
+      return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
+    }
+    await addToLeadLists(supabase, contactId, automation)
+    if (deal.created) {
+      void notifyNewLead(supabase, {
+        dealId: deal.id,
+        ownerId: deal.ownerId,
+        email,
+        programme: automation.name ?? programmeName,
+        source: `website_deposit:${programmeKey}`,
       })
     }
 
-    // --- CHECKOUT: they have a deal, haven't paid → take payment. ---
-    const originRaw = str(body.origin) || process.env.WEBSITE_URL || ''
-    const origin = /^https?:\/\//.test(originRaw) ? originRaw.replace(/\/$/, '') : ''
-    if (!origin) {
-      return NextResponse.json({ error: 'Payments are temporarily unavailable.' }, { status: 500 })
+    // 4. Already paid this programme? Paying again is allowed, but only after
+    // the visitor confirms — a double-click or a re-opened link must not
+    // silently take another deposit.
+    if (body.confirmRepeat !== true) {
+      const { data: paidRows } = await supabase
+        .from('invoices')
+        .select('invoice_number, amount, paid_at, description, type')
+        .eq('deal_id', deal.id)
+        .in('type', ['deposit', 'full_payment'])
+        .eq('status', 'paid')
+        .order('paid_at', { ascending: false })
+        .limit(1)
+      if (paidRows?.[0]) {
+        const p = paidRows[0]
+        return NextResponse.json({
+          status: 'already_paid',
+          invoice: {
+            number: p.invoice_number,
+            amount: p.amount,
+            date: p.paid_at,
+            description: p.description,
+            kind: p.type === 'full_payment' ? 'full' : 'deposit',
+          },
+        })
+      }
     }
+
+    // 5. A new invoice for every checkout attempt, so a repeat payment never
+    // overwrites the record of an earlier one.
+    await retireOpenCheckouts(supabase, deal.id)
+
+    // 3. Only now — a checkout is really starting — do they join the abandoned
+    // list. Doing it earlier would put someone who has already paid back on it
+    // just for seeing the "you've paid before" warning and pressing Cancel.
+    await addToAbandonedList(supabase, contactId, programmeKey)
 
     const { base, fee, total } = price(baseAmount, pricing.feeRate, pricing.feeFixed)
     const due = new Date()
@@ -273,74 +461,38 @@ export async function POST(request: NextRequest) {
         : `${programmeName} — deposit to secure your place`
     const notes = `Website ${payNoun} checkout (${programmeName}). ${mode === 'full' ? 'Amount' : 'Deposit'} £${base.toFixed(2)} + card fee £${fee.toFixed(2)}.`
 
-    // Reuse an existing OPEN deposit/full invoice for this deal (repeat attempt)
-    // rather than creating duplicates; otherwise create a new one linked to the deal.
-    const { data: openRows } = await supabase
-      .from('invoices')
-      .select('id, invoice_number')
-      .eq('deal_id', deal.id)
-      .in('type', ['deposit', 'full_payment'])
-      .in('status', ['sent', 'overdue'])
-      .order('created_at', { ascending: false })
+    const { data: adminProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('role', ['super_admin', 'admin'])
+      .eq('is_active', true)
+      .order('created_at', { ascending: true })
       .limit(1)
-
-    let invoiceId: string
-    let invoiceNumber: string
-    if (openRows?.[0]) {
-      invoiceId = openRows[0].id
-      invoiceNumber = openRows[0].invoice_number
-      await supabase
-        .from('invoices')
-        .update({ type: invoiceType, description, amount: total, notes, sent_at: new Date().toISOString(), due_date: dueDate })
-        .eq('id', invoiceId)
-    } else {
-      const { data: adminProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('role', ['super_admin', 'admin'])
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-      if (!adminProfile?.id) {
-        return NextResponse.json({ error: 'Payments are temporarily unavailable.' }, { status: 503 })
-      }
-      const { data: invoice, error: invErr } = await supabase
-        .from('invoices')
-        .insert({
-          contact_id: contact.id,
-          deal_id: deal.id,
-          type: invoiceType,
-          description,
-          amount: total,
-          currency: 'GBP',
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          due_date: dueDate,
-          recipient_type: 'player',
-          created_by_id: adminProfile.id,
-          notes,
-        })
-        .select('id, invoice_number')
-        .single()
-      if (invErr || !invoice) {
-        console.error('Deposit invoice create failed:', invErr)
-        return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
-      }
-      invoiceId = invoice.id
-      invoiceNumber = invoice.invoice_number
+      .maybeSingle()
+    if (!adminProfile?.id) {
+      return NextResponse.json({ error: 'Payments are temporarily unavailable.' }, { status: 503 })
     }
-
-    // Abandoned-cart follow-up list (per programme). Removed by the webhook on payment.
-    const list =
-      programmeKey === 'university'
-        ? { name: 'Abandoned University Deposits', desc: 'Started the University Programme deposit/payment checkout on the website but have not paid yet — follow up.' }
-        : { name: 'Abandoned Summer Deposits', desc: 'Started the Summer Residency deposit/payment checkout on the website but have not paid yet — follow up.' }
-    const listId = await findOrCreateList(supabase, list.name, list.desc)
-    if (listId) {
-      await supabase
-        .from('contact_lists')
-        .upsert({ contact_id: contact.id, list_id: listId, added_at: new Date().toISOString() }, { onConflict: 'contact_id,list_id' })
+    const { data: invoice, error: invErr } = await supabase
+      .from('invoices')
+      .insert({
+        contact_id: contactId,
+        deal_id: deal.id,
+        type: invoiceType,
+        description,
+        amount: total,
+        currency: 'GBP',
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+        due_date: dueDate,
+        recipient_type: 'player',
+        created_by_id: adminProfile.id,
+        notes,
+      })
+      .select('id, invoice_number')
+      .single()
+    if (invErr || !invoice) {
+      console.error('Deposit invoice create failed:', invErr)
+      return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
     }
 
     // Stripe Checkout — amount + processing fee as separate lines.
@@ -364,30 +516,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // programmeKey is already 'residency' | 'university' here, the same keys
-    // website_terms uses; the gap-year journey does not run through this route.
-    const published = await getPublishedTerms(
-      supabase,
-      programmeKey === 'residency' || programmeKey === 'university' ? programmeKey : null,
-    )
-
-    // The tick box lives on the website's deposit dialogue, which is a client
-    // component and therefore cannot be the thing that enforces it. Refusing
-    // here is what makes it a gate rather than a decoration: without this,
-    // anyone posting straight to the API would skip the terms entirely.
-    //
-    // Nothing to agree to means nothing to enforce — a programme with no
-    // published terms pays exactly as it did before any of this existed.
-    if (published && body.termsAccepted !== true) {
-      return NextResponse.json(
-        {
-          error: 'Please confirm you have read and agree to the Terms & Conditions.',
-          code: 'TERMS_NOT_ACCEPTED',
-        },
-        { status: 400 },
-      )
-    }
-
     const terms = published ? { ...published, acceptedUpstream: true } : null
 
     const session = await createCheckoutSession({
@@ -397,10 +525,15 @@ export async function POST(request: NextRequest) {
       success_url: `${origin}/deposit/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/deposit/cancelled?programme=${programmeKey}`,
       customer_email: email,
+      // The payer's details (name, phone) and the player's name, gender and
+      // graduation year are collected on Stripe's page; the webhook copies
+      // them onto the contact and files them into the cohort lists.
+      phone_number_collection: { enabled: true },
+      custom_fields: checkoutCustomFields(),
       metadata: {
-        invoice_id: invoiceId,
-        invoice_number: invoiceNumber,
-        contact_id: contact.id,
+        invoice_id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        contact_id: contactId,
         deal_id: deal.id,
         source: 'website_deposit',
         payment_mode: mode,
@@ -409,7 +542,7 @@ export async function POST(request: NextRequest) {
       },
     }, terms)
 
-    await supabase.from('invoices').update({ stripe_checkout_session_id: session.id }).eq('id', invoiceId)
+    await supabase.from('invoices').update({ stripe_checkout_session_id: session.id }).eq('id', invoice.id)
 
     return NextResponse.json({ status: 'checkout', url: session.url })
   } catch (err) {
