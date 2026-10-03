@@ -241,7 +241,7 @@ button{font-family:inherit}
 .value-in{position:relative;z-index:2;padding:22px}
 .value .vn{font-family:var(--font-display);font-size:30px;color:var(--pitch-500);line-height:1}
 .value h4{margin:10px 0 6px;text-transform:uppercase;letter-spacing:.04em;color:#fff}
-.value p{color:rgba(255,255,255,.72);font-size:13px;margin:0}
+.value p{color:rgba(255,255,255,.72);font-size:13px;line-height:1.5;margin:0;min-height:4.5em}
 
 /* ---- stats (standalone + merged into about) ---- */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}
@@ -685,7 +685,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .ss-meta-k{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-subtle)}
 .ss-meta-v{display:block;margin-top:5px;font-weight:700;font-size:16px;color:var(--fg)}
 .ss-read{align-self:flex-start;margin-top:30px}
-@media(max-width:860px){.ss-card{grid-template-columns:1fr}.ss-card.flip .ss-card-media{order:0}.ss-card-media{min-height:240px}}
+@media(max-width:860px){.ss-card{grid-template-columns:1fr}.ss-card.flip .ss-card-media{order:0}.ss-card-media{min-height:240px}.ss-card-media img{object-position:center 25%}}
 /* detail */
 .ss-detail-hero{min-height:68vh}
 /* keep the player's face in frame on the success-story heroes */
@@ -1164,7 +1164,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .pd-hero-in{position:relative;z-index:2;width:100%;padding-bottom:clamp(56px,8vh,90px);padding-top:150px}
 .pd-back{display:inline-flex;align-items:center;gap:8px;color:rgba(255,255,255,.75);cursor:pointer;font-weight:600;margin-bottom:22px;transition:color var(--dur-fast)}
 .pd-back:hover{color:#fff}
-.pd-title{color:#fff;margin:16px 0 0;max-width:18ch}
+.pd-title{color:#fff;margin:16px 0 0;max-width:24ch;text-wrap:balance}
 .pd-tagline{color:rgba(255,255,255,.85);font-size:20px;line-height:1.5;margin:18px 0 0;max-width:48ch}
 .pd-chips{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
 .pd-chip{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;font-weight:600;font-size:14px;backdrop-filter:blur(6px)}
@@ -1439,7 +1439,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .grid-2.split{gap:28px}
 }
 /* the video sits between two padded sections — don't stack a third band of space */
-@media (max-width:760px){
+@media (max-width:1024px){
   .section.sec-video{padding:8px 0}
 }
 @media (max-width:640px){
@@ -1521,6 +1521,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .section-head p{font-size:16px}
   .cta-sub{font-size:16px}
   .cta-foot{gap:12px 20px;margin-top:26px;padding-top:22px}
+  .cta-foot{display:grid;justify-content:center;justify-items:start}
   .cta-actions{margin-top:26px}
   .cta-actions .btn{width:100%;justify-content:center}
 

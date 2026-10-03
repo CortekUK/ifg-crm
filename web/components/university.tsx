@@ -124,8 +124,8 @@ export function UniversityView({ courses, pricing, content }: { courses?: UniCou
               <h2 className="t-h2" style={{ marginTop: 12, maxWidth: "20ch" }}>Football experiences across the world</h2>
             </div>
             <div className="cta-row" style={{ gap: 12 }}>
-              <Button variant="solid" onClick={() => router.push("/contact")}>Book a call</Button>
               <Button variant="primary" iconRight="arrow-right" onClick={() => router.push(APPLY)}>Apply now</Button>
+              <Button variant="solid" onClick={() => router.push("/contact")}>Book a call</Button>
             </div>
           </div>
           <div data-anim="up" style={{ marginTop: 26 }}>
