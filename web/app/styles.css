@@ -166,9 +166,14 @@ button{font-family:inherit}
   .news-card:nth-child(n){grid-column:auto;grid-row:auto;min-height:220px}
   .news-card:nth-child(1){grid-column:1 / -1;min-height:300px}
 }
-@media (max-width:900px){
+/* the bar's three groups only fit side by side on a full desktop; from the header's
+   burger breakpoint down, keep just the centred announcement so nothing wraps */
+.ubar-in > *{white-space:nowrap}
+@media (max-width:1200px){
   .ubar .soc,.ubar .left-extra{display:none}
   .ubar-in{justify-content:center}
+}
+@media (max-width:900px){
   .ann-text{display:none}
   .ubar-ann{padding:5px 16px}
 }
