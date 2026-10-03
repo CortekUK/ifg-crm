@@ -1349,9 +1349,6 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .acc{display:flex;flex-direction:column;gap:12px}
 .acc-item{border:1px solid var(--hairline);border-radius:12px;overflow:hidden;background:var(--bg-elevated);transition:border-color var(--dur)}
 .acc-item.open{border-color:rgba(190,22,35,.45)}
-.acc-item:hover{border-color:var(--hairline-strong)}
-.acc-head{transition:background var(--dur-fast)}
-.acc-head:hover{background:rgba(190,22,35,.06)}
 .acc-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;background:none;border:0;color:var(--fg);font-weight:700;font-size:16px;cursor:pointer;text-align:left;font-family:var(--font-sans)}
 .acc-ic{flex:none;color:var(--fg-subtle);transition:transform var(--dur) var(--ease-out)}
 .acc-item.open .acc-ic{transform:rotate(180deg);color:var(--pitch-400)}
