@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { Eyebrow } from "@/components/primitives";
 import { Icon } from "@/components/icons";
 import { CTABand } from "@/components/sections";
 import { getSiteContent } from "@/lib/content";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "ID Clinics",
   description:
     "Upcoming IFG identification clinics — your chance to be seen by our coaches and take the first step on the IFG pathway.",
-};
+  path: "/id-clinics",
+});
 
 // IFG manages these from the CRM (Website Content → Site Content, type 'id_clinic').
 export default async function Page() {

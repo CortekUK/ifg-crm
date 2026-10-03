@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { Eyebrow } from "@/components/primitives";
 
-export const metadata: Metadata = { title: "Deposit received", robots: { index: false } };
+export const metadata: Metadata = pageMeta({
+  title: "Deposit received",
+  description:
+    "Your IFG programme deposit has been received.",
+  path: "/deposit/success",
+  noindex: true,
+});
 
 export default function Page() {
   return (

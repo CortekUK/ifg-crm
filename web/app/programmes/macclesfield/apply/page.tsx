@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import { ApplyView } from "@/components/apply";
 import { getResidencyBlocks } from "@/lib/content";
 
-export const metadata: Metadata = {
-  title: "Apply Now · Macclesfield",
-  description: "Apply for a Macclesfield football education programme — Summer Residency, University degree pathway or Gap Year. Complete the online application form.",
-};
+export const metadata: Metadata = pageMeta({
+  title: "Apply now · Macclesfield FC programmes",
+  description:
+    "Apply for a Macclesfield football education programme — Summer Residency, University degree pathway or Gap Year. Complete the online application form.",
+  path: "/programmes/macclesfield/apply",
+});
 
 // The "length of stay" choices are the residency blocks themselves, read from
 // the CMS. They used to be a hardcoded list, which still offered a six-week

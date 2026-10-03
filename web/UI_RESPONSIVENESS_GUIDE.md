@@ -192,7 +192,21 @@ and the header buttons are hidden below 1200px.
 
 ---
 
-## 7. Audit checklist (per page, per width, per theme)
+## 7. SEO and share previews
+
+Every page must set its metadata with `pageMeta()` from `web/lib/seo.ts`. Never write `openGraph` by hand:
+Next.js doesn't merge metadata, so a page that only sets `title` shares the home page's title and image.
+
+- `pageMeta({ title, description, path, image?, type?, noindex? })` sets the title, description (~150–160 characters),
+  canonical URL, Open Graph and Twitter card.
+- Share cards are 1200×630 images in `web/public/og/`: default, summer residency, university and gap year.
+  Articles, stories, galleries and squads use their own hero photo.
+- Thank-you, legal and short-link pages use `noindex: true`.
+- One `<h1>` per page, and every `<img>` needs `alt` (`alt=""` for decorative images).
+- Structured data uses `<JsonLd>`: Organization and WebSite in the layout, `NewsArticle` on articles, `FAQPage` on the FAQ.
+- New public routes go in `web/app/sitemap.ts`.
+
+## 8. Audit checklist (per page, per width, per theme)
 
 - [ ] Nothing scrolls or is clipped horizontally (`overflow-x: clip` on `<body>` hides overflow, so check element edges, not the scrollbar)
 - [ ] No elements overlap each other

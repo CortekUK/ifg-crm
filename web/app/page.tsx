@@ -1,7 +1,20 @@
+import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import { HomeView } from "@/components/home";
 import { HOME, IFG_TV } from "@/lib/data";
 import { getPage } from "@/lib/content";
 import { mergePage } from "@/lib/cms";
+
+export const metadata: Metadata = {
+  ...pageMeta({
+    title: "World-class football education & experiences",
+    description:
+      "Bachelor and master degrees in sport, summer residencies and gap years with Macclesfield FC — football education from The International Football Group.",
+    path: "/",
+  }),
+  // the home page carries the full brand title, not the "· IFG" template
+  title: { absolute: "IFG — World-class football education & experiences" },
+};
 
 export default async function Page() {
   // The home "IFG TV" carousel reuses the same CMS-managed video list as the

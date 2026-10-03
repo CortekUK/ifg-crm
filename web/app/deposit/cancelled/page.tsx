@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { Eyebrow } from "@/components/primitives";
 
-export const metadata: Metadata = { title: "Payment cancelled", robots: { index: false } };
+export const metadata: Metadata = pageMeta({
+  title: "Payment cancelled",
+  description:
+    "Your IFG programme deposit was not completed.",
+  path: "/deposit/cancelled",
+  noindex: true,
+});
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ programme?: string }> }) {
   const { programme } = await searchParams;

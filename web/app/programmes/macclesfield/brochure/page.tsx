@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { Eyebrow } from "@/components/primitives";
 import { Icon } from "@/components/icons";
 import { getBrochures } from "@/lib/content";
 
-export const metadata: Metadata = { title: "Brochures · Macclesfield" };
+export const metadata: Metadata = pageMeta({
+  title: "Programme brochures · Macclesfield",
+  description:
+    "Download or view the IFG Macclesfield programme brochures — Summer Residency, University and Gap Year — as an interactive flipbook.",
+  path: "/programmes/macclesfield/brochure",
+});
 
 const LABEL: Record<string, string> = {
   summer: "Summer Residency",

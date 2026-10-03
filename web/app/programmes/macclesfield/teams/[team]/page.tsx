@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta, snippet } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { SquadView } from "@/components/squad";
 import { SQUADS } from "@/lib/data";
@@ -19,8 +20,14 @@ async function resolveSquad(team: string) {
 export async function generateMetadata({ params }: { params: Promise<{ team: string }> }): Promise<Metadata> {
   const { team } = await params;
   const s = await resolveSquad(team);
-  if (!s) return { title: "Squad not found" };
-  return { title: `${s.name} · Macclesfield`, description: s.intro[0] };
+  if (!s) return { title: "Squad not found", robots: { index: false } };
+  return pageMeta({
+    title: `${s.name} · Macclesfield`,
+    description: snippet(s.intro[0]),
+    path: `/programmes/macclesfield/teams/${s.slug || team}`,
+    image: s.photo || s.heroImg || undefined,
+    imageAlt: s.name,
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ team: string }> }) {

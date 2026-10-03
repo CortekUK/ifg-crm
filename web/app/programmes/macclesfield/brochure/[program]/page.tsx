@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta, snippet } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { getBrochure } from "@/lib/content";
 import { BrochureViewer } from "@/components/brochure-viewer";
@@ -14,7 +15,13 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ program: string }> }): Promise<Metadata> {
   const { program } = await params;
   const b = await getBrochure(program);
-  return { title: b ? `${b.title} · Macclesfield` : "Brochure · Macclesfield" };
+  if (!b) return { title: "Brochure · Macclesfield", robots: { index: false } };
+  return pageMeta({
+    title: `${b.title} · Macclesfield`,
+    description: snippet(b.description || `${b.title} — view the IFG Macclesfield programme brochure as a flipbook.`),
+    path: `/programmes/macclesfield/brochure/${program}`,
+    image: b.coverImage || undefined,
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ program: string }> }) {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import sanitizeHtml from "sanitize-html";
 import { Eyebrow } from "@/components/primitives";
@@ -31,13 +32,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { programme } = await params;
   const terms = await getProgrammeTerms(programme);
-  return {
+  // A legal document has no business in search results competing with the
+  // programme pages themselves.
+  return pageMeta({
     title: terms?.title ?? "Terms & Conditions",
-    description: "The terms that apply to this IFG programme.",
-    // A legal document has no business in search results competing with the
-    // programme pages themselves.
-    robots: { index: false, follow: true },
-  };
+    description: "The terms and conditions that apply to this IFG programme.",
+    path: `/terms/${programme}`,
+    noindex: true,
+  });
 }
 
 /**

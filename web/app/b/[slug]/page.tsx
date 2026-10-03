@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta, snippet } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { getBrochureBySlug } from "@/lib/content";
 import { BrochureViewer } from "@/components/brochure-viewer";
@@ -8,7 +9,15 @@ export const dynamicParams = true;
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const b = await getBrochureBySlug(slug);
-  return { title: b ? `${b.title} · IFG` : "Brochure" };
+  if (!b) return { title: "Brochure", robots: { index: false } };
+  // short share link for a brochure: keep it out of search, the programme pages rank instead
+  return pageMeta({
+    title: b.title,
+    description: snippet(b.description || `${b.title} — the IFG programme brochure.`),
+    path: `/b/${b.slug}`,
+    image: b.coverImage || undefined,
+    noindex: true,
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {

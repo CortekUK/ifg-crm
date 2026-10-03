@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta, snippet } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { GalleryCategoryView } from "@/components/gallery";
 import { GALLERY } from "@/lib/data";
@@ -18,12 +19,14 @@ async function resolve(slug: string) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const c = await resolve(slug);
-  if (!c) return { title: "Gallery not found" };
-  return {
+  if (!c) return { title: "Gallery not found", robots: { index: false } };
+  return pageMeta({
     title: `${c.title} · Gallery`,
-    description: c.blurb,
-    openGraph: { title: `${c.title} · IFG Gallery`, description: c.blurb, images: c.cover ? [c.cover] : [] },
-  };
+    description: snippet(c.blurb || `${c.title} — photos from across The International Football Group.`),
+    path: `/gallery/${c.slug}`,
+    image: c.cover || undefined,
+    imageAlt: c.title,
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {

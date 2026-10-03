@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta, snippet } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { SuccessStoryView } from "@/components/success-stories";
 import { SUCCESS_STORIES } from "@/lib/data";
@@ -19,12 +20,15 @@ async function resolve(slug: string) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const s = await resolve(slug);
-  if (!s) return { title: "Story not found" };
-  return {
-    title: `${s.name} · Success Stories`,
-    description: s.blurb[0],
-    openGraph: { title: `${s.name} · IFG`, description: s.blurb[0], images: s.heroImg ? [s.heroImg] : [] },
-  };
+  if (!s) return { title: "Story not found", robots: { index: false } };
+  return pageMeta({
+    title: `${s.name} · Success stories`,
+    description: snippet(s.blurb[0]),
+    path: `/success-stories/${s.slug}`,
+    image: s.heroImg || s.img || undefined,
+    imageAlt: s.name,
+    type: "article",
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
