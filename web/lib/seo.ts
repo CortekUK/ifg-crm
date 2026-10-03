@@ -7,7 +7,11 @@ import type { Metadata } from "next";
 // deep-merge metadata. A page that sets only `title` keeps the *layout's* og:title, so
 // every shared link would show the home page's title and image.
 
-export const SITE_URL = "https://theinternationalfootballgroup.com";
+// The live site's primary address. The bare domain 308-redirects to www, and share
+// scrapers (WhatsApp, LinkedIn…) often won't follow a redirect for og:image — so every
+// absolute URL must already be the www one. Override with NEXT_PUBLIC_SITE_URL if the
+// primary domain ever changes.
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.theinternationalfootballgroup.com").replace(/\/$/, "");
 export const SITE_NAME = "The International Football Group";
 export const SITE_SHORT = "IFG";
 
