@@ -26,6 +26,10 @@ function accentLine(line: string, accent: string) {
 }
 
 function Hero({ hero }: { hero: typeof HOME.hero }) {
+  const down = () => {
+    if (window.__lenis) window.__lenis.scrollTo(window.innerHeight * 0.92);
+    else window.scrollTo({ top: window.innerHeight * 0.92, behavior: "smooth" });
+  };
   return (
     <section className="hero">
       <HeroReel srcs={hero.videos} seconds={14} poster={hero.poster} />
@@ -47,6 +51,10 @@ function Hero({ hero }: { hero: typeof HOME.hero }) {
           <Button variant="ghost" size="lg" as="a" href="/contact">{hero.ctaSecondary}</Button>
         </div>
       </div>
+      <button className="scroll-cue" onClick={down} aria-label="Scroll down">
+        <span>Scroll</span>
+        <span className="scroll-cue-line"><span /></span>
+      </button>
     </section>
   );
 }
