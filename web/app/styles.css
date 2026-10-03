@@ -270,6 +270,7 @@ button{font-family:inherit}
 .sel{position:relative}
 .sel-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg-elevated);border:1.5px solid var(--hairline);border-radius:10px;padding:14px 15px;color:var(--fg);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)}
 .sel.open .sel-btn,.sel-btn:focus-visible{outline:none;border-color:var(--pitch-500);box-shadow:0 0 0 3px rgba(190,22,35,.18)}
+.sel-btn:hover,.phone-cc:hover{border-color:var(--hairline-strong)}
 .sel-ph{color:var(--fg-subtle)}
 .sel-caret{color:var(--fg-subtle);transition:transform var(--dur) var(--ease-out)}
 .sel.open .sel-caret{transform:rotate(180deg);color:var(--pitch-400)}
@@ -795,6 +796,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 /* preview + read-more toggle: only used on touch (no-hover) devices */
 .staff-preview,.staff-toggle{display:none}
 .staff-toggle{margin-top:12px;align-items:center;gap:7px;background:none;border:0;padding:0;color:var(--pitch-400);font-family:var(--font-sans);font-weight:700;font-size:13px;letter-spacing:.04em;cursor:pointer}
+.staff-toggle:hover{text-decoration:underline;text-underline-offset:3px}
 .staff-toggle-ic{transition:transform var(--dur) var(--ease-out)}
 .staff-reveal{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;padding:24px;overflow-y:auto;background:linear-gradient(to top,rgba(7,10,9,.96),rgba(7,10,9,.9));opacity:0;transform:translateY(10px);transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out)}
 .staff-card:hover .staff-reveal{opacity:1;transform:none}
@@ -1229,6 +1231,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .vidc-poster.on{opacity:1;transform:scale(1);z-index:1}
 .vidc-shade{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg,rgba(7,10,9,.2) 0%,rgba(7,10,9,0) 35%,rgba(7,10,9,.55) 70%,rgba(7,10,9,.92) 100%)}
 .vidc-stage .play-badge{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4}
+.vidc-stage:hover .play-badge{background:var(--pitch-400)}
 .vidc-meta{position:relative;z-index:3;padding:32px}
 .vidc-tag{display:inline-block;color:var(--pitch-400);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
 .vidc-meta h3{margin:0;color:#fff;font-size:clamp(1.4rem,2.6vw,2rem);max-width:24ch;line-height:1.15}
@@ -1338,6 +1341,9 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .acc{display:flex;flex-direction:column;gap:12px}
 .acc-item{border:1px solid var(--hairline);border-radius:12px;overflow:hidden;background:var(--bg-elevated);transition:border-color var(--dur)}
 .acc-item.open{border-color:rgba(190,22,35,.45)}
+.acc-item:hover{border-color:var(--hairline-strong)}
+.acc-head{transition:background var(--dur-fast)}
+.acc-head:hover{background:rgba(190,22,35,.06)}
 .acc-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;background:none;border:0;color:var(--fg);font-weight:700;font-size:16px;cursor:pointer;text-align:left;font-family:var(--font-sans)}
 .acc-ic{flex:none;color:var(--fg-subtle);transition:transform var(--dur) var(--ease-out)}
 .acc-item.open .acc-ic{transform:rotate(180deg);color:var(--pitch-400)}
