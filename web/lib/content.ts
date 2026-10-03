@@ -297,6 +297,8 @@ export async function getProgrammeDeposit(programme: ProgrammeKey): Promise<numb
 }
 
 const gbp = (n: number) => `£${n.toLocaleString("en-GB")}`;
+// Breakdown values are typed by hand in the CRM; "£4000" or "4000" reads as "£4,000".
+const money = (v: string) => (/^\s*£?\s*\d+\s*$/.test(v) ? gbp(Number(v.replace(/[^0-9]/g, ""))) : v);
 
 // ── Programme price DISPLAY mappers (DB → the shapes the pages already render) ──
 // Each returns null when the CMS has no packages, so the page falls back to the
@@ -361,7 +363,8 @@ export async function getUniversityPricing(): Promise<UniversityPricing | null> 
     options: pkgs.map((p) => {
       const dep = p.depositEnabled ? p.depositAmount ?? programmeDeposit : null;
       return {
-        key: p.key, label: p.label, subtitle: p.subtitle, featured: p.featured, costs: p.breakdown,
+        key: p.key, label: p.label, subtitle: p.subtitle, featured: p.featured,
+        costs: p.breakdown.map((b) => ({ label: b.label, value: money(b.value) })),
         ...(p.fullEnabled && p.fullAmount != null ? { full: p.fullAmount } : {}),
         ...(dep != null ? { deposit: dep } : {}),
       };
@@ -382,9 +385,10 @@ export async function getGapYearCosts(): Promise<GapCost[] | null> {
     return {
       title: p.label, season: p.subtitle,
       price: p.fullAmount != null ? gbp(p.fullAmount) : "",
-      lines: p.breakdown.map((b) => `${b.label}: ${b.value}`),
+      lines: p.breakdown.map((b) => `${b.label}: ${money(b.value)}`),
       featured: p.featured,
       ...(dep != null ? { deposit: dep } : {}),
+      // only when the CRM package has "Payable in full" switched on
       ...(p.fullEnabled && p.fullAmount != null ? { full: p.fullAmount } : {}),
     };
   });

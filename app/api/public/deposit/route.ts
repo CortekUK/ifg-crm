@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fullPaymentOffered } from '@/lib/website-content/package-fields'
 import type Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getServiceClient, assignRoundRobinOwner, notifyNewLead } from '@/lib/forms/process-submission'
@@ -113,7 +114,7 @@ async function resolvePricing(supabase: Db, programmeKey: string): Promise<Prici
     if (!pkgs.length) {
       return {
         depositAmounts: settingsDeposit,
-        fullAmounts: FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
+        fullAmounts: fullPaymentOffered(programmeKey) ? FALLBACK_FULL_AMOUNTS[programmeKey] ?? [] : [],
         feeRate,
         feeFixed,
       }
@@ -125,9 +126,11 @@ async function resolvePricing(supabase: Db, programmeKey: string): Promise<Prici
     // (that fallback used to let a full payment through after every package had
     // "Payable in full" turned off). A deposit-accepting package with no amount of
     // its own takes the programme's default deposit.
-    const fullAmounts = unique(
-      pkgs.filter((p) => p.full_enabled && typeof p.full_amount === 'number').map((p) => p.full_amount as number),
-    )
+    // A programme that doesn't offer full payment at all (Gap Year, for now) refuses
+    // it whatever an individual package says.
+    const fullAmounts = fullPaymentOffered(programmeKey)
+      ? unique(pkgs.filter((p) => p.full_enabled && typeof p.full_amount === 'number').map((p) => p.full_amount as number))
+      : []
     const depositAmounts = unique(
       pkgs.flatMap((p) => {
         if (!p.deposit_enabled) return []
@@ -139,7 +142,7 @@ async function resolvePricing(supabase: Db, programmeKey: string): Promise<Prici
   } catch {
     return {
       depositAmounts: fallbackDeposits,
-      fullAmounts: FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
+      fullAmounts: fullPaymentOffered(programmeKey) ? FALLBACK_FULL_AMOUNTS[programmeKey] ?? [] : [],
       feeRate: FALLBACK_FEE_RATE,
       feeFixed: FALLBACK_FEE_FIXED,
     }

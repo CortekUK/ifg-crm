@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Tag, Plus, Trash2, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
+import { Tag, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { toast } from '@/lib/hooks/use-toast'
 import { useSavePackage } from '@/lib/hooks/useWebsitePricing'
 import type { WebsitePackage, WebsitePackageInput, PriceLine, ItineraryDay, ProgrammeKey } from '@/lib/types/website-content'
 import { ContentDialog, FormSection, Field, FieldRow, PublishControls } from './_form'
+import { PACKAGE_FIELDS } from '@/lib/website-content/package-fields'
 
 const PROGRAMME_LABEL: Record<string, string> = {
   residency: 'Summer Residency',
@@ -27,6 +28,8 @@ export function PackageModal({
   defaultSort?: number
   onClose: () => void
 }) {
+  // only the fields this programme's website card actually shows
+  const fields = PACKAGE_FIELDS[programme]
   const save = useSavePackage()
 
   const [key, setKey] = React.useState('')
@@ -91,6 +94,11 @@ export function PackageModal({
       toast({ title: 'Invalid key', description: 'Use letters, numbers, - or _ (e.g. A or full-season).', variant: 'destructive' })
       return
     }
+    if ((fullEnabled || !fields.fullPayment) && fullAmount.trim() === '') {
+      // Gap Year cards always show the total, so it's needed even without full payment
+      toast({ title: 'Missing price', description: 'Enter the total price shown on the card.', variant: 'destructive' })
+      return
+    }
     if (fullEnabled && fullAmount.trim() === '') {
       toast({ title: 'Missing price', description: 'Enter a total price, or turn off "Payable in full".', variant: 'destructive' })
       return
@@ -101,14 +109,15 @@ export function PackageModal({
       programme,
       key: k,
       label: l,
-      subtitle: subtitle.trim() || null,
-      duration: duration.trim() || null,
+      // fields the card doesn't show are cleared, so the CRM never holds values the site ignores
+      subtitle: fields.subtitle ? subtitle.trim() || null : null,
+      duration: fields.duration ? duration.trim() || null : null,
       full_amount: fullAmount.trim() === '' ? null : Math.round(Number(fullAmount)),
       deposit_amount: depositAmount.trim() === '' ? null : Math.round(Number(depositAmount)),
       deposit_enabled: depositEnabled,
-      full_enabled: fullEnabled,
-      breakdown: breakdown.filter((ln) => ln.label.trim() || ln.value.trim()),
-      itinerary: itinerary.filter((d) => d.date.trim() || d.activity.trim()),
+      full_enabled: fields.fullPayment ? fullEnabled : false,
+      breakdown: fields.breakdown ? breakdown.filter((ln) => ln.label.trim() || ln.value.trim()) : [],
+      itinerary: fields.itinerary ? itinerary.filter((d) => d.date.trim() || d.activity.trim()) : [],
       featured,
       published,
       sort_order: Number(sortOrder) || 0,
@@ -149,24 +158,26 @@ export function PackageModal({
             <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Full 6 Weeks" />
           </Field>
         </FieldRow>
-        <FieldRow>
-          <Field label="Subtitle" hint="Dates or season, e.g. June 20th – Aug 1st">
-            <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="June 20th – Aug 1st" />
-          </Field>
-          <Field label="Duration" hint="e.g. 6 weeks">
-            <Input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="6 weeks" />
-          </Field>
-        </FieldRow>
+        {(fields.subtitle || fields.duration) && (
+          <FieldRow>
+            {fields.subtitle && (
+              <Field label={fields.subtitle} hint="Shown on the card, e.g. June 20th – Aug 1st">
+                <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="June 20th – Aug 1st" />
+              </Field>
+            )}
+            {fields.duration && (
+              <Field label="Duration" hint="e.g. 6 weeks">
+                <Input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="6 weeks" />
+              </Field>
+            )}
+          </FieldRow>
+        )}
       </FormSection>
 
       <FormSection title="Pricing">
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>The total price is shown on the website as the package's total cost. These amounts are also what customers are <strong>charged at checkout</strong> (plus the card fee). Enter whole pounds — e.g. 8000 for £8,000.</span>
-        </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3">
-          <span className="text-sm font-medium">Total price</span>
+          <span className="text-sm font-medium">Total price <span className="font-normal text-muted-foreground">(the big price on the card)</span></span>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">£</span>
             <Input
@@ -176,13 +187,19 @@ export function PackageModal({
           </div>
         </div>
 
-        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/70 bg-muted/30 p-3">
-          <Switch checked={fullEnabled} onCheckedChange={setFullEnabled} />
-          <span>
-            <span className="block text-sm font-medium text-foreground">Payable in full</span>
-            <span className="block text-xs text-muted-foreground">On: the website shows a “Pay in full” button for this package and checkout accepts it. Off: the price is still shown, but it can’t be paid in full online.</span>
-          </span>
-        </label>
+        {fields.fullPayment ? (
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/70 bg-muted/30 p-3">
+            <Switch checked={fullEnabled} onCheckedChange={setFullEnabled} />
+            <span>
+              <span className="block text-sm font-medium text-foreground">Payable in full</span>
+              <span className="block text-xs text-muted-foreground">On: the website shows a “Pay in full” button for this package and checkout accepts it. Off: the price is still shown, but it can’t be paid in full online.</span>
+            </span>
+          </label>
+        ) : (
+          <p className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground">
+            Paying in full online isn’t offered for this programme yet — the website shows the total price and takes the deposit only.
+          </p>
+        )}
 
         <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3">
           <label className="flex cursor-pointer items-center gap-3">
@@ -200,8 +217,9 @@ export function PackageModal({
         <p className="text-xs text-muted-foreground">Leave the deposit blank to use the programme’s default deposit. Set a value only to override this one package.</p>
       </FormSection>
 
+      {fields.breakdown && (
       <FormSection title="Breakdown lines">
-        <p className="text-xs text-muted-foreground">Optional detail shown under the package (University &amp; Gap Year), e.g. Accommodation — £6,500.</p>
+        <p className="text-xs text-muted-foreground">The lines listed under the price on the card, e.g. Accommodation — £6,500.</p>
         <div className="space-y-2">
           {breakdown.map((line, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -217,7 +235,9 @@ export function PackageModal({
           </Button>
         </div>
       </FormSection>
+      )}
 
+      {fields.itinerary && (
       <FormSection title="Day-by-day schedule">
         <p className="text-xs text-muted-foreground">
           The dates for this block, shown on the programme page. Leave empty and no
@@ -254,6 +274,7 @@ export function PackageModal({
           </Button>
         </div>
       </FormSection>
+      )}
 
       <FormSection title="Visibility">
         <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/70 bg-muted/30 p-3">

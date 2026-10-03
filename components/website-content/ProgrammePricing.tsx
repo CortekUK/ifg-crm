@@ -11,13 +11,14 @@ import type { WebsitePackage, PricingSettings, ProgrammeKey } from '@/lib/types/
 import { PackageModal } from './PackageModal'
 import { PricingSettingsModal } from './PricingSettingsModal'
 import { DeleteConfirm } from './_shared'
+import { fieldsFor } from '@/lib/website-content/package-fields'
 
 const gbp = (n: number) => `£${n.toLocaleString('en-GB')}`
 // What a visitor can pay online for a package — the same rule the website and
 // checkout (/api/public/deposit) apply, so this chip always matches the live site.
 function payState(pkg: WebsitePackage, deposit: number | null) {
   const dep = pkg.deposit_enabled && deposit != null
-  const full = pkg.full_enabled && pkg.full_amount != null
+  const full = fieldsFor(pkg.programme).fullPayment && pkg.full_enabled && pkg.full_amount != null
   if (dep && full) return { text: 'Deposit or full', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }
   if (dep) return { text: 'Deposit only', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' }
   if (full) return { text: 'Full payment only', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' }
@@ -52,13 +53,13 @@ function PackageRow({
             return <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold', st.cls)} title="What visitors can pay online for this package">{st.text}</span>
           })()}
         </div>
-        {pkg.subtitle && <p className="truncate text-xs text-muted-foreground">{pkg.subtitle}</p>}
+        {fieldsFor(pkg.programme).subtitle && pkg.subtitle && <p className="truncate text-xs text-muted-foreground">{pkg.subtitle}</p>}
       </div>
       <div className="hidden shrink-0 text-right sm:block">
         <p className="text-sm font-semibold text-foreground">{pkg.full_amount != null ? gbp(pkg.full_amount) : '—'}</p>
         <p className="text-[11px] text-muted-foreground">
           {pkg.deposit_enabled ? (deposit != null ? `${gbp(deposit)} deposit` : 'no deposit set') : 'no online deposit'}
-          {pkg.full_enabled && pkg.full_amount != null ? ' · full pay on' : ''}
+          {fieldsFor(pkg.programme).fullPayment && pkg.full_enabled && pkg.full_amount != null ? ' · full pay on' : ''}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
