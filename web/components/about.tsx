@@ -12,7 +12,7 @@ export function AboutView({ data }: { data?: typeof ABOUT }) {
           style={{ position: "absolute", inset: 0 }}
           tone="radial-gradient(120% 90% at 70% 0%, rgba(24,193,107,.18), transparent 55%), linear-gradient(160deg,#26332E,#0A0F0E)"
         />
-        <div className="wrap" style={{ position: "relative", zIndex: 2, paddingBottom: 64, paddingTop: 130 }}>
+        <div className="wrap" style={{ position: "relative", zIndex: 2, width: "100%", paddingBottom: 64, paddingTop: 130 }}>
           <Eyebrow style={{ color: "var(--pitch-400)" }}>{a.hero.eyebrow}</Eyebrow>
           <h1 className="t-display" style={{ color: "#fff", margin: "18px 0 0", maxWidth: "18ch" }}>{a.hero.heading}</h1>
         </div>

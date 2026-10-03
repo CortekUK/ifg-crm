@@ -1726,12 +1726,12 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .dep-status-icon.ok{background:var(--pitch-500);color:#fff;box-shadow:0 10px 30px -8px var(--pitch-500)}
 .dep-status-icon.warn{background:color-mix(in srgb,var(--pitch-500) 14%,transparent);color:var(--pitch-500);
   border:1.5px solid color-mix(in srgb,var(--pitch-500) 40%,transparent)}
-.dep-status-title{font-family:var(--f-anton);font-size:clamp(2rem,5.2vw,3.15rem);line-height:1.05;
+.dep-status-title{font-family:var(--f-anton);font-weight:400;text-transform:uppercase;letter-spacing:.01em;font-size:clamp(2rem,5.2vw,3.15rem);line-height:1.05;
   margin:14px auto 0;max-width:16ch;text-wrap:balance;color:var(--fg)}
 .dep-status-sub{font-family:var(--f-archivo);font-size:clamp(15px,1.4vw,17px);line-height:1.62;
   color:var(--fg-muted);max-width:50ch;margin:18px auto 0;text-wrap:pretty}
 .dep-status-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:32px}
-@media(max-width:560px){.dep-status-cta{flex-direction:column}.dep-status-cta .btn{width:100%}}
+@media(max-width:560px){.dep-status-cta{flex-direction:column}.dep-status-cta .btn{width:100%;justify-content:center}}
 
 /* ── Brochures (self-hosted flipbook + gate + library) ─────────────────────── */
 .bro-section{min-height:70vh;overflow-x:hidden}

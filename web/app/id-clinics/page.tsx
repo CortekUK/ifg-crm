@@ -66,7 +66,7 @@ export default async function Page() {
               </div>
             </>
           ) : (
-            <div className="section-head" data-anim="up" style={{ textAlign: "center" }}>
+            <div className="section-head" data-anim="up" style={{ textAlign: "center", marginInline: "auto" }}>
               <Eyebrow center>Coming soon</Eyebrow>
               <h2 data-anim="reveal-title">New clinics on the way</h2>
               <p className="ss-lead" style={{ marginTop: 12 }}>
