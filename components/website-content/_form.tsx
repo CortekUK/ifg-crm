@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { format, parse, isValid } from 'date-fns'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { Label } from '@/components/ui/label'
@@ -66,6 +66,8 @@ export function ContentDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         showCloseButton={false}
+        // no subtitle → tell Radix there is deliberately no description (otherwise it warns)
+        {...(description ? {} : { 'aria-describedby': undefined })}
         className="flex max-h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
       >
         {/* Header */}
@@ -74,8 +76,9 @@ export function ContentDialog({
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="font-oswald text-lg font-semibold leading-tight text-foreground">{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+            {/* Radix needs DialogTitle (and DialogDescription) to label the dialog for screen readers */}
+            <DialogTitle className="font-oswald text-lg font-semibold leading-tight text-foreground">{title}</DialogTitle>
+            {description && <DialogDescription className="mt-0.5 text-sm text-muted-foreground">{description}</DialogDescription>}
           </div>
           <button
             type="button"

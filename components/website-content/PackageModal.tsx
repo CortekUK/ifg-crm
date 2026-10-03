@@ -91,7 +91,7 @@ export function PackageModal({
       return
     }
     if (fullEnabled && fullAmount.trim() === '') {
-      toast({ title: 'Missing price', description: 'Enter a full price, or turn off "Payable in full".', variant: 'destructive' })
+      toast({ title: 'Missing price', description: 'Enter a total price, or turn off "Payable in full".', variant: 'destructive' })
       return
     }
 
@@ -161,22 +161,27 @@ export function PackageModal({
       <FormSection title="Pricing">
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>These amounts are what customers are <strong>charged at checkout</strong> (plus the card fee). Enter whole pounds — e.g. 8000 for £8,000.</span>
+          <span>The total price is shown on the website as the package's total cost. These amounts are also what customers are <strong>charged at checkout</strong> (plus the card fee). Enter whole pounds — e.g. 8000 for £8,000.</span>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3">
-          <label className="flex cursor-pointer items-center gap-3">
-            <Switch checked={fullEnabled} onCheckedChange={setFullEnabled} />
-            <span className="text-sm font-medium">Payable in full</span>
-          </label>
+          <span className="text-sm font-medium">Total price</span>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">£</span>
             <Input
               type="number" min={0} className="h-9 w-32" value={fullAmount}
-              onChange={(e) => setFullAmount(e.target.value)} placeholder="8000" disabled={!fullEnabled}
+              onChange={(e) => setFullAmount(e.target.value)} placeholder="8000"
             />
           </div>
         </div>
+
+        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/70 bg-muted/30 p-3">
+          <Switch checked={fullEnabled} onCheckedChange={setFullEnabled} />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Payable in full</span>
+            <span className="block text-xs text-muted-foreground">Lets customers pay the total price online. Off: the price is still shown, but only the deposit can be paid.</span>
+          </span>
+        </label>
 
         <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3">
           <label className="flex cursor-pointer items-center gap-3">

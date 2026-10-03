@@ -207,11 +207,7 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
                     Pay £{c.deposit.toLocaleString("en-GB")} deposit <Icon name="arrow-right" size={15} />
                   </DepositButton>
                 )}
-                {typeof c.full === "number" && (
-                  <DepositButton programme="gapyear" mode="full" amount={c.full} label={c.title} className="sr-price-full">
-                    Or pay in full ({c.price})
-                  </DepositButton>
-                )}
+                {/* No "pay in full" link for now — the full amount isn't confirmed yet. */}
               </article>
             ))}
           </div>

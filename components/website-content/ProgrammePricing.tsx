@@ -40,7 +40,7 @@ function PackageRow({
         {pkg.subtitle && <p className="truncate text-xs text-muted-foreground">{pkg.subtitle}</p>}
       </div>
       <div className="hidden shrink-0 text-right sm:block">
-        <p className="text-sm font-semibold text-foreground">{pkg.full_enabled && pkg.full_amount != null ? gbp(pkg.full_amount) : '—'}</p>
+        <p className="text-sm font-semibold text-foreground">{pkg.full_amount != null ? gbp(pkg.full_amount) : '—'}</p>
         <p className="text-[11px] text-muted-foreground">{pkg.deposit_enabled ? (deposit != null ? `${gbp(deposit)} deposit` : 'no deposit set') : 'no deposit'}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
