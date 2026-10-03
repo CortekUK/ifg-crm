@@ -98,7 +98,7 @@ export function UniversityView({ courses, pricing, content }: { courses?: UniCou
             <p>{u.packageIntro}</p>
           </div>
           <div data-anim="up">
-            <CardCarousel
+            <CardCarousel arrowsBelow
               items={u.package}
               lg={3}
               md={2}

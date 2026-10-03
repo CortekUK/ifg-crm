@@ -1120,6 +1120,10 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .caro-dots span{width:9px;height:9px;border-radius:50%;background:var(--hairline-strong);cursor:pointer;transition:width var(--dur) var(--ease-out),background var(--dur)}
 .caro-dots span.on{width:26px;border-radius:5px;background:var(--pitch-500)}
 @media (max-width:640px){.caro-arw{width:42px;height:42px}.caro-prev{left:8px}.caro-next{right:8px}}
+/* arrows beside the dots (arrowsBelow): in normal flow, so they never cover card text */
+.caro-dots-ctrl{align-items:center;gap:12px}
+.caro-dots-ctrl .caro-arw{position:static;transform:none;width:42px;height:42px;flex:none}
+.caro-dots-ctrl .caro-prev{margin-right:8px}.caro-dots-ctrl .caro-next{margin-left:8px}
 
 /* value card (inside carousel) */
 .vcard{position:relative;height:clamp(380px,52vh,480px);border-radius:20px;overflow:hidden;border:1px solid var(--hairline);background:var(--ink-850);display:flex;align-items:flex-end;isolation:isolate}

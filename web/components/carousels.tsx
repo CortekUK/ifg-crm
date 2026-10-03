@@ -16,6 +16,7 @@ export function CardCarousel<T>({
   gap = 20,
   auto = 5000,
   className = "",
+  arrowsBelow = false,
 }: {
   items: T[];
   render: (item: T, i: number) => ReactNode;
@@ -25,6 +26,9 @@ export function CardCarousel<T>({
   gap?: number;
   auto?: number;
   className?: string;
+  /** Put the arrows beside the dots instead of over the cards — use for text cards,
+   *  where a mid-card arrow would sit on top of the title. */
+  arrowsBelow?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
@@ -56,6 +60,9 @@ export function CardCarousel<T>({
   const cardW = pv ? (w - gap * (pv - 1)) / pv : w;
   const x = -idx * (cardW + gap);
 
+  const prev = <button className="caro-arw caro-prev" onClick={() => setI((v) => (v <= 0 ? maxI : v - 1))} aria-label="Previous"><Icon name="arrow-left" size={20} /></button>;
+  const next = <button className="caro-arw caro-next" onClick={() => setI((v) => (v >= maxI ? 0 : v + 1))} aria-label="Next"><Icon name="arrow-right" size={20} /></button>;
+
   return (
     <div className={"caro " + className} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <div className="caro-vp" ref={ref}>
@@ -64,18 +71,15 @@ export function CardCarousel<T>({
             <div className="caro-cell" key={k} style={{ width: cardW > 0 ? cardW + "px" : "100%" }}>{render(it, k)}</div>
           ))}
         </div>
-        {maxI > 0 && (
-          <>
-            <button className="caro-arw caro-prev" onClick={() => setI((v) => (v <= 0 ? maxI : v - 1))} aria-label="Previous"><Icon name="arrow-left" size={20} /></button>
-            <button className="caro-arw caro-next" onClick={() => setI((v) => (v >= maxI ? 0 : v + 1))} aria-label="Next"><Icon name="arrow-right" size={20} /></button>
-          </>
-        )}
+        {maxI > 0 && !arrowsBelow && <>{prev}{next}</>}
       </div>
       {maxI > 0 && (
-        <div className="caro-dots">
+        <div className={"caro-dots" + (arrowsBelow ? " caro-dots-ctrl" : "")}>
+          {arrowsBelow && prev}
           {Array.from({ length: maxI + 1 }).map((_, d) => (
             <span key={d} className={d === idx ? "on" : ""} onClick={() => setI(d)} role="button" aria-label={"Page " + (d + 1)} />
           ))}
+          {arrowsBelow && next}
         </div>
       )}
     </div>

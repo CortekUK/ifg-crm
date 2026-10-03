@@ -104,7 +104,7 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
             <p>{g.packageIntro}</p>
           </div>
           <div data-anim="up">
-            <CardCarousel
+            <CardCarousel arrowsBelow
               items={g.package}
               lg={3}
               md={2}
