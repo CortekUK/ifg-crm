@@ -33,7 +33,7 @@ export function PackageModal({
   const [label, setLabel] = React.useState('')
   const [subtitle, setSubtitle] = React.useState('')
   const [duration, setDuration] = React.useState('')
-  const [fullEnabled, setFullEnabled] = React.useState(true)
+  const [fullEnabled, setFullEnabled] = React.useState(false)
   const [fullAmount, setFullAmount] = React.useState('')
   const [depositEnabled, setDepositEnabled] = React.useState(true)
   const [depositAmount, setDepositAmount] = React.useState('')
@@ -50,7 +50,8 @@ export function PackageModal({
     setLabel(item?.label ?? '')
     setSubtitle(item?.subtitle ?? '')
     setDuration(item?.duration ?? '')
-    setFullEnabled(item?.full_enabled ?? true)
+    // new packages start deposit-only; paying in full online is an explicit opt-in
+    setFullEnabled(item?.full_enabled ?? false)
     setFullAmount(item?.full_amount != null ? String(item.full_amount) : '')
     setDepositEnabled(item?.deposit_enabled ?? true)
     setDepositAmount(item?.deposit_amount != null ? String(item.deposit_amount) : '')
@@ -179,7 +180,7 @@ export function PackageModal({
           <Switch checked={fullEnabled} onCheckedChange={setFullEnabled} />
           <span>
             <span className="block text-sm font-medium text-foreground">Payable in full</span>
-            <span className="block text-xs text-muted-foreground">Lets customers pay the total price online. Off: the price is still shown, but only the deposit can be paid.</span>
+            <span className="block text-xs text-muted-foreground">On: the website shows a “Pay in full” button for this package and checkout accepts it. Off: the price is still shown, but it can’t be paid in full online.</span>
           </span>
         </label>
 

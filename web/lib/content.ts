@@ -305,17 +305,21 @@ const gbp = (n: number) => `£${n.toLocaleString("en-GB")}`;
 // Summer Residency options (matches SUMMER_RESIDENCY.options).
 export type SummerOption = {
   label: string; weeks: string; dur: string; dates: string; total: string; deposit: string; featured: boolean;
+  /** CRM "Deposit accepted" / "Payable in full". Absent (bundled fallback) = both on. */
+  depositOn?: boolean; fullOn?: boolean;
 };
 export async function getResidencyOptions(): Promise<SummerOption[] | null> {
   const [pkgs, deposit] = await Promise.all([getPackages("residency"), getProgrammeDeposit("residency")]);
   if (!pkgs.length) return null;
   const out: SummerOption[] = [];
   for (const p of pkgs) {
-    const dep = p.depositAmount ?? deposit;
-    if (p.fullAmount == null || dep == null) return null; // incomplete → use bundled
+    const dep = p.depositEnabled ? p.depositAmount ?? deposit : null;
+    // incomplete → use bundled: no price, or a deposit is accepted but none is set anywhere
+    if (p.fullAmount == null || (p.depositEnabled && dep == null)) return null;
     out.push({
       label: p.key, weeks: p.label, dur: p.duration, dates: p.subtitle,
-      total: gbp(p.fullAmount), deposit: gbp(dep), featured: p.featured,
+      total: gbp(p.fullAmount), deposit: dep != null ? gbp(dep) : "", featured: p.featured,
+      depositOn: dep != null, fullOn: p.fullEnabled,
     });
   }
   return out;
@@ -365,21 +369,25 @@ export async function getUniversityPricing(): Promise<UniversityPricing | null> 
   };
 }
 
-// Gap Year programme costs (matches GAP_YEAR.costs; display only — no deposit).
+// Gap Year programme costs (matches GAP_YEAR.costs).
 // `deposit` / `full` (whole GBP) are set only when the CMS enables that way of
 // paying for the season; the card shows a button only for what is present.
 export type GapCost = { title: string; season: string; price: string; lines: string[]; featured: boolean; deposit?: number; full?: number };
 export async function getGapYearCosts(): Promise<GapCost[] | null> {
-  const pkgs = await getPackages("gapyear");
+  const [pkgs, programmeDeposit] = await Promise.all([getPackages("gapyear"), getProgrammeDeposit("gapyear")]);
   if (!pkgs.length) return null;
-  return pkgs.map((p) => ({
-    title: p.label, season: p.subtitle,
-    price: p.fullAmount != null ? gbp(p.fullAmount) : "",
-    lines: p.breakdown.map((b) => `${b.label}: ${b.value}`),
-    featured: p.featured,
-    ...(p.depositEnabled && p.depositAmount != null ? { deposit: p.depositAmount } : {}),
-    ...(p.fullEnabled && p.fullAmount != null ? { full: p.fullAmount } : {}),
-  }));
+  return pkgs.map((p) => {
+    // same rule as checkout: a package with no deposit of its own uses the programme default
+    const dep = p.depositEnabled ? p.depositAmount ?? programmeDeposit : null;
+    return {
+      title: p.label, season: p.subtitle,
+      price: p.fullAmount != null ? gbp(p.fullAmount) : "",
+      lines: p.breakdown.map((b) => `${b.label}: ${b.value}`),
+      featured: p.featured,
+      ...(dep != null ? { deposit: dep } : {}),
+      ...(p.fullEnabled && p.fullAmount != null ? { full: p.fullAmount } : {}),
+    };
+  });
 }
 
 // ── University courses (grouped by School) ────────────────────────────────────

@@ -207,7 +207,20 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
                     Pay £{c.deposit.toLocaleString("en-GB")} deposit <Icon name="arrow-right" size={15} />
                   </DepositButton>
                 )}
-                {/* No "pay in full" link for now — the full amount isn't confirmed yet. */}
+                {/* shown only when the CRM package has "Payable in full" switched on */}
+                {typeof c.full === "number" && (
+                  <DepositButton
+                    programme="gapyear"
+                    mode="full"
+                    amount={c.full}
+                    label={`${c.title}${c.season ? ` (${c.season})` : ""}`}
+                    className={typeof c.deposit === "number" ? "sr-price-full" : "sr-price-cta"}
+                  >
+                    {typeof c.deposit === "number"
+                      ? <>Or pay in full (£{c.full.toLocaleString("en-GB")})</>
+                      : <>Pay in full (£{c.full.toLocaleString("en-GB")}) <Icon name="arrow-right" size={15} /></>}
+                  </DepositButton>
+                )}
               </article>
             ))}
           </div>

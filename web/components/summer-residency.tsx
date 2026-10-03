@@ -132,7 +132,7 @@ export function SummerResidencyView({
             <p style={{ color: "var(--fg-muted)", marginTop: 10, fontWeight: 600 }}>{s.optionsNote}</p>
           </div>
           <div className="sr-prices">
-            {(options && options.length ? options : s.options).map((o) => (
+            {((options && options.length ? options : s.options) as SummerOption[]).map((o) => (
               <article className={"sr-price" + (o.featured ? " feat" : "")} key={o.label}>
                 {o.featured && <span className="sr-price-badge"><Icon name="sparkles" size={13} /> Most popular</span>}
                 <div className="sr-price-head">
@@ -145,20 +145,27 @@ export function SummerResidencyView({
                 <div className="sr-price-amt">{o.total}<span>total cost</span></div>
                 <div className="sr-price-rows">
                   <span className="sr-price-row"><Icon name="calendar" size={15} />{o.dates}</span>
-                  <span className="sr-price-row"><Icon name="check" size={15} />{o.deposit} deposit to secure</span>
+                  {o.depositOn !== false && (
+                    <span className="sr-price-row"><Icon name="check" size={15} />{o.deposit} deposit to secure</span>
+                  )}
                 </div>
-                <DepositButton programme="residency" deposit={Number(o.deposit.replace(/[^0-9.]/g, ""))} className="sr-price-cta">
-                  Pay {o.deposit} deposit <Icon name="arrow-right" size={15} />
-                </DepositButton>
-                <DepositButton
-                  programme="residency"
-                  mode="full"
-                  amount={Number(o.total.replace(/[^0-9.]/g, ""))}
-                  label={o.weeks}
-                  className="sr-price-full"
-                >
-                  Or pay in full ({o.total})
-                </DepositButton>
+                {/* each button only when the CRM switch for it is on ("Deposit accepted" / "Payable in full") */}
+                {o.depositOn !== false && (
+                  <DepositButton programme="residency" deposit={Number(o.deposit.replace(/[^0-9.]/g, ""))} className="sr-price-cta">
+                    Pay {o.deposit} deposit <Icon name="arrow-right" size={15} />
+                  </DepositButton>
+                )}
+                {o.fullOn !== false && (
+                  <DepositButton
+                    programme="residency"
+                    mode="full"
+                    amount={Number(o.total.replace(/[^0-9.]/g, ""))}
+                    label={o.weeks}
+                    className={o.depositOn !== false ? "sr-price-full" : "sr-price-cta"}
+                  >
+                    {o.depositOn !== false ? <>Or pay in full ({o.total})</> : <>Pay in full ({o.total}) <Icon name="arrow-right" size={15} /></>}
+                  </DepositButton>
+                )}
               </article>
             ))}
           </div>

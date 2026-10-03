@@ -13,6 +13,17 @@ import { PricingSettingsModal } from './PricingSettingsModal'
 import { DeleteConfirm } from './_shared'
 
 const gbp = (n: number) => `£${n.toLocaleString('en-GB')}`
+// What a visitor can pay online for a package — the same rule the website and
+// checkout (/api/public/deposit) apply, so this chip always matches the live site.
+function payState(pkg: WebsitePackage, deposit: number | null) {
+  const dep = pkg.deposit_enabled && deposit != null
+  const full = pkg.full_enabled && pkg.full_amount != null
+  if (dep && full) return { text: 'Deposit or full', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }
+  if (dep) return { text: 'Deposit only', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' }
+  if (full) return { text: 'Full payment only', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' }
+  return { text: 'No online payment', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' }
+}
+
 const feeText = (s?: PricingSettings) => (s ? `${+(s.fee_rate * 100).toFixed(2)}% + ${gbp(s.fee_fixed)}` : '3.5% + £0.20')
 
 function PackageRow({
@@ -35,13 +46,20 @@ function PackageRow({
               <Star className="h-2.5 w-2.5" />Featured
             </span>
           )}
-          {!pkg.published && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">Draft</span>}
+          {!pkg.published && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400" title="Hidden from the website">Draft</span>}
+          {(() => {
+            const st = payState(pkg, deposit)
+            return <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold', st.cls)} title="What visitors can pay online for this package">{st.text}</span>
+          })()}
         </div>
         {pkg.subtitle && <p className="truncate text-xs text-muted-foreground">{pkg.subtitle}</p>}
       </div>
       <div className="hidden shrink-0 text-right sm:block">
         <p className="text-sm font-semibold text-foreground">{pkg.full_amount != null ? gbp(pkg.full_amount) : '—'}</p>
-        <p className="text-[11px] text-muted-foreground">{pkg.deposit_enabled ? (deposit != null ? `${gbp(deposit)} deposit` : 'no deposit set') : 'no deposit'}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {pkg.deposit_enabled ? (deposit != null ? `${gbp(deposit)} deposit` : 'no deposit set') : 'no online deposit'}
+          {pkg.full_enabled && pkg.full_amount != null ? ' · full pay on' : ''}
+        </p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <button onClick={onEdit} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
@@ -95,7 +113,11 @@ export function ProgrammePricingEditor({ programme }: { programme: ProgrammeKey 
           <div>
             <h3 className="font-oswald text-base font-semibold text-slate-900 dark:text-white">Packages &amp; pricing</h3>
             <p className="text-xs text-muted-foreground">
-              {s?.deposit_enabled && s.deposit_default != null ? <>Deposit <strong>{gbp(s.deposit_default)}</strong></> : <>No deposit</>}
+              {s?.deposit_enabled && s.deposit_default != null
+                ? <>Deposit <strong>{gbp(s.deposit_default)}</strong></>
+                : list.some((p) => p.deposit_enabled && p.deposit_amount != null)
+                  ? <>Deposit set per package</>
+                  : <>No online deposit</>}
               {' · '}Card fee {feeText(s ?? undefined)}
             </p>
           </div>

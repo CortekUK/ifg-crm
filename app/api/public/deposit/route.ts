@@ -100,24 +100,42 @@ async function resolvePricing(supabase: Db, programmeKey: string): Promise<Prici
         | null) ?? []
 
     const unique = (xs: number[]) => Array.from(new Set(xs.map(Number)))
-    const fullAmounts = unique(
-      pkgs.filter((p) => p.full_enabled && typeof p.full_amount === 'number').map((p) => p.full_amount as number),
-    )
-    const packageDeposits = unique(
-      pkgs.filter((p) => p.deposit_enabled && typeof p.deposit_amount === 'number').map((p) => p.deposit_amount as number),
-    )
     const settingsDeposit = settings
       ? settings.deposit_enabled && settings.deposit_default != null
         ? [Number(settings.deposit_default)]
         : []
       : fallbackDeposits
+    const feeRate = settings?.fee_rate != null ? Number(settings.fee_rate) : FALLBACK_FEE_RATE
+    const feeFixed = settings?.fee_fixed != null ? Number(settings.fee_fixed) : FALLBACK_FEE_FIXED
 
-    return {
-      depositAmounts: packageDeposits.length ? packageDeposits : settingsDeposit,
-      fullAmounts: fullAmounts.length ? fullAmounts : FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
-      feeRate: settings?.fee_rate != null ? Number(settings.fee_rate) : FALLBACK_FEE_RATE,
-      feeFixed: settings?.fee_fixed != null ? Number(settings.fee_fixed) : FALLBACK_FEE_FIXED,
+    // No published packages: the CMS isn't set up for this programme (or the read
+    // failed), so keep taking the historical amounts.
+    if (!pkgs.length) {
+      return {
+        depositAmounts: settingsDeposit,
+        fullAmounts: FALLBACK_FULL_AMOUNTS[programmeKey] ?? [],
+        feeRate,
+        feeFixed,
+      }
     }
+
+    // Packages exist: the CRM is the single source of truth, exactly as the website
+    // shows it. A package's "Deposit accepted" / "Payable in full" switches decide
+    // what can be paid — switched off means refused here, never a hardcoded fallback
+    // (that fallback used to let a full payment through after every package had
+    // "Payable in full" turned off). A deposit-accepting package with no amount of
+    // its own takes the programme's default deposit.
+    const fullAmounts = unique(
+      pkgs.filter((p) => p.full_enabled && typeof p.full_amount === 'number').map((p) => p.full_amount as number),
+    )
+    const depositAmounts = unique(
+      pkgs.flatMap((p) => {
+        if (!p.deposit_enabled) return []
+        if (typeof p.deposit_amount === 'number') return [p.deposit_amount]
+        return settingsDeposit
+      }),
+    )
+    return { depositAmounts, fullAmounts, feeRate, feeFixed }
   } catch {
     return {
       depositAmounts: fallbackDeposits,
@@ -359,6 +377,9 @@ export async function POST(request: NextRequest) {
   const allowed = mode === 'full' ? pricing.fullAmounts : pricing.depositAmounts
   if (mode === 'deposit' && !allowed.length) {
     return NextResponse.json({ error: 'Deposits are not available for this programme.' }, { status: 400 })
+  }
+  if (mode === 'full' && !allowed.length) {
+    return NextResponse.json({ error: 'Paying in full online is not available for this programme.' }, { status: 400 })
   }
   const baseAmount = pickAmount(body.amount, allowed)
   if (baseAmount == null) {
