@@ -90,7 +90,7 @@ export function SummerResidencyView({
 
       {/* feature cards overlapping hero */}
       <section className="mh-cards-sec">
-        <div className="wrap sr-feats">
+        <div className="wrap sr-feats" data-anim="cards">
           {s.features.map((f, i) => (
             <article className="sr-feat" key={f.title}>
               <img src={f.img} alt="" loading="lazy" />

@@ -77,6 +77,11 @@ place in front of them. Both look broken.
 
 Headings and paragraphs may still use the gentle `data-anim="up"` fade.
 
+**Exception, approved by the client:** the summer residency feature cards (`.sr-feats`, 01–04) keep a
+rise-in using the opt-in `data-anim="cards"`. It is built to avoid both problems above: when the grid
+is stacked (phones), each card gets its own trigger, and CSS transitions are paused while it runs.
+Only add `data-anim="cards"` to another grid when it is specifically requested.
+
 *Fixed:* the `stagger` reveal was removed from `motion.tsx` and from all 13 card grids, and from `.ss-card`.
 
 ### 3.2 No decorative scroll indicators

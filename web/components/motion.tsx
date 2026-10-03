@@ -70,6 +70,24 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           gsap.from(el, { y: 44, opacity: 0, duration: 0.9, ease: "power3.out", clearProps: "transform,opacity", scrollTrigger: { trigger: el, start: "top 86%", once: true } });
         });
 
+        // Card rise-in. Opt-in per grid (data-anim="cards"); most grids stay static
+        // because a rise-in that fires on the grid's top edge looks broken when
+        // cards stack. Here each card gets its own trigger when the grid is a
+        // single column, so stacked cards rise as they enter. CSS hover transitions
+        // on transform are paused while GSAP animates, so the two can't fight.
+        gsap.utils.toArray<HTMLElement>('[data-anim="cards"]').forEach((group) => {
+          const cards = Array.from(group.children) as HTMLElement[];
+          if (!cards.length) return;
+          const stacked = cards.length > 1 && Math.abs(cards[0].offsetLeft - cards[1].offsetLeft) < 2;
+          const anim = { y: 56, opacity: 0, duration: 0.85, ease: "power3.out", clearProps: "transform,opacity,transition" };
+          gsap.set(cards, { transition: "none" });
+          if (stacked) {
+            cards.forEach((card) => gsap.from(card, { ...anim, scrollTrigger: { trigger: card, start: "top 90%", once: true } }));
+          } else {
+            gsap.from(cards, { ...anim, stagger: 0.1, scrollTrigger: { trigger: group, start: "top 82%", once: true } });
+          }
+        });
+
         // Word-by-word mask reveal for headings (split once, then re-arm on nav).
         gsap.utils.toArray<HTMLElement>('[data-anim="reveal-title"]').forEach((el) => {
           if (el.dataset.split !== "1") {
