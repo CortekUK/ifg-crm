@@ -7,11 +7,18 @@ import type { Metadata } from "next";
 // deep-merge metadata. A page that sets only `title` keeps the *layout's* og:title, so
 // every shared link would show the home page's title and image.
 
-// The live site's primary address. The bare domain 308-redirects to www, and share
-// scrapers (WhatsApp, LinkedIn…) often won't follow a redirect for og:image — so every
-// absolute URL must already be the www one. Override with NEXT_PUBLIC_SITE_URL if the
-// primary domain ever changes.
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.theinternationalfootballgroup.com").replace(/\/$/, "");
+// Where absolute URLs (og:image, canonical, JSON-LD) point.
+// - Production: the live primary domain. The bare domain 308-redirects to www, and share
+//   scrapers (WhatsApp, LinkedIn…) often won't follow a redirect for og:image, so it must
+//   already be the www address.
+// - Vercel preview deployments (branches / PRs): that preview's own URL, so a share-preview
+//   test shows the preview's changes, not what's live.
+// - NEXT_PUBLIC_SITE_URL overrides both (e.g. if the primary domain changes).
+const PRODUCTION_URL = "https://www.theinternationalfootballgroup.com";
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : PRODUCTION_URL)
+).replace(/\/$/, "");
 export const SITE_NAME = "The International Football Group";
 export const SITE_SHORT = "IFG";
 
