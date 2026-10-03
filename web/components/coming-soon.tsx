@@ -7,7 +7,7 @@ export function ComingSoon({ title, eyebrow = "Macclesfield Football Education" 
   return (
     <section className="section coming">
       <div className="wrap-tight" style={{ textAlign: "center" }}>
-        <Eyebrow>{eyebrow}</Eyebrow>
+        <Eyebrow center>{eyebrow}</Eyebrow>
         <h1 className="t-display" style={{ marginTop: 14 }}>{title}</h1>
         <p style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.6, margin: "18px auto 30px", maxWidth: "46ch" }}>
           This page is coming soon. In the meantime, get in touch and our team will be happy to help.

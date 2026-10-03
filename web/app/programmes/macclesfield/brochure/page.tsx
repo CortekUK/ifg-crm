@@ -19,7 +19,7 @@ export default async function Page() {
     <section className="section">
       <div className="wrap">
         <div style={{ textAlign: "center", maxWidth: "60ch", margin: "0 auto 40px" }}>
-          <Eyebrow>Macclesfield Football Education</Eyebrow>
+          <Eyebrow center>Macclesfield Football Education</Eyebrow>
           <h1 className="t-display" style={{ marginTop: 14 }}>Programme Brochures</h1>
           <p style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.6, marginTop: 16 }}>
             Explore our programmes in detail. Choose a brochure to view it as a flipbook.

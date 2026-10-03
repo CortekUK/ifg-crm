@@ -36,7 +36,7 @@ button{font-family:inherit}
 /* phones: a slightly smaller, tighter eyebrow fits on one line; centred eyebrows drop the
    leading dash, which otherwise hangs on its own beside a two-line, centred label */
 @media (max-width:640px){
-  .eyebrow{font-size:12px;letter-spacing:.14em;gap:8px}
+  .eyebrow{font-size:12px;letter-spacing:.14em;gap:8px;text-wrap:balance}
   .eyebrow-c,.hero-in .eyebrow,.contact-book-head .eyebrow,.teams-head .eyebrow,.staff-intro .eyebrow{text-align:center;text-wrap:balance}
   .eyebrow-c::before,.hero-in .eyebrow::before,.contact-book-head .eyebrow::before,.teams-head .eyebrow::before,.staff-intro .eyebrow::before{display:none}
 }
@@ -850,7 +850,14 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .fac-media .mcar{position:absolute;inset:0;border-radius:inherit;box-shadow:none}
 .fac-text h2{margin:14px 0 0}
 .fac-text p{color:var(--fg-muted);font-size:16px;line-height:1.7;margin-top:16px;max-width:54ch}
-@media(max-width:820px){.fac-row,.fac-row.flip{grid-template-columns:1fr;gap:20px}.fac-row.flip .fac-media{order:0}}
+/* same as .split (guide 5.2): two columns are too narrow on iPad, so stack into one centred column */
+@media(max-width:1024px){
+  .fac-row,.fac-row.flip{grid-template-columns:1fr;gap:24px}
+  .fac-row.flip .fac-media{order:0}
+  .fac-row>*{width:100%;max-width:760px;margin-inline:auto}
+  .fac-media{aspect-ratio:16/10}
+  .fac-text p{max-width:none}
+}
 
 /* ===== Squad detail ===== */
 .squad-intro-p{color:var(--fg-muted);font-size:16px;line-height:1.7;margin-top:16px}
