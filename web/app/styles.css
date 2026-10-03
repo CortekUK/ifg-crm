@@ -193,6 +193,12 @@ button{font-family:inherit}
 .section{padding:96px 0}
 .section.tight{padding:64px 0}
 .band-bone{background:var(--bone-100);color:var(--slate-900)}
+/* bone bands stay light in both themes, so their buttons can't use the theme's
+   --fg/--bg (in dark mode that made the solid button bone-on-bone) */
+.band-bone .btn-solid{background:var(--ink-900);color:#fff}
+.band-bone .btn-solid:hover{background:var(--ink-700)}
+.band-bone .btn-ghost{color:var(--slate-900);border-color:rgba(21,32,29,.25)}
+.band-bone .btn-ghost:hover{color:var(--pitch-600);border-color:var(--pitch-500)}
 [data-theme="light"] .band-bone{background:var(--white);border-top:1px solid var(--l-hairline);border-bottom:1px solid var(--l-hairline)}
 .band-ink{background:var(--ink-950)}
 .section-head{max-width:680px;margin-bottom:48px}
