@@ -865,7 +865,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .squad-photo{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:4/3;border:1px solid var(--hairline)}
 .squad-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 /* tactical pitch board */
-.pitch{position:relative;width:100%;max-width:760px;margin:0 auto;aspect-ratio:68/104;border-radius:22px;overflow:hidden;border:1px solid rgba(255,255,255,.12);
+.pitch{--jit:3.5%;position:relative;width:100%;max-width:760px;margin:0 auto;aspect-ratio:68/104;border-radius:22px;overflow:hidden;border:1px solid rgba(255,255,255,.12);
   background:
     radial-gradient(130% 70% at 50% -5%, rgba(255,255,255,.12), transparent 55%),
     repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 8.33%, rgba(0,0,0,.04) 8.33% 16.66%),
@@ -907,6 +907,8 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .pitch-chip:hover .pitch-marker{box-shadow:0 12px 24px rgba(0,0,0,.55), inset 0 1.5px 1px rgba(255,255,255,.45), 0 0 0 4px rgba(190,22,35,.45)}
 .pitch-name{max-width:130px;text-align:center;background:rgba(7,10,9,.58);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:clamp(9.5px,1.05vw,12px);font-weight:600;line-height:1.15;padding:3px 9px;border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 12px rgba(0,0,0,.35)}
 @media(max-width:640px){.pitch{aspect-ratio:58/100}.pitch-name{max-width:72px;font-size:9px;padding:2px 6px}.pz{font-size:12px;left:6px}}
+/* phones: crowded bands (8 defenders in ~350px) overlapped — smaller chips, wider up/down offset */
+@media(max-width:640px){.pitch{--jit:4.6%}.pitch-chip{gap:4px}.pitch-marker{width:30px;font-size:9px}.pitch-name{max-width:70px;font-size:8.5px;padding:1px 5px}}
 
 /* ===== Gallery — category cards ===== */
 .gal-cats{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}

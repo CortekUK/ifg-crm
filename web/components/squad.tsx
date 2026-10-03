@@ -25,7 +25,7 @@ const defRank = (pos: string) => {
   return 1;
 };
 
-type Chip = SquadPlayer & { x: number; y: number };
+type Chip = SquadPlayer & { x: number; y: number; jit: number };
 function layout(roster: SquadPlayer[]): Chip[] {
   const groups: Record<string, SquadPlayer[]> = {};
   BANDS.forEach((b) => (groups[b] = []));
@@ -37,8 +37,9 @@ function layout(roster: SquadPlayer[]): Chip[] {
     const n = arr.length;
     arr.forEach((p, i) => {
       const x = ((i + 1) / (n + 1)) * 100;
-      const jitter = n > 3 ? (i % 2 ? 3.5 : -3.5) : 0;
-      chips.push({ ...p, x, y: BAND_Y[b] + jitter });
+      // crowded bands alternate up/down; the offset size lives in CSS (--jit) so phones can widen it
+      const jit = n > 3 ? (i % 2 ? 1 : -1) : 0;
+      chips.push({ ...p, x, y: BAND_Y[b], jit });
     });
   });
   return chips;
@@ -88,10 +89,10 @@ export function SquadView({ squad }: { squad: Squad }) {
       {chips.length > 0 && (
         <section className="section band-ink" style={{ paddingTop: 0 }}>
           <div className="wrap">
-            <div className="section-head" data-anim="up" style={{ paddingTop: "clamp(56px,7vw,96px)" }}>
-              <Eyebrow>The squad</Eyebrow>
+            <div className="section-head" data-anim="up" style={{ paddingTop: "clamp(56px,7vw,96px)", textAlign: "center", marginInline: "auto" }}>
+              <Eyebrow center>The squad</Eyebrow>
               <h2 data-anim="reveal-title">The players on the park</h2>
-              <p>Hover a marker to highlight a player — the full squad, mapped to their positions.</p>
+              <p>Hover or tap a marker to highlight a player — the full squad, mapped to their positions.</p>
             </div>
             <div className="pitch" data-anim="up">
               <div className="pitch-zones" aria-hidden="true">
@@ -115,7 +116,7 @@ export function SquadView({ squad }: { squad: Squad }) {
                 <span className="pl-corner pl-c-br" />
               </div>
               {chips.map((c, i) => (
-                <div className="pitch-chip" key={i} style={{ left: `${c.x}%`, top: `${c.y}%`, animationDelay: `${0.15 + i * 0.04}s` }}>
+                <div className="pitch-chip" key={i} style={{ left: `${c.x}%`, top: `calc(${c.y}% + var(--jit) * ${c.jit})`, animationDelay: `${0.15 + i * 0.04}s` }}>
                   <span className="pitch-marker" style={{ animationDelay: `${0.15 + i * 0.04}s` }}><span className="pitch-pos">{c.pos}</span></span>
                   <span className="pitch-name">{c.name}</span>
                 </div>
