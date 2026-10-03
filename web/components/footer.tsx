@@ -21,20 +21,20 @@ export function Footer() {
             </div>
           </div>
           <div>
-            <h5>Programmes</h5>
+            <h2>Programmes</h2>
             <Link href="/programmes/macclesfield/university">University</Link>
             <Link href="/programmes/macclesfield/summer-residency">Summer Residency</Link>
             <Link href="/programmes/macclesfield/gap-year">Gap Year</Link>
           </div>
           <div>
-            <h5>Media</h5>
+            <h2>Media</h2>
             <Link href="/news">Latest News</Link>
             <Link href="/ifg-tv">IFG TV</Link>
             <Link href="/gallery">Gallery</Link>
             <Link href="/success-stories">Success Stories</Link>
           </div>
           <div>
-            <h5>Group</h5>
+            <h2>Group</h2>
             <Link href="/faq">FAQs</Link>
             <Link href="/programmes/macclesfield/brochure">Brochures</Link>
             <Link href="/contact">Get in touch</Link>

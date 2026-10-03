@@ -95,11 +95,12 @@ button{font-family:inherit}
 .ubar-ann{display:inline-flex;align-items:center;gap:10px;padding:5px 14px;border-radius:999px;
   background:var(--bg);border:1px solid var(--hairline);transition:border-color .25s,transform .25s,box-shadow .25s}
 .ubar-ann:hover{border-color:var(--pitch-500);box-shadow:0 4px 18px rgba(190,22,35,.16)}
-.ann-live{display:inline-flex;align-items:center;gap:7px;color:var(--pitch-400);
+.ann-live{display:inline-flex;align-items:center;gap:7px;color:#E4545E;
   font-weight:800;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
 .ann-live i{width:7px;height:7px;border-radius:50%;background:var(--pitch-500);animation:ann-pulse 2.2s infinite}
 @keyframes ann-pulse{0%{box-shadow:0 0 0 0 rgba(190,22,35,.55)}70%{box-shadow:0 0 0 8px rgba(190,22,35,0)}100%{box-shadow:0 0 0 0 rgba(190,22,35,0)}}
 .ann-text{color:var(--fg-muted);font-weight:600}
+[data-theme="light"] .ann-live{color:var(--pitch-600)}
 .ubar-ann:hover .ann-text{color:var(--fg)}
 .ann-go{color:var(--pitch-400);transition:transform .25s}
 .ubar-ann:hover .ann-go{transform:translateX(4px)}
@@ -263,7 +264,8 @@ button{font-family:inherit}
 /* ---- footer ---- */
 .ftr{background:var(--bg-sunken);border-top:1px solid var(--hairline);padding:64px 0 40px}
 .ftr-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px}
-.ftr h5{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:var(--fg-subtle);margin:0 0 16px}
+/* footer group labels are h2 (they were h5, which skipped heading levels) — styled exactly as before */
+.ftr h2{font-size:12px;font-weight:700;line-height:1.4;text-transform:uppercase;letter-spacing:.16em;color:var(--fg-subtle);margin:0 0 16px}
 .ftr a{display:block;color:var(--fg-muted);font-size:15px;padding:6px 0;cursor:pointer}
 .ftr a:hover{color:var(--fg)}
 .ftr .social{display:flex;gap:12px;margin-top:18px}
@@ -1463,7 +1465,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   /* phone: link groups in two columns so the footer stays short */
   .ftr{padding:48px 0 32px}
   .ftr-grid{grid-template-columns:1fr 1fr;gap:32px 20px}
-  .ftr h5{margin-bottom:10px}
+  .ftr h2{margin-bottom:10px}
   .ftr a{font-size:14.5px;padding:7px 0}
   .ftr-base{flex-direction:column;align-items:flex-start;gap:14px;margin-top:36px}
   .ftr-legal{gap:10px 18px}
