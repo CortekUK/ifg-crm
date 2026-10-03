@@ -1855,3 +1855,54 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .sr-itin-meta{flex-direction:column;gap:9px;text-align:center}
   .sr-itin-dot{display:none}
 }
+
+/* ============================================================
+   ORPHAN CARDS — a last row with a single card (or two in a
+   three-up grid) sat on the left with an empty slot beside it.
+   Two-up grids: centre the odd last card at half width.
+   Three-up grids: lay out on 6 tracks (each card spans 2) so a
+   short last row can start one track in and sit centred.
+   ============================================================ */
+@media (min-width:561px) and (max-width:980px){
+  .sr-prices:not(.sr-prices-one):not(.sr-prices-two)>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 22px) / 2)}
+}
+@media (min-width:561px) and (max-width:1040px){
+  .np-grid>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 22px) / 2)}
+  .bro-grid{grid-template-columns:repeat(2,1fr)}
+  .bro-grid>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 24px) / 2)}
+}
+@media (min-width:561px) and (max-width:900px){
+  .tv-grid>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 24px) / 2)}
+  .gal-cats>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 24px) / 2)}
+  /* home news bento: lead card spans the row, leaving cards 2-4 as 2 + an orphan */
+  .news-card:nth-child(4):last-child{grid-column:1 / -1;justify-self:center;width:calc((100% - 18px) / 2)}
+}
+@media (min-width:761px){
+  .teams-grid>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 24px) / 2)}
+}
+@media (min-width:621px) and (max-width:980px){
+  .staff-grid>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 22px) / 2)}
+}
+@media (max-width:640px){
+  .values>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 14px) / 2)}
+}
+/* three-up grids */
+@media (min-width:901px){
+  .gal-cats{grid-template-columns:repeat(6,1fr)}
+  .gal-cats>*{grid-column:span 2}
+  .gal-cats>:last-child:nth-child(3n+1){grid-column:3 / span 2}
+  .gal-cats>:nth-last-child(2):nth-child(3n+1){grid-column:2 / span 2}
+}
+@media (min-width:981px){
+  .staff-grid{grid-template-columns:repeat(6,1fr)}
+  .staff-grid>*{grid-column:span 2}
+  .staff-grid>:last-child:nth-child(3n+1){grid-column:3 / span 2}
+  .staff-grid>:nth-last-child(2):nth-child(3n+1){grid-column:2 / span 2}
+}
+/* values: 5 narrow columns are cramped below a full desktop, so go 3 + 2 (centred) */
+@media (min-width:641px) and (max-width:1100px){
+  .values{grid-template-columns:repeat(6,1fr)}
+  .values>*{grid-column:span 2}
+  .values>:last-child:nth-child(3n+1){grid-column:3 / span 2}
+  .values>:nth-last-child(2):nth-child(3n+1){grid-column:2 / span 2}
+}

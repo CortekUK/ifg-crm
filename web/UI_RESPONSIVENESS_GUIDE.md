@@ -156,6 +156,17 @@ layout value that needs to change at a breakpoint into a CSS class.
 Absolutely positioned decorations must be anchored to the section they belong to, not dropped into a
 flex row with `margin-left: auto`. In a flex row they drift to wherever the row wraps.
 
+### 5.7 No orphan cards
+A last row with a single card (or two cards in a three-up grid) must not sit on the left with an
+empty slot beside it. That reads as a missing card.
+- Two-up grids: centre the odd last card at half width (`:last-child:nth-child(odd)`).
+- Three-up grids: lay the grid out on 6 tracks with each card spanning 2, so a short last row can be centred.
+- See the "ORPHAN CARDS" block at the end of `styles.css`.
+
+### 5.8 Carousel arrows never cover card text
+Arrows centred over text cards land on the title. For carousels of text cards, use
+`<CardCarousel arrowsBelow>`, which puts the arrows beside the dots.
+
 ---
 
 ## 6. Buttons and CTA rows on small screens
