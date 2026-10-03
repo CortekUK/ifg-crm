@@ -368,7 +368,9 @@ button{font-family:inherit}
 /* ---- contact / get in touch ---- */
 .c-hero{position:relative;min-height:54vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
 .c-hero .hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-.c-hero-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(7,10,9,.55),rgba(7,10,9,.4) 40%,rgba(7,10,9,.88) 100%)}
+.c-hero-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(7,10,9,.6),rgba(7,10,9,.52) 40%,rgba(7,10,9,.88) 100%)}
+/* hero videos have bright frames (signage, sky) — keep the small red label readable over them */
+.c-hero-in .eyebrow{text-shadow:0 1px 14px rgba(0,0,0,.75)}
 .c-hero-in{position:relative;z-index:2;padding:140px 24px 60px}
 .c-hero-in h1{color:#fff;margin:0}
 .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start}
