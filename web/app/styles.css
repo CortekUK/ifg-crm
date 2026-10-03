@@ -1924,3 +1924,13 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .np-grid>:last-child:nth-child(3n+1){grid-column:3 / span 2}
   .np-grid>:nth-last-child(2):nth-child(3n+1){grid-column:2 / span 2}
 }
+/* day-by-day itinerary: 7 days left a lone day on the last row on tablets */
+@media (min-width:761px) and (max-width:1080px){
+  .sr-wk-g{grid-template-columns:repeat(6,1fr)}
+  .sr-wk-g>*{grid-column:span 2}
+  .sr-wk-g>:last-child:nth-child(3n+1){grid-column:3 / span 2}
+  .sr-wk-g>:nth-last-child(2):nth-child(3n+1){grid-column:2 / span 2}
+}
+@media (min-width:481px) and (max-width:760px){
+  .sr-wk-g>:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc((100% - 14px) / 2)}
+}
