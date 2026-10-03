@@ -90,7 +90,7 @@ export function SummerResidencyView({
 
       {/* feature cards overlapping hero */}
       <section className="mh-cards-sec">
-        <div className="wrap sr-feats" data-anim="stagger">
+        <div className="wrap sr-feats">
           {s.features.map((f, i) => (
             <article className="sr-feat" key={f.title}>
               <img src={f.img} alt="" loading="lazy" />
@@ -108,7 +108,7 @@ export function SummerResidencyView({
 
       {/* train like a pro — editorial + carousel */}
       <section className="section">
-        <div className="wrap grid-2 mh-intro" style={{ gap: 64, alignItems: "center" }}>
+        <div className="wrap grid-2 mh-intro split">
           <div data-anim="up">
             <h2 className="t-h1">{s.intro.heading}</h2>
             {s.intro.paragraphs.map((p, i) => (
@@ -116,7 +116,7 @@ export function SummerResidencyView({
             ))}
             <h3 className="t-h3" style={{ marginTop: 30 }}>{s.intro.datesHeading}</h3>
             <p style={{ color: "var(--fg-muted)", fontSize: 16, lineHeight: 1.65, marginTop: 10 }}>{s.intro.dates}</p>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 28 }}>{heroCtas}</div>
+            <div className="cta-row" style={{ marginTop: 28 }}>{heroCtas}</div>
           </div>
           <div data-anim="up">
             <MediaCarousel images={s.intro.images} className="mh-intro-media" />
@@ -230,7 +230,7 @@ export function SummerResidencyView({
       )}
 
       {/* video */}
-      <section className="section tight">
+      <section className="section tight sec-video">
         <div className="wrap">
           <div className="mh-video" data-anim="up">
             <YouTubeLite id={s.video.ytId} title={s.video.title} />
@@ -268,7 +268,7 @@ export function SummerResidencyView({
 
       {/* what's included */}
       <section className="section band-ink">
-        <div className="wrap grid-2" style={{ gap: 64, alignItems: "center" }}>
+        <div className="wrap grid-2 split">
           <div data-anim="up">
             <h2 className="t-h2">{s.included.heading}</h2>
             <p style={{ color: "var(--fg-muted)", fontSize: 16, lineHeight: 1.65, marginTop: 16 }}>{s.included.intro}</p>
@@ -286,7 +286,7 @@ export function SummerResidencyView({
 
       {/* accommodation, meals, transport & events */}
       <section className="section">
-        <div className="wrap grid-2" style={{ gap: 64, alignItems: "center" }}>
+        <div className="wrap grid-2 split">
           <div data-anim="up">
             <MediaCarousel images={s.accommodation.images} className="mh-intro-media" />
           </div>
@@ -295,7 +295,7 @@ export function SummerResidencyView({
             {s.accommodation.paragraphs.map((p, i) => (
               <p key={i} style={{ color: "var(--fg-muted)", fontSize: 16, lineHeight: 1.7, marginTop: i ? 14 : 18 }}>{p}</p>
             ))}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 28 }}>{heroCtas}</div>
+            <div className="cta-row" style={{ marginTop: 28 }}>{heroCtas}</div>
           </div>
         </div>
       </section>

@@ -16,7 +16,6 @@ export function SuccessStoriesView({ stories = SUCCESS_STORIES }: { stories?: Su
         <div className="c-hero-in">
           <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>Success Stories</h1>
-          <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
       </section>
 
@@ -34,7 +33,7 @@ export function SuccessStoriesView({ stories = SUCCESS_STORIES }: { stories?: Su
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="wrap ss-list">
           {stories.map((s, i) => (
-            <article className={"ss-card" + (i % 2 ? " flip" : "")} key={s.slug} data-anim="up">
+            <article className={"ss-card" + (i % 2 ? " flip" : "")} key={s.slug}>
               <div className="ss-card-body">
                 <h2 className="t-h2 ss-card-name">{s.name}</h2>
                 {s.blurb.map((b, j) => (

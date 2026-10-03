@@ -69,9 +69,6 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         gsap.utils.toArray<HTMLElement>('[data-anim="up"]').forEach((el) => {
           gsap.from(el, { y: 44, opacity: 0, duration: 0.9, ease: "power3.out", clearProps: "transform,opacity", scrollTrigger: { trigger: el, start: "top 86%", once: true } });
         });
-        gsap.utils.toArray<HTMLElement>('[data-anim="stagger"]').forEach((group) => {
-          gsap.from(group.children, { y: 56, opacity: 0, scale: 0.97, duration: 0.85, ease: "power3.out", stagger: 0.1, clearProps: "transform,opacity", scrollTrigger: { trigger: group, start: "top 82%", once: true } });
-        });
 
         // Word-by-word mask reveal for headings (split once, then re-arm on nav).
         gsap.utils.toArray<HTMLElement>('[data-anim="reveal-title"]').forEach((el) => {

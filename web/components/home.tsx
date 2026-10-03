@@ -26,10 +26,6 @@ function accentLine(line: string, accent: string) {
 }
 
 function Hero({ hero }: { hero: typeof HOME.hero }) {
-  const down = () => {
-    if (window.__lenis) window.__lenis.scrollTo(window.innerHeight * 0.92);
-    else window.scrollTo({ top: window.innerHeight * 0.92, behavior: "smooth" });
-  };
   return (
     <section className="hero">
       <HeroReel srcs={hero.videos} seconds={14} poster={hero.poster} />
@@ -49,10 +45,6 @@ function Hero({ hero }: { hero: typeof HOME.hero }) {
         <div className="hero-cta" data-anim="hero-fade">
           <Button variant="primary" size="lg" iconRight="arrow-right" as="a" href={APPLY_HREF}>{hero.ctaPrimary}</Button>
           <Button variant="ghost" size="lg" as="a" href="/contact">{hero.ctaSecondary}</Button>
-          <button className="scroll-cue" onClick={down} aria-label="Scroll down">
-            <span>Scroll</span>
-            <span className="scroll-cue-line"><span /></span>
-          </button>
         </div>
       </div>
     </section>
@@ -70,7 +62,7 @@ function ProgrammeTiles({ copy }: { copy: typeof HOME.programmes }) {
           <h2 data-anim="reveal-title">{copy.heading}</h2>
           <p>{copy.intro}</p>
         </div>
-        <div className="mh-cards" data-anim="stagger">
+        <div className="mh-cards">
           {copy.cards.map((s) => (
             <Link key={s.id} href={`${PROG_BASE}/${s.id}`} className="mh-card">
               <img className="mh-card-img" src={s.img} alt={s.name} loading="lazy" />
@@ -113,14 +105,14 @@ function PartnersMarquee({ partners }: { partners: typeof HOME.partners }) {
 function Introducing({ copy }: { copy: typeof HOME.introducing }) {
   return (
     <section className="section">
-      <div className="wrap grid-2 mh-intro" style={{ gap: 64, alignItems: "center" }}>
+      <div className="wrap grid-2 mh-intro split">
         <div data-anim="up">
           <Eyebrow>{copy.eyebrow}</Eyebrow>
           <h2 className="t-h1" style={{ marginTop: 14 }}>{copy.heading}</h2>
           {copy.paragraphs.map((p, i) => (
             <p key={i} style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: i ? 16 : 22 }}>{p}</p>
           ))}
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
+          <div className="cta-row" style={{ marginTop: 30 }}>
             <Button variant="primary" iconRight="arrow-right" as="a" href={APPLY_HREF}>{copy.ctaPrimary}</Button>
             <Button variant="ghost" icon="download" as="a" href={`${PROG_BASE}/brochure`}>{copy.ctaSecondary}</Button>
             <Button variant="solid" as="a" href="/contact">{copy.ctaTertiary}</Button>
@@ -193,7 +185,7 @@ function NewsGrid({ copy }: { copy: typeof HOME.news }) {
           </div>
           <Link href="/news" className="btn btn-ghost">View all news<Icon name="arrow-right" className="ic" size={18} /></Link>
         </div>
-        <div className="news-grid" data-anim="stagger">
+        <div className="news-grid">
           {ARTICLES.slice(0, 4).map((n, i) => (
             <Link href={`/news/${n.slug}`} className={"news-card" + (i === 0 ? " lead" : "")} key={n.slug}>
               <img className="nc-img" src={n.img} alt="" loading="lazy" />
@@ -255,7 +247,7 @@ export function HomeView({ data, tvVideos }: { data?: typeof HOME; tvVideos?: ty
 
       <section className="section band-bone">
         <div className="wrap">
-          <div className="grid-2" style={{ alignItems: "center", gap: 64 }}>
+          <div className="grid-2 split">
             <div data-anim="up">
               <Eyebrow style={{ color: "var(--pitch-700)" }}>{h.about.eyebrow}</Eyebrow>
               <h2 className="t-h1" style={{ marginTop: 16 }} data-anim="reveal-title">{h.about.heading}</h2>

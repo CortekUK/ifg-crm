@@ -26,7 +26,6 @@ export default async function Page() {
           <p className="tv-hero-sub" data-anim="hero-fade">
             Get seen by our coaches and take your first step on the IFG pathway.
           </p>
-          <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
       </section>
 
@@ -38,7 +37,7 @@ export default async function Page() {
                 <Eyebrow>Upcoming</Eyebrow>
                 <h2 data-anim="reveal-title">Find a clinic near you</h2>
               </div>
-              <div className="gal-cats" data-anim="stagger">
+              <div className="gal-cats">
                 {clinics.map((c) => (
                   <div key={c.slug} className="gal-cat">
                     {c.image && (

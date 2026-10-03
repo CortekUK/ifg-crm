@@ -1,6 +1,5 @@
 "use client";
 import { Eyebrow } from "./primitives";
-import { Icon } from "./icons";
 import { Calendly } from "./calendly";
 import { CONTACT } from "@/lib/data";
 
@@ -15,7 +14,6 @@ export function ContactView({ data }: { data?: typeof CONTACT }) {
         <div className="c-hero-in">
           <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>{c.hero.eyebrow}</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 14 }}>{c.hero.heading}</h1>
-          <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
       </section>
 

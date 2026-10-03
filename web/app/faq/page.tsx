@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Eyebrow } from "@/components/primitives";
-import { Icon } from "@/components/icons";
 import { Accordion } from "@/components/accordion";
 import { CTABand } from "@/components/sections";
 import { getSiteContent } from "@/lib/content";
@@ -29,7 +28,6 @@ export default async function Page() {
           <p className="tv-hero-sub" data-anim="hero-fade">
             Everything you need to know about our programmes, applications and the IFG pathway.
           </p>
-          <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
       </section>
 

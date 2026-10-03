@@ -69,7 +69,7 @@ export function StaffView({ groups }: { groups?: StaffGroup[] }) {
         <section className="section staff-section" key={g.label} style={{ paddingTop: 0 }}>
           <div className="wrap">
             <h2 className="staff-watermark" data-anim="up">{g.label}</h2>
-            <div className="staff-grid" data-anim="stagger">
+            <div className="staff-grid">
               {g.people.map((p) => (
                 <StaffCard p={p} key={p.name} />
               ))}

@@ -66,7 +66,7 @@ export function SquadView({ squad }: { squad: Squad }) {
       {/* introducing */}
       <section className="section">
         <div className="wrap">
-          <div className="grid-2" style={{ alignItems: "center", gap: 56 }}>
+          <div className="grid-2 split">
             <div data-anim="up">
               <Eyebrow>Introducing the team</Eyebrow>
               <h2 className="t-h1" style={{ marginTop: 14 }}>{squad.title}</h2>

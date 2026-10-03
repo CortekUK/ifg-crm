@@ -19,7 +19,6 @@ export function GalleryView({ categories = GALLERY }: { categories?: GalleryCate
           <p className="tv-hero-sub" data-anim="hero-fade">
             Moments from across the group — match days, training, travel and the milestones in between.
           </p>
-          <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
       </section>
 
@@ -30,7 +29,7 @@ export function GalleryView({ categories = GALLERY }: { categories?: GalleryCate
             <Eyebrow>Browse by category</Eyebrow>
             <h2 data-anim="reveal-title">Explore the galleries</h2>
           </div>
-          <div className="gal-cats" data-anim="stagger">
+          <div className="gal-cats">
             {categories.map((c) => (
               <Link key={c.slug} href={`/gallery/${c.slug}`} className="gal-cat">
                 <div className="gal-cat-media">
@@ -100,7 +99,7 @@ export function GalleryCategoryView({ category }: { category: GalleryCategory })
       {/* mosaic */}
       <section className="section">
         <div className="wrap">
-          <div className="gal-grid" data-anim="stagger">
+          <div className="gal-grid">
             {images.map((src, i) => (
               <button
                 key={i}

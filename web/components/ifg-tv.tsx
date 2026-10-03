@@ -19,7 +19,6 @@ export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
           <p className="tv-hero-sub" data-anim="hero-fade">
             {t.hero.subtitle}
           </p>
-          <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
       </section>
 
@@ -59,7 +58,7 @@ export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
             <h2 data-anim="reveal-title">{t.grid.heading}</h2>
             <p>{t.grid.intro}</p>
           </div>
-          <div className="tv-grid" data-anim="stagger">
+          <div className="tv-grid">
             {t.videos.map((v) => (
               <article className="tv-card" key={v.id}>
                 <YouTubeLite id={v.id} title={v.title} />

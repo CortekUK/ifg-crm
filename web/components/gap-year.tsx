@@ -69,13 +69,13 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
 
       {/* intro */}
       <section className="section">
-        <div className="wrap grid-2 mh-intro" style={{ gap: 64, alignItems: "center" }}>
+        <div className="wrap grid-2 mh-intro split">
           <div data-anim="up">
             <h2 className="t-h1">{g.intro.heading}</h2>
             {g.intro.paragraphs.map((p, i) => (
               <p key={i} style={{ color: "var(--fg-muted)", fontSize: i === 0 ? 18 : 17, lineHeight: 1.7, marginTop: i ? 16 : 22, fontWeight: i === 0 ? 600 : 400 }}>{p}</p>
             ))}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>{heroCtas}</div>
+            <div className="cta-row" style={{ marginTop: 30 }}>{heroCtas}</div>
           </div>
           <div data-anim="up">
             <MediaCarousel images={g.intro.images} className="mh-intro-media" />
@@ -129,7 +129,7 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
               <Eyebrow>IFG experiences</Eyebrow>
               <h2 className="t-h2" style={{ marginTop: 12, maxWidth: "20ch" }}>Football experiences across the world</h2>
             </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="cta-row" style={{ gap: 12 }}>
               <Button variant="solid" onClick={() => router.push("/contact")}>Book a call</Button>
               <Button variant="primary" iconRight="arrow-right" onClick={() => router.push(APPLY)}>Apply now</Button>
             </div>
@@ -158,7 +158,7 @@ export function GapYearView({ costs, content }: { costs?: GapCost[]; content?: t
 
       {/* accommodation */}
       <section className="section band-ink">
-        <div className="wrap grid-2" style={{ gap: 64, alignItems: "center" }}>
+        <div className="wrap grid-2 split">
           <div data-anim="up">
             <Eyebrow>Student living</Eyebrow>
             <h2 className="t-h2" style={{ margin: "12px 0 0" }}>{g.accommodation.heading}</h2>

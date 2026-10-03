@@ -141,7 +141,7 @@ export function UniversityCourses({ courses }: { courses?: UniCourse[] }) {
               <div className="uc-school-head" data-anim="up">
                 <p className="uc-school-blurb">{activeSchool.blurb}</p>
               </div>
-              <div className="uc-grid" data-anim="stagger">
+              <div className="uc-grid">
                 {activeSchool.items.map((c) => (
                   <button key={`${c.school}-${c.name}`} className="uc-tile" onClick={() => openCourse(c)} type="button">
                     {c.img && <img className="uc-tile-img" src={c.img} alt="" loading="lazy" />}

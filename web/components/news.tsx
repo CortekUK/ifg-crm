@@ -18,7 +18,6 @@ export function NewsView({ articles: cms }: { articles?: Article[] }) {
         <div className="c-hero-in">
           <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>Latest News</h1>
-          <span className="c-hero-cue"><Icon name="arrow-right" size={22} style={{ transform: "rotate(90deg)" }} /></span>
         </div>
       </section>
 
@@ -29,7 +28,7 @@ export function NewsView({ articles: cms }: { articles?: Article[] }) {
             <Eyebrow>The International Football Group</Eyebrow>
             <h2 data-anim="reveal-title">Latest news, galleries &amp; more</h2>
           </div>
-          <div className="np-grid" data-anim="stagger">
+          <div className="np-grid">
             {articles.map((a) => (
               <Link key={a.slug} href={`/news/${a.slug}`} className="np-card">
                 <img className="np-img" src={a.img} alt="" loading="lazy" />
@@ -122,7 +121,7 @@ export function NewsArticleView({ article, all }: { article: Article; all?: Arti
             <Eyebrow>Keep reading</Eyebrow>
             <h2 data-anim="reveal-title">More from the group</h2>
           </div>
-          <div className="np-grid np-grid-3" data-anim="stagger">
+          <div className="np-grid np-grid-3">
             {more.map((a) => (
               <Link key={a.slug} href={`/news/${a.slug}`} className="np-card">
                 <img className="np-img" src={a.img} alt="" loading="lazy" />

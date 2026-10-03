@@ -136,9 +136,11 @@ button{font-family:inherit}
 .nc-read{display:inline-flex;align-items:center;gap:6px;color:var(--pitch-400);font-size:13px;font-weight:700;opacity:0;transform:translateX(-6px);transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out)}
 .news-card:hover .nc-read{opacity:1;transform:none}
 @media (max-width:560px){
-  .news-grid{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:238px;gap:14px}
-  .news-card:nth-child(n){grid-column:auto;grid-row:auto}
-  .news-card:nth-child(1){height:300px}
+  /* rows size to their card (min-height, not height) so a taller lead card or a
+     long headline grows its own row instead of spilling over the next card */
+  .news-grid{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:auto;gap:14px}
+  .news-card:nth-child(n){grid-column:auto;grid-row:auto;min-height:238px}
+  .news-card:nth-child(1){min-height:300px}
   .news-card .nc-body{padding:18px}
   .news-card h3{font-size:18px}
   .news-card.lead h3{font-size:22px}
@@ -152,9 +154,9 @@ button{font-family:inherit}
 /* tablet bento (2-up) — scoped above 560 so it doesn't override the phone
    single-column rule above (which comes earlier in the cascade) */
 @media (min-width:561px) and (max-width:900px){
-  .news-grid{grid-template-columns:1fr 1fr;grid-template-rows:none;grid-auto-rows:220px}
-  .news-card:nth-child(n){grid-column:auto;grid-row:auto}
-  .news-card:nth-child(1){grid-column:1 / -1;height:300px}
+  .news-grid{grid-template-columns:1fr 1fr;grid-template-rows:none;grid-auto-rows:auto}
+  .news-card:nth-child(n){grid-column:auto;grid-row:auto;min-height:220px}
+  .news-card:nth-child(1){grid-column:1 / -1;min-height:300px}
 }
 @media (max-width:900px){
   .ubar .soc,.ubar .left-extra{display:none}
@@ -193,6 +195,8 @@ button{font-family:inherit}
 /* ---- grid helpers ---- */
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+/* editorial text + photo rows */
+.split{gap:64px;align-items:center}
 
 /* ---- programme card ---- */
 .pcard{display:flex;flex-direction:column;background:var(--surface-card);border:1px solid var(--hairline);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-md);cursor:pointer;transition:transform var(--dur) var(--ease-out),border-color var(--dur),box-shadow var(--dur)}
@@ -347,8 +351,6 @@ button{font-family:inherit}
 .c-hero-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(7,10,9,.55),rgba(7,10,9,.4) 40%,rgba(7,10,9,.88) 100%)}
 .c-hero-in{position:relative;z-index:2;padding:140px 24px 60px}
 .c-hero-in h1{color:#fff;margin:0}
-.c-hero-cue{display:inline-flex;margin-top:26px;color:var(--pitch-400);animation:cbob 1.8s var(--ease-in-out) infinite}
-@keyframes cbob{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
 .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start}
 .contact-methods{margin-top:34px;display:flex;flex-direction:column;gap:18px}
 .cmethod{display:flex;align-items:center;gap:16px}
@@ -417,6 +419,13 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 
 /* ---- Summer Residency programme page ---- */
 .sr-hero-cta{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:30px}
+/* inline CTA rows (Apply / Brochure / Book a call) */
+.cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+/* phones: stack as equal full-width buttons instead of a ragged left-aligned pile */
+@media (max-width:640px){
+  .cta-row,.sr-hero-cta{flex-direction:column;align-items:stretch}
+  .cta-row .btn,.sr-hero-cta .btn{width:100%;justify-content:center}
+}
 /* feature cards overlapping the hero */
 .sr-feats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
 .sr-feat{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:3/4;display:flex;align-items:flex-end;
@@ -442,7 +451,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   background:var(--surface-card);border:1px solid var(--hairline);
   transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),border-color .4s}
 .sr-price:hover{transform:translateY(-6px);box-shadow:0 28px 60px rgba(0,0,0,.35);border-color:var(--hairline-strong)}
-.sr-price.feat{border-color:var(--pitch-500);box-shadow:0 0 0 1px var(--pitch-500),0 28px 60px rgba(190,22,35,.18)}
+.sr-price.feat{border-color:var(--pitch-500);box-shadow:0 28px 60px rgba(190,22,35,.18)}
 .sr-price-badge{position:absolute;top:-12px;left:26px;display:inline-flex;align-items:center;gap:6px;
   padding:5px 12px;border-radius:999px;background:var(--pitch-500);color:#fff;
   font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
@@ -481,6 +490,10 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 /* facilities showcase */
 .sr-fac-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;max-width:none;margin-bottom:0}
 .sr-fac-head .t-h2{max-width:30ch}
+@media (max-width:640px){
+  .sr-fac-head{flex-direction:column;align-items:stretch;gap:20px}
+  .sr-fac-head > .btn{align-self:center}
+}
 .sr-fac{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:16/8}
 .sr-fac img{width:100%;height:100%;object-fit:cover}
 .sr-fac-shade{position:absolute;inset:0;background:linear-gradient(115deg,rgba(7,10,9,.7),transparent 62%)}
@@ -588,7 +601,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   background:var(--surface-card);border:1px solid var(--hairline);
   transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),border-color .4s}
 .gy-cost:hover{transform:translateY(-6px);box-shadow:0 28px 60px rgba(0,0,0,.35);border-color:var(--hairline-strong)}
-.gy-cost.feat{border-color:var(--pitch-500);box-shadow:0 0 0 1px var(--pitch-500),0 28px 60px rgba(190,22,35,.18)}
+.gy-cost.feat{border-color:var(--pitch-500);box-shadow:0 28px 60px rgba(190,22,35,.18)}
 .gy-cost-badge{position:absolute;top:-12px;left:28px;display:inline-flex;align-items:center;gap:6px;
   padding:5px 12px;border-radius:999px;background:var(--pitch-500);color:#fff;
   font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
@@ -1022,9 +1035,9 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 /* ---- cinematic hero ---- */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-start;overflow:hidden}
 .hero-protect{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(7,10,9,.5) 0%,rgba(7,10,9,.15) 32%,rgba(7,10,9,.72) 78%,rgba(7,10,9,.96) 100%)}
-/* clear the sticky header on top, leave room for the scroll cue on the bottom */
+/* clear the sticky header on top, keep breathing room at the bottom */
 .hero-in{position:relative;z-index:2;width:100%;padding-top:clamp(56px,7vh,84px);padding-bottom:clamp(96px,12vh,140px)}
-/* big title — but capped by viewport HEIGHT (min) so it always fits one screen with the scroll cue */
+/* big title — but capped by viewport HEIGHT (min) so it always fits one screen */
 .hero-title{margin:14px 0 0;max-width:none;color:#fff;font-size:min(clamp(2.6rem,7vw,7.4rem),14vh);line-height:1.02;letter-spacing:-.01em}
 .hero-mask{display:block;overflow:hidden;padding-bottom:.06em}
 .hero-word{display:block;white-space:nowrap}
@@ -1032,19 +1045,13 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .hero-cta{display:flex;gap:14px;margin-top:24px;flex-wrap:wrap;align-items:center}
 .hero-cta .btn{font-size:14px;padding:12px 24px}
 .hero-cta .btn .ic{width:16px;height:16px}
-/* extra compaction on short laptops — keep the scroll cue visible, just shrink */
+/* extra compaction on short laptops — just shrink */
 @media (max-height:780px){
   .hero-in{padding-top:clamp(52px,6vh,72px);padding-bottom:clamp(80px,11vh,110px)}
   .hero-title{font-size:min(clamp(2rem,5vw,4rem),11vh)}
   .hero-sub{margin-top:16px}
   .hero-cta{margin-top:20px}
 }
-.scroll-cue{margin-left:auto;z-index:3;display:inline-flex;flex-direction:column;align-items:center;gap:10px;background:none;border:0;color:rgba(255,255,255,.7);cursor:pointer;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;align-self:center}
-.scroll-cue-line{width:1px;height:40px;background:rgba(255,255,255,.22);position:relative;overflow:hidden}
-.scroll-cue-line span{position:absolute;top:-55%;left:0;width:100%;height:55%;background:var(--pitch-500)}
-@media (prefers-reduced-motion: no-preference){.scroll-cue-line span{animation:cue 1.8s var(--ease-in-out) infinite}}
-@keyframes cue{0%{top:-55%}100%{top:100%}}
-@media (max-width:560px){.scroll-cue{display:none}}
 
 /* ---- word-mask heading reveal (data-anim="reveal-title") ---- */
 .rt-mask{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.1em;margin-bottom:-.1em}
@@ -1139,9 +1146,6 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .pd-chip .ic-wrap{color:var(--pitch-400)}
 .pd-hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-top:32px}
 
-.pd-scroll-hint{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:3;width:26px;height:42px;border:2px solid rgba(255,255,255,.35);border-radius:14px;display:flex;justify-content:center;padding-top:7px}
-.pd-scroll-hint span{width:3px;height:8px;border-radius:2px;background:var(--pitch-400)}
-@media (prefers-reduced-motion:no-preference){.pd-scroll-hint span{animation:cue 1.8s var(--ease-in-out) infinite}}
 
 /* ---- what's included: cinematic overlay tiles ---- */
 .pd-exp{padding-top:clamp(72px,9vh,110px)}
@@ -1398,6 +1402,20 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 @media (max-width:760px){
   .grid-2{grid-template-columns:1fr}
 }
+/* text + photo rows: two columns get too narrow on iPad (a short photo floating in
+   a tall column of copy), so stack them as one centred, readable column instead */
+@media (max-width:1024px){
+  .grid-2.split{grid-template-columns:1fr;gap:36px}
+  .split > *{width:100%;max-width:760px;margin-inline:auto}
+  .split .mh-intro-media,.split .pd-hl-media{aspect-ratio:16/10}
+}
+@media (max-width:640px){
+  .grid-2.split{gap:28px}
+}
+/* the video sits between two padded sections — don't stack a third band of space */
+@media (max-width:760px){
+  .section.sec-video{padding:8px 0}
+}
 @media (max-width:640px){
   .section{padding:64px 0}
   .section.tight{padding:48px 0}
@@ -1422,6 +1440,14 @@ a.cmethod-v:hover{color:var(--pitch-400)}
    3-line layout; with overflow-x:clip that CLIPS long words on
    phones, so we let them wrap and size down here.
    ============================================================ */
+/* tablets (iPad portrait/landscape): centre the home hero copy and CTAs */
+@media (min-width:641px) and (max-width:1024px){
+  .hero-in{text-align:center}
+  .hero-in .eyebrow{justify-content:center}
+  .hero-sub{margin-left:auto;margin-right:auto;max-width:56ch}
+  .hero-cta{justify-content:center}
+}
+
 @media (max-width:640px){
   /* home hero — keep the clean 3-line structure; sized so the condensed
      Anton lines fit one line each (no jagged wrapping), content toward top */
@@ -1433,7 +1459,6 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .hero-sub{font-size:14.5px;max-width:44ch;margin:14px auto 0}
   .hero-cta{gap:12px;margin-top:24px;justify-content:center}
   .hero-cta .btn{width:100%;justify-content:center;font-size:15px;padding:15px 22px}
-  .hero-cta .scroll-cue{display:none}
 
   /* centred page heroes (news / gallery / ifg-tv / contact) */
   .c-hero{min-height:60svh}
@@ -1454,7 +1479,6 @@ a.cmethod-v:hover{color:var(--pitch-400)}
   .pd-tagline{font-size:16px;margin-top:14px}
   .pd-hero-cta{gap:10px;margin-top:24px}
   .pd-hero-cta .btn{width:100%;justify-content:center}
-  .pd-scroll-hint{display:none}
   .pd-lead-cta{flex-direction:column;align-items:stretch}
   .pd-lead-cta .btn{width:100%;justify-content:center}
   .cost-panel{padding:28px 22px;gap:24px}
@@ -1760,7 +1784,7 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .sr-seg-b{display:flex;flex-direction:column;align-items:center;gap:1px;padding:11px 28px;border:0;
   border-radius:var(--r-pill);background:none;color:var(--fg-muted);cursor:pointer;font-family:var(--font-sans);
   transition:background var(--dur) var(--ease-out),color var(--dur) var(--ease-out)}
-.sr-seg-b:hover{color:var(--fg)}
+.sr-seg-b:hover{color:var(--fg);background:rgba(190,22,35,.08)}
 .sr-seg-b.on{background:var(--pitch-500);color:#fff;box-shadow:var(--shadow-accent)}
 .sr-seg-t{font-weight:800;font-size:14px;letter-spacing:.02em}
 .sr-seg-s{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.75}

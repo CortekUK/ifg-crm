@@ -36,7 +36,7 @@ export function MacclesfieldView() {
 
       {/* 3 sub-programme cards (overlap hero) */}
       <section className="mh-cards-sec">
-        <div className="wrap mh-cards" data-anim="stagger">
+        <div className="wrap mh-cards">
           {MACC_SUBPROGRAMMES.map((s) => (
             <Link key={s.id} href={`/programmes/macclesfield/${s.id}`} className="mh-card">
               <img className="mh-card-img" src={s.img} alt={s.name} loading="lazy" />
@@ -53,14 +53,14 @@ export function MacclesfieldView() {
 
       {/* introducing — editorial + carousel */}
       <section className="section">
-        <div className="wrap grid-2 mh-intro" style={{ gap: 64, alignItems: "center" }}>
+        <div className="wrap grid-2 mh-intro split">
           <div data-anim="up">
             <Eyebrow>Introducing</Eyebrow>
             <h2 className="t-h1" style={{ marginTop: 14 }}>{m.introducing.heading}</h2>
             {m.introducing.paragraphs.map((p, i) => (
               <p key={i} style={{ color: "var(--fg-muted)", fontSize: 18, lineHeight: 1.7, marginTop: i ? 16 : 22 }}>{p}</p>
             ))}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
+            <div className="cta-row" style={{ marginTop: 30 }}>
               <Button variant="primary" iconRight="arrow-right" onClick={() => router.push("/programmes/macclesfield/apply")}>Apply Now</Button>
               <Button variant="ghost" icon="download" onClick={() => router.push("/programmes/macclesfield/brochure")}>View Brochure</Button>
               <Button variant="solid" onClick={() => router.push("/contact")}>Book a Call</Button>
@@ -118,7 +118,7 @@ export function SubProgrammeView({ sub }: { sub: SubProgramme }) {
       </section>
 
       <section className="section">
-        <div className="wrap grid-2 pd-hl" style={{ gap: 64, alignItems: "center" }}>
+        <div className="wrap grid-2 pd-hl split">
           <div data-anim="up">
             <MediaCarousel images={[sub.img, ...MACCLESFIELD.introducing.images]} className="pd-hl-media" />
           </div>

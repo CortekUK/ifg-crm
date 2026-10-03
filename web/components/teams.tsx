@@ -43,7 +43,7 @@ export function TeamsView({ data, squads }: { data?: typeof TEAMS; squads?: Squa
             <h2 data-anim="reveal-title">{tm.intro.heading}</h2>
             <p>{tm.intro.intro}</p>
           </div>
-          <div className="teams-grid" data-anim="stagger">
+          <div className="teams-grid">
             {tiles.map((t) => (
               <Link className="team-card" href={t.href} key={t.href}>
                 <img src={t.img} alt={t.name} loading="lazy" />
