@@ -361,7 +361,7 @@ export function ApplyView({ stayOptions }: { stayOptions?: string[] }) {
         <video className="hero-video" data-hero-video src={VIDEO_SRC} poster={VIDEO_POSTER} autoPlay muted loop playsInline />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>Start your application</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>Start your application</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 14 }}>Unforgettable football experiences</h1>
           <p className="apply-hero-sub" data-anim="hero-fade">
             The International Football Group, in partnership with Macclesfield FC &amp; the University of Lancashire, offers unique football education programmes. Select your programme and complete the form below.

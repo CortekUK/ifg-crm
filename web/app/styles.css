@@ -32,6 +32,14 @@ button{font-family:inherit}
 /* ---- eyebrow ---- */
 .eyebrow{font-family:var(--font-sans);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.2em;color:var(--accent);display:inline-flex;align-items:center;gap:10px}
 .eyebrow::before{content:"";width:22px;height:2px;background:var(--accent);display:inline-block}
+.eyebrow-c{justify-content:center}
+/* phones: a slightly smaller, tighter eyebrow fits on one line; centred eyebrows drop the
+   leading dash, which otherwise hangs on its own beside a two-line, centred label */
+@media (max-width:640px){
+  .eyebrow{font-size:12px;letter-spacing:.14em;gap:8px}
+  .eyebrow-c,.hero-in .eyebrow,.contact-book-head .eyebrow,.teams-head .eyebrow,.staff-intro .eyebrow{text-align:center;text-wrap:balance}
+  .eyebrow-c::before,.hero-in .eyebrow::before,.contact-book-head .eyebrow::before,.teams-head .eyebrow::before,.staff-intro .eyebrow::before{display:none}
+}
 
 /* ---- photo plate (placeholder for brand photography) ---- */
 .photo{position:relative;overflow:hidden;background:

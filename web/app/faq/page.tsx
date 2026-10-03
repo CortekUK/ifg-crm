@@ -23,7 +23,7 @@ export default async function Page() {
         <img className="hero-video" data-hero-video src="/maccles/53036293139_2c50713232_k.jpg" alt="" />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>The International Football Group</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>Frequently Asked Questions</h1>
           <p className="tv-hero-sub" data-anim="hero-fade">
             Everything you need to know about our programmes, applications and the IFG pathway.

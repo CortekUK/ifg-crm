@@ -170,7 +170,12 @@ For example, "Book a call" next to a section heading: on phones the heading stac
 
 *Fixed:* `.sr-fac-head > .btn`.
 
-### 6.3 The primary CTA (Apply) must always be reachable
+### 6.3 Eyebrow labels on phones
+The small red label above headings (`Eyebrow`) has a dash before it. On phones it must fit on one line,
+and centred eyebrows drop the dash so it never hangs beside a two-line label.
+- Centre an eyebrow with `<Eyebrow center>`, never with inline `justifyContent: "center"`.
+
+### 6.4 The primary CTA (Apply) must always be reachable
 The mobile header drawer must still show **Apply Now**. Per `CLAUDE.md`, it is the primary CTA,
 and the header buttons are hidden below 1200px.
 

@@ -25,8 +25,8 @@ export function Button({ variant = "primary", size, icon, iconRight, children, o
   return <button className={cls} onClick={onClick}>{inner}</button>;
 }
 
-export function Eyebrow({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  return <span className="eyebrow" style={style}>{children}</span>;
+export function Eyebrow({ children, style, center }: { children: ReactNode; style?: CSSProperties; center?: boolean }) {
+  return <span className={center ? "eyebrow eyebrow-c" : "eyebrow"} style={style}>{children}</span>;
 }
 
 export function PhotoPlate({

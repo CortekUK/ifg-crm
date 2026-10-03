@@ -170,7 +170,7 @@ export function SummerResidencyView({
         <section id="dates" className="section" style={{ scrollMarginTop: 90 }}>
           <div className="wrap">
             <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 660, margin: "0 auto" }}>
-              <Eyebrow style={{ justifyContent: "center" }}>2027 dates</Eyebrow>
+              <Eyebrow center>2027 dates</Eyebrow>
               <h2 className="t-h2" style={{ marginTop: 12 }}>Day by day</h2>
               <p>Exactly what each block looks like, from arrival to departure.</p>
             </div>

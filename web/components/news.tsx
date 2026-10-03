@@ -16,7 +16,7 @@ export function NewsView({ articles: cms }: { articles?: Article[] }) {
         <img className="hero-video" data-hero-video src="/latest%20new/latest-new-her.jpg" alt="" />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>The International Football Group</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>Latest News</h1>
         </div>
       </section>

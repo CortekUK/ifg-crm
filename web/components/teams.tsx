@@ -39,7 +39,7 @@ export function TeamsView({ data, squads }: { data?: typeof TEAMS; squads?: Squa
       <section className="section">
         <div className="wrap">
           <div className="section-head teams-head" data-anim="up">
-            <Eyebrow style={{ justifyContent: "center" }}>{tm.intro.eyebrow}</Eyebrow>
+            <Eyebrow center>{tm.intro.eyebrow}</Eyebrow>
             <h2 data-anim="reveal-title">{tm.intro.heading}</h2>
             <p>{tm.intro.intro}</p>
           </div>

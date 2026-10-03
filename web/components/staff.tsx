@@ -54,7 +54,7 @@ export function StaffView({ groups }: { groups?: StaffGroup[] }) {
       {/* intro */}
       <section className="section">
         <div className="wrap staff-intro" data-anim="up">
-          <Eyebrow style={{ justifyContent: "center" }}>The people behind IFG</Eyebrow>
+          <Eyebrow center>The people behind IFG</Eyebrow>
           <h2 data-anim="reveal-title">Excellence through expertise</h2>
           <p>
             Our success is driven by the dedicated and highly qualified coaching and staff team we&apos;ve assembled.

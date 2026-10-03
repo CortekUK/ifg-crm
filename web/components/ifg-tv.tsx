@@ -14,7 +14,7 @@ export function IFGTVView({ data }: { data?: typeof IFG_TV }) {
         <video className="hero-video" data-hero-video src={VIDEO_SRC} poster={VIDEO_POSTER} autoPlay muted loop playsInline />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>{t.hero.eyebrow}</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>{t.hero.eyebrow}</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>{t.hero.heading}</h1>
           <p className="tv-hero-sub" data-anim="hero-fade">
             {t.hero.subtitle}

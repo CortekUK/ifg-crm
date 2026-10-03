@@ -173,7 +173,7 @@ export function UniversityView({ courses, pricing, content }: { courses?: UniCou
       <section className="section">
         <div className="wrap">
           <div className="section-head" data-anim="up" style={{ textAlign: "center", maxWidth: 760, margin: "0 auto 48px" }}>
-            <Eyebrow style={{ justifyContent: "center" }}>Your future</Eyebrow>
+            <Eyebrow center>Your future</Eyebrow>
             <h2 className="t-h2" style={{ marginTop: 12 }}>Degrees by School</h2>
             <p style={{ marginInline: "auto" }}>{u.education.intro} Choose a course to see it on the University of Lancashire site — we&apos;ll help with your application every step of the way.</p>
           </div>

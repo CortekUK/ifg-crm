@@ -26,7 +26,7 @@ export function FacilitiesView({ data }: { data?: typeof FACILITIES }) {
       {/* intro */}
       <section className="section">
         <div className="wrap staff-intro" data-anim="up">
-          <Eyebrow style={{ justifyContent: "center" }}>{f.intro.eyebrow}</Eyebrow>
+          <Eyebrow center>{f.intro.eyebrow}</Eyebrow>
           <h2 data-anim="reveal-title">{f.intro.heading}</h2>
           <p>{f.intro.intro}</p>
         </div>

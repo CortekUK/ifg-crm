@@ -12,7 +12,7 @@ export function ContactView({ data }: { data?: typeof CONTACT }) {
         <img className="hero-video" data-hero-video src={c.hero.image} alt="" />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>{c.hero.eyebrow}</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>{c.hero.eyebrow}</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 14 }}>{c.hero.heading}</h1>
         </div>
       </section>
@@ -21,7 +21,7 @@ export function ContactView({ data }: { data?: typeof CONTACT }) {
       <section className="section">
         <div className="wrap">
           <div className="section-head contact-book-head" data-anim="up">
-            <Eyebrow style={{ justifyContent: "center" }}>{c.booking.eyebrow}</Eyebrow>
+            <Eyebrow center>{c.booking.eyebrow}</Eyebrow>
             <h2 data-anim="reveal-title">{c.booking.heading}</h2>
             <p>{c.booking.intro}</p>
           </div>

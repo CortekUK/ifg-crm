@@ -14,7 +14,7 @@ export function SuccessStoriesView({ stories = SUCCESS_STORIES }: { stories?: Su
         <HeroReel srcs={HERO_VIDEOS} seconds={14} poster={HERO_POSTER} />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>The International Football Group</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>Success Stories</h1>
         </div>
       </section>
@@ -22,7 +22,7 @@ export function SuccessStoriesView({ stories = SUCCESS_STORIES }: { stories?: Su
       {/* intro */}
       <section className="section ss-intro">
         <div className="wrap ss-intro-in" data-anim="up">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>Our proudest moments</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>Our proudest moments</Eyebrow>
           <p className="ss-lead">
             The International Football Group&apos;s greatest pride is the <span>success stories</span> our student-athletes achieve — through <span>elite football</span> and <span>academic excellence</span>.
           </p>

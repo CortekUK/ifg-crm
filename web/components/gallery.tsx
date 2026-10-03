@@ -14,7 +14,7 @@ export function GalleryView({ categories = GALLERY }: { categories?: GalleryCate
         <img className="hero-video" data-hero-video src="/maccles/53036293139_2c50713232_k.jpg" alt="" />
         <div className="c-hero-overlay" />
         <div className="c-hero-in">
-          <Eyebrow style={{ color: "var(--pitch-400)", justifyContent: "center" }}>The International Football Group</Eyebrow>
+          <Eyebrow center style={{ color: "var(--pitch-400)" }}>The International Football Group</Eyebrow>
           <h1 className="t-display" data-anim="hero-fade" style={{ marginTop: 12 }}>Gallery</h1>
           <p className="tv-hero-sub" data-anim="hero-fade">
             Moments from across the group — match days, training, travel and the milestones in between.

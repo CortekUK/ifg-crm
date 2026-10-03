@@ -16,7 +16,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     <section className="dep-status">
       <div className="dep-status-in">
         <div className="dep-status-icon warn"><Icon name="x" size={28} /></div>
-        <Eyebrow style={{ justifyContent: "center" }}>Payment not completed</Eyebrow>
+        <Eyebrow center>Payment not completed</Eyebrow>
         <h1 className="dep-status-title">Your place isn&apos;t secured yet</h1>
         <p className="dep-status-sub">
           No problem — your card was not charged. You can pick up where you left off whenever you&apos;re ready, or
