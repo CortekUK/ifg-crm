@@ -240,15 +240,17 @@ export function useMoveDeal() {
       newStageName?: string
       performedById?: string
     }) => {
-      // Get current deal to find old stage if not provided
+      // Read the stage the deal is leaving, so the activity log records its id
+      // (and its name, if the caller didn't pass one)
+      const { data: deal } = await supabase
+        .from('deals')
+        .select('current_stage_id')
+        .eq('id', dealId)
+        .single()
+      const oldStageId: string | null = deal?.current_stage_id ?? null
+
       let oldStage = oldStageName
       if (!oldStage) {
-        const { data: deal } = await supabase
-          .from('deals')
-          .select('current_stage_id')
-          .eq('id', dealId)
-          .single()
-
         if (deal?.current_stage_id) {
           const { data: stageData } = await supabase
             .from('pipeline_stages')
@@ -306,7 +308,7 @@ export function useMoveDeal() {
           description: oldStage && newStage
             ? `Moved from ${oldStage} to ${newStage}`
             : 'Deal moved to new stage',
-          old_value: { stage_id: dealId, stage_name: oldStage },
+          old_value: { stage_id: oldStageId, stage_name: oldStage },
           new_value: { stage_id: newStageId, stage_name: newStage },
           performed_by_id: userId,
         })
