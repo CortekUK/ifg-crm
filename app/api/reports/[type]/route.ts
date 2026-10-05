@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/supabase/require-admin'
 import { findReport } from '@/lib/reports/catalogue'
 import { RUNNERS, toCSV } from '@/lib/reports/runners'
 
@@ -22,14 +23,12 @@ export async function GET(
     const { type } = await context.params
 
     // Authenticate before looking anything up, so an unauthenticated
-    // caller learns nothing about which reports exist.
+    // caller learns nothing about which reports exist. Reports are admin-only
+    // (the /reports page is, and "Contacts export" is every contact as CSV);
+    // RLS alone would let a recruiter, who can read every contact, download it.
+    const denied = await requireAdmin()
+    if (denied) return denied
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const definition = findReport(type)
     const runner = RUNNERS[type]

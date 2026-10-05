@@ -102,6 +102,8 @@ export async function updateSession(request: NextRequest) {
       '/campaigns', '/brochures', '/templates', '/automations',
       '/invoices', '/payments', '/analytics', '/reports',
       '/users', '/form-submissions', '/website-content',
+      // The Website Content editor itself lives at /cms/[slug].
+      '/cms',
     ]
 
     const isAdminRoute = adminOnlyPaths.some(

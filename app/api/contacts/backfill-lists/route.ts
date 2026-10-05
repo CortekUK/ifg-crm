@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/supabase/require-admin'
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -12,6 +13,9 @@ function getSupabaseAdmin() {
 const CHUNK_SIZE = 200
 
 export async function POST() {
+  // Service-role write across every contact: admins only.
+  const denied = await requireAdmin()
+  if (denied) return denied
   try {
     const admin = getSupabaseAdmin()
 

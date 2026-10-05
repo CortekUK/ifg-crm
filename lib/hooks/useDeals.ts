@@ -286,18 +286,22 @@ export function useMoveDeal() {
       }
 
       // Update the deal's stage (only current_stage_id - trigger handles stage_id sync)
-      const { error: updateError } = await supabase
+      const { data: moved, error: updateError } = await supabase
         .from('deals')
         .update({
           current_stage_id: newStageId,
           updated_at: new Date().toISOString(),
         })
         .eq('id', dealId)
+        .select('id')
 
       if (updateError) {
         console.error('Failed to move deal:', updateError)
         throw new Error(updateError.message || 'Failed to update deal stage')
       }
+      // RLS refuses a move on someone else's deal by matching zero rows, not
+      // by erroring; report it rather than toasting "Deal moved".
+      if (!moved?.length) throw new Error('You can only move deals that are assigned to you.')
 
       // Log the activity with stage names
       const { error: activityError } = await supabase
@@ -392,12 +396,16 @@ export function useDeleteDeal() {
 
   return useMutation({
     mutationFn: async (dealId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('deals')
         .delete()
         .eq('id', dealId)
+        .select('id')
 
       if (error) throw error
+      // RLS refuses a delete by matching zero rows rather than erroring, so
+      // without this a refused delete would report success.
+      if (!data?.length) throw new Error('You do not have permission to delete this deal.')
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] })

@@ -540,10 +540,11 @@ export function DealDetailSheet({
           </div>
 
           {/* Terminal-stage cleanup: when a deal lands in lost / dormant /
-              dead, offer a one-click "Remove from pipeline" so recruiters
-              can clear the column without needing admin help. Same
-              hard-delete underneath; the contact record stays. */}
-          {deal.stage &&
+              dead, offer a one-click "Remove from pipeline". It is the same
+              hard delete as the trash button, and deleting deals is
+              admin-only (RLS refuses it for recruiters), so admins only;
+              the contact record stays. */}
+          {isAdmin && deal.stage &&
             ['lost', 'dormant', 'dead'].includes(deal.stage.stage_type) && (
               <Button
                 size="sm"

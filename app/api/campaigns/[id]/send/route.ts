@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/supabase/require-admin'
 
 // API route to trigger immediate campaign sending
 // POST /api/campaigns/[id]/send
@@ -10,6 +11,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Sends a campaign with the service role. Campaigns are admin-only, and
+  // without this anyone could trigger a send by POSTing a campaign id.
+  const denied = await requireAdmin()
+  if (denied) return denied
   try {
     const { id: campaignId } = await params
 
