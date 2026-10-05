@@ -8,6 +8,7 @@ import {
   COUNTRIES,
   FOOTBALL_POSITIONS,
   GENDER_OPTIONS,
+  GRADUATION_YEAR_OPTIONS,
   LENGTH_OF_STAY_OPTIONS,
   YEAR_OF_ENTRY_OPTIONS,
 } from "@/lib/data";
@@ -39,6 +40,7 @@ const STATE: FieldDef = { key: "state", label: "State / Region", type: "state", 
 const POSITION: FieldDef = { key: "position", label: "Football position", type: "select", required: true, options: FOOTBALL_POSITIONS };
 const LENGTH: FieldDef = { key: "lengthOfStay", label: "Length of stay", type: "select", required: true, options: LENGTH_OF_STAY_OPTIONS };
 const YEAR: FieldDef = { key: "yearOfEntry", label: "Expected year of entry", type: "select", required: true, options: YEAR_OF_ENTRY_OPTIONS };
+const GRAD_YEAR: FieldDef = { key: "graduationYear", label: "High school graduation year", type: "select", required: true, options: GRADUATION_YEAR_OPTIONS };
 
 export const FORMS: FormDef[] = [
   {
@@ -46,7 +48,7 @@ export const FORMS: FormDef[] = [
     tab: "Training Experience",
     title: "Summer Residency Application",
     blurb: "An intensive summer residency training within the Macclesfield FC environment.",
-    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, POSITION, LENGTH],
+    fields: [FIRST, LAST, DOB, PHONE, EMAIL, GENDER, COUNTRY, STATE, GRAD_YEAR, POSITION, LENGTH],
   },
   {
     id: "university",

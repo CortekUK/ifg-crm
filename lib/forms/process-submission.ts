@@ -36,6 +36,9 @@ export interface ContactInput {
   position: string | null
   expected_year_of_entry: string | null
   length_of_stay: string | null
+  /** High-school graduation year, asked directly by forms that have no year of
+   *  entry (Summer Residency). Takes precedence over expected_year_of_entry. */
+  graduation_year?: string | null
 }
 
 export interface ProcessArgs {
@@ -128,12 +131,11 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
   // gender column is a male/female enum — preserve any other selection verbatim.
   if (contact.gender && !normalizedGender) customFields.gender = contact.gender
 
-  // graduation_year is a real column — coerce expected_year_of_entry when it
-  // parses cleanly as a 4-digit year; otherwise leave null (raw value still
-  // lives in custom_fields above).
-  const yearCandidate = contact.expected_year_of_entry
-    ? parseInt(contact.expected_year_of_entry.replace(/\D/g, ''), 10)
-    : NaN
+  // graduation_year is a real column — take the form's graduation year, else
+  // coerce expected_year_of_entry, when it parses cleanly as a 4-digit year;
+  // otherwise leave null (raw value still lives in custom_fields above).
+  const yearSource = contact.graduation_year || contact.expected_year_of_entry
+  const yearCandidate = yearSource ? parseInt(yearSource.replace(/\D/g, ''), 10) : NaN
   const graduationYear = yearCandidate >= 1900 && yearCandidate <= 2100 ? yearCandidate : null
 
   try {

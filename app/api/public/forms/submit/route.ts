@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       position: str(body.position),
       expected_year_of_entry: str(body.yearOfEntry) ?? str(body.expected_year_of_entry),
       length_of_stay: str(body.lengthOfStay) ?? str(body.length_of_stay),
+      graduation_year: str(body.graduationYear) ?? str(body.graduation_year),
     }
 
     if (!contact.email) {

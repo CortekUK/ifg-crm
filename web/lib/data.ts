@@ -1361,6 +1361,12 @@ export const LENGTH_OF_STAY_OPTIONS: string[] = [
 
 export const YEAR_OF_ENTRY_OPTIONS: string[] = ["2026", "2027", "2028", "2029", "2030"];
 
+// High-school graduation year (Summer Residency form). Same range the Stripe
+// checkout offers: a few already graduated through to younger players, so the
+// CRM can file them into the "2027 MENS"-style cohort lists.
+const THIS_YEAR = new Date().getFullYear();
+export const GRADUATION_YEAR_OPTIONS: string[] = Array.from({ length: 14 }, (_, i) => String(THIS_YEAR - 8 + i));
+
 // ---- Phoenix application form option lists ----
 export const ENTRY_YEARS: string[] = ["2025", "2026", "2027", "2028", "2029", "2030", "2031"];
 
