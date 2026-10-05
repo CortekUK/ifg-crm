@@ -37,6 +37,16 @@ import {
 const PIPELINE_STORAGE_KEY = 'ifg-crm-selected-pipeline'
 const KANBAN_ZOOM_KEY = 'ifg-crm-kanban-zoom'
 
+// A move to an earlier stage needs confirming, because it can restart a
+// follow-up sequence. Lost and Dead are exempt: they sit at either end of the
+// board, but dropping a deal into one is a deliberate finishing action, not a
+// regression (SUMMER RESIDENCY has Dead but no Lost).
+function isBackwardMove(oldStage?: PipelineStage, newStage?: PipelineStage): boolean {
+  if (!oldStage || !newStage) return false
+  if (newStage.stage_type === 'lost' || newStage.stage_type === 'dead') return false
+  return newStage.display_order < oldStage.display_order
+}
+
 export default function PipelinesPage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -248,12 +258,7 @@ export default function PipelinesPage() {
       // gate as drag-drop. The kanban path already gates earlier, so by
       // the time it calls handleStageChange the move is confirmed; only
       // the list view triggers the dialog here.
-      const isBackward =
-        oldStage &&
-        newStage &&
-        newStage.display_order < oldStage.display_order &&
-        newStage.stage_type !== 'lost'
-      if (isBackward) {
+      if (oldStage && newStage && isBackwardMove(oldStage, newStage)) {
         setPendingBackwardMove({
           dealId,
           newStageId,
@@ -375,14 +380,7 @@ export default function PipelinesPage() {
         const newStage = stages.find((s) => s.id === destination.droppableId)
 
         // Backward move (lower display_order) → confirmation gate.
-        // Skip the gate when the destination is "Lost" (stage_type='lost')
-        // since dropping a deal into Lost is a deliberate finishing
-        // action, not a regression.
-        const isBackward =
-          oldStage &&
-          newStage &&
-          newStage.display_order < oldStage.display_order &&
-          newStage.stage_type !== 'lost'
+        const isBackward = oldStage && newStage && isBackwardMove(oldStage, newStage)
 
         if (isBackward) {
           setPendingBackwardMove({
@@ -577,6 +575,8 @@ export default function PipelinesPage() {
           isOpen={!!selectedDeal}
           onClose={() => setSelectedDeal(null)}
           userId={userId}
+          onStageChange={handleStageChange}
+          isMoving={moveDeal.isPending}
         />
       )}
 

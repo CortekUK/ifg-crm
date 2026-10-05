@@ -73,7 +73,6 @@ import { cn } from '@/lib/utils'
 import { useDealActivities, useDealEmailActivities, useDealEmailReplyActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
-import { useMoveDeal } from '@/lib/hooks/useDeals'
 import { useUpcomingCalendlyEvent } from '@/lib/hooks/useCalendlyEvents'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { useContactLists, useContactTags, useAddTagToContact, useRemoveTagFromContact } from '@/lib/hooks/useContacts'
@@ -88,13 +87,17 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/lib/hooks/use-toast'
 import { OwnerSelect } from '@/components/ui/owner-select'
-import type { Deal } from '@/lib/types/pipelines'
+import type { Deal, PipelineStage } from '@/lib/types/pipelines'
 
 interface DealDetailSheetProps {
   deal: Deal | null
   isOpen: boolean
   onClose: () => void
   userId: string
+  /** The board's stage change, so a move from this sheet gets the same
+   *  backward-move confirmation, automation stop and intent clearing as a drag. */
+  onStageChange: (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => void
+  isMoving?: boolean
 }
 
 export function DealDetailSheet({
@@ -102,6 +105,8 @@ export function DealDetailSheet({
   isOpen,
   onClose,
   userId,
+  onStageChange,
+  isMoving = false,
 }: DealDetailSheetProps) {
   // Use live query data so mutations (e.g. owner change) reflect instantly
   const { data: liveDeal } = useDeal(dealProp?.id || null)
@@ -150,7 +155,6 @@ export function DealDetailSheet({
   const addTagToContact = useAddTagToContact()
   const removeTagFromContact = useRemoveTagFromContact()
   const { data: automations = [], isLoading: automationsLoading } = useDealAutomations(deal?.id || null)
-  const moveDeal = useMoveDeal()
   const addNote = useAddDealNote()
   const updateDeal = useUpdateDeal()
   const deleteDeal = useDeleteDeal()
@@ -199,23 +203,11 @@ export function DealDetailSheet({
     return (first + last).toUpperCase() || '??'
   }
 
-  const handleStageChange = async (newStageId: string) => {
+  const handleStageChange = (newStageId: string) => {
     if (!deal) return
     const oldStage = stages.find((s) => s.id === deal.current_stage_id)
     const newStage = stages.find((s) => s.id === newStageId)
-    try {
-      await moveDeal.mutateAsync({
-        dealId: deal.id,
-        newStageId,
-        pipelineId: deal.pipeline_id,
-        oldStageName: oldStage?.name,
-        newStageName: newStage?.name,
-        performedById: userId,
-      })
-      toast({ title: 'Deal moved', description: `Moved to ${newStage?.name || 'new stage'}` })
-    } catch (error) {
-      toast({ title: 'Failed to move deal', description: error instanceof Error ? error.message : 'An error occurred', variant: 'destructive' })
-    }
+    onStageChange(deal.id, newStageId, oldStage, newStage)
   }
 
   // Closing a deal goes through /api/deals/[id]/close.
@@ -524,7 +516,7 @@ export function DealDetailSheet({
           <div className="grid grid-cols-2 gap-2 mt-4">
             <div className="space-y-1">
               <Label className="text-xs text-slate-500 dark:text-slate-400">Move to Stage</Label>
-              <Select value={deal.current_stage_id} onValueChange={handleStageChange} disabled={moveDeal.isPending || !canMove}>
+              <Select value={deal.current_stage_id} onValueChange={handleStageChange} disabled={isMoving || !canMove}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
