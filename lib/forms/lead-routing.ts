@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { normalisePositions } from '@/lib/utils/import-normalise'
+import { normalisePositions, normaliseState } from '@/lib/utils/import-normalise'
 
 /**
  * Automatic lead routing — the single source of truth for which lists and tags
@@ -124,8 +124,11 @@ export function computeApplicationRouting(input: RoutingInput): Routing {
     }
   }
 
-  // Location tag (state), preserving prior behaviour.
-  if (input.state?.trim()) tags.push({ name: input.state.trim(), category: 'location' })
+  // Location tag (state). A US state or Canadian province folds to the same
+  // two-letter code the CSV import tags with, so "California" and "CA" never
+  // both appear. Anything else (non-US regions) keeps its raw value.
+  const rawState = input.state?.trim()
+  if (rawState) tags.push({ name: normaliseState(rawState) ?? rawState, category: 'location' })
 
   return { lists: Array.from(new Set(lists)), tags }
 }
