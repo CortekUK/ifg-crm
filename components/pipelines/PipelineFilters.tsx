@@ -76,7 +76,7 @@ export function PipelineFilters({
     return Array.from(ownerMap.values()).sort((a, b) => a.name.localeCompare(b.name))
   }, [deals])
 
-  const hasFilters = search || (isAdmin && ownerFilter !== 'all') || statusFilter !== 'all'
+  const hasFilters = search || ownerFilter !== 'all' || statusFilter !== 'all'
 
   const handleClearFilters = () => {
     onSearchChange('')
@@ -89,22 +89,25 @@ export function PipelineFilters({
       {/* Row 1: Filters + Search + Settings */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="flex flex-wrap gap-2">
-          {isAdmin && (
-            <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
-              <SelectTrigger className="w-[140px] h-9">
-                <SelectValue placeholder="All Owners" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Owners</SelectItem>
-                {userId && <SelectItem value={userId}>My Deals</SelectItem>}
-                {owners.filter(o => o.id !== userId).map((owner) => (
+          {/* Recruiters get this too: they can see every deal on the board but
+              had no way to pick out their own, so a shared pipeline was
+              unreadable to them. They see "My Deals" only — the full roster
+              stays an admin view, though owner names are on the cards anyway. */}
+          <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
+            <SelectTrigger className="w-[140px] h-9">
+              <SelectValue placeholder="All Owners" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Owners</SelectItem>
+              {userId && <SelectItem value={userId}>My Deals</SelectItem>}
+              {isAdmin &&
+                owners.filter((o) => o.id !== userId).map((owner) => (
                   <SelectItem key={owner.id} value={owner.id}>
                     {owner.name}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          )}
+            </SelectContent>
+          </Select>
 
           <Select value={statusFilter} onValueChange={onStatusFilterChange}>
             <SelectTrigger className="w-[130px] h-9">
