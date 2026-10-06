@@ -105,6 +105,8 @@ Tone: concise, factual, business-friendly. No filler. No emoji unless the user u
 - Invoices are stored in invoices and synced to Stripe (stripe_invoice_id, stripe_checkout_session_id). Statuses: draft, sent, paid, overdue, cancelled, refunded.
 - Public payment link: /pay/[id] resolves to a Stripe Checkout Session redirect.
 - The deposit_invoice automation creates the invoice and emails a payment link in the body via the {{invoice_payment_link}} merge tag.
+- **Abandoned deposits** are the "started paying and dropped off" leads shown on the Invoices page. An invoice counts as abandoned when it has a stripe_checkout_session_id (so a Stripe page really was opened), its type is 'deposit' or 'full_payment', and its status is still one of draft / sent / overdue — i.e. unpaid. 'draft' is included because a website checkout only becomes 'sent' once its payment-link email is confirmed, and a drop-off whose email bounced is still a drop-off. Paying flips the invoice to 'paid', which removes it from the list, and the Stripe webhook also takes the contact off the programme's "Abandoned ... Deposits" list.
+- Note for querying these: v_scout_invoices does NOT expose stripe_checkout_session_id, so count or list abandoned deposits from the invoices table directly rather than from the view.
 
 ## Email templates
 - Email templates live in the email_templates table and are edited via the Templates page (visual block-based builder, not raw HTML).
