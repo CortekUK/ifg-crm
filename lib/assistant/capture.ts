@@ -178,6 +178,15 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
     await assignTag(supabase, contactId, tag, 'source')
   }
 
+  // Tag chatbot leads with where they came from, the same way brochure leads
+  // are tagged. They were only landing on the "Chatbot Leads" list, so a
+  // contact's own record gave no sign the chat was how IFG met them — and the
+  // tag filters on Contacts, which is where staff actually look, had nothing
+  // to offer for them.
+  if (args.source === 'chatbot') {
+    await assignTag(supabase, contactId, 'Chatbot', 'source')
+  }
+
   // Audit log so these leads appear under Form Submissions like other captures.
   await supabase.from('form_submissions').insert({
     contact_id: contactId,
