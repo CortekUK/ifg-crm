@@ -94,8 +94,10 @@ export async function POST(
         },
       ],
       mode: 'payment',
-      success_url: `${appUrl}/portal/payments/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/portal/payments/cancelled?invoice_id=${invoiceId}`,
+      // Public return pages: this link is emailed, and the recipient is often
+      // a parent with no CRM login.
+      success_url: `${appUrl}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/pay/cancelled?invoice_id=${invoiceId}`,
       customer_email: recipientEmail,
       metadata: {
         invoice_id: invoice.id,

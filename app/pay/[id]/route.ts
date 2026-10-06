@@ -38,7 +38,7 @@ export async function GET(
 
   if (invoice.status === 'paid') {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    return NextResponse.redirect(`${appUrl}/portal/payments/success?invoice_id=${invoiceId}`, 303)
+    return NextResponse.redirect(`${appUrl}/pay/success?invoice_id=${invoiceId}`, 303)
   }
   if (invoice.status === 'cancelled') {
     return new NextResponse('This invoice has been cancelled.', { status: 410 })
@@ -101,8 +101,11 @@ export async function GET(
         },
       ],
       mode: 'payment',
-      success_url: `${appUrl}/portal/payments/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/portal/payments/cancelled?invoice_id=${invoiceId}`,
+      // /pay/* and not /portal/* — the payer followed a link in an email and
+      // usually has no CRM account, so an auth-gated return page bounced them
+      // to /portal/login straight after paying.
+      success_url: `${appUrl}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/pay/cancelled?invoice_id=${invoiceId}`,
       customer_email: customerEmail || undefined,
       metadata: {
         invoice_id: invoice.id,

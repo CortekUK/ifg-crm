@@ -7,7 +7,7 @@ import Stripe from 'npm:stripe@14'
 import { corsHeaders } from '../_shared/cors.ts'
 import { sendSMS } from '../_shared/clicksend.ts'
 import type { StepType } from '../_shared/automation-constants.ts'
-import { replaceMergeTags } from '../_shared/merge-tags.ts'
+import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
@@ -1088,7 +1088,7 @@ async function processEmailStep(
     // Replace merge tags in subject and body
     const mergeData: Record<string, string | number | boolean | null | undefined> = {
       // Contact fields
-      first_name: contact.first_name || '',
+      first_name: greetingName(contact.first_name),
       last_name: contact.last_name || '',
       email: contact.email || '',
       phone: contact.phone || null,
@@ -1516,7 +1516,7 @@ async function processSMSStep(
 
     // Build merge data and replace tags
     const mergeData: Record<string, string | number | boolean | null | undefined> = {
-      first_name: contact.first_name || '',
+      first_name: greetingName(contact.first_name),
       last_name: contact.last_name || '',
       email: contact.email || '',
       phone: contact.phone || null,
@@ -1898,8 +1898,10 @@ async function sendInvoicePaymentLinkEmail(
       },
     ],
     mode: 'payment',
-    success_url: `${appUrl}/portal/payments/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/portal/payments/cancelled?invoice_id=${args.invoiceId}`,
+    // Public return pages — an invoice raised by an automation is emailed to
+    // the player/parent, who typically has no CRM account.
+    success_url: `${appUrl}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/pay/cancelled?invoice_id=${args.invoiceId}`,
     customer_email: recipientEmail,
     metadata: {
       invoice_id: args.invoiceId,
