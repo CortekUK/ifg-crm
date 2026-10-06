@@ -52,3 +52,6 @@ next-env.d.ts
 
 # Template backups written by scripts/migrate-template-branding.mjs
 /scripts/backups/
+
+# Throwaway debug scripts
+scratch-*.mjs
