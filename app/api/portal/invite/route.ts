@@ -119,6 +119,27 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // The guardian cannot be invited on the same address as the player:
+      // one login belongs to one email, and Supabase would reject the second
+      // with "a user with this email address has already been registered",
+      // which tells the admin nothing about what to do.
+      //
+      // This is not an edge case. 3,508 contacts hold their parent's address
+      // as their own email — IFG reaches a lot of younger players through a
+      // parent — so whoever works those contacts will meet it.
+      if (
+        contact.email &&
+        contact.parent_email.trim().toLowerCase() === contact.email.trim().toLowerCase()
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'The parent email is the same as the player email, so a separate guardian login cannot be created. That address already signs in as the player and sees everything a guardian would. To give the parent their own login, give the player a different email address first.',
+          },
+          { status: 400 }
+        )
+      }
+
       const { data: playerProfile } = await supabase
         .from('profiles')
         .select('id, password_set_at')
