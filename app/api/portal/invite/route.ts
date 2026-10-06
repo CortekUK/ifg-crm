@@ -223,8 +223,13 @@ export async function POST(request: NextRequest) {
 
       await supabaseAdmin.auth.admin.deleteUser(existingProfile.id)
       await supabaseAdmin.from('profiles').delete().eq('id', existingProfile.id)
-      await supabaseAdmin.from('player_invites').delete().eq('contact_id', contact_id)
     }
+
+    // Clear old invite rows for this contact whether or not a profile was
+    // found. It used to sit inside the branch above, so re-inviting after the
+    // player had been deleted from Users → Players — where no profile remains
+    // — left the previous row in place and added a second alongside it.
+    await supabaseAdmin.from('player_invites').delete().eq('contact_id', contact_id)
 
     const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       contact.email,

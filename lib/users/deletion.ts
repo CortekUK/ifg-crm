@@ -128,6 +128,14 @@ export async function deleteAccount(
   userId: string,
   email: string,
 ): Promise<{ error: string } | null> {
+  // Read the contact link before the profile goes, so the player's invite
+  // rows can be cleared too.
+  const { data: profileRow } = await admin
+    .from('profiles')
+    .select('contact_id, guardian_for_contact_id')
+    .eq('id', userId)
+    .maybeSingle()
+
   const { error: deactivateError } = await admin
     .from('profiles')
     .update({ is_active: false })
@@ -144,6 +152,17 @@ export async function deleteAccount(
   }
 
   if (email) await admin.from('user_invites').delete().eq('email', email)
+
+  // player_invites was being left behind. Deleting a player from Users →
+  // Players removed the account but not its invite row, so re-granting access
+  // added a second one — and the Welcome Sequence guard that asks "is an
+  // invite already pending?" uses maybeSingle(), which errors on two rows and
+  // reads as "no pending invite". The automation then re-invited on every run,
+  // adding another row each time.
+  const contactId = profileRow?.contact_id ?? profileRow?.guardian_for_contact_id ?? null
+  if (contactId) await admin.from('player_invites').delete().eq('contact_id', contactId)
+  if (email) await admin.from('player_invites').delete().eq('email', email)
+
   await admin.from('profiles').delete().eq('id', userId)
 
   return null

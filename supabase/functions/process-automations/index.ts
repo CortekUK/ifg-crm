@@ -1406,11 +1406,16 @@ async function processEmailStep(
           .maybeSingle()
 
         // Pending invite already in flight? skip.
+        // limit(1) before maybeSingle(): a contact can legitimately end up with
+        // more than one pending invite row, and maybeSingle() errors on two —
+        // returning null, which reads as "nobody has been invited" and makes
+        // this guard invite them all over again.
         const { data: pendingInvite } = await supabase
           .from('player_invites')
           .select('id')
           .eq('contact_id', contact.id)
           .eq('status', 'pending')
+          .limit(1)
           .maybeSingle()
 
         if (!existingPlayer && !pendingInvite) {
