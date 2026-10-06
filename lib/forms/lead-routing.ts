@@ -201,3 +201,51 @@ export async function applyRouting(supabase: SupabaseClient, contactId: string, 
   await addContactToLists(supabase, contactId, routing.lists)
   for (const t of routing.tags) await assignTag(supabase, contactId, t.name, t.category)
 }
+
+/**
+ * The stage a brand-new lead should land on in a pipeline.
+ *
+ * "First stage by display_order" is the obvious guess and the wrong one: on all
+ * three IFG pipelines that is `Dormant`, a dead end nobody works. A player who
+ * has just written back, filed as dormant, is worse than not filed at all.
+ *
+ * Resolved the same way the public deposit route does it, so the two cannot
+ * disagree about where a lead belongs:
+ *
+ *   1. the pipeline's active form-submission automation — whatever stage it
+ *      drops real website leads on is by definition the new-lead stage
+ *   2. failing that, the first stage typed `lead` (Initial Lead everywhere today)
+ *   3. failing that, the first stage by order that is not a dead end
+ *
+ * Returns null only for a pipeline with no usable stage at all.
+ */
+export async function resolveNewLeadStageId(
+  supabase: SupabaseClient,
+  pipelineId: string,
+): Promise<string | null> {
+  const { data: automations } = await supabase
+    .from('automations')
+    .select('trigger_stage_id, config')
+    .eq('trigger_type', 'form_submission')
+    .eq('is_active', true)
+    .eq('pipeline_id', pipelineId)
+
+  for (const a of (automations ?? []) as { trigger_stage_id: string | null; config: { initial_stage_id?: string } | null }[]) {
+    const stageId = a.config?.initial_stage_id || a.trigger_stage_id
+    if (stageId) return stageId
+  }
+
+  const { data: stages } = await supabase
+    .from('pipeline_stages')
+    .select('id, stage_type')
+    .eq('pipeline_id', pipelineId)
+    .order('display_order', { ascending: true })
+
+  const rows = (stages ?? []) as { id: string; stage_type: string | null }[]
+  const lead = rows.find((s) => s.stage_type === 'lead')
+  if (lead) return lead.id
+
+  const DEAD_ENDS = new Set(['dormant', 'dead', 'lost'])
+  const workable = rows.find((s) => !DEAD_ENDS.has(s.stage_type ?? ''))
+  return workable?.id ?? rows[0]?.id ?? null
+}

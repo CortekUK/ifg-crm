@@ -40,6 +40,7 @@ import { usePipelines } from '@/lib/hooks/usePipelines'
 import { usePipelineAssignedUsers } from '@/lib/hooks/usePipelineAssignedUsers'
 import { useManualRoundRobin } from '@/lib/hooks/useManualRoundRobin'
 import { useCreateDeal } from '@/lib/hooks/useCreateDeal'
+import { resolveNewLeadStageId } from '@/lib/forms/lead-routing'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import type { EmailReply } from '@/lib/types/email'
 import type { SMSMessage } from '@/lib/types/sms'
@@ -487,18 +488,14 @@ export function SmartDealModal({
             continue
           }
 
-          // Get first stage for this pipeline
-          const { data: firstStage, error: stageError } = await supabase
-            .from('pipeline_stages')
-            .select('id')
-            .eq('pipeline_id', pipelineIdForDeal)
-            .order('display_order', { ascending: true })
-            .limit(1)
-            .single()
+          // Where a new lead belongs — NOT the first stage by display_order,
+          // which is `Dormant` on all three pipelines. Smart Deal was filing
+          // every player who replied to a campaign straight into a dead end.
+          const newLeadStageId = await resolveNewLeadStageId(supabase, pipelineIdForDeal)
 
-          if (stageError || !firstStage) {
-            console.error('Could not find first stage for pipeline:', stageError)
-            throw new Error('Could not find first stage for pipeline')
+          if (!newLeadStageId) {
+            console.error('Could not resolve a new-lead stage for pipeline', pipelineIdForDeal)
+            throw new Error('Could not find a stage for this pipeline')
           }
 
           // Determine assignee
@@ -534,7 +531,7 @@ export function SmartDealModal({
           await createDeal.mutateAsync({
             contactId: item.contactId,
             pipelineId: pipelineIdForDeal,
-            stageId: firstStage.id,
+            stageId: newLeadStageId,
             ownerId: assigneeId,
             dealValue: 0,
             title: `${item.contactName} - ${pipelineName}`,
