@@ -7,7 +7,7 @@ import { Resend } from 'npm:resend@2.0.0'
 import { sendSMS } from '../_shared/clicksend.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
-import { replaceMergeTags } from '../_shared/merge-tags.ts'
+import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
 import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
 
 const corsHeaders = {
@@ -653,7 +653,7 @@ function buildCampaignMergeData(
 ): Record<string, string | number | boolean | null | undefined> {
   return {
     // Contact fields
-    first_name: contact.first_name || '',
+    first_name: greetingName(contact.first_name),
     last_name: contact.last_name || '',
     email: contact.email || '',
     phone: contact.phone || null,

@@ -113,3 +113,23 @@ function formatValue(value: MergeTagValue): string {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   return String(value)
 }
+
+/**
+ * What `{{first_name}}` renders when a contact has no name yet.
+ *
+ * Every one of the 28 live email templates greets with a bare
+ * `{{first_name}}` and no `|fallback`, so a nameless contact produced
+ * "Hi ,". Nameless contacts are normal, not exceptional: the Stripe-first
+ * website checkout creates them email-only on purpose and lets the payment
+ * webhook fill the name in afterwards, so the greeting has to hold up in the
+ * window before that happens.
+ *
+ * Defaulting here rather than in the templates keeps it true for templates the
+ * client edits later, and for any new one.
+ */
+export const NAMELESS_GREETING = 'there'
+
+export function greetingName(firstName?: string | null): string {
+  return (firstName ?? '').trim() || NAMELESS_GREETING
+}
+

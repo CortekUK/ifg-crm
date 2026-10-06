@@ -4,7 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
-import { replaceMergeTags } from '../_shared/merge-tags.ts'
+import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
@@ -359,7 +359,7 @@ async function fetchMergeDataForDeal(
 
   return {
     // Contact fields
-    first_name: contact?.first_name || null,
+    first_name: greetingName(contact?.first_name),
     last_name: contact?.last_name || null,
     email: contact?.email || null,
     phone: contact?.phone || null,
@@ -400,7 +400,7 @@ async function fetchContactData(
   }
 
   return {
-    first_name: contact.first_name || null,
+    first_name: greetingName(contact.first_name),
     last_name: contact.last_name || null,
     email: contact.email || null,
     phone: contact.phone || null,
