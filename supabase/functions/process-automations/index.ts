@@ -1307,7 +1307,23 @@ async function processEmailStep(
 
       const cfg = (automationCfg?.config ?? {}) as { notify_parent?: boolean; create_portal_account?: boolean }
       const notifyParent = cfg.notify_parent === true
-      if (notifyParent && contact.parent_email) {
+
+      // Don't send the parent a copy of a message that already went to that
+      // same address. 3,508 contacts hold their parent's address as their own
+      // email — IFG reaches a lot of younger players through a parent — and
+      // for every one of them "notify parent" meant the same inbox received
+      // the identical email twice, once plainly and once as "[Parent Copy]".
+      const parentAddress = contact.parent_email?.trim() ?? ''
+      const parentIsSameInbox =
+        parentAddress.toLowerCase() === (contact.email?.trim() ?? '').toLowerCase()
+
+      if (notifyParent && parentAddress && parentIsSameInbox) {
+        console.log(
+          `notify_parent: skipped for contact ${contact.id} — the parent address is the contact's own email, which has already had this message`,
+        )
+      }
+
+      if (notifyParent && parentAddress && !parentIsSameInbox) {
         const parentSubject = `[Parent Copy] ${subject}`
         const parentTrackingId = crypto.randomUUID()
         const { data: parentEmailData, error: parentSendError } = await resend.emails.send({
