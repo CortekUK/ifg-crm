@@ -114,16 +114,28 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      // Target date the deal should hit `days_before` days from now.
+      // Target date the deal should hit `days_before` days from now, as a
+      // whole-day range rather than an instant.
+      //
+      // Two of the three whitelisted columns are `date`, but interview_date is
+      // `timestamptz` — and that is the one Calendly fills. An equality test
+      // against '2026-11-05' compares it to midnight, so a meeting booked for
+      // 14:30 never matched and a pre-departure sequence counting back from
+      // the interview date could not enrol anybody. A half-open day range is
+      // correct for both column types.
       const target = new Date()
       target.setDate(target.getDate() + daysBefore)
       const targetDate = target.toISOString().slice(0, 10)
+      const dayAfter = new Date(target)
+      dayAfter.setDate(dayAfter.getDate() + 1)
+      const dayAfterDate = dayAfter.toISOString().slice(0, 10)
 
       // Find candidate deals.
       let dealsQuery = supabase
         .from('deals')
         .select('id')
-        .eq(dateField, targetDate)
+        .gte(dateField, targetDate)
+        .lt(dateField, dayAfterDate)
       if (automation.pipeline_id) {
         dealsQuery = dealsQuery.eq('pipeline_id', automation.pipeline_id)
       }
