@@ -714,6 +714,25 @@ async function processQueue(
               .maybeSingle()
             meetingEndTime = meetingRow?.end_time ?? null
           }
+          // The meeting this reminder counts back from has already happened,
+          // so there is nothing left to remind anyone about. End the
+          // enrollment with a reason a recruiter can read, rather than firing
+          // "your meeting is soon" after the fact. The reason deliberately
+          // avoids the word "repl", so move_deal_on_enrollment_exit leaves the
+          // deal where it is instead of treating this as a reply exit.
+          if (anchorDateHasPassed(nextStep, dealFields)) {
+            await supabase
+              .from('automation_enrollments')
+              .update({
+                status: 'stopped',
+                stopped_reason: 'Meeting date had already passed — reminder not sent',
+                next_step_at: null,
+              })
+              .eq('id', enrollment.id)
+            summary.processed++
+            continue
+          }
+
           const nextStepAt = calculateNextStepTime(nextStep, dealFields, meetingEndTime)
 
           // Update enrollment with next step. If nextStepAt is null
@@ -2160,6 +2179,35 @@ function formatMeetingDate(iso: string): string {
  * been set yet; the caller stores that as a parked enrollment which
  * sweepBeforeDateWaits() will revisit on later cron runs.
  */
+/**
+ * Has the date a "wait until X before <date>" step counts back from already
+ * gone?
+ *
+ * A reminder is only a reminder while the thing is still ahead. The offset
+ * subtraction below is unsigned, so an interview_date in the past produced a
+ * next_step_at in the past, the step came due on the next cron run, and the
+ * player was emailed "your meeting is soon" about a meeting that had already
+ * happened. That is easy to hit: a stale interview_date from a previous
+ * booking is left on the deal, and the recruiter moves the card back onto
+ * Zoom Scheduled.
+ *
+ * Distinct from "no date set at all", which is a legitimate park — the player
+ * has not booked yet, and sweepBeforeDateWaits() picks them up when they do.
+ */
+function anchorDateHasPassed(
+  step: AutomationStep,
+  dealFields?: Record<string, unknown> | null,
+): boolean {
+  if (step.step_type !== 'wait_until_before_date') return false
+  const field = (step.conditions as { field?: string } | null)?.field
+  if (!field || !dealFields) return false
+  const raw = dealFields[field]
+  if (!raw || typeof raw !== 'string') return false
+  const target = new Date(raw)
+  if (isNaN(target.getTime())) return false
+  return target.getTime() <= Date.now()
+}
+
 function calculateNextStepTime(
   step: AutomationStep,
   dealFields?: Record<string, unknown> | null,
@@ -2267,6 +2315,22 @@ async function sweepBeforeDateWaits(
     if (!step) continue
     const deal = dealMap.get(enrollment.deal_id)
     const meetingEnd = meetingByDeal.get(enrollment.deal_id) ?? null
+
+    // A date that arrived in the past is not worth un-parking for: the
+    // reminder would go out immediately, about a meeting already over. End it
+    // here instead, same as the advance path.
+    if (anchorDateHasPassed(step as AutomationStep, deal as Record<string, unknown> | undefined)) {
+      await supabase
+        .from('automation_enrollments')
+        .update({
+          status: 'stopped',
+          stopped_reason: 'Meeting date had already passed — reminder not sent',
+          next_step_at: null,
+        })
+        .eq('id', enrollment.id)
+      continue
+    }
+
     const nextAt = calculateNextStepTime(
       step as AutomationStep,
       deal as Record<string, unknown> | undefined,
