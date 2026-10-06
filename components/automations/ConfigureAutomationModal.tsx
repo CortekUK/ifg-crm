@@ -1864,7 +1864,7 @@ export function ConfigureAutomationModal({
                                 min={1}
                                 max={365}
                                 className="w-20 h-9"
-                                value={formData.config.dormant_reminder_interval_days ?? 21}
+                                value={formData.config.dormant_reminder_interval_days ?? 14}
                                 onChange={(e) =>
                                   setFormData((prev) => ({
                                     ...prev,
@@ -1878,7 +1878,7 @@ export function ConfigureAutomationModal({
                               />
                               <span className="text-sm text-muted-foreground">
                                 days{' '}
-                                <span className="text-xs">(default 21 = 3 weeks)</span>
+                                <span className="text-xs">(default 14 = a fortnight)</span>
                               </span>
                             </div>
                           </div>

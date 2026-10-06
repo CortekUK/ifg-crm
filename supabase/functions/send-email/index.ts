@@ -7,6 +7,7 @@ import { Resend } from 'npm:resend@2.0.0'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
+import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -129,6 +130,14 @@ Deno.serve(async (req) => {
     // Shared links (registration forms and the like) resolve as merge tags.
     Object.assign(mergeData, getBrandingLinks())
 
+    // Signed, per-contact opt-out link for the branding footer's
+    // {{unsubscribe_url}}. Only resolvable when we know who we are emailing;
+    // a send with no contact_id (a test send to yourself, say) leaves the tag
+    // to its own fallback rather than inventing a link.
+    if (body.contact_id) {
+      mergeData.unsubscribe_url = await unsubscribeUrl(body.contact_id)
+    }
+
     // Apply merge tags to subject and body
     let processedSubject = body.subject
     let processedBody = brandedBody
@@ -152,6 +161,10 @@ Deno.serve(async (req) => {
     const trackingReplyTo = buildReplyToAddress(trackingId, `${fromName} at IFG`)
 
     // Send email via Resend
+    // Native Unsubscribe button in Gmail / Outlook (RFC 8058), where we know
+    // which contact this is going to.
+    const listUnsubHeaders = await unsubscribeHeaders(body.contact_id)
+
     const { data, error: resendError } = await resend.emails.send({
       from: `${fromName} <${body.from_email}>`,
       to: [body.to],
@@ -160,6 +173,7 @@ Deno.serve(async (req) => {
       html: processedBody,
       headers: {
         'Message-ID': messageIdHeader,
+        ...(listUnsubHeaders ?? {}),
       },
     })
 

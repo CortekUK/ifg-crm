@@ -141,7 +141,7 @@ function threeEmailSequence(
   return appendDormantReminderTail(steps, config)
 }
 
-const DEFAULT_DORMANT_INTERVAL_DAYS = 21
+const DEFAULT_DORMANT_INTERVAL_DAYS = 14
 
 // Optional recurring "re-engagement" tail for initial_contact / follow_up.
 // When dormant_reminder_enabled (and a no_reply/Dormant stage is set), append:
@@ -149,7 +149,7 @@ const DEFAULT_DORMANT_INTERVAL_DAYS = 21
 //                              completes, so the no_reply-on-completion move
 //                              can't fire)
 //   send_email    → reminder  (first reminder, immediate on entering Dormant)
-//   wait          → interval  (default 21 days)
+//   wait          → interval  (default 14 days — a fortnight)
 // The engine loops the reminder+wait forever (see deriveRecurringMeta) until
 // the deal leaves Dormant, replies, or is unenrolled.
 function appendDormantReminderTail(

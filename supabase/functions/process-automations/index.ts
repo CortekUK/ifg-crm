@@ -10,6 +10,7 @@ import type { StepType } from '../_shared/automation-constants.ts'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
+import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
 
 interface ProcessingSummary {
   enrollmentsCreated: number
@@ -553,7 +554,7 @@ async function processQueue(
           paid_stage_id?: string | null
           unpaid_stage_id?: string | null
           activated_stage_id?: string | null
-          // Recurring loop (e.g. Dormant reminder every 3 weeks). When the
+          // Recurring loop (e.g. Dormant reminder every fortnight). When the
           // sequence runs out of steps, instead of completing, jump back to
           // `recurring_loop_to_order` and reschedule — indefinitely, as long
           // as the deal is still parked in `recurring_anchor_stage_id`.
@@ -734,8 +735,9 @@ async function processQueue(
           // No next step. If this automation is recurring AND the deal is
           // still parked in the anchor stage, loop back to the configured
           // step instead of completing. Powers the Dormant reminder cadence:
-          // wait 3 weeks → reminder → loop, forever, until the deal leaves
-          // Dormant (recruiter move or reply→exit) or is manually unenrolled.
+          // wait a fortnight → reminder → loop, forever, until the deal leaves
+          // Dormant (recruiter move or reply→exit), the contact unsubscribes,
+          // or it is manually unenrolled.
           //
           // The anchor check happens HERE — right before re-arming the next
           // send — so a deal that has left Dormant during the wait window
@@ -746,17 +748,51 @@ async function processQueue(
             typeof automationCfg.recurring_loop_to_order === 'number'
           ) {
             const anchorStageId = automationCfg.recurring_anchor_stage_id ?? null
-            let stillAnchored = true
-            if (anchorStageId) {
-              const { data: dealStageRow } = await supabase
-                .from('deals')
-                .select('current_stage_id')
-                .eq('id', enrollment.deal_id)
+            const { data: dealStageRow } = await supabase
+              .from('deals')
+              .select('current_stage_id, contact_id')
+              .eq('id', enrollment.deal_id)
+              .single()
+
+            const stillAnchored = anchorStageId
+              ? dealStageRow?.current_stage_id === anchorStageId
+              : true
+
+            // "Until they unsubscribe" is enforced HERE, at the moment the
+            // loop would re-arm, rather than at the send. processEmailStep
+            // already declines to email an unsubscribed contact, but a skipped
+            // send still counts as a step done, so an indefinite loop would go
+            // on re-arming itself forever — silently, every fortnight, for a
+            // contact who has opted out. Ending the enrollment also covers
+            // opt-outs from any source: the unsubscribe link, a spam
+            // complaint, the bulk action in Contacts, or a CSV import.
+            let unsubscribed = false
+            if (dealStageRow?.contact_id) {
+              const { data: contactRow } = await supabase
+                .from('contacts')
+                .select('subscription_status')
+                .eq('id', dealStageRow.contact_id)
                 .single()
-              stillAnchored = dealStageRow?.current_stage_id === anchorStageId
+              unsubscribed = Boolean(
+                contactRow?.subscription_status && contactRow.subscription_status !== 'subscribed',
+              )
             }
 
-            if (stillAnchored) {
+            if (unsubscribed) {
+              // 'Manual:' prefix for the same reason as the branch below —
+              // migration 091 ignores those, so ending the loop here does not
+              // drag the deal off to no_reply_stage_id / exit_to_stage_id.
+              await supabase
+                .from('automation_enrollments')
+                .update({
+                  status: 'stopped',
+                  stopped_reason: 'Manual: contact unsubscribed — recurring reminder ended',
+                  next_step_at: null,
+                })
+                .eq('id', enrollment.id)
+              summary.enrollmentsStopped++
+              looped = true // handled — skip the completion path below
+            } else if (stillAnchored) {
               const { data: loopStep } = await supabase
                 .from('automation_steps')
                 .select('*')
@@ -1092,6 +1128,11 @@ async function processEmailStep(
       deal_owner_calendly: owner?.calendly_url || null,
       deal_owner_signature: owner?.email_signature || null,
       deal_owner_photo: owner?.avatar_url || null,
+      // Signed, per-contact opt-out link. The global footer and the Dormant
+      // reminder template both carry {{unsubscribe_url}}; until this was
+      // populated it fell through to '#', so every "Unsubscribe" in every
+      // automated email was a dead link.
+      unsubscribe_url: await unsubscribeUrl(contact.id),
     }
 
     // Shared links (registration forms and the like) resolve as merge tags,
@@ -1175,6 +1216,12 @@ async function processEmailStep(
     // (using trackingId as the local part) so a contact's reply lands with
     // an In-Reply-To value we can directly look up in email_sends — no
     // UUID-fishing in headers, no fallback heuristics needed.
+    // List-Unsubscribe / List-Unsubscribe-Post put a native Unsubscribe button
+    // in Gmail and Outlook. For a recurring sequence like the Dormant reminder
+    // this is the difference between an opt-out and a spam complaint, and bulk
+    // senders without it get filtered.
+    const listUnsubHeaders = await unsubscribeHeaders(contact.id)
+
     const { data: emailData, error: resendError } = await resend.emails.send({
       from: `${fromName} <${fromEmail}>`,
       to: [contact.email],
@@ -1183,6 +1230,7 @@ async function processEmailStep(
       html: htmlBody,
       headers: {
         'Message-ID': buildOutboundMessageId(trackingId),
+        ...(listUnsubHeaders ?? {}),
       },
     })
 

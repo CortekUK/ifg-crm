@@ -8,6 +8,7 @@ import { sendSMS } from '../_shared/clicksend.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { replaceMergeTags } from '../_shared/merge-tags.ts'
+import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -699,6 +700,12 @@ async function sendEmail(
     // values come from the branding read performed before this batch.
     Object.assign(mergeData, getBrandingLinks())
 
+    // Signed, per-recipient opt-out link. Resolved here rather than in
+    // buildCampaignMergeData because the branding footer's {{unsubscribe_url}}
+    // has to differ per recipient, and the footer HTML is shared across the
+    // whole batch.
+    mergeData.unsubscribe_url = await unsubscribeUrl(params.contact_id)
+
     const processedSubject = replaceMergeTags(params.subject, mergeData)
     const processedBody = replaceMergeTags(params.html_body, mergeData)
 
@@ -710,6 +717,11 @@ async function sendEmail(
     const trackingId = crypto.randomUUID()
     const trackingReplyTo = buildReplyToAddress(trackingId, `${params.from_name} at IFG`)
 
+    // List-Unsubscribe / List-Unsubscribe-Post give the reader a native
+    // Unsubscribe button in Gmail and Outlook. Bulk senders without these get
+    // filtered, and a reader who can't find an opt-out reports spam instead.
+    const listUnsubHeaders = await unsubscribeHeaders(params.contact_id)
+
     // Send via Resend directly
     const resend = new Resend(resendApiKey)
     const { data, error: resendError } = await resend.emails.send({
@@ -720,6 +732,7 @@ async function sendEmail(
       html: processedBody,
       headers: {
         'Message-ID': buildOutboundMessageId(trackingId),
+        ...(listUnsubHeaders ?? {}),
       },
     })
 

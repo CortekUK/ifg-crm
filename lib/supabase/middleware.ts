@@ -43,6 +43,11 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/set-password') ||
     request.nextUrl.pathname.startsWith('/unauthorized') ||
     request.nextUrl.pathname === '/portal/login' ||
+    // Email unsubscribe. The people using this link have no CRM account by
+    // definition, so a redirect to /login would make every unsubscribe link
+    // in every email a dead end — and an unsubscribe you can't complete is a
+    // spam complaint instead. The signed token in the link is its auth.
+    request.nextUrl.pathname.startsWith('/unsubscribe') ||
     // Invoice payment links. /pay/<invoice> is emailed to players and parents
     // who have no CRM account at all — it was redirecting them to /login, so
     // every "Pay Now" button in an invoice email led to a sign-in page they

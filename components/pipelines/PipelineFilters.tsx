@@ -89,10 +89,13 @@ export function PipelineFilters({
       {/* Row 1: Filters + Search + Settings */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="flex flex-wrap gap-2">
-          {/* Recruiters get this too: they can see every deal on the board but
-              had no way to pick out their own, so a shared pipeline was
-              unreadable to them. They see "My Deals" only — the full roster
-              stays an admin view, though owner names are on the cards anyway. */}
+          {/* The full roster is open to recruiters, not just admins. They can
+              already see every deal on a shared board and the owner's name is
+              on every card; what they lacked was a way to read one colleague's
+              book at a time. Filtering is a view, not a permission — moving a
+              deal you don't own is refused by canMoveDeal here and by the
+              deals UPDATE policy in the database (migration 153), so picking a
+              colleague shows their work without granting any power over it. */}
           <Select value={ownerFilter} onValueChange={onOwnerFilterChange}>
             <SelectTrigger className="w-[140px] h-9">
               <SelectValue placeholder="All Owners" />
@@ -100,12 +103,11 @@ export function PipelineFilters({
             <SelectContent>
               <SelectItem value="all">All Owners</SelectItem>
               {userId && <SelectItem value={userId}>My Deals</SelectItem>}
-              {isAdmin &&
-                owners.filter((o) => o.id !== userId).map((owner) => (
-                  <SelectItem key={owner.id} value={owner.id}>
-                    {owner.name}
-                  </SelectItem>
-                ))}
+              {owners.filter((o) => o.id !== userId).map((owner) => (
+                <SelectItem key={owner.id} value={owner.id}>
+                  {owner.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

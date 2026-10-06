@@ -281,13 +281,24 @@ export async function POST(request: NextRequest) {
           const complainSecondary: Promise<{ op: string; error?: string }>[] = []
 
           if (emailSend.recipient_contact_id) {
+            // This used to write email_unsubscribed / email_unsubscribed_at —
+            // two columns that no migration ever created, so the update failed
+            // every time and its error was swallowed into the debug object
+            // below. A spam complaint therefore never actually stopped the
+            // emails, which is the one thing it has to do.
+            //
+            // subscription_status is what the automation engine gates sends on;
+            // email_subscribed is the per-channel flag from migration 035.
+            // SMS is left alone on purpose — 035 exists so that opting out of
+            // one channel does not opt you out of the other.
             complainSecondary.push(
               Promise.resolve(
                 supabase
                   .from('contacts')
                   .update({
-                    email_unsubscribed: true,
-                    email_unsubscribed_at: event.created_at,
+                    subscription_status: 'unsubscribed',
+                    email_subscribed: false,
+                    unsubscribed_at: event.created_at,
                   })
                   .eq('id', emailSend.recipient_contact_id)
               ).then(({ error: e }) => ({ op: 'unsubscribe_contact', error: e?.message }))

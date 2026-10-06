@@ -214,9 +214,17 @@ Deno.serve(async (req) => {
           .single()
 
         if (emailRecord?.recipient_contact_id) {
+          // All three fields together, so this agrees with the unsubscribe
+          // route and the Resend webhook. subscription_status is the one the
+          // automation engine gates sends on; email_subscribed is the
+          // per-channel flag from migration 035. SMS stays untouched.
           await supabase
             .from('contacts')
-            .update({ subscription_status: 'unsubscribed' })
+            .update({
+              subscription_status: 'unsubscribed',
+              email_subscribed: false,
+              unsubscribed_at: now,
+            })
             .eq('id', emailRecord.recipient_contact_id)
         }
         break

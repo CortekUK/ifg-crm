@@ -323,9 +323,19 @@ export function useBulkUpdateContactSubscription() {
 
   return useMutation({
     mutationFn: async ({ contactIds, status }: { contactIds: string[]; status: string }) => {
+      // Keep the per-channel flag and the opt-out date in step with the
+      // status, so a contact unsubscribed by hand here looks identical to one
+      // who used the unsubscribe link or triggered a spam complaint. Without
+      // this, email_subscribed stayed true and anything reading that column
+      // disagreed with the engine about who had opted out.
+      const unsubscribing = status === 'unsubscribed'
       const { error } = await supabase
         .from('contacts')
-        .update({ subscription_status: status })
+        .update({
+          subscription_status: status,
+          email_subscribed: !unsubscribing,
+          unsubscribed_at: unsubscribing ? new Date().toISOString() : null,
+        })
         .in('id', contactIds)
 
       if (error) throw error
