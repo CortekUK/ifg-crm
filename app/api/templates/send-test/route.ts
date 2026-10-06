@@ -12,7 +12,14 @@ import { Resend } from 'resend'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
 import { getBrandingSlots } from '@/lib/templates/branding-server'
 import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
+import { unsubscribeUrl } from '@/lib/email/unsubscribe'
 import type { EditorBlock, TemplateTheme } from '@/lib/templates/editor-types'
+
+// A contact id that cannot exist, so the Unsubscribe link in a TEST email is
+// fully clickable — it opens the real confirmation page and confirming reports
+// success — while matching no row, so a staff member testing a template can
+// never opt a real player out by clicking the footer of their own test send.
+const SAMPLE_CONTACT_ID = '00000000-0000-4000-8000-000000000000'
 
 const SAMPLE_MERGE_DATA = {
   first_name: 'Sarah',
@@ -101,6 +108,13 @@ export async function POST(request: NextRequest) {
       // Tags used by meeting_scheduler templates: schedule_link aliases
       // the deal owner's Calendly URL.
       schedule_link: ownerCalendly,
+      // The global footer carries {{unsubscribe_url}}. Without this the tag
+      // resolves to an empty string and the test email shows a dead
+      // Unsubscribe link — which looks like the feature is broken when it
+      // isn't. Origin comes from this request, so a test sent from localhost
+      // links back to localhost rather than to the deployed CRM.
+      unsubscribe_url:
+        (await unsubscribeUrl(SAMPLE_CONTACT_ID, request.nextUrl.origin)) ?? '',
     }
 
     // Test sends go through the same branding as production, so what the

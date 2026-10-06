@@ -41,9 +41,15 @@ function rootSecret(): string | null {
   return process.env.UNSUBSCRIBE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || null
 }
 
-/** CRM origin (not the public website — the unsubscribe route needs the DB). */
-function crmOrigin(): string | null {
-  const raw = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || ''
+/**
+ * CRM origin (not the public website — the unsubscribe route needs the DB).
+ *
+ * `override` is for callers that already know which host they are serving, so
+ * a test email sent from localhost links back to localhost rather than to
+ * whatever NEXT_PUBLIC_APP_URL happens to point at.
+ */
+function crmOrigin(override?: string | null): string | null {
+  const raw = override || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || ''
   const trimmed = raw.trim().replace(/\/+$/, '')
   return /^https?:\/\//.test(trimmed) ? trimmed : null
 }
@@ -78,8 +84,8 @@ export async function verifyUnsubscribeToken(contactId: string, token: string): 
  * and security scanners follow links in email with GET, and an endpoint that
  * unsubscribed on GET would opt people out who never clicked anything.
  */
-export async function unsubscribeUrl(contactId: string): Promise<string | null> {
-  const origin = crmOrigin()
+export async function unsubscribeUrl(contactId: string, origin_?: string | null): Promise<string | null> {
+  const origin = crmOrigin(origin_)
   const token = await unsubscribeToken(contactId)
   if (!origin || !token) return null
   return `${origin}/unsubscribe?c=${encodeURIComponent(contactId)}&t=${token}`
@@ -90,8 +96,8 @@ export async function unsubscribeUrl(contactId: string): Promise<string | null> 
  * confirmation step, which is exactly what the spec requires of one-click —
  * the mail client has already confirmed with the reader.
  */
-export async function oneClickUnsubscribeUrl(contactId: string): Promise<string | null> {
-  const origin = crmOrigin()
+export async function oneClickUnsubscribeUrl(contactId: string, origin_?: string | null): Promise<string | null> {
+  const origin = crmOrigin(origin_)
   const token = await unsubscribeToken(contactId)
   if (!origin || !token) return null
   return `${origin}/api/public/unsubscribe?c=${encodeURIComponent(contactId)}&t=${token}`
@@ -103,9 +109,10 @@ export async function oneClickUnsubscribeUrl(contactId: string): Promise<string 
  */
 export async function unsubscribeHeaders(
   contactId: string | null | undefined,
+  origin?: string | null,
 ): Promise<Record<string, string> | null> {
   if (!contactId) return null
-  const url = await oneClickUnsubscribeUrl(contactId)
+  const url = await oneClickUnsubscribeUrl(contactId, origin)
   if (!url) return null
   return {
     'List-Unsubscribe': `<${url}>`,

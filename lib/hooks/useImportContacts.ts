@@ -132,7 +132,15 @@ export function useImportContacts() {
           } catch {
             // Response wasn't JSON — keep the status-code message.
           }
-          result.errors.push({ row: i + 1, message })
+          // One error per row, not one per batch. A failed chunk takes 500
+          // rows with it, and recording a single entry made the summary claim
+          // "1 error" — so created + updated + skipped + errors came to 499
+          // short of the file, with no sign anything was missing. Those totals
+          // reconciling is how an operator knows nothing was silently dropped,
+          // and naming every row is also what makes a retry possible.
+          for (let r = 0; r < chunk.length; r++) {
+            result.errors.push({ row: i + r + 1, message })
+          }
         } else {
           const data = (await response.json()) as Omit<ImportResult, 'total'>
           result.created += data.created ?? 0

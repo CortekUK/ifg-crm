@@ -4,11 +4,40 @@ export interface CSVParseResult {
 }
 
 /**
+ * Which character separates the columns.
+ *
+ * Excel on a European locale writes semicolons, not commas, and those files
+ * used to parse as a single column called "Email;Name" — not a crash, but the
+ * mapping screen then offered one unmappable column and no clue why.
+ *
+ * Decided from the header line only, counting separators that sit outside
+ * quotes so a comma inside "Smith, John" cannot swing the vote. Ties go to a
+ * comma, which keeps every ordinary file on exactly the path it took before.
+ */
+function detectDelimiter(firstLine: string): string {
+  const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0 }
+  let inQuotes = false
+  for (let i = 0; i < firstLine.length; i++) {
+    const ch = firstLine[i]
+    if (ch === '"') {
+      // A doubled quote is an escaped quote, not a boundary.
+      if (inQuotes && firstLine[i + 1] === '"') i++
+      else inQuotes = !inQuotes
+    } else if (!inQuotes && ch in counts) {
+      counts[ch]++
+    }
+  }
+  const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+  return best[1] > counts[','] ? best[0] : ','
+}
+
+/**
  * Parse CSV text handling quoted fields, commas in values, BOM, and mixed line endings.
  */
 export function parseCSV(text: string): CSVParseResult {
   // Strip BOM
   const clean = text.replace(/^\uFEFF/, '')
+  const delimiter = detectDelimiter(clean.split(/\r?\n/, 1)[0] ?? '')
   const rows: string[][] = []
   let current: string[] = []
   let field = ''
@@ -30,7 +59,7 @@ export function parseCSV(text: string): CSVParseResult {
     } else {
       if (ch === '"') {
         inQuotes = true
-      } else if (ch === ',') {
+      } else if (ch === delimiter) {
         current.push(field.trim())
         field = ''
       } else if (ch === '\r' && next === '\n') {
