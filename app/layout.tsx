@@ -5,7 +5,7 @@ import { QueryProvider } from "@/components/providers/QueryProvider"
 import { ThemeProvider } from "@/components/providers/ThemeProvider"
 import { TopProgressBar } from "@/components/ui/top-progress-bar"
 import "./globals.css"
-
+ 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
