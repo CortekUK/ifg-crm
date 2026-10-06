@@ -271,9 +271,17 @@ type PackageRow = {
   itinerary: ItineraryDay[] | null; featured: boolean;
 };
 
+// Pricing is read fresh, not on the 60s ISR window the rest of the content
+// uses. A price is not just copy: the deposit button sends the amount it was
+// rendered with, and the CRM accepts it only if it is one of the amounts
+// published right now. So for a minute after IFG edited a price, the page
+// offered an amount the server had already stopped accepting and a real
+// visitor got "Invalid payment amount" — a stale answer here is a wrong
+// answer, which is what the `fresh` flag exists for.
 export async function getPackages(programme: ProgrammeKey): Promise<ProgrammePackage[]> {
   const rows = await rest<PackageRow>(
     `website_packages?select=*&published=eq.true&programme=eq.${encodeURIComponent(programme)}&order=sort_order.asc,created_at.asc`,
+    true,
   );
   if (!rows || rows.length === 0) return [];
   return rows.map((r) => ({
@@ -287,9 +295,11 @@ export async function getPackages(programme: ProgrammeKey): Promise<ProgrammePac
 
 // Effective deposit (whole GBP) a programme currently takes, or null if it takes
 // none / on error. Reads the public projection (fee internals stay private).
+/** Fresh for the same reason as getPackages — this amount reaches Stripe. */
 export async function getProgrammeDeposit(programme: ProgrammeKey): Promise<number | null> {
   const rows = await rest<{ deposit_default: number | null; deposit_enabled: boolean }>(
     `website_pricing_public?select=deposit_default,deposit_enabled&programme=eq.${programme}&limit=1`,
+    true,
   );
   const r = rows?.[0];
   if (!r || !r.deposit_enabled || r.deposit_default == null) return null;
