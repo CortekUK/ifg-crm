@@ -7,6 +7,7 @@ import { findOrCreateList, EVERYONE_LIST } from '@/lib/forms/lead-routing'
 import { createCheckoutSession, stripe } from '@/lib/stripe'
 import { getPublishedTerms } from '@/lib/website-content/terms'
 import { PAYMENT_PROGRAMMES, isPaymentProgramme, checkoutCustomFields } from '@/lib/payments/programmes'
+import { sendPaymentLinkEmail } from '@/lib/invoices/payment-link-email'
 
 /**
  * Public deposit / full-payment checkout for the website (Summer Residency,
@@ -24,6 +25,11 @@ import { PAYMENT_PROGRAMMES, isPaymentProgramme, checkoutCustomFields } from '@/
  *   5. otherwise a NEW invoice for this attempt, the programme's
  *      abandoned-deposits list (BEFORE Stripe opens, so a drop-off is still a
  *      lead to follow up) and a Stripe session → { status: 'checkout', url }
+ *   6. the payment link is emailed to them, so someone who closes the Stripe
+ *      tab can still pay. The invoice only becomes 'sent' once that email is
+ *      confirmed — it used to be written as 'sent' on creation with nothing
+ *      ever sent, so the CRM showed "Sent" against an invoice the payer had
+ *      never been told about.
  *
  * On payment the Stripe webhook fills the contact from Stripe's details, marks
  * the invoice paid, moves the deal to "Deposit Paid" and removes them from the
@@ -319,7 +325,9 @@ async function retireOpenCheckouts(supabase: Db, dealId: string) {
     .select('id, stripe_checkout_session_id')
     .eq('deal_id', dealId)
     .in('type', ['deposit', 'full_payment'])
-    .in('status', ['sent', 'overdue'])
+    // 'draft' included because a checkout whose payment-link email failed
+    // stays draft — it still has a live Stripe page that must be retired.
+    .in('status', ['draft', 'sent', 'overdue'])
     .not('stripe_checkout_session_id', 'is', null)
   for (const inv of (open as { id: string; stripe_checkout_session_id: string }[] | null) ?? []) {
     try {
@@ -505,8 +513,11 @@ export async function POST(request: NextRequest) {
         description,
         amount: total,
         currency: 'GBP',
-        status: 'sent',
-        sent_at: new Date().toISOString(),
+        // Nothing has been sent yet. Writing 'sent' + sent_at here (with no
+        // email anywhere in this route) is what made the CRM claim an invoice
+        // had been sent to someone who never received one. It becomes 'sent'
+        // below, after Resend confirms the payment-link email.
+        status: 'draft',
         due_date: dueDate,
         recipient_type: 'player',
         created_by_id: adminProfile.id,
@@ -567,6 +578,40 @@ export async function POST(request: NextRequest) {
     }, terms)
 
     await supabase.from('invoices').update({ stripe_checkout_session_id: session.id }).eq('id', invoice.id)
+
+    // Email them the payment link. This is what makes "Sent" true, and it is
+    // the way back for the drop-offs this flow is built around: someone who
+    // opens Stripe and closes the tab now has the link in their inbox as well
+    // as sitting on the abandoned-deposits list.
+    //
+    // A failure here is NOT fatal — the visitor is already being handed a
+    // working Stripe URL, and refusing the checkout over an undelivered
+    // receipt would lose a payment to fix a bookkeeping problem. The invoice
+    // simply stays 'draft', which is the truth, and it stays on the abandoned
+    // list either way.
+    if (session.url) {
+      const emailed = await sendPaymentLinkEmail(email, {
+        invoiceNumber: invoice.invoice_number,
+        description,
+        amount: total,
+        currency: 'GBP',
+        dueDate,
+        // Only the email address is known at this point — the webhook fills
+        // in the names once Stripe has collected them.
+        recipientName: 'there',
+        playerName: '',
+        recipientType: 'player',
+        payUrl: session.url,
+      })
+      if (emailed.ok) {
+        await supabase
+          .from('invoices')
+          .update({ status: 'sent', sent_at: new Date().toISOString() })
+          .eq('id', invoice.id)
+      } else {
+        console.error(`Deposit invoice ${invoice.invoice_number} email failed:`, emailed.message)
+      }
+    }
 
     return NextResponse.json({ status: 'checkout', url: session.url })
   } catch (err) {

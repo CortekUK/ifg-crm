@@ -67,9 +67,14 @@ export function useInvoices(filters?: InvoiceFilters) {
  * Website checkouts that reached Stripe but haven't been paid — i.e. someone
  * pressed "pay deposit / pay in full" on the site and dropped off. These are
  * warm leads for IFG to follow up (especially off Meta-ad traffic). A website
- * checkout always has a stripe_checkout_session_id and starts life as 'sent';
- * once paid the webhook flips it to 'paid', so anything still sent/overdue with
- * a session id is an abandoned checkout.
+ * checkout always has a stripe_checkout_session_id, and once paid the webhook
+ * flips it to 'paid' — so anything unpaid with a session id is an abandoned
+ * checkout.
+ *
+ * 'draft' counts. A website checkout starts as draft and only becomes 'sent'
+ * once its payment-link email is confirmed; a drop-off whose email bounced is
+ * still a drop-off, and excluding draft would hide them from the one screen
+ * that exists to chase them.
  */
 export function useAbandonedDeposits() {
   const supabase = createClient()
@@ -81,7 +86,7 @@ export function useAbandonedDeposits() {
         .from('invoices')
         .select(`*, contact:contacts(*)`)
         .in('type', ['deposit', 'full_payment'])
-        .in('status', ['sent', 'overdue'])
+        .in('status', ['draft', 'sent', 'overdue'])
         .not('stripe_checkout_session_id', 'is', null)
         .order('created_at', { ascending: false })
 
