@@ -15,7 +15,12 @@
 // for resolving image assets in emails; the two are different deployments and
 // must not be conflated.
 
-const FALLBACK_SITE_URL = 'https://ifg-crm-cvz9.vercel.app'
+// The client's own domain is live, so it is the right default. The old
+// ifg-crm-cvz9.vercel.app preview URL still answers, which is why nothing
+// looked broken while every brochure link in every automated email pointed at
+// an unbranded preview domain. NEXT_PUBLIC_SITE_URL still wins where it is set
+// — including in Vercel, which is the one that actually matters for live email.
+const FALLBACK_SITE_URL = 'https://www.theinternationalfootballgroup.com'
 
 /** Public website origin, no trailing slash. */
 export const SITE_URL = (
