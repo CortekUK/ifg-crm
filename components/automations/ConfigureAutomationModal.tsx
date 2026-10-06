@@ -1825,7 +1825,8 @@ export function ConfigureAutomationModal({
                           <span className="block text-xs text-muted-foreground mt-0.5">
                             On no reply, the deal moves to the Goal 3 stage, gets a reminder
                             immediately, then another on the interval below — repeating until the
-                            contact replies, the deal is moved out, or it&apos;s unenrolled.
+                            contact replies or unsubscribes, the deal is moved out, or it&apos;s
+                            unenrolled.
                           </span>
                         </label>
                       </div>
