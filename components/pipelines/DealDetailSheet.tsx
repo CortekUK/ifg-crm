@@ -164,6 +164,11 @@ export function DealDetailSheet({
   // as the admin trash icon, but framed as a clean-up action so recruiters
   // can clear the column without admin intervention.
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false)
+  // Marking a deal lost asks why first. Reports has a "Lost reason" column
+  // that nothing ever filled, because closing a deal never captured one.
+  const [isLostDialogOpen, setIsLostDialogOpen] = useState(false)
+  const [lostReason, setLostReason] = useState('')
+  const [isClosing, setIsClosing] = useState(false)
   const unenroll = useUnenrollFromAutomation()
   const pauseEnrollment = usePauseEnrollment()
   const resumeEnrollment = useResumeEnrollment()
@@ -218,13 +223,14 @@ export function DealDetailSheet({
   // why conversion and revenue read zero everywhere. The route writes the
   // columns that exist (`won_at`/`lost_at`), reports failure as failure,
   // and is also where the "Deal won" staff alert can be sent from.
-  const closeDeal = async (outcome: 'won' | 'lost') => {
+  const closeDeal = async (outcome: 'won' | 'lost', reason?: string) => {
     if (!deal) return
+    setIsClosing(true)
     try {
       const res = await fetch(`/api/deals/${deal.id}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ outcome }),
+        body: JSON.stringify({ outcome, reason }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -232,6 +238,7 @@ export function DealDetailSheet({
       }
 
       queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['deal', deal.id] })
       queryClient.invalidateQueries({ queryKey: ['deal-activities'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] })
       queryClient.invalidateQueries({ queryKey: ['analytics'] })
@@ -248,11 +255,24 @@ export function DealDetailSheet({
         description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       })
+    } finally {
+      setIsClosing(false)
     }
   }
 
   const handleMarkWon = () => closeDeal('won')
-  const handleMarkLost = () => closeDeal('lost')
+
+  // Opens the reason prompt rather than closing immediately.
+  const handleMarkLost = () => {
+    setLostReason(deal?.lost_reason ?? '')
+    setIsLostDialogOpen(true)
+  }
+
+  const confirmMarkLost = async () => {
+    setIsLostDialogOpen(false)
+    await closeDeal('lost', lostReason)
+    setLostReason('')
+  }
 
   const handleAddNote = async () => {
     if (!deal || !newNote.trim()) return
@@ -528,16 +548,27 @@ export function DealDetailSheet({
               </Select>
             </div>
             <div className="flex items-end gap-2">
-              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkWon} disabled={!canMove}>
+              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkWon} disabled={!canMove || isClosing}>
                 <Trophy className="h-4 w-4 mr-1" />
                 Won
               </Button>
-              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkLost} disabled={!canMove}>
+              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkLost} disabled={!canMove || isClosing}>
                 <XCircle className="h-4 w-4 mr-1" />
                 Lost
               </Button>
             </div>
           </div>
+
+          {/* A lost deal shows why. Without this the reason would be saved but
+              invisible, which is how it reads as "not saved". */}
+          {deal.lost_at && deal.lost_reason && (
+            <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/50 dark:bg-red-950/30">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-red-700 dark:text-red-300">
+                Lost reason
+              </p>
+              <p className="mt-0.5 text-sm text-red-900 dark:text-red-100">{deal.lost_reason}</p>
+            </div>
+          )}
 
           {/* Terminal-stage cleanup: when a deal lands in lost / dormant /
               dead, offer a one-click "Remove from pipeline". It is the same
@@ -1417,6 +1448,47 @@ export function DealDetailSheet({
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {deleteDeal.isPending ? 'Removing…' : 'Remove from pipeline'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Why the deal was lost. Free text rather than a fixed list: the client
+          has not settled on categories, and a wrong list produces worse data
+          than a sentence. Skippable, so it cannot block closing a deal. */}
+      <AlertDialog open={isLostDialogOpen} onOpenChange={setIsLostDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark this deal as lost?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Add a short reason so Reports can show why deals are being lost.
+              You can leave it blank.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="lost-reason" className="text-xs text-slate-500 dark:text-slate-400">
+              Reason
+            </Label>
+            <Textarea
+              id="lost-reason"
+              value={lostReason}
+              onChange={(e) => setLostReason(e.target.value)}
+              placeholder="e.g. Chose another programme, budget, no longer responding…"
+              maxLength={500}
+              rows={3}
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClosing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                confirmMarkLost()
+              }}
+              disabled={isClosing}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isClosing ? 'Saving…' : 'Mark as lost'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

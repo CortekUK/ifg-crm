@@ -16,8 +16,13 @@ import {
  * toggle and cannot hold the Resend key, so the alert has to be sent from
  * here.
  *
- * The write itself is deliberately narrow — status plus the matching
- * timestamp — so it cannot be used to edit anything else about a deal.
+ * The write itself is deliberately narrow — status, the matching timestamp and
+ * the lost reason — so it cannot be used to edit anything else about a deal.
+ *
+ * `lost_reason` was never written by anything, while Reports has had a "Lost
+ * reason" column reading it all along, so that column could only ever be
+ * blank. Marking a deal won clears it, so a reopened-then-won deal does not
+ * keep the note explaining why it was lost.
  */
 export async function POST(
   request: NextRequest,
@@ -34,13 +39,22 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { outcome } = (await request.json()) as { outcome?: string }
+    const { outcome, reason } = (await request.json()) as {
+      outcome?: string
+      reason?: string
+    }
     if (outcome !== 'won' && outcome !== 'lost') {
       return NextResponse.json(
         { error: 'outcome must be "won" or "lost"' },
         { status: 400 },
       )
     }
+
+    // Why a deal was lost is the one field Reports cannot derive. Trimmed to
+    // null when blank so "no reason given" is a null rather than an empty
+    // string, and capped because this is free text from a browser.
+    const lostReason =
+      typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 500) : null
 
     const now = new Date().toISOString()
 
@@ -51,8 +65,8 @@ export async function POST(
       .from('deals')
       .update(
         outcome === 'won'
-          ? { status: 'won', won_at: now, lost_at: null }
-          : { status: 'lost', lost_at: now, won_at: null },
+          ? { status: 'won', won_at: now, lost_at: null, lost_reason: null }
+          : { status: 'lost', lost_at: now, won_at: null, lost_reason: lostReason },
       )
       .eq('id', id)
       .select('id, title, value, deal_owner_id, contact:contacts(first_name, last_name), pipeline:pipelines(name)')
@@ -68,12 +82,27 @@ export async function POST(
       )
     }
 
-    await supabase.from('deal_activities').insert({
+    // Timeline entry. The result is checked rather than discarded: this insert
+    // was being rejected by the activity_type CHECK constraint on every close
+    // (neither 'deal_won' nor 'deal_lost' was in it — migration 189 adds them)
+    // and nobody could tell, because nothing read the error. The close itself
+    // has already happened and must not be undone by a failed audit line, so
+    // this logs rather than throws.
+    const { error: activityError } = await supabase.from('deal_activities').insert({
       deal_id: id,
       activity_type: outcome === 'won' ? 'deal_won' : 'deal_lost',
-      description: `Deal marked as ${outcome}`,
+      description:
+        outcome === 'lost' && lostReason
+          ? `Deal marked as lost — ${lostReason}`
+          : `Deal marked as ${outcome}`,
       performed_by_id: user.id,
     })
+    if (activityError) {
+      console.error(
+        `Deal ${id} was closed as ${outcome}, but the timeline entry failed:`,
+        activityError.message,
+      )
+    }
 
     // The alert must never be able to undo a close that already happened.
     if (outcome === 'won') {
