@@ -365,6 +365,51 @@ export async function POST(request: NextRequest) {
             .ilike('name', '%deposit%paid%')
             .single()
 
+          // ---- STOP CHASING SOMEONE WHO HAS JUST PAID ----
+          //
+          // Nothing here used to end a sequence. It relied on the
+          // handle_deal_stage_change trigger, which only stops an enrollment
+          // when the destination is in that automation's stop_on_stage_ids —
+          // and "Deposit Paid" is absent from the INITIAL CONTACT MAP stop
+          // list on both UNIVERSITY 2027 and UK GAP 2027. A UK Gap player who
+          // had paid their deposit was found still active in the initial
+          // "are you interested?" sequence.
+          //
+          // Fixing the stop lists by hand would leave the next automation
+          // someone builds with the same hole, so payment itself ends the
+          // chasing. Done BEFORE the stage move, so the welcome sequence that
+          // Deposit Paid triggers survives; and an automation triggered BY
+          // that stage is excluded, for a repeat payment on a deal already
+          // sitting there.
+          const { data: liveEnrollments } = await supabase
+            .from('automation_enrollments')
+            .select('id, automation:automations!inner(trigger_stage_id)')
+            .eq('deal_id', deal.id)
+            .eq('status', 'active')
+
+          // PostgREST types a to-one embed as an array; normalise either shape.
+          const triggerStageOf = (row: { automation?: unknown }): string | null => {
+            const a = row.automation
+            const one = Array.isArray(a) ? a[0] : a
+            return (one as { trigger_stage_id?: string | null } | null)?.trigger_stage_id ?? null
+          }
+
+          const toStop = (liveEnrollments ?? [])
+            .filter((e) => !depositPaidStage || triggerStageOf(e) !== depositPaidStage.id)
+            .map((e) => e.id as string)
+
+          if (toStop.length) {
+            await supabase
+              .from('automation_enrollments')
+              .update({
+                status: 'stopped',
+                stopped_reason: 'Payment received',
+                next_step_at: null,
+              })
+              .in('id', toStop)
+            console.log(`Stopped ${toStop.length} active sequence(s) on deal ${deal.id} — payment received`)
+          }
+
           if (depositPaidStage) {
             // Only move FORWARD — never drag a deal back if it's already past
             // Deposit Paid (e.g. Arrival).
