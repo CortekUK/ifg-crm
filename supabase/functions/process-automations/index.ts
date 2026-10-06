@@ -1429,11 +1429,46 @@ async function processEmailStep(
           if (portalInviteError) {
             console.warn(`create_portal_account: invite failed for ${contact.email}: ${portalInviteError.message}`)
           } else {
-            await supabase.from('player_invites').insert({
-              contact_id: contact.id,
-              email: contact.email,
-              invited_by: enrollment.send_as_user_id ?? null,
-            })
+            // player_invites.invited_by is NOT NULL, and an enrollment created
+            // by the stage trigger always has send_as_user_id NULL — so this
+            // insert was failing every single time, unchecked. Supabase had
+            // already emailed the invite, so the player could set a password
+            // while the CRM held no record of it: nothing told the recruiter,
+            // and the "pending invite?" guard above could never see one, so a
+            // re-enrolment invited them again.
+            //
+            // Attribute it to whoever the sequence is sending as — the deal
+            // owner in practice — falling back to an admin so there is always
+            // a real inviter.
+            let inviterId: string | null = senderId ?? null
+            if (!inviterId) {
+              const { data: adminProfile } = await supabase
+                .from('profiles')
+                .select('id')
+                .in('role', ['super_admin', 'admin'])
+                .eq('is_active', true)
+                .order('created_at', { ascending: true })
+                .limit(1)
+                .maybeSingle()
+              inviterId = (adminProfile?.id as string | undefined) ?? null
+            }
+
+            if (!inviterId) {
+              console.warn(
+                `create_portal_account: invite emailed to ${contact.email} but no inviter could be resolved, so no player_invites row was written`,
+              )
+            } else {
+              const { error: inviteRowError } = await supabase.from('player_invites').insert({
+                contact_id: contact.id,
+                email: contact.email,
+                invited_by: inviterId,
+              })
+              if (inviteRowError) {
+                console.warn(
+                  `create_portal_account: invite emailed to ${contact.email} but recording it failed: ${inviteRowError.message}`,
+                )
+              }
+            }
             console.log(`create_portal_account: portal invite sent to ${contact.email}`)
           }
         } else {
