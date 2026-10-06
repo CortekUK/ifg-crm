@@ -21,6 +21,8 @@ interface KanbanBoardProps {
   canMoveDeal?: (deal: Deal) => boolean
   onOpenSettings?: () => void
   isFiltering?: boolean
+  /** The deal just moved, so its destination column can reveal it. */
+  revealDealId?: string | null
 }
 
 function LoadingSkeleton() {
@@ -107,6 +109,7 @@ export function KanbanBoard({
   canMoveDeal,
   onOpenSettings,
   isFiltering = false,
+  revealDealId = null,
 }: KanbanBoardProps) {
   const {
     isLoaded: prefsLoaded,
@@ -219,6 +222,7 @@ export function KanbanBoard({
               columnWidth={columnWidth}
               compact={compact}
               isFiltering={isFiltering}
+              revealDealId={revealDealId}
             />
           ))}
         </div>

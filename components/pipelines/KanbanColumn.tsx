@@ -29,6 +29,10 @@ interface KanbanColumnProps {
   // True while a search or filter is narrowing the board. Every date
   // group opens so a match is never hidden inside a collapsed section.
   isFiltering?: boolean
+  // The deal the user has just moved. Its date group opens wherever it lands,
+  // so the card is visible in its new column instead of disappearing into a
+  // folded section — see the comment on isGroupOpen below.
+  revealDealId?: string | null
 }
 
 // Recent groups open by default; older history starts folded so a stage
@@ -85,6 +89,7 @@ export function KanbanColumn({
   columnWidth = 320,
   compact = false,
   isFiltering = false,
+  revealDealId = null,
 }: KanbanColumnProps) {
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
 
@@ -100,8 +105,21 @@ export function KanbanColumn({
   // else falls back to isOpenByDefault.
   const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>({})
 
+  // The group holding the just-moved card, if it landed in this column.
+  // Groups are keyed on created_at, but a card moved into a stage keeps the
+  // created_at it has always had — so dragging a three-week-old deal into a
+  // busy stage dropped it into a folded "September" section and the card
+  // simply vanished. It looked exactly like the drag had failed, which is how
+  // it was reported. Opening the destination group makes the move visible.
+  const revealKey = useMemo(() => {
+    if (!revealDealId || !groups) return null
+    return groups.find((g) => g.deals.some((d) => d.id === revealDealId))?.key ?? null
+  }, [groups, revealDealId])
+
   const isGroupOpen = (group: DealDateGroup, index: number) =>
-    isFiltering || (groupOverrides[group.key] ?? isOpenByDefault(group, index))
+    isFiltering ||
+    group.key === revealKey ||
+    (groupOverrides[group.key] ?? isOpenByDefault(group, index))
 
   const toggleGroup = (group: DealDateGroup, index: number) =>
     setGroupOverrides((prev) => ({ ...prev, [group.key]: !isGroupOpen(group, index) }))

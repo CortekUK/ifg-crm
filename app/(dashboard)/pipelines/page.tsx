@@ -55,6 +55,11 @@ export default function PipelinesPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  // The last deal this user moved. Columns group cards by created_at, so a
+  // card dragged into a stage can land in a date group that is folded shut and
+  // appear to have gone nowhere. Passing the id down lets the destination
+  // column open the group the card landed in.
+  const [movedDealId, setMovedDealId] = useState<string | null>(null)
 
   // Exit fullscreen on Escape
   useEffect(() => {
@@ -217,6 +222,10 @@ export default function PipelinesPage() {
   const executeMoveDeals = useCallback(
     (dealId: string, newStageId: string, oldStageName?: string, newStageName?: string) => {
       if (!selectedPipelineId) return
+
+      // Set before the mutation so the card is already revealed when the
+      // optimistic update drops it into its new column.
+      setMovedDealId(dealId)
 
       moveDeal.mutate(
         {
@@ -540,6 +549,7 @@ export default function PipelinesPage() {
           canMoveDeal={canMoveDeal}
           onOpenSettings={() => setSettingsModalOpen(true)}
           isFiltering={isFiltering}
+          revealDealId={movedDealId}
         />
       ) : (
         <PipelineListView
