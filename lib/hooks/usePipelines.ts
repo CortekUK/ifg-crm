@@ -268,28 +268,40 @@ export function useDeletePipeline() {
   })
 }
 
-// Get deal counts per pipeline
+/**
+ * Deal counts per pipeline, straight from the database.
+ *
+ * This used to fetch every deal row across every pipeline and tally them in
+ * the browser. PostgREST caps a response at 1000 rows on this project, so that
+ * was one shared 1000-row budget for all pipelines rather than one each — past
+ * 1000 deals in total the counts beside each pipeline name would have gone
+ * silently low while the board underneath still looked right, so the two
+ * disagreed and neither flagged it.
+ *
+ * A `head: true` exact count returns one number per pipeline and no rows at
+ * all, so it cannot hit the cap however large the book gets.
+ */
 export function usePipelineDealCounts() {
   const supabase = createClient()
 
   return useQuery<Record<string, number>>({
     queryKey: ['pipeline-deal-counts'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('deals')
-        .select('pipeline_id')
-
+      const { data: pipelines, error } = await supabase.from('pipelines').select('id')
       if (error) throw error
 
-      // Count deals per pipeline
-      const counts: Record<string, number> = {}
-      data?.forEach((deal) => {
-        if (deal.pipeline_id) {
-          counts[deal.pipeline_id] = (counts[deal.pipeline_id] || 0) + 1
-        }
-      })
+      const entries = await Promise.all(
+        (pipelines ?? []).map(async ({ id }) => {
+          const { count, error: countError } = await supabase
+            .from('deals')
+            .select('id', { count: 'exact', head: true })
+            .eq('pipeline_id', id)
+          if (countError) throw countError
+          return [id as string, count ?? 0] as const
+        }),
+      )
 
-      return counts
+      return Object.fromEntries(entries)
     },
   })
 }

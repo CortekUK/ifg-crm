@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAll } from '@/lib/reports/csv'
 import { calculateDaysBetween } from '@/lib/utils/format'
-import type { Deal } from '@/lib/types/pipelines'
+import type { Deal, PipelineStage, Profile } from '@/lib/types/pipelines'
 
 // Helper to compute time in stage
 // Uses stage_entered_at or stage_changed_at if available, otherwise falls back to created_at
@@ -10,6 +11,20 @@ function computeTimeInStage(deal: Deal): number {
   return calculateDaysBetween(stageDate)
 }
 
+/**
+ * Every deal in a pipeline — paged, because PostgREST caps a response at 1000
+ * rows on this project and refuses with a plain 200 carrying the first 1000.
+ * An unpaged read therefore returned the newest 1000 and dropped the oldest
+ * deals, which are the ones most likely to be mid-conversation, and nothing on
+ * the page could tell: My Deals, search, the status filter and the stats bar
+ * all narrow this same array.
+ *
+ * The supplementary reads are paged too, and filter by pipeline through an
+ * `!inner` embed rather than `.in('deal_id', [...ids])`. Two reasons: the id
+ * list breaks on URL length past a few hundred deals, and automation_logs was
+ * ALREADY hitting the cap at 542 deals (1000 returned of 1980), so
+ * "last contacted" was quietly wrong on the busiest board.
+ */
 export function useDeals(pipelineId: string | null) {
   const supabase = createClient()
 
@@ -19,86 +34,109 @@ export function useDeals(pipelineId: string | null) {
       if (!pipelineId) return []
 
       // Fetch deals with their relationships (excluding owner due to FK ambiguity)
-      const { data: deals, error } = await supabase
-        .from('deals')
-        .select(`
-          *,
-          contact:contacts(id, first_name, last_name, email, phone, graduation_year),
-          pipeline:pipelines(*)
-        `)
-        .eq('pipeline_id', pipelineId)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        const errorMessage = error.message || error.details || JSON.stringify(error) || 'Unknown error'
+      let deals: Deal[]
+      try {
+        deals = await fetchAll<Deal>(() =>
+          supabase
+            .from('deals')
+            .select(`
+              *,
+              contact:contacts(id, first_name, last_name, email, phone, graduation_year),
+              pipeline:pipelines(*)
+            `)
+            .eq('pipeline_id', pipelineId)
+            .order('created_at', { ascending: false }),
+        )
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
         console.error('Error fetching deals:', errorMessage)
         throw new Error(`Failed to fetch deals: ${errorMessage}`)
       }
-      if (!deals || deals.length === 0) return []
+      if (deals.length === 0) return []
 
       // Fetch all supplementary data in parallel
       const stageIds = [...new Set(deals.map(d => d.current_stage_id).filter(Boolean))]
       const ownerIds = [...new Set(deals.map(d => d.deal_owner_id).filter(Boolean))]
-      const dealIds = deals.map((d) => d.id)
 
-      const [
-        { data: stagesData },
-        { data: ownersData },
-        { data: emailLogs, error: logsError },
-        { data: emailActivities, error: activitiesError },
-        { data: enrollments, error: enrollmentsError },
-      ] = await Promise.all([
+      // Non-fatal reads resolve to [] on failure so a missing activity feed
+      // never costs the user their board.
+      const soft = async <T>(label: string, run: () => Promise<T[]>): Promise<T[]> => {
+        try {
+          return await run()
+        } catch (err) {
+          console.warn(`Failed to fetch ${label}:`, err instanceof Error ? err.message : err)
+          return []
+        }
+      }
+
+      const [stagesData, ownersData, emailLogs, emailActivities, enrollments] = await Promise.all([
         // Stages (using pipeline_stages - the correct table per FK constraint)
-        supabase.from('pipeline_stages').select('*').in('id', stageIds),
+        soft('pipeline stages', () =>
+          fetchAll<PipelineStage>(() => supabase.from('pipeline_stages').select('*').in('id', stageIds)),
+        ),
         // Owners (fetched separately to avoid foreign key ambiguity)
-        supabase.from('profiles').select('id, email, full_name, avatar_url, calendly_url').in('id', ownerIds),
-        // Last email sent from automation_logs (non-fatal)
-        supabase.from('automation_logs').select('deal_id, sent_at').eq('status', 'sent').in('deal_id', dealIds).order('sent_at', { ascending: false }),
-        // Email activities (non-fatal)
-        supabase.from('deal_activities').select('deal_id, created_at').eq('activity_type', 'email_sent').in('deal_id', dealIds).order('created_at', { ascending: false }),
-        // Active automation enrollments (non-fatal)
-        supabase.from('automation_enrollments').select('deal_id').in('deal_id', dealIds).eq('status', 'active'),
+        soft('deal owners', () =>
+          fetchAll<Profile>(() =>
+            supabase.from('profiles').select('id, email, full_name, role, avatar_url, calendly_url').in('id', ownerIds),
+          ),
+        ),
+        // Last email sent from automation_logs
+        soft('automation logs', () =>
+          fetchAll<{ deal_id: string; sent_at: string }>(() =>
+            supabase
+              .from('automation_logs')
+              .select('deal_id, sent_at, deal:deals!inner(pipeline_id)')
+              .eq('status', 'sent')
+              .eq('deal.pipeline_id', pipelineId)
+              .order('sent_at', { ascending: false }),
+          ),
+        ),
+        // Email activities
+        soft('deal activities', () =>
+          fetchAll<{ deal_id: string; created_at: string }>(() =>
+            supabase
+              .from('deal_activities')
+              .select('deal_id, created_at, deal:deals!inner(pipeline_id)')
+              .eq('activity_type', 'email_sent')
+              .eq('deal.pipeline_id', pipelineId)
+              .order('created_at', { ascending: false }),
+          ),
+        ),
+        // Active automation enrollments
+        soft('automation enrollments', () =>
+          fetchAll<{ deal_id: string }>(() =>
+            supabase
+              .from('automation_enrollments')
+              .select('deal_id, deal:deals!inner(pipeline_id)')
+              .eq('status', 'active')
+              .eq('deal.pipeline_id', pipelineId),
+          ),
+        ),
       ])
 
-      const stagesMap = new Map(stagesData?.map(s => [s.id, s]) || [])
-      const ownersMap = new Map(ownersData?.map(o => [o.id, o]) || [])
+      const stagesMap = new Map(stagesData.map(s => [s.id, s]))
+      const ownersMap = new Map(ownersData.map(o => [o.id, o]))
 
-      // Build a map of deal_id -> last contacted at
+      // Build a map of deal_id -> last contacted at. Pages are fetched
+      // concurrently, so rows can repeat across a shifted page boundary;
+      // taking the latest timestamp per deal is insensitive to that.
       const lastContactedMap = new Map<string, string>()
-
-      if (logsError) {
-        console.warn('Failed to fetch automation logs:', logsError.message)
-      } else {
-        emailLogs?.forEach((log) => {
-          if (!lastContactedMap.has(log.deal_id)) {
-            lastContactedMap.set(log.deal_id, log.sent_at)
-          }
-        })
+      const noteContact = (dealId: string, at: string) => {
+        const existing = lastContactedMap.get(dealId)
+        if (!existing || new Date(at) > new Date(existing)) {
+          lastContactedMap.set(dealId, at)
+        }
       }
+      emailLogs.forEach((log) => noteContact(log.deal_id, log.sent_at))
+      emailActivities.forEach((activity) => noteContact(activity.deal_id, activity.created_at))
 
-      if (activitiesError) {
-        console.warn('Failed to fetch deal activities:', activitiesError.message)
-      } else {
-        emailActivities?.forEach((activity) => {
-          const existing = lastContactedMap.get(activity.deal_id)
-          if (!existing || new Date(activity.created_at) > new Date(existing)) {
-            lastContactedMap.set(activity.deal_id, activity.created_at)
-          }
-        })
-      }
-
-      const activeEnrollmentsSet = new Set<string>()
-      if (enrollmentsError) {
-        console.warn('Failed to fetch automation enrollments:', enrollmentsError.message)
-      } else {
-        enrollments?.forEach((e) => activeEnrollmentsSet.add(e.deal_id))
-      }
+      const activeEnrollmentsSet = new Set<string>(enrollments.map((e) => e.deal_id))
 
       // Enrich deals with computed fields, stage data, and owner
       return deals.map((deal) => ({
         ...deal,
-        stage: stagesMap.get(deal.current_stage_id) || null,
-        owner: ownersMap.get(deal.deal_owner_id) || null,
+        stage: stagesMap.get(deal.current_stage_id),
+        owner: ownersMap.get(deal.deal_owner_id),
         time_in_stage: computeTimeInStage(deal),
         last_contacted_at: lastContactedMap.get(deal.id) || null,
         has_active_automation: activeEnrollmentsSet.has(deal.id),
