@@ -312,12 +312,19 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
       if (automation.automation_type === 'list_assignment') continue
 
       if (automation.pipeline_id && automation.trigger_stage_id) {
+        // maybeSingle + limit, not single(): with single(), a contact who
+        // somehow has two deals in one pipeline makes this read error and
+        // return null, which reads as "no deal yet" and creates a third. The
+        // duplicate guard has to be the thing that cannot itself create
+        // duplicates.
         const { data: existingDeal } = await supabase
           .from('deals')
           .select('id, deal_owner_id')
           .eq('contact_id', contactId)
           .eq('pipeline_id', automation.pipeline_id)
-          .single()
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
 
         if (existingDeal) {
           // Repeat submission into a pipeline this contact already has a deal
@@ -520,6 +527,39 @@ export async function assignRoundRobinOwner(
       .neq('email', 'superadmin@theinternationalfootballgroup.com')
       .order('created_at', { ascending: true })
     roundRobinUsers = (staff ?? []).map((r) => r.id as string)
+  } else {
+    // A hand-picked rotation was only ever used verbatim, so a recruiter who
+    // leaves keeps taking their turn: their leads land on a deal nobody works,
+    // and the sequence emails go out under their name. Deactivating an account
+    // should be enough to take them out of the rotation, without someone
+    // remembering to edit every automation that names them.
+    //
+    // Order is preserved, because round_robin_next walks the array by
+    // position — re-sorting would skip whoever's turn it was.
+    const { data: active } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('id', roundRobinUsers)
+      .eq('is_active', true)
+      .neq('email', 'superadmin@theinternationalfootballgroup.com')
+    const activeIds = new Set((active ?? []).map((r) => r.id as string))
+    const stillActive = roundRobinUsers.filter((id) => activeIds.has(id))
+
+    // Every configured owner is gone. Falling back to the whole active roster
+    // beats leaving the deal unowned, which silently routes its emails to the
+    // catch-all sender.
+    if (stillActive.length === 0) {
+      const { data: staff } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('role', ['recruiter', 'admin', 'super_admin'])
+        .eq('is_active', true)
+        .neq('email', 'superadmin@theinternationalfootballgroup.com')
+        .order('created_at', { ascending: true })
+      roundRobinUsers = (staff ?? []).map((r) => r.id as string)
+    } else {
+      roundRobinUsers = stillActive
+    }
   }
   if (roundRobinUsers.length > 0) {
     const { data: nextUserId, error: rrError } = await supabase.rpc('round_robin_next', {

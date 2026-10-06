@@ -59,35 +59,30 @@ export function useList(listId: string | null) {
     queryFn: async () => {
       if (!listId) return null
 
-      // Fetch list details and contacts in parallel
-      const [listResult, contactsResult] = await Promise.all([
-        supabase
-          .from('lists')
-          .select('*')
-          .eq('id', listId)
-          .single(),
+      // The list row plus an exact member count — no member rows.
+      //
+      // This used to pull every contact_lists row for the list with the whole
+      // joined contact (`contact:contacts(*)`) and set contact_count from
+      // `.length`. Nothing read either: the sheet shows the count and the
+      // members from useListContacts, which pages properly. So opening ALL
+      // MENS dragged 1000 full contact records across the wire to be thrown
+      // away — and PostgREST's 1000-row cap meant the count it computed read
+      // exactly 1000 for every list bigger than that, which is the number QA
+      // is told to treat as a symptom.
+      const [listResult, countResult] = await Promise.all([
+        supabase.from('lists').select('*').eq('id', listId).single(),
         supabase
           .from('contact_lists')
-          .select(`
-            contact_id,
-            list_id,
-            added_at,
-            contact:contacts(*)
-          `)
-          .eq('list_id', listId)
-          .order('added_at', { ascending: false }),
+          .select('contact_id', { count: 'exact', head: true })
+          .eq('list_id', listId),
       ])
 
       if (listResult.error) throw listResult.error
-      if (contactsResult.error) throw contactsResult.error
-
-      const list = listResult.data
-      const listContacts = contactsResult.data
+      if (countResult.error) throw countResult.error
 
       return {
-        ...list,
-        contact_count: listContacts?.length || 0,
-        contacts: listContacts || [],
+        ...listResult.data,
+        contact_count: countResult.count ?? 0,
       }
     },
     enabled: !!listId,
