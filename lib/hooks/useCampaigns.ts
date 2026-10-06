@@ -31,15 +31,23 @@ async function hydrateAudience(
       : Promise.resolve({ data: [] as never[] }),
     listIds.length ? supabase.rpc('get_list_contact_counts') : Promise.resolve({ data: null }),
     tagIds.length ? supabase.rpc('get_tag_contact_counts') : Promise.resolve({ data: null }),
-    // Safe to count client-side: deals is a small table, unlike the contact
-    // join tables above.
+    // Counted in the database, one head count per stage. Doing it client-side
+    // read at most 1000 deal rows across every selected stage combined, so a
+    // campaign aimed at busy stages would show fewer recipients than it sends
+    // to — and "deals is a small table" is the same assumption that made the
+    // pipeline board drop deals.
     stageIds.length
-      ? supabase
-          .from('deals')
-          .select('current_stage_id')
-          .in('current_stage_id', stageIds)
-          .is('won_at', null)
-          .is('lost_at', null)
+      ? Promise.all(
+          stageIds.map(async (stageId) => {
+            const { count } = await supabase
+              .from('deals')
+              .select('id', { count: 'exact', head: true })
+              .eq('current_stage_id', stageId)
+              .is('won_at', null)
+              .is('lost_at', null)
+            return { current_stage_id: stageId, count: count ?? 0 }
+          }),
+        ).then((rows) => ({ data: rows }))
       : Promise.resolve({ data: null }),
   ])
 
@@ -54,8 +62,8 @@ async function hydrateAudience(
   )
 
   const stageCountMap = new Map<string, number>()
-  ;(stageDeals.data as { current_stage_id: string }[] | null)?.forEach((d) =>
-    stageCountMap.set(d.current_stage_id, (stageCountMap.get(d.current_stage_id) || 0) + 1)
+  ;(stageDeals.data as { current_stage_id: string; count: number }[] | null)?.forEach((d) =>
+    stageCountMap.set(d.current_stage_id, d.count)
   )
 
   return {

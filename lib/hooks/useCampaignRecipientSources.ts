@@ -40,6 +40,41 @@ export function useTags() {
   })
 }
 
+/**
+ * Active (not won, not lost) deals per stage, counted in the database.
+ *
+ * These counts drive the campaign audience picker, so being wrong means
+ * emailing a different number of people than the screen promised. Counting
+ * them by fetching deal rows and tallying in JS reads at most 1000 rows —
+ * one shared budget across every stage asked for, not one each — so past a
+ * thousand active deals the picker would quietly under-report. The same
+ * assumption ("deals is a small table") is what made the pipeline board drop
+ * deals, and the next intake is what breaks it.
+ *
+ * head: true returns a number and no rows, so it cannot hit the cap.
+ */
+async function countActiveDealsByStage(
+  supabase: ReturnType<typeof createClient>,
+  stageIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  if (stageIds.length === 0) return counts
+
+  await Promise.all(
+    stageIds.map(async (stageId) => {
+      const { count } = await supabase
+        .from('deals')
+        .select('id', { count: 'exact', head: true })
+        .eq('current_stage_id', stageId)
+        .is('won_at', null)
+        .is('lost_at', null)
+      counts.set(stageId, count ?? 0)
+    }),
+  )
+
+  return counts
+}
+
 // Hook to fetch pipeline stages for a specific pipeline
 export function usePipelineStages(pipelineId: string | null) {
   const supabase = createClient()
@@ -61,17 +96,7 @@ export function usePipelineStages(pipelineId: string | null) {
       const stageIds = stages?.map((s) => s.id) || []
       if (stageIds.length === 0) return stages || []
 
-      const { data: dealCounts } = await supabase
-        .from('deals')
-        .select('current_stage_id')
-        .in('current_stage_id', stageIds)
-        .is('won_at', null)
-        .is('lost_at', null)
-
-      const countMap = new Map<string, number>()
-      dealCounts?.forEach((d) => {
-        countMap.set(d.current_stage_id, (countMap.get(d.current_stage_id) || 0) + 1)
-      })
+      const countMap = await countActiveDealsByStage(supabase, stageIds)
 
       return (stages || []).map((stage) => ({
         ...stage,
@@ -99,17 +124,7 @@ export function useAllPipelineStages() {
 
       // Get deal counts for each stage (active deals only)
       const stageIds = stages.map((s) => s.id)
-      const { data: dealCounts } = await supabase
-        .from('deals')
-        .select('current_stage_id')
-        .in('current_stage_id', stageIds)
-        .is('won_at', null)
-        .is('lost_at', null)
-
-      const countMap = new Map<string, number>()
-      dealCounts?.forEach((d) => {
-        countMap.set(d.current_stage_id, (countMap.get(d.current_stage_id) || 0) + 1)
-      })
+      const countMap = await countActiveDealsByStage(supabase, stageIds)
 
       return stages.map((stage) => ({
         ...stage,
