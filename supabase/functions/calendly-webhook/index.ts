@@ -281,7 +281,10 @@ async function handleInviteeCreated(
       console.error('Failed to update deal.interview_date:', dealUpdateError)
     }
 
-    await supabase.from('deal_activities').insert({
+    // Checked, not discarded: 'meeting_scheduled' was missing from the
+    // activity_type CHECK constraint (migration 189 adds it), so a player
+    // booking a Zoom never appeared on their deal.
+    const { error: scheduledActivityError } = await supabase.from('deal_activities').insert({
       deal_id: dealId,
       activity_type: 'meeting_scheduled',
       description: `Calendly meeting scheduled: ${eventData.name} on ${formatDateTime(startTime)}`,
@@ -292,6 +295,9 @@ async function handleInviteeCreated(
         join_url: joinUrl,
       },
     })
+    if (scheduledActivityError) {
+      console.error('Meeting was booked, but its timeline entry failed:', scheduledActivityError.message)
+    }
 
     // Check if deal should be moved to "Zoom Scheduled" stage
     await checkAndMoveDealToZoomStage(supabase, dealId)
@@ -338,7 +344,7 @@ async function handleInviteeCanceled(
 
   // Log cancellation activity if associated with a deal
   if (updatedEvent?.deal_id) {
-    await supabase.from('deal_activities').insert({
+    const { error: cancelActivityError } = await supabase.from('deal_activities').insert({
       deal_id: updatedEvent.deal_id,
       activity_type: 'meeting_cancelled',
       description: `Calendly meeting cancelled: ${updatedEvent.event_name}`,
@@ -347,6 +353,9 @@ async function handleInviteeCanceled(
         cancellation_reason: invitee.cancellation?.reason,
       },
     })
+    if (cancelActivityError) {
+      console.error('Meeting was cancelled, but its timeline entry failed:', cancelActivityError.message)
+    }
   }
 }
 

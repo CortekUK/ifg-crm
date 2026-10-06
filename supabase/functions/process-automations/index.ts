@@ -1799,11 +1799,21 @@ async function processCreateInvoiceStep(
 
   // Surface in the deal's activity feed so recruiters can see the automation
   // issued the invoice (mirrors how processMoveToStageStep logs).
-  await supabase.from('deal_activities').insert({
+  // Checked, not discarded: 'invoice_created' was missing from the
+  // activity_type CHECK constraint (migration 189 adds it), so this insert was
+  // rejected every time and a recruiter had no way to see that an automation
+  // had issued an invoice. The invoice itself has already been created and
+  // emailed, so a failed audit line is logged rather than thrown.
+  const { error: activityError } = await supabase.from('deal_activities').insert({
     deal_id: deal.id,
     activity_type: 'invoice_created',
     description: `Invoice ${invoice.invoice_number} (£${amount.toFixed(2)}) created and sent by automation`,
   })
+  if (activityError) {
+    summary.errors.push(
+      `create_invoice: invoice ${invoice.invoice_number} was raised, but its timeline entry failed: ${activityError.message}`,
+    )
+  }
 }
 
 /**
