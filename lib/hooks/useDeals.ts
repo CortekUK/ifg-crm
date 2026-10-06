@@ -4,10 +4,17 @@ import { fetchAll } from '@/lib/reports/csv'
 import { calculateDaysBetween } from '@/lib/utils/format'
 import type { Deal, PipelineStage, Profile } from '@/lib/types/pipelines'
 
-// Helper to compute time in stage
-// Uses stage_entered_at or stage_changed_at if available, otherwise falls back to created_at
+// Days the deal has sat in its current stage.
+//
+// `stage_changed_at` used to be consulted here as a second option, but no such
+// column exists on `deals` — it read as undefined every time, so the chain was
+// really stage_entered_at or created_at. Dropped rather than left looking load-bearing.
+//
+// created_at remains the last resort for deals that predate stage tracking, where
+// it reports age-since-created rather than time-in-stage. useMoveDeal now stamps
+// stage_entered_at on every move, so that gap closes as deals get touched.
 function computeTimeInStage(deal: Deal): number {
-  const stageDate = deal.stage_entered_at || deal.stage_changed_at || deal.created_at
+  const stageDate = deal.stage_entered_at || deal.created_at
   return calculateDaysBetween(stageDate)
 }
 
@@ -328,6 +335,11 @@ export function useMoveDeal() {
         .from('deals')
         .update({
           current_stage_id: newStageId,
+          // Stamp when the deal entered this stage. Nothing on this path set it
+          // before — only the inbound-reply handler did — so all 613 deals had
+          // it NULL and every card's "time in stage" was silently reporting
+          // days since the lead was created instead.
+          stage_entered_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', dealId)

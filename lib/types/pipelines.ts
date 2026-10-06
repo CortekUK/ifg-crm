@@ -62,7 +62,6 @@ export interface Deal {
   lost_at: string | null
   lost_reason: string | null
   last_activity_at: string | null
-  stage_changed_at?: string | null
   stage_entered_at?: string | null
   // New fields
   win_probability?: number | null // 0-100 percentage
