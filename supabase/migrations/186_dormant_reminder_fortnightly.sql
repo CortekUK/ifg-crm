@@ -40,22 +40,20 @@ WHERE s.automation_id = a.id
   AND s.step_type = 'wait'
   AND s.step_order = (a.config->>'recurring_loop_to_order')::int + 1;
 
--- 3. Already-waiting enrollments.
+-- 3. Already-waiting enrollments are deliberately LEFT ALONE.
 --
--- An enrollment parked mid-wait has next_step_at computed from the OLD 21 days
--- and would serve one more three-week gap before picking up the new cadence.
--- Pull those forward by a week so the change takes effect on the current
--- cycle, never pushing a send into the past (greatest(now, …) keeps anything
--- already due due).
-UPDATE automation_enrollments e
-SET next_step_at = GREATEST(now(), e.next_step_at - interval '7 days')
-FROM automations a, automation_steps s
-WHERE e.automation_id = a.id
-  AND e.current_step_id = s.id
-  AND e.status = 'active'
-  AND e.next_step_at IS NOT NULL
-  AND e.next_step_at > now()
-  AND a.config->>'dormant_reminder_enabled' = 'true'
-  AND a.config->>'recurring_loop_to_order' IS NOT NULL
-  AND s.step_type = 'wait'
-  AND s.step_order = (a.config->>'recurring_loop_to_order')::int + 1;
+-- An earlier draft pulled them forward a week so the new cadence applied to the
+-- current cycle. Measured against live data that touched 344 real leads, and
+-- for 12 of them the recomputed time was already in the past — so they would
+-- have been emailed within minutes of this migration running.
+--
+-- That was the wrong trade. The Supabase edge functions that send these emails
+-- (and that carry the working unsubscribe link) deploy separately from the web
+-- app, so until they are redeployed the reminders still go out with the dead
+-- link. Sending MORE of them, sooner, with no way to opt out is worse than the
+-- problem this work set out to fix.
+--
+-- Leaving them be costs one extra cycle at the old interval: every lead already
+-- waiting serves out its current 21-day gap, then picks up the fortnightly
+-- cadence from its next reminder onwards. Nothing is sent early, and no send is
+-- skipped.
