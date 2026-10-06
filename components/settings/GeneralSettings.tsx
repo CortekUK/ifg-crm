@@ -102,9 +102,21 @@ export function GeneralSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Regional Settings</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base">Regional Settings</CardTitle>
+            <Badge variant="secondary" className="text-xs">Not applied yet</Badge>
+          </div>
+          {/* These three save, and nothing reads them. Currency is hard-coded
+              to GBP in formatCurrency and ~20 other places; no formatter
+              consults the date format, and the timezone is unused. Saying so
+              is the point: a setting that saves happily and changes nothing
+              is worse than no setting, because someone switching to USD will
+              believe prices changed. Labelled rather than removed, since
+              whether to wire them up or drop them is a product decision. */}
           <CardDescription>
-            Configure currency, timezone, and date format preferences.
+            Currency, timezone and date format are stored but not yet used
+            anywhere in the CRM — amounts stay in £ and dates keep their
+            current format whatever you choose here.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
