@@ -68,7 +68,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Trash2 } from 'lucide-react'
-import { formatDate, formatDateTime, formatRelativeTime, formatCurrency, formatTimeAgo } from '@/lib/utils/format'
+import { formatDate, formatDateTime, formatRelativeTime, formatCurrency, formatTimeAgo, toDateOnly } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useDealActivities, useDealEmailActivities, useDealEmailReplyActivities, useAddDealNote } from '@/lib/hooks/useDealActivities'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
@@ -310,7 +310,7 @@ export function DealDetailSheet({
   const handleSaveForecastedDate = async (date: Date | undefined) => {
     if (!deal) return
     try {
-      await updateDeal.mutateAsync({ dealId: deal.id, updates: { forecasted_close_date: date ? date.toISOString().split('T')[0] : null } })
+      await updateDeal.mutateAsync({ dealId: deal.id, updates: { forecasted_close_date: date ? toDateOnly(date) : null } })
       setIsDatePickerOpen(false)
       toast({ title: 'Forecasted close date updated', description: date ? `Set to ${formatDate(date.toISOString())}` : 'Cleared' })
     } catch (error) {
@@ -330,7 +330,7 @@ export function DealDetailSheet({
     try {
       await updateDeal.mutateAsync({
         dealId: deal.id,
-        updates: { [field]: date ? date.toISOString().split('T')[0] : null },
+        updates: { [field]: date ? toDateOnly(date) : null },
       })
       closePopover()
       toast({

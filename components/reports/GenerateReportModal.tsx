@@ -23,6 +23,7 @@ import { useToast } from '@/lib/hooks/use-toast'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { useUsers } from '@/lib/hooks/useUsers'
 import { findReport } from '@/lib/reports/catalogue'
+import { toDateOnly } from '@/lib/utils/format'
 
 interface GenerateReportModalProps {
   reportId: string | null
@@ -39,7 +40,7 @@ const PRESETS = [
 ] as const
 
 function isoDay(date: Date) {
-  return date.toISOString().split('T')[0]
+  return toDateOnly(date)
 }
 
 export function GenerateReportModal({ reportId, isOpen, onClose }: GenerateReportModalProps) {

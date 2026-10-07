@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Check, ChevronsUpDown, Loader2, PoundSterling, CalendarIcon, TrendingUp, Plane, GraduationCap, Video } from 'lucide-react'
-import { formatDate } from '@/lib/utils/format'
+import { formatDate, toDateOnly } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
 import { useCreateDeal } from '@/lib/hooks/useCreateDeal'
@@ -139,10 +139,10 @@ export function AddDealModal({
         notes: notes || undefined,
         description: description || undefined,
         winProbability: winProbability ?? undefined,
-        forecastedCloseDate: forecastedCloseDate ? forecastedCloseDate.toISOString().split('T')[0] : undefined,
-        programmeStartDate: programmeStartDate ? programmeStartDate.toISOString().split('T')[0] : undefined,
-        interviewDate: interviewDate ? interviewDate.toISOString().split('T')[0] : undefined,
-        arrivalDate: arrivalDate ? arrivalDate.toISOString().split('T')[0] : undefined,
+        forecastedCloseDate: forecastedCloseDate ? toDateOnly(forecastedCloseDate) : undefined,
+        programmeStartDate: programmeStartDate ? toDateOnly(programmeStartDate) : undefined,
+        interviewDate: interviewDate ? toDateOnly(interviewDate) : undefined,
+        arrivalDate: arrivalDate ? toDateOnly(arrivalDate) : undefined,
       })
 
       toast({

@@ -233,3 +233,25 @@ export function formatPhoneNumber(phone: string): string {
   // Return as-is if no pattern matches
   return phone
 }
+
+/**
+ * A calendar date picked in the UI, as the `YYYY-MM-DD` a `date` column wants.
+ *
+ * Every caller used `date.toISOString().split('T')[0]`, which is wrong for
+ * anyone east of UTC. A day picker hands back local midnight, and toISOString
+ * converts to UTC — so midnight on 8 October in Pakistan (UTC+5) is 19:00 on
+ * the 7th in UTC, and the date saved and displayed came back as 07/10. It
+ * happened on every pick (5 Oct saved as 4 Oct, 10 Oct as 9 Oct), and it hits
+ * the UK too during British Summer Time. Interview-date reminders were then a
+ * day out.
+ *
+ * Reading the local calendar fields directly keeps the date the user pointed at
+ * — there is no timezone in "the 8th of October", so there is nothing to
+ * convert.
+ */
+export function toDateOnly(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}

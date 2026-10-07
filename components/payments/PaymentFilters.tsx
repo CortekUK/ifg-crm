@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card'
 import { Search, X } from 'lucide-react'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import type { PaymentFilters as Filters } from '@/lib/types/payments'
+import { toDateOnly } from '@/lib/utils/format'
 
 interface PaymentFiltersProps {
   filters: Filters
@@ -115,7 +116,7 @@ export function PaymentFilters({ filters, onFiltersChange }: PaymentFiltersProps
         <Input
           type="date"
           className="w-[140px]"
-          value={filters.dateFrom?.toISOString().split('T')[0] || ''}
+          value={filters.dateFrom ? toDateOnly(filters.dateFrom) : ''}
           onChange={(e) =>
             handleChange('dateFrom', e.target.value ? new Date(e.target.value) : null)
           }
@@ -124,7 +125,7 @@ export function PaymentFilters({ filters, onFiltersChange }: PaymentFiltersProps
         <Input
           type="date"
           className="w-[140px]"
-          value={filters.dateTo?.toISOString().split('T')[0] || ''}
+          value={filters.dateTo ? toDateOnly(filters.dateTo) : ''}
           onChange={(e) =>
             handleChange('dateTo', e.target.value ? new Date(e.target.value) : null)
           }
