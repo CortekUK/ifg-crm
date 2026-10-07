@@ -247,6 +247,29 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
+    // 2.7 CLASSIFY INTENT — BEFORE the row is written
+    // ============================================
+    // Order matters here, and it used to be the other way round.
+    //
+    // Inserting the reply fires stop_enrollments_on_reply_match, which stops
+    // the sequence and (through the enrolment-exit trigger) MOVES the deal.
+    // Classification then ran afterwards and patched ai_intent in. So at the
+    // only moment the decision to move was being made, the intent was always
+    // NULL — the deal was moved for every reply, including out-of-office
+    // auto-replies and anything the classifier could not read. Two real
+    // replies on 27 Sep and 2 Oct got no intent and their deals were moved to
+    // Contact Response anyway.
+    //
+    // Classifying first lets the insert carry the intent, so the trigger can
+    // tell a real reply from an unreadable one and leave the deal alone when
+    // it cannot.
+    //
+    // Stripping the quoted thread first matters: without it a one-word reply
+    // ("interested") is buried under hundreds of characters of our own
+    // outreach and the classifier returns nothing valid.
+    const aiIntent = await classifyIntent(stripQuotedThread(replyText))
+
+    // ============================================
     // 3. CREATE EMAIL REPLY RECORD (idempotent on message_id)
     // ============================================
     // Resend retries failed webhook deliveries, and our fixes today caused a
@@ -291,6 +314,10 @@ Deno.serve(async (req) => {
         in_reply_to: inReplyTo,
         received_at: event.created_at || new Date().toISOString(),
         match_status: matchStatus,
+        // Carried on the INSERT so the stop trigger can tell a readable reply
+        // from an unreadable one at the moment it decides whether to move the
+        // deal. Patched again below for the re-match path.
+        ai_intent: aiIntent || null,
         processed: false,  // Will be processed by check-replies or process-automations
       })
       .select('id')
@@ -317,15 +344,12 @@ Deno.serve(async (req) => {
     console.log(`Created email reply record: ${replyRecord.id}, contact: ${contactId}, match_status: ${matchStatus}`)
 
     // ============================================
-    // 3.5 CLASSIFY REPLY INTENT WITH AI
+    // 3.5 APPLY THE INTENT CLASSIFIED ABOVE
     // ============================================
-    // Strip the quoted-thread boilerplate before classifying. Without
-    // this, a contact's one-word reply ("interested") gets buried under
-    // hundreds of chars of our original outreach and the classifier
-    // returns nothing matching the valid set → ai_intent stays null.
-    const aiIntent = await classifyIntent(stripQuotedThread(replyText))
-
     if (aiIntent) {
+      // Still written here as well as on the insert: the insert is skipped
+      // entirely for a duplicate message_id, and this path also runs when an
+      // existing row is being re-matched.
       await supabase
         .from('email_replies')
         .update({ ai_intent: aiIntent })

@@ -353,9 +353,24 @@ export function SmartDealModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eligible, selectedIds, pipelines, pipelineOverrides])
 
+  /**
+   * How many deals will ACTUALLY be created.
+   *
+   * This counted selected rows, but a deal is created per player per pipeline,
+   * not per reply. Two replies from the same player in the same pipeline said
+   * "Create 2 Deals" and then made one — which reads as a deal having failed
+   * or been lost. Counting unique contact + pipeline pairs, and leaving out
+   * rows that are blocked anyway, makes the number match the outcome.
+   */
   const selectedCount = useMemo(
-    () => eligible.filter((item) => selectedIds.has(item.id)).length,
-    [eligible, selectedIds]
+    () =>
+      new Set(
+        eligible
+          .filter((item) => selectedIds.has(item.id) && !isBlocked(item))
+          .map((item) => `${item.contactId}|${effectivePipelineId(item)}`),
+      ).size,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [eligible, selectedIds, existingDealKeys, pipelineOverrides],
   )
 
   // Auto-deselect any items that turn out to be blocked — either
@@ -659,7 +674,12 @@ export function SmartDealModal({
             {/* Stats & Selection Bar */}
             <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 text-xs">
-                <span className="font-semibold text-foreground text-sm">{eligible.length} Eligible</span>
+                {/* Blocked rows (already have a deal, or replied negatively)
+                    were counted as eligible, so the header said "4 Eligible"
+                    while 2 of the 4 could never produce anything. */}
+                <span className="font-semibold text-foreground text-sm">
+                  {eligible.filter((item) => !isBlocked(item)).length} Eligible
+                </span>
                 <span className="h-3.5 w-px bg-slate-300 dark:bg-slate-600" />
                 {pipelineBreakdown.map((pb) => (
                   <span key={pb.pipelineId} className="text-purple-600 dark:text-purple-400 font-medium">{pb.count} {pb.name}</span>
