@@ -533,3 +533,25 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     }
   }
 ]
+
+/**
+ * The trigger a given automation type fires on, taken from its template.
+ *
+ * The save handler used to work this out with
+ * `type === 'deal_creation' ? 'form_submission' : 'enters_stage'`, so every
+ * template except Deal Creation was written to the database as "deal enters
+ * stage" no matter what it actually needed. List Assignment (No Deal) was the
+ * clearest casualty: it is a form-submission automation with no pipeline and
+ * no stage, so saving it as enters_stage left it with nothing to trigger on and
+ * it never ran once — a contact submitted the form and was added to none of the
+ * chosen lists. Payment Overdue (invoice_overdue) and Pre-Departure
+ * (time_before_date) were mis-stamped the same way, and the SQL that enrols on
+ * those events matches on trigger_type, so neither could fire either.
+ *
+ * AUTOMATION_TEMPLATES already declares the right value per template, so read
+ * it from there rather than restating it at the call site.
+ */
+export function triggerTypeForAutomationType(type: AutomationType | undefined): TriggerType {
+  const template = AUTOMATION_TEMPLATES.find((t) => t.type === type)
+  return template?.trigger_type ?? 'enters_stage'
+}

@@ -1,13 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Automation, AutomationLog, AutomationFilters, AutomationEnrollment, AutomationType, AutomationConfig } from '@/lib/types/automations'
+import type { Automation, AutomationLog, AutomationFilters, AutomationEnrollment, AutomationType, AutomationConfig, TriggerType } from '@/lib/types/automations'
 import { compileAutomationSteps, deriveRecurringMeta, type CompiledStep } from '@/lib/automations/compile'
 
 export interface CreateAutomationInput {
   name: string
   description?: string | null
   automation_type?: AutomationType
-  trigger_type?: 'form_submission' | 'enters_stage' | 'stage_change'
+  // The full TriggerType union, not the three stage/form values this used to
+  // allow. The database CHECK has permitted all seven since migration 080, and
+  // the invoice- and time-triggered templates need the other four to be stored
+  // — the SQL that enrols on those events matches on trigger_type.
+  trigger_type?: TriggerType
   pipeline_id: string | null
   trigger_stage_id: string | null
   stop_on_stage_ids?: string[]

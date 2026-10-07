@@ -29,6 +29,7 @@ import { Filter } from 'lucide-react'
 import { useAutomations, useAutomationLogs, useToggleAutomation, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, useDuplicateAutomation } from '@/lib/hooks/useAutomations'
 import { useAutomationStats } from '@/lib/hooks/useAutomationStats'
 import { toast } from '@/lib/hooks/use-toast'
+import { triggerTypeForAutomationType } from '@/lib/types/automations'
 import type { Automation, AutomationFilters, AutomationType, AutomationConfig } from '@/lib/types/automations'
 
 export default function AutomationsPage() {
@@ -146,9 +147,9 @@ export default function AutomationsPage() {
           name: data.name,
           description: data.description,
           automation_type: data.automation_type,
-          trigger_type: data.automation_type === 'deal_creation' ? 'form_submission' : 'enters_stage',
+          trigger_type: triggerTypeForAutomationType(data.automation_type),
           pipeline_id: data.pipeline_id,
-          trigger_stage_id: data.automation_type === 'deal_creation'
+          trigger_stage_id: triggerTypeForAutomationType(data.automation_type) === 'form_submission'
             ? (data.config?.initial_stage_id || data.trigger_stage_id)
             : data.trigger_stage_id,
           stop_on_stage_ids: data.stop_on_stage_ids,
@@ -164,9 +165,9 @@ export default function AutomationsPage() {
           name: data.name,
           description: data.description,
           automation_type: data.automation_type,
-          trigger_type: data.automation_type === 'deal_creation' ? 'form_submission' : 'enters_stage',
+          trigger_type: triggerTypeForAutomationType(data.automation_type),
           pipeline_id: data.pipeline_id,
-          trigger_stage_id: data.automation_type === 'deal_creation'
+          trigger_stage_id: triggerTypeForAutomationType(data.automation_type) === 'form_submission'
             ? (data.config?.initial_stage_id || data.trigger_stage_id)
             : data.trigger_stage_id,
           stop_on_stage_ids: data.stop_on_stage_ids,
