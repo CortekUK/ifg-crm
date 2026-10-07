@@ -19,6 +19,7 @@ import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
+import { findResponseStage } from '@/lib/types/pipelines'
 import { ErrorState } from '@/components/ui/error-state'
 import { Button } from '@/components/ui/button'
 import { GitBranch, Plus } from 'lucide-react'
@@ -336,7 +337,7 @@ export default function PipelinesPage() {
     // the card shouldn't keep showing a green/red badge from a stale
     // conversation. If there's no Contact Response stage configured we
     // skip the wipe (no anchor to compare against).
-    const responseStage = stages.find((s) => s.name === 'Contact Response')
+    const responseStage = findResponseStage(stages)
     if (responseStage && newStage.display_order < responseStage.display_order) {
       await supabase
         .from('deals')
@@ -632,7 +633,7 @@ export default function PipelinesPage() {
                   <strong>{pendingBackwardMove.newStage.name}</strong> will
                   re-trigger from the start.
                   {(() => {
-                    const responseStage = stages.find((s) => s.name === 'Contact Response')
+                    const responseStage = findResponseStage(stages)
                     if (
                       responseStage &&
                       pendingBackwardMove.newStage.display_order < responseStage.display_order

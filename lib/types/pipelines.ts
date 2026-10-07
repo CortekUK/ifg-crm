@@ -94,3 +94,26 @@ export interface Deal {
   last_contacted_at?: string | null // when last email was sent
   has_active_automation?: boolean // whether deal has an active automation enrollment
 }
+
+/**
+ * The stage a reply should move a deal to ("Contact Response" on all three IFG
+ * pipelines).
+ *
+ * Resolved by exact name first, then by `stage_type`. Matching on the literal
+ * name alone meant a pipeline whose stage had been renamed — or had a stray
+ * trailing space — silently never received a reply move, and never reported
+ * why. `stage_type` survives a rename, so it is the durable fallback;
+ * CreatePipelineModal stamps 'contact' on the Contact Response stage it
+ * creates.
+ *
+ * MIRROR: supabase/functions/resend-inbound/index.ts applies the same two-step
+ * resolution inline (edge functions can't import from lib/). Change both.
+ */
+export function findResponseStage<T extends { name: string; stage_type?: string | null }>(
+  stages: T[],
+): T | undefined {
+  return (
+    stages.find((s) => s.name?.trim().toLowerCase() === 'contact response') ??
+    stages.find((s) => s.stage_type === 'contact')
+  )
+}

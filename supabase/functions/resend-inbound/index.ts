@@ -311,12 +311,27 @@ Deno.serve(async (req) => {
           // whether the deal should be moved.
           const { data: stages } = await supabase
             .from('pipeline_stages')
-            .select('id, name, display_order')
+            .select('id, name, stage_type, display_order')
             .eq('pipeline_id', deal.pipeline_id)
             .order('display_order', { ascending: true })
 
           if (stages && stages.length > 0) {
-            const responseStage = stages.find((s) => s.name === 'Contact Response')
+            // Exact name first, then the stage's TYPE.
+            //
+            // Matching on the literal string 'Contact Response' alone meant a
+            // pipeline whose stage was named anything else — "Responded",
+            // "Contact Made", or just a stray trailing space — never received
+            // a reply move at all. Nothing errored and nothing logged: the
+            // intent was written, the card stayed put, and the recruiter had
+            // no idea the player had written back.
+            //
+            // stage_type 'contact' is the durable answer. CreatePipelineModal
+            // stamps it on the Contact Response stage it creates, and renaming
+            // a stage in the UI does not change its type, so the fallback
+            // survives exactly the edit that broke the name match.
+            const responseStage =
+              stages.find((s) => s.name?.trim().toLowerCase() === 'contact response') ??
+              stages.find((s) => s.stage_type === 'contact')
             const currentIdx = stages.findIndex((s) => s.id === deal.current_stage_id)
             const responseIdx = responseStage
               ? stages.findIndex((s) => s.id === responseStage.id)
