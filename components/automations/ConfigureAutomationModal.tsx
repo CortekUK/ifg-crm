@@ -64,6 +64,8 @@ import { useUsers } from '@/lib/hooks/useUsers'
 import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 import { useLists } from '@/lib/hooks/useLists'
 import { useAutomations } from '@/lib/hooks/useAutomations'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { usePackages, usePricingSettings } from '@/lib/hooks/useWebsitePricing'
 import {
   programmeForPipeline,
@@ -227,6 +229,28 @@ export function ConfigureAutomationModal({
       label: source === 'programme_full' ? 'the full programme price' : 'the initial deposit',
     }
   }, [dealCreationOnPipeline, invoiceProgramme, websitePackages, pricingSettings])
+
+  // How many deals actually carry the date this automation counts back from.
+  //
+  // A date-driven automation enrols nobody when the column is empty, and the
+  // column IS empty: 0 of 625 deals have a programme start date, 0 have an
+  // arrival date, 1 has an interview date. Switching one on and waiting was
+  // indistinguishable from it being broken, so the editor says so up front.
+  const dateField = formData.config.date_field || 'programme_start_date'
+  const { data: datedDealCount } = useQuery({
+    queryKey: ['deals-with-date', dateField, formData.pipeline_id],
+    enabled: selectedTemplate?.configurable.days_before_date === true,
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = supabase
+        .from('deals')
+        .select('id', { count: 'exact', head: true })
+        .not(dateField, 'is', null)
+      if (formData.pipeline_id) q = q.eq('pipeline_id', formData.pipeline_id)
+      const { count } = await q
+      return count ?? 0
+    },
+  })
 
   const dealPrice = useMemo(() => {
     if (dealValueSource === 'custom') return null
@@ -2474,6 +2498,21 @@ export function ConfigureAutomationModal({
                         <p className="text-xs text-muted-foreground">
                           Which date column on the deal the cron should watch.
                         </p>
+                        {datedDealCount === 0 ? (
+                          <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
+                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span>
+                              No deal{formData.pipeline_id ? ' in this pipeline' : ''} has this date
+                              filled in, so this automation will not reach anybody yet. Set the date
+                              on a deal card first.
+                            </span>
+                          </p>
+                        ) : datedDealCount !== undefined ? (
+                          <p className="text-xs text-muted-foreground">
+                            {datedDealCount} deal{datedDealCount === 1 ? '' : 's'}
+                            {formData.pipeline_id ? ' in this pipeline' : ''} currently have this date set.
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="space-y-2">

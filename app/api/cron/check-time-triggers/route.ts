@@ -125,16 +125,29 @@ export async function GET(request: NextRequest) {
       // correct for both column types.
       const target = new Date()
       target.setDate(target.getDate() + daysBefore)
-      const targetDate = target.toISOString().slice(0, 10)
       const dayAfter = new Date(target)
       dayAfter.setDate(dayAfter.getDate() + 1)
       const dayAfterDate = dayAfter.toISOString().slice(0, 10)
 
       // Find candidate deals.
+      //
+      // The window runs from TODAY to the target day, not just the target day
+      // itself. Matching only the exact day meant a date entered late was
+      // missed forever: a programme starting in 10 days, on a 30-day
+      // automation, was never 30 days away again, so the player received
+      // nothing — not the 30-day email, not the 7-day one. Staff fill these
+      // dates in when they learn them, which is routinely inside the window.
+      //
+      // Enrolling late is the right call: the sequence runs its waits from
+      // enrolment, so the player still gets the run-up, just compressed.
+      // Deals whose date has already passed stay excluded by the `gte(today)`
+      // bound, and the existing already-enrolled guard below stops anyone
+      // being caught twice.
+      const todayDate = new Date().toISOString().slice(0, 10)
       let dealsQuery = supabase
         .from('deals')
         .select('id')
-        .gte(dateField, targetDate)
+        .gte(dateField, todayDate)
         .lt(dateField, dayAfterDate)
       if (automation.pipeline_id) {
         dealsQuery = dealsQuery.eq('pipeline_id', automation.pipeline_id)
