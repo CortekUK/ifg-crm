@@ -450,6 +450,20 @@ async function processQueue(
   const now = new Date().toISOString()
 
   // Get enrollments ready to process
+  // Ready-to-run enrollments BELONGING TO A SWITCHED-ON AUTOMATION.
+  //
+  // The `automation!inner(is_active)` embed is the filter, not decoration:
+  // without it, switching an automation off only stopped NEW players joining.
+  // Everyone already enrolled kept walking through the steps and kept
+  // receiving emails, because this query asked about the enrollment's status
+  // and never about the automation's. QA switched "QA Meeting Scheduler" off
+  // and a player still had a reminder scheduled; it only stopped when the card
+  // was moved to another stage. That applied to every template, so "switch it
+  // off" did not actually stop anything already in flight.
+  //
+  // Paused enrollments resume where they left off when the automation is
+  // switched back on, so nothing is lost — the steps simply do not advance
+  // while it is off.
   const { data: enrollments, error: enrollmentsError } = await supabase
     .from('automation_enrollments')
     .select(`
@@ -459,9 +473,11 @@ async function processQueue(
       current_step_id,
       status,
       next_step_at,
-      send_as_user_id
+      send_as_user_id,
+      automation:automations!inner(is_active)
     `)
     .eq('status', 'active')
+    .eq('automation.is_active', true)
     .lte('next_step_at', now)
     .limit(100) // Process in batches
 
