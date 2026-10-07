@@ -863,7 +863,11 @@ async function processQueue(
                 next_step_at: null,
               })
               .eq('id', enrollment.id)
-            summary.processed++
+              .eq('status', 'active')
+            // Was summary.processed++, a field that does not exist on
+            // ProcessingSummary — so every enrollment ended for a
+            // already-passed meeting date was missing from the run summary.
+            summary.enrollmentsStopped++
             continue
           }
 
