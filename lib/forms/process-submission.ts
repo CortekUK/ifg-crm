@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { assignTag, computeApplicationRouting, applyRouting } from './lead-routing'
+import { excludedDealOwnerFilter } from '@/lib/constants/deal-owners'
 import {
   staffAlertEnabled,
   sendStaffAlert,
@@ -524,7 +525,7 @@ export async function assignRoundRobinOwner(
       .select('id')
       .in('role', ['recruiter', 'admin', 'super_admin'])
       .eq('is_active', true)
-      .neq('email', 'superadmin@theinternationalfootballgroup.com')
+      .not('email', 'in', excludedDealOwnerFilter())
       .order('created_at', { ascending: true })
     roundRobinUsers = (staff ?? []).map((r) => r.id as string)
   } else {
@@ -541,7 +542,7 @@ export async function assignRoundRobinOwner(
       .select('id')
       .in('id', roundRobinUsers)
       .eq('is_active', true)
-      .neq('email', 'superadmin@theinternationalfootballgroup.com')
+      .not('email', 'in', excludedDealOwnerFilter())
     const activeIds = new Set((active ?? []).map((r) => r.id as string))
     const stillActive = roundRobinUsers.filter((id) => activeIds.has(id))
 
@@ -554,7 +555,7 @@ export async function assignRoundRobinOwner(
         .select('id')
         .in('role', ['recruiter', 'admin', 'super_admin'])
         .eq('is_active', true)
-        .neq('email', 'superadmin@theinternationalfootballgroup.com')
+        .not('email', 'in', excludedDealOwnerFilter())
         .order('created_at', { ascending: true })
       roundRobinUsers = (staff ?? []).map((r) => r.id as string)
     } else {
