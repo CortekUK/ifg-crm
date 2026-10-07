@@ -2469,15 +2469,26 @@ function calculateNextStepTime(
 }
 
 /**
- * Re-check enrollments parked on a date-relative wait step whose
- * `next_step_at` is NULL because the source data wasn't available when we
- * advanced. Two flavours:
- *   - wait_until_before_date: parked because deals.<field> was null.
- *   - wait_until_meeting_ends: parked by an older run because no
- *     calendly_events row existed. It no longer parks — it falls back to the
- *     deal's interview_date, or completes — but the sweep still un-sticks the
- *     enrollments an earlier version left behind.
- * If the source data is set now, compute next_step_at and unstick.
+ * Keep every enrollment sitting on a date-relative wait step in step with the
+ * date it counts back from. Two jobs:
+ *
+ *   1. UN-PARK. next_step_at is NULL because the source data wasn't there when
+ *      we advanced — wait_until_before_date with deals.<field> unset, or a
+ *      wait_until_meeting_ends parked by an older build before it gained its
+ *      interview_date fallback. Once the data exists, compute and schedule.
+ *
+ *   2. RESCHEDULE. The date MOVED after the reminder was scheduled. This used
+ *      to be missed entirely: the sweep only looked at NULL next_step_at, so a
+ *      reminder was computed once, at the moment the step was reached, and
+ *      never revisited. Changing a player's interview date from the 7th to the
+ *      9th left the reminder pinned to the 7th — the player got "your meeting
+ *      is in 3 hours" two days before the meeting, and nothing at all on the
+ *      day. Nine code paths can write a deal's dates, so reconciling here
+ *      covers all of them rather than hoping each one remembers.
+ *
+ * Filtering by step type through an `!inner` embed rather than reading every
+ * active enrollment and sorting them out in JS: the row cap is 1000 on this
+ * project and a plain read would silently truncate on a busy board.
  */
 async function sweepBeforeDateWaits(
   supabase: ReturnType<typeof createClient>,
@@ -2485,13 +2496,13 @@ async function sweepBeforeDateWaits(
 ) {
   const { data: parked, error } = await supabase
     .from('automation_enrollments')
-    .select('id, deal_id, current_step_id')
+    .select('id, deal_id, current_step_id, next_step_at, step:automation_steps!inner(step_type)')
     .eq('status', 'active')
-    .is('next_step_at', null)
     .not('current_step_id', 'is', null)
+    .in('step.step_type', ['wait_until_before_date', 'wait_until_meeting_ends'])
 
   if (error) {
-    summary.errors.push(`Sweep: failed to fetch parked enrollments: ${error.message}`)
+    summary.errors.push(`Sweep: failed to fetch date-wait enrollments: ${error.message}`)
     return
   }
   if (!parked || parked.length === 0) return
@@ -2560,11 +2571,34 @@ async function sweepBeforeDateWaits(
       meetingEnd,
     )
     if (!nextAt) continue
-    await supabase
-      .from('automation_enrollments')
-      .update({ next_step_at: nextAt.toISOString() })
-      .eq('id', enrollment.id)
-      .is('next_step_at', null) // only if still parked
+
+    const current = enrollment.next_step_at as string | null
+
+    if (current === null) {
+      // Parked — schedule it. Conditioned on still being NULL so we don't
+      // stamp over an enrollment another worker locked for processing.
+      await supabase
+        .from('automation_enrollments')
+        .update({ next_step_at: nextAt.toISOString() })
+        .eq('id', enrollment.id)
+        .is('next_step_at', null)
+      continue
+    }
+
+    // Already scheduled — correct it only if the anchor date has actually
+    // moved. A minute of tolerance keeps this from rewriting the same row on
+    // every cron run over sub-second recomputation noise.
+    const drift = Math.abs(new Date(current).getTime() - nextAt.getTime())
+    if (drift > 60 * 1000) {
+      await supabase
+        .from('automation_enrollments')
+        .update({ next_step_at: nextAt.toISOString() })
+        .eq('id', enrollment.id)
+        .eq('next_step_at', current) // lost the race? leave it to the winner
+      console.log(
+        `Rescheduled enrollment ${enrollment.id} from ${current} to ${nextAt.toISOString()} — its anchor date moved`,
+      )
+    }
   }
 }
 
