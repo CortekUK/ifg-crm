@@ -212,11 +212,23 @@ function appendDormantReminderTail(
   if (!config?.dormant_reminder_enabled || !config?.no_reply_stage_id) {
     return steps
   }
+  const interval = config.dormant_reminder_interval_days || DEFAULT_DORMANT_INTERVAL_DAYS
+
+  // The first reminder is immediate by default — a player who has just gone
+  // dormant gets one straight away, then one per interval. Setting
+  // dormant_reminder_first_immediate to false puts a full interval in front of
+  // it instead, so the first nudge lands a fortnight after they go quiet.
+  //
+  // deriveRecurringMeta keys the loop on the email being second-to-last, which
+  // holds either way: the tail is (…, email, wait) in both shapes.
+  const firstImmediate = config.dormant_reminder_first_immediate !== false
+
   return [
     ...steps,
     moveToStageStep(config.no_reply_stage_id),
+    ...(firstImmediate ? [] : [waitStep(interval)]),
     emailStep(config.dormant_reminder_template_id || null),
-    waitStep(config.dormant_reminder_interval_days || DEFAULT_DORMANT_INTERVAL_DAYS),
+    waitStep(interval),
   ]
 }
 

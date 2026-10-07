@@ -199,6 +199,12 @@ export interface AutomationConfig {
   // contact replies or unsubscribes, or it is unenrolled. The anchor + move
   // target are the Goal 3 no_reply_stage_id.
   dormant_reminder_enabled?: boolean
+  // Whether the FIRST dormant reminder goes out the moment the player lands in
+  // Dormant, or only after one full interval. QA-18g asked which was intended
+  // and the answer was never settled; making it a setting means the choice no
+  // longer needs a code change. Defaults to true, which is the behaviour that
+  // has always shipped.
+  dormant_reminder_first_immediate?: boolean
   dormant_reminder_template_id?: string | null
   dormant_reminder_interval_days?: number
 }

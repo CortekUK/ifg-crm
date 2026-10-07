@@ -2296,6 +2296,37 @@ export function ConfigureAutomationModal({
                             </div>
                           </div>
 
+                          {/* QA-18g asked whether the first reminder should go
+                              out immediately or after a full interval. Rather
+                              than pick for them, it is a choice. */}
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              id="dormantFirstImmediate"
+                              checked={formData.config.dormant_reminder_first_immediate !== false}
+                              onCheckedChange={(checked) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    dormant_reminder_first_immediate: checked === true,
+                                  },
+                                }))
+                              }
+                            />
+                            <div className="space-y-0.5">
+                              <Label htmlFor="dormantFirstImmediate" className="text-xs font-medium">
+                                Send the first reminder straight away
+                              </Label>
+                              <p className="text-[11px] text-muted-foreground">
+                                On: a player gets a reminder the moment they go dormant, then one
+                                every{' '}
+                                {formData.config.dormant_reminder_interval_days ?? 14} days. Off:
+                                the first one waits a full{' '}
+                                {formData.config.dormant_reminder_interval_days ?? 14} days.
+                              </p>
+                            </div>
+                          </div>
+
                           {!formData.config.dormant_reminder_template_id && (
                             <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                               <AlertTriangle className="h-3 w-3" />
