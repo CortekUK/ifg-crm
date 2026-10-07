@@ -124,6 +124,15 @@ export function DealDetailSheet({
   // One picker open at a time for the three programme dates.
   const [isProgrammeStartOpen, setIsProgrammeStartOpen] = useState(false)
   const [isInterviewDateOpen, setIsInterviewDateOpen] = useState(false)
+  // Time of day for the interview, as HH:mm. Seeded from the deal's stored
+  // value on first render and 09:00 for a deal that has none, so picking a day
+  // without touching this lands on a sane hour rather than midnight.
+  const [interviewTime, setInterviewTime] = useState(() => {
+    if (!deal?.interview_date) return '09:00'
+    const existing = new Date(deal.interview_date)
+    if (isNaN(existing.getTime())) return '09:00'
+    return `${String(existing.getHours()).padStart(2, '0')}:${String(existing.getMinutes()).padStart(2, '0')}`
+  })
   const [isArrivalDateOpen, setIsArrivalDateOpen] = useState(false)
   const [isAddListOpen, setIsAddListOpen] = useState(false)
   const [listSearchQuery, setListSearchQuery] = useState('')
@@ -320,6 +329,13 @@ export function DealDetailSheet({
 
   // Generic saver for the three programme date columns. Keeps the toast text
   // human-readable and routes to the correct closer.
+  //
+  // interview_date is the odd one out: it is TIMESTAMPTZ (widened in migration
+  // 106 so hour-precision reminders mean something), while programme_start_date
+  // and arrival_date are plain DATE. Meeting Scheduler reminders set in hours
+  // count back from this value, so with no time on it they counted back from
+  // midnight — "3 hours before" fired at 21:00 the night before. So the picker
+  // carries a time, and it is written as a real instant.
   const saveProgrammeDate = async (
     field: 'programme_start_date' | 'interview_date' | 'arrival_date',
     label: string,
@@ -328,14 +344,32 @@ export function DealDetailSheet({
   ) => {
     if (!deal) return
     try {
+      let value: string | null = null
+      if (date) {
+        if (field === 'interview_date') {
+          const [hours, minutes] = interviewTime.split(':').map(Number)
+          const withTime = new Date(date)
+          withTime.setHours(
+            Number.isFinite(hours) ? hours : 9,
+            Number.isFinite(minutes) ? minutes : 0,
+            0,
+            0,
+          )
+          value = withTime.toISOString()
+        } else {
+          value = toDateOnly(date)
+        }
+      }
       await updateDeal.mutateAsync({
         dealId: deal.id,
-        updates: { [field]: date ? toDateOnly(date) : null },
+        updates: { [field]: value },
       })
       closePopover()
       toast({
         title: `${label} updated`,
-        description: date ? `Set to ${formatDate(date.toISOString())}` : 'Cleared',
+        description: date
+          ? `Set to ${field === 'interview_date' && value ? formatDateTime(value) : formatDate(date.toISOString())}`
+          : 'Cleared',
       })
     } catch (error) {
       toast({
@@ -1044,7 +1078,7 @@ export function DealDetailSheet({
                     <Popover open={isInterviewDateOpen} onOpenChange={setIsInterviewDateOpen}>
                       <PopoverTrigger asChild>
                         <button className="flex items-center gap-1 text-sm font-medium hover:text-blue-600">
-                          {deal.interview_date ? formatDate(deal.interview_date) : <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}
+                          {deal.interview_date ? formatDateTime(deal.interview_date) : <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}
                           <Pencil className="h-3 w-3 opacity-50" />
                         </button>
                       </PopoverTrigger>
@@ -1055,6 +1089,21 @@ export function DealDetailSheet({
                           onSelect={(date) => saveProgrammeDate('interview_date', 'Interview date', date, () => setIsInterviewDateOpen(false))}
                           initialFocus
                         />
+                        {/* Set the time BEFORE picking the day — choosing a day
+                            saves immediately. Without a time, reminders set in
+                            hours counted back from midnight. */}
+                        <div className="flex items-center gap-2 border-t p-2">
+                          <Label htmlFor="interview-time" className="text-xs text-slate-500 dark:text-slate-400">
+                            Meeting time
+                          </Label>
+                          <Input
+                            id="interview-time"
+                            type="time"
+                            className="h-8 w-28"
+                            value={interviewTime}
+                            onChange={(e) => setInterviewTime(e.target.value)}
+                          />
+                        </div>
                         {deal.interview_date && (
                           <div className="p-2 border-t">
                             <Button variant="ghost" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => saveProgrammeDate('interview_date', 'Interview date', undefined, () => setIsInterviewDateOpen(false))}>Clear date</Button>
