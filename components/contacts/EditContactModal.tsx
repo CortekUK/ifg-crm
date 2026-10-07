@@ -131,13 +131,27 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
     formData.parent_email && !emailRegex.test(formData.parent_email)
       ? 'Please enter a valid email address'
       : ''
-  const parentEmailSameError =
+  // A parent email that matches the player's is NORMAL here, not an error.
+  //
+  // This used to be a hard validation failure that disabled Save, while the CSV
+  // import accepted the same thing and recorded it deliberately (custom_fields
+  // email_source: 'parent', plus the "Parent Email" tag) — because IFG reaches
+  // a lot of younger players through a parent's inbox. 2,253 contacts are
+  // already stored that way, so the form refused to let anyone edit any of
+  // them: open the contact, change a phone number, and Save was dead with a
+  // complaint about a field you had not touched.
+  //
+  // Two rules for one field was the bug. The import's reading is the true one,
+  // so the form now matches it and says what the consequence is. The sending
+  // side already handles it: notify_parent skips the parent copy when the
+  // address is the player's own, so nobody gets the message twice.
+  const parentEmailSameNotice =
     formData.parent_email &&
     formData.email &&
     formData.parent_email.trim().toLowerCase() === formData.email.trim().toLowerCase()
-      ? 'Parent email must be different from the player email'
+      ? 'Same as the player email. That is fine — they share an inbox, and parent notifications will not be sent twice.'
       : ''
-  const parentEmailError = parentEmailFormatError || parentEmailSameError
+  const parentEmailError = parentEmailFormatError
 
   const handleSubmit = async () => {
     if (
@@ -435,6 +449,9 @@ export function EditContactModal({ contact, isOpen, onClose }: EditContactModalP
                     placeholder="parent@example.com"
                     className={parentEmailError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                   />
+                  {parentEmailSameNotice && !parentEmailError && (
+                    <p className="text-xs text-muted-foreground">{parentEmailSameNotice}</p>
+                  )}
                   {parentEmailError && (
                     <p className="text-xs text-red-600">{parentEmailError}</p>
                   )}
