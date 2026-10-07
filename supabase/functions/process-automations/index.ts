@@ -54,6 +54,7 @@ interface AutomationEnrollment {
   status: 'active' | 'completed' | 'stopped' | 'paused'
   next_step_at: string | null
   send_as_user_id: string | null
+  enrolled_at: string | null
 }
 
 interface Deal {
@@ -474,6 +475,7 @@ async function processQueue(
       status,
       next_step_at,
       send_as_user_id,
+      enrolled_at,
       automation:automations!inner(is_active)
     `)
     .eq('status', 'active')
@@ -654,13 +656,27 @@ async function processQueue(
           // paid invoice (e.g. an application fee paid months ago) would
           // make every fresh deposit-reminder enrollment stop on its
           // first cron tick, before any reminder could fire.
-          const { data: paidInvoices } = await supabase
+          // enrolled_at has to be SELECTED for this to work. It wasn't, so
+          // the filter read `paid_at=gte.undefined`, PostgREST rejected the
+          // query, and the unchecked destructure left paidInvoices undefined —
+          // i.e. "no payment found", every time. stop_on_payment therefore
+          // never stopped a single sequence, which is how a player who had
+          // paid their deposit kept getting chased.
+          let paidQuery = supabase
             .from('invoices')
             .select('id, paid_at')
             .eq('deal_id', enrollment.deal_id)
             .eq('status', 'paid')
-            .gte('paid_at', enrollment.enrolled_at)
             .limit(1)
+          if (enrollment.enrolled_at) {
+            paidQuery = paidQuery.gte('paid_at', enrollment.enrolled_at)
+          }
+          const { data: paidInvoices, error: paidError } = await paidQuery
+          if (paidError) {
+            summary.errors.push(
+              `stop_on_payment: could not read invoices for deal ${enrollment.deal_id}: ${paidError.message}`,
+            )
+          }
 
           if (paidInvoices && paidInvoices.length > 0) {
             // If the user configured a "paid" landing stage on this
