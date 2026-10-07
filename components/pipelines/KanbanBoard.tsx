@@ -20,7 +20,6 @@ interface KanbanBoardProps {
   onDealClick?: (deal: Deal) => void
   canMoveDeal?: (deal: Deal) => boolean
   onOpenSettings?: () => void
-  isFiltering?: boolean
   /** The deal just moved, so its destination column can reveal it. */
   revealDealId?: string | null
 }
@@ -108,7 +107,6 @@ export function KanbanBoard({
   onDealClick,
   canMoveDeal,
   onOpenSettings,
-  isFiltering = false,
   revealDealId = null,
 }: KanbanBoardProps) {
   const {
@@ -221,7 +219,6 @@ export function KanbanBoard({
               canMoveDeal={canMoveDeal}
               columnWidth={columnWidth}
               compact={compact}
-              isFiltering={isFiltering}
               revealDealId={revealDealId}
             />
           ))}

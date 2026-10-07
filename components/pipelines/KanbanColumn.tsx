@@ -1,16 +1,25 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Droppable } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, ChevronRight, ChevronDown, PoundSterling, Users } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Plus, ChevronRight, PoundSterling, Users, Search, X } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
+import { matchesDealSearch } from '@/lib/utils/deal-search'
 import { DealCard } from './DealCard'
 import { ColumnControls } from './ColumnControls'
-import { groupDealsByDate, groupingDateFor, type DealDateGroup } from './dealDateGroups'
+import { DATE_RANGES, withinDateRange, type DateRange } from './dealDateFilter'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
 import type { SortOption } from '@/lib/hooks/useColumnPreferences'
 
@@ -26,24 +35,25 @@ interface KanbanColumnProps {
   canMoveDeal?: (deal: Deal) => boolean
   columnWidth?: number
   compact?: boolean
-  // True while a search or filter is narrowing the board. Every date
-  // group opens so a match is never hidden inside a collapsed section.
-  isFiltering?: boolean
-  // The deal the user has just moved. Its date group opens wherever it lands,
-  // so the card is visible in its new column instead of disappearing into a
-  // folded section — see the comment on isGroupOpen below.
+  // The deal the user has just moved. If it landed past the visible window of
+  // its new column, the window grows to include it — otherwise the card
+  // appears to vanish on drop, which reads as a failed drag.
   revealDealId?: string | null
 }
 
-// Recent groups open by default; older history starts folded so a stage
-// with hundreds of leads opens as a short list of dated headers.
-function isOpenByDefault(group: DealDateGroup, index: number): boolean {
-  return index === 0 || group.key === 'today' || group.key === 'yesterday'
-}
+/**
+ * How many cards a column renders before asking.
+ *
+ * The board used to render every card in a stage. University "Dormant" holds
+ * 328 and the scrolling simply never ended; the browser also laid out 328
+ * draggables per column for a list nobody reads past the top of. Showing a
+ * screenful and offering the rest is the whole fix for that.
+ */
+const PAGE_SIZE = 25
 
 function sortDeals(deals: Deal[], sortBy: SortOption): Deal[] {
   const sorted = [...deals]
-  
+
   switch (sortBy) {
     case 'value-desc':
       return sorted.sort((a, b) => (b.deal_value || 0) - (a.deal_value || 0))
@@ -88,44 +98,46 @@ export function KanbanColumn({
   canMoveDeal,
   columnWidth = 320,
   compact = false,
-  isFiltering = false,
   revealDealId = null,
 }: KanbanColumnProps) {
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
 
-  const sortedDeals = useMemo(() => sortDeals(deals, sortBy), [deals, sortBy])
+  // Per-stage search and date range. Deliberately not persisted: these are
+  // "find me this player now" controls, and a filter still applied tomorrow
+  // would hide cards the recruiter has forgotten they filtered out.
+  const [search, setSearch] = useState('')
+  const [dateRange, setDateRange] = useState<DateRange>('all')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  // null = the sort isn't date-based, render a flat list as before.
-  const groups = useMemo(() => {
-    const getDate = groupingDateFor(sortBy)
-    return getDate ? groupDealsByDate(sortedDeals, getDate) : null
-  }, [sortedDeals, sortBy])
+  const matchedDeals = useMemo(() => {
+    const filtered = deals.filter(
+      (deal) => withinDateRange(deal, dateRange) && matchesDealSearch(deal, search),
+    )
+    return sortDeals(filtered, sortBy)
+  }, [deals, dateRange, search, sortBy])
 
-  // Only groups the user has explicitly toggled are stored; everything
-  // else falls back to isOpenByDefault.
-  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>({})
+  // Narrowing the list should start it from the top again, or a search that
+  // matches 3 cards would still be sitting on a window sized for the last one.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [search, dateRange, sortBy, stage.id])
 
-  // The group holding the just-moved card, if it landed in this column.
-  // Groups are keyed on created_at, but a card moved into a stage keeps the
-  // created_at it has always had — so dragging a three-week-old deal into a
-  // busy stage dropped it into a folded "September" section and the card
-  // simply vanished. It looked exactly like the drag had failed, which is how
-  // it was reported. Opening the destination group makes the move visible.
-  const revealKey = useMemo(() => {
-    if (!revealDealId || !groups) return null
-    return groups.find((g) => g.deals.some((d) => d.id === revealDealId))?.key ?? null
-  }, [groups, revealDealId])
+  // A dropped card keeps the created_at it has always had, so it can land
+  // anywhere in the order — including past the visible window. Grow the window
+  // rather than let the drop look like it failed.
+  const revealIndex = useMemo(
+    () => (revealDealId ? matchedDeals.findIndex((deal) => deal.id === revealDealId) : -1),
+    [matchedDeals, revealDealId],
+  )
+  useEffect(() => {
+    if (revealIndex >= 0) {
+      setVisibleCount((current) => (revealIndex < current ? current : revealIndex + 1))
+    }
+  }, [revealIndex])
 
-  const isGroupOpen = (group: DealDateGroup, index: number) =>
-    isFiltering ||
-    group.key === revealKey ||
-    (groupOverrides[group.key] ?? isOpenByDefault(group, index))
-
-  const toggleGroup = (group: DealDateGroup, index: number) =>
-    setGroupOverrides((prev) => ({ ...prev, [group.key]: !isGroupOpen(group, index) }))
-
-  const setAllGroups = (open: boolean) =>
-    setGroupOverrides(Object.fromEntries((groups ?? []).map((g) => [g.key, open])))
+  const visibleDeals = matchedDeals.slice(0, visibleCount)
+  const hiddenCount = matchedDeals.length - visibleDeals.length
+  const isNarrowed = search.trim() !== '' || dateRange !== 'all'
 
   const renderCard = (deal: Deal, index: number) => (
     <DealCard
@@ -137,59 +149,6 @@ export function KanbanColumn({
       compact={compact}
     />
   )
-
-  // Draggable indices must be contiguous across the whole droppable, so
-  // cards in collapsed groups are skipped rather than numbered.
-  const renderGroups = (dateGroups: DealDateGroup[]) => {
-    let index = 0
-    return dateGroups.map((group, groupIndex) => {
-      const open = isGroupOpen(group, groupIndex)
-      return (
-        <section key={group.key} className={cn(open ? 'mb-1' : 'mb-0.5')}>
-          <button
-            type="button"
-            onClick={() => toggleGroup(group, groupIndex)}
-            aria-expanded={open}
-            disabled={isFiltering}
-            className={cn(
-              'sticky top-0 z-[5] flex w-full items-center gap-1.5 rounded-md bg-card text-left',
-              'text-muted-foreground hover:text-foreground transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              'disabled:cursor-default disabled:hover:text-muted-foreground',
-              compact ? 'px-1 py-1' : 'px-1.5 py-1.5',
-            )}
-          >
-            <ChevronDown
-              className={cn(
-                'shrink-0 transition-transform duration-200',
-                compact ? 'h-3 w-3' : 'h-3.5 w-3.5',
-                !open && '-rotate-90',
-              )}
-            />
-            <span
-              className={cn(
-                'font-semibold uppercase tracking-wider',
-                compact ? 'text-[9px]' : 'text-[11px]',
-                group.key === 'today' && 'text-foreground',
-              )}
-            >
-              {group.label}
-            </span>
-            <span className="h-px flex-1 bg-border" aria-hidden />
-            <span
-              className={cn(
-                'tabular-nums rounded-full bg-muted px-1.5 font-medium',
-                compact ? 'text-[9px]' : 'text-[11px]',
-              )}
-            >
-              {formatNumber(group.deals.length)}
-            </span>
-          </button>
-          {open && <div className="pt-1">{group.deals.map((deal) => renderCard(deal, index++))}</div>}
-        </section>
-      )
-    })
-  }
 
   // Collapsed state
   if (isCollapsed) {
@@ -210,19 +169,19 @@ export function KanbanColumn({
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          
+
           <div
             className="w-2 h-2 rounded-full flex-shrink-0"
             style={{ backgroundColor: stage.color }}
           />
-          
+
           <span
             className="text-xs font-medium text-muted-foreground whitespace-nowrap"
             style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
           >
             {stage.name}
           </span>
-          
+
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
             {deals.length}
           </Badge>
@@ -233,27 +192,29 @@ export function KanbanColumn({
 
   return (
     <div
-      className="flex flex-col flex-shrink-0 rounded-xl border border-border/50 bg-card shadow-sm"
+      className="flex flex-col flex-shrink-0 rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden"
       style={{ width: columnWidth }}
     >
       {/* Column Header */}
       <div
         className={cn(
-          "sticky top-0 z-10 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 rounded-t-xl",
-          compact ? "px-2 py-2" : "px-3 py-3"
+          'sticky top-0 z-10 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80',
+          compact ? 'px-2 py-2' : 'px-3 py-3',
         )}
         style={{ borderLeftColor: stage.color, borderLeftWidth: 3 }}
       >
         <div className="flex items-center gap-1.5">
-          <h3 className={cn("font-semibold flex-1 truncate", compact ? "text-xs" : "text-sm")}>{stage.name}</h3>
+          <h3 className={cn('font-semibold flex-1 truncate', compact ? 'text-xs' : 'text-sm')}>
+            {stage.name}
+          </h3>
 
           <Badge
             variant="secondary"
             className={cn(
-              "font-medium tabular-nums",
-              compact ? "text-[10px] px-1 py-0" : "text-xs",
-              deals.length > 10 && "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
-              deals.length > 20 && "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
+              'font-medium tabular-nums',
+              compact ? 'text-[10px] px-1 py-0' : 'text-xs',
+              deals.length > 10 && 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300',
+              deals.length > 20 && 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300',
             )}
           >
             {!compact && <Users className="h-3 w-3 mr-1" />}
@@ -268,7 +229,6 @@ export function KanbanColumn({
               onCollapse={onToggleCollapse}
               onAddDeal={() => onAddClick(stage)}
               dealCount={deals.length}
-              onSetAllGroups={groups && groups.length > 1 && !isFiltering ? setAllGroups : undefined}
             />
           )}
         </div>
@@ -278,6 +238,65 @@ export function KanbanColumn({
             <PoundSterling className="h-3 w-3" />
             <span className="text-xs font-medium">{formatCurrency(totalValue)}</span>
           </div>
+        )}
+
+        {/* Per-stage search. The board-wide box above narrows every column at
+            once; this one answers "is this player sitting in Dormant?" without
+            disturbing the rest of the board. */}
+        <div className={cn('flex items-center gap-1.5', compact ? 'mt-1.5' : 'mt-2')}>
+          <div className="relative flex-1 min-w-0">
+            <Search
+              className={cn(
+                'absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none',
+                compact ? 'h-3 w-3' : 'h-3.5 w-3.5',
+              )}
+            />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Name or email…"
+              aria-label={`Search ${stage.name}`}
+              className={cn(
+                'pr-7',
+                compact ? 'h-6 pl-6 text-[10px]' : 'h-7 pl-7 text-xs',
+              )}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground"
+              >
+                <X className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+              </button>
+            )}
+          </div>
+
+          <Select value={dateRange} onValueChange={(value) => setDateRange(value as DateRange)}>
+            <SelectTrigger
+              aria-label={`Filter ${stage.name} by date added`}
+              className={cn(
+                'w-auto shrink-0 gap-1',
+                compact ? 'h-6 px-1.5 text-[10px]' : 'h-7 px-2 text-xs',
+              )}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {DATE_RANGES.map((range) => (
+                <SelectItem key={range.value} value={range.value} className="text-xs">
+                  {range.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {isNarrowed && (
+          <p className={cn('mt-1.5 text-muted-foreground', compact ? 'text-[9px]' : 'text-[11px]')}>
+            {formatNumber(matchedDeals.length)} of {formatNumber(deals.length)} match
+          </p>
         )}
       </div>
 
@@ -299,40 +318,56 @@ export function KanbanColumn({
       {/* Cards Container */}
       <Droppable droppableId={stage.id}>
         {(provided, snapshot) => (
-          <ScrollArea className={cn("flex-1 pb-2", compact ? "px-1" : "px-2")}>
+          <ScrollArea className={cn('flex-1 pb-2', compact ? 'px-1' : 'px-2')}>
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
               className={cn(
                 'min-h-[120px] pt-2 rounded-lg',
                 'transition-[background-color,box-shadow] duration-300 ease-out',
-                snapshot.isDraggingOver && 'bg-primary/5 ring-2 ring-dashed ring-primary/30'
+                snapshot.isDraggingOver && 'bg-primary/5 ring-2 ring-dashed ring-primary/30',
               )}
             >
-              {sortedDeals.length === 0 ? (
-                <div className={cn(
-                  "flex flex-col items-center justify-center text-center",
-                  compact ? "py-4 px-2" : "py-8 px-4"
-                )}>
+              {matchedDeals.length === 0 ? (
+                <div
+                  className={cn(
+                    'flex flex-col items-center justify-center text-center',
+                    compact ? 'py-4 px-2' : 'py-8 px-4',
+                  )}
+                >
                   {!compact && (
                     <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
                       <Users className="h-5 w-5 text-muted-foreground/50" />
                     </div>
                   )}
-                  <p className={cn("text-muted-foreground", compact ? "text-[10px]" : "text-sm mb-1")}>No deals yet</p>
+                  <p className={cn('text-muted-foreground', compact ? 'text-[10px]' : 'text-sm mb-1')}>
+                    {isNarrowed ? 'No matches' : 'No deals yet'}
+                  </p>
                   {!compact && (
                     <p className="text-xs text-muted-foreground/70">
-                      Drag a deal here or click Add
+                      {isNarrowed ? 'Try a different name, email or date' : 'Drag a deal here or click Add'}
                     </p>
                   )}
                 </div>
-              ) : groups ? (
-                renderGroups(groups)
               ) : (
-                sortedDeals.map(renderCard)
+                visibleDeals.map(renderCard)
               )}
               {provided.placeholder}
             </div>
+
+            {hiddenCount > 0 && (
+              <div className={cn('pt-1', compact ? 'pb-1' : 'pb-2')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn('w-full text-muted-foreground', compact ? 'h-6 text-[10px]' : 'h-7 text-xs')}
+                  onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
+                >
+                  Show {formatNumber(Math.min(PAGE_SIZE, hiddenCount))} more
+                  <span className="ml-1 opacity-70">({formatNumber(hiddenCount)} hidden)</span>
+                </Button>
+              </div>
+            )}
           </ScrollArea>
         )}
       </Droppable>

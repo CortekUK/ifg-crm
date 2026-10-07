@@ -17,8 +17,6 @@ import {
   ChevronLeft,
   Plus,
   Download,
-  ChevronsDownUp,
-  ChevronsUpDown,
 } from 'lucide-react'
 import type { SortOption } from '@/lib/hooks/useColumnPreferences'
 import type { PipelineStage } from '@/lib/types/pipelines'
@@ -30,8 +28,6 @@ interface ColumnControlsProps {
   onCollapse: () => void
   onAddDeal: () => void
   dealCount: number
-  // Present only when the column is showing date groups.
-  onSetAllGroups?: (open: boolean) => void
 }
 
 export function ColumnControls({
@@ -41,7 +37,6 @@ export function ColumnControls({
   onCollapse,
   onAddDeal,
   dealCount,
-  onSetAllGroups,
 }: ColumnControlsProps) {
   return (
     <DropdownMenu>
@@ -73,19 +68,6 @@ export function ColumnControls({
           <ChevronLeft className="h-4 w-4 mr-2" />
           Collapse column
         </DropdownMenuItem>
-
-        {onSetAllGroups && (
-          <>
-            <DropdownMenuItem onClick={() => onSetAllGroups(true)}>
-              <ChevronsUpDown className="h-4 w-4 mr-2" />
-              Expand all dates
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSetAllGroups(false)}>
-              <ChevronsDownUp className="h-4 w-4 mr-2" />
-              Collapse all dates
-            </DropdownMenuItem>
-          </>
-        )}
 
         <DropdownMenuSeparator />
 
