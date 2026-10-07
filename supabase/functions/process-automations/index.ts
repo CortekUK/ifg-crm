@@ -1727,7 +1727,32 @@ async function processEmailStep(
           )
 
           if (portalInviteError) {
+            // A failed invite used to go to the server log and nowhere else.
+            // The welcome email still went out, so the player was welcomed to a
+            // portal they had no account for, and the recruiter had no way to
+            // know — they would only find out when the player said they could
+            // not log in.
+            //
+            // Written to the deal's timeline, which is the one place the
+            // recruiter actually looks, and to the run summary so it shows up
+            // in the engine's own error list. 'note_added' because the
+            // activity_type check constraint has no failure category; the
+            // description carries the meaning.
             console.warn(`create_portal_account: invite failed for ${contact.email}: ${portalInviteError.message}`)
+            summary.errors.push(
+              `create_portal_account: portal invite FAILED for ${contact.email} (deal ${enrollment.deal_id}): ${portalInviteError.message}`,
+            )
+            if (enrollment.deal_id) {
+              await supabase.from('deal_activities').insert({
+                deal_id: enrollment.deal_id,
+                activity_type: 'note_added',
+                description:
+                  `\u26a0\ufe0f Portal invite FAILED for ${contact.email} — the welcome email was sent but ` +
+                  `this player has no portal account. Invite them by hand from the contact. ` +
+                  `Reason: ${portalInviteError.message}`,
+                performed_by_id: senderId ?? null,
+              })
+            }
           } else {
             // player_invites.invited_by is NOT NULL, and an enrollment created
             // by the stage trigger always has send_as_user_id NULL — so this

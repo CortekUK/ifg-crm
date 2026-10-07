@@ -151,11 +151,27 @@ Deno.serve(async (req) => {
     // above is the reliable source, but if it fails we previously stored an
     // empty body — losing the reply text entirely for a message we know
     // arrived. Anything is better than nothing here.
+    //
+    // `||` is not enough here. Some clients send a plain-text part that is a
+    // single newline rather than nothing at all — Outlook and Apple Mail do it
+    // on heavily formatted replies. "\n" is truthy, so the fallback to the HTML
+    // never ran and the reply was stored as one blank character while 600KB of
+    // real text sat in html_body. Staff saw an empty message and concluded the
+    // player had sent nothing. Treat whitespace-only as absent.
+    const replyHtml = fetched.html || event.data.html || ''
     const replyText =
-      fetched.text ||
-      stripHtml(fetched.html || '') ||
-      event.data.text ||
-      stripHtml(event.data.html || '')
+      firstNonBlank(
+        fetched.text,
+        stripHtml(fetched.html || ''),
+        event.data.text,
+        stripHtml(event.data.html || ''),
+      ) ||
+      // A reply really can carry no text at all: players photograph a
+      // completed registration form and send the picture on its own. Two real
+      // replies are exactly this — a base64 JPEG in a <div> and nothing else.
+      // Stored as blank they read as "the player sent nothing", so staff never
+      // opened them and never saw the form. Say what arrived instead.
+      (/<img[\s>]/i.test(replyHtml) ? '[This reply contains an image and no text — open the full thread to view it]' : '')
     const inReplyTo = fetched.inReplyTo || event.data.in_reply_to || null
     const references = fetched.references || null
     const inboundTo = fetched.to ?? (event.data.to as string[] | undefined) ?? null
@@ -700,6 +716,14 @@ const MAX_CLASSIFICATION_CHARS = 2000
  * survives. Falls back to the original text when no quote markers are
  * present.
  */
+/** The first candidate with actual content — whitespace-only counts as absent. */
+function firstNonBlank(...candidates: (string | null | undefined)[]): string {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate
+  }
+  return ''
+}
+
 function stripQuotedThread(text: string): string {
   if (!text) return ''
   const patterns: RegExp[] = [
