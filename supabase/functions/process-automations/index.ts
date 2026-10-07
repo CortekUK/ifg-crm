@@ -829,7 +829,12 @@ async function processQueue(
           // types these lookups are unused but cheap.
           let dealFields: Record<string, unknown> | null = null
           let meetingEndTime: string | null = null
-          if (nextStep.step_type === 'wait_until_before_date') {
+          if (
+            nextStep.step_type === 'wait_until_before_date' ||
+            // wait_until_meeting_ends needs these too now: it falls back to
+            // the deal's interview_date when no Calendly booking exists.
+            nextStep.step_type === 'wait_until_meeting_ends'
+          ) {
             const { data: dealRow } = await supabase
               .from('deals')
               .select('interview_date, programme_start_date, arrival_date')
@@ -2418,9 +2423,34 @@ function calculateNextStepTime(
   }
 
   if (step.step_type === 'wait_until_meeting_ends') {
-    if (!meetingEndTime) return null
-    const target = new Date(meetingEndTime)
-    if (isNaN(target.getTime())) return null
+    // A booked Calendly meeting is the best answer, and the interview date on
+    // the deal is the fallback.
+    //
+    // Without the fallback this returned null for anyone with no
+    // calendly_events row, the enrollment parked with next_step_at NULL, and
+    // because it is the LAST step of a meeting_scheduler automation it never
+    // completed — the player stayed "active" in the automation forever. In
+    // practice that was everyone, since no Calendly booking has ever reached
+    // the CRM, so the stage's whole population accumulated as permanently
+    // in-progress and a recruiter had no way to see why.
+    //
+    // The interview date is a date with no time, so "end of that day" is the
+    // honest reading of when the meeting is over.
+    let target: Date | null = null
+    if (meetingEndTime) {
+      const booked = new Date(meetingEndTime)
+      if (!isNaN(booked.getTime())) target = booked
+    }
+    if (!target) {
+      const raw = dealFields?.interview_date
+      if (raw && typeof raw === 'string') {
+        const dayEnd = new Date(`${raw.slice(0, 10)}T23:59:59Z`)
+        if (!isNaN(dayEnd.getTime())) target = dayEnd
+      }
+    }
+    // Neither a booking nor a date: there is no meeting to wait for, so
+    // complete now rather than parking forever.
+    if (!target) return new Date()
     // delay_days/hours act as a positive buffer here ("wait N hours after
     // the meeting ends before completing"). Default 0 = complete as soon
     // as the meeting end time has passed.
@@ -2443,8 +2473,10 @@ function calculateNextStepTime(
  * `next_step_at` is NULL because the source data wasn't available when we
  * advanced. Two flavours:
  *   - wait_until_before_date: parked because deals.<field> was null.
- *   - wait_until_meeting_ends: parked because no calendly_events row yet
- *     for this deal (or its end_time hadn't been written).
+ *   - wait_until_meeting_ends: parked by an older run because no
+ *     calendly_events row existed. It no longer parks — it falls back to the
+ *     deal's interview_date, or completes — but the sweep still un-sticks the
+ *     enrollments an earlier version left behind.
  * If the source data is set now, compute next_step_at and unstick.
  */
 async function sweepBeforeDateWaits(

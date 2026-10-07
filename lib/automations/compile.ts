@@ -283,9 +283,12 @@ function meetingSchedulerSequence(
     )
     steps.push(emailStep(reminder.template_id))
   }
-  // Final step: wait for the booked meeting to end. The enrollment naturally
+  // Final step: wait for the meeting to be over. The enrollment naturally
   // completes once this step's next_step_at elapses (no further steps after
-  // it). Resolves from the deal's most recent scheduled calendly_event.end_time.
+  // it). Resolves from the deal's most recent scheduled calendly_event.end_time,
+  // falling back to the end of the day on deals.interview_date — without that
+  // fallback a player with no Calendly booking never reached the end and stayed
+  // "active" in the automation indefinitely.
   steps.push({
     step_type: 'wait_until_meeting_ends',
     delay_days: 0,
