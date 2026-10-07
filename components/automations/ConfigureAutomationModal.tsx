@@ -1216,20 +1216,22 @@ export function ConfigureAutomationModal({
                         Configure the invoice this automation will issue when
                         a deal enters the trigger stage. The deal must already
                         have a value (from the Deal Creation automation or
-                        manual entry) for percentage / full-value amounts to
-                        work.
+                        manual entry) for the percentage and full-value options
+                        to work — the programme deposit needs nothing on the
+                        deal.
                       </p>
 
                       <div className="space-y-2">
                         <Label>Amount Source</Label>
                         <Select
-                          value={formData.config.invoice_amount_source || 'deal_value'}
+                          value={formData.config.invoice_amount_source || 'programme_deposit'}
                           onValueChange={(value) =>
                             setFormData((prev) => ({
                               ...prev,
                               config: {
                                 ...prev.config,
                                 invoice_amount_source: value as
+                                  | 'programme_deposit'
                                   | 'deal_value'
                                   | 'percentage'
                                   | 'custom',
@@ -1241,6 +1243,9 @@ export function ConfigureAutomationModal({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="programme_deposit">
+                              Programme deposit (recommended)
+                            </SelectItem>
                             <SelectItem value="deal_value">
                               Full deal value
                             </SelectItem>
@@ -1252,6 +1257,14 @@ export function ConfigureAutomationModal({
                             </SelectItem>
                           </SelectContent>
                         </Select>
+                        {(formData.config.invoice_amount_source || 'programme_deposit') ===
+                          'programme_deposit' && (
+                          <p className="text-xs text-muted-foreground">
+                            Uses the deposit published for this programme under Website &rarr;
+                            Pricing — the same amount a player pays on the website. Change it
+                            there and every invoice follows, with nothing to re-type here.
+                          </p>
+                        )}
                       </div>
 
                       {formData.config.invoice_amount_source === 'percentage' && (

@@ -2019,6 +2019,68 @@ async function processMoveToStageStep(
  * post-insert — so reading after the insert would give us the freshly-set
  * invoice amount instead of the programme's list price.
  */
+/**
+ * The published deposit for the programme a pipeline belongs to.
+ *
+ * There is no programme column on pipelines, so the link is the one the public
+ * deposit route already uses: a programme's form-submission automation names
+ * the pipeline its leads land in, so pipeline → form_id → programme key →
+ * website_pricing_settings.deposit_default. Resolved at runtime rather than
+ * from hardcoded pipeline ids, which is how the website side does it too.
+ *
+ * MIRROR: the form_id → programme mapping is PAYMENT_PROGRAMMES[*].formId in
+ * lib/payments/programmes.ts. Edge functions can't import from lib/, so the
+ * three pairs are restated here — change both together.
+ *
+ * Returns null when nothing can be resolved (no automation, unknown form id,
+ * deposits switched off, or no amount set), so the caller can decide what to
+ * do rather than silently billing £0.
+ */
+async function resolveProgrammeDeposit(
+  supabase: ReturnType<typeof createClient>,
+  pipelineId: string | null,
+): Promise<number | null> {
+  if (!pipelineId) return null
+
+  const FORM_ID_TO_PROGRAMME: Record<string, string> = {
+    summer: 'residency',
+    university: 'university',
+    gapyear: 'gapyear',
+  }
+
+  const { data: automations } = await supabase
+    .from('automations')
+    .select('config')
+    .eq('trigger_type', 'form_submission')
+    .eq('pipeline_id', pipelineId)
+    .eq('is_active', true)
+
+  let programmeKey: string | null = null
+  for (const a of (automations ?? []) as { config: { form_id?: string; form_ids?: string[] } | null }[]) {
+    const cfg = a.config || {}
+    const ids = cfg.form_ids?.length ? cfg.form_ids : cfg.form_id ? [cfg.form_id] : []
+    for (const id of ids) {
+      if (FORM_ID_TO_PROGRAMME[id]) {
+        programmeKey = FORM_ID_TO_PROGRAMME[id]
+        break
+      }
+    }
+    if (programmeKey) break
+  }
+
+  if (!programmeKey) return null
+
+  const { data: settings } = await supabase
+    .from('website_pricing_settings')
+    .select('deposit_default, deposit_enabled')
+    .eq('programme', programmeKey)
+    .maybeSingle()
+
+  if (!settings?.deposit_enabled) return null
+  const deposit = Number(settings.deposit_default)
+  return Number.isFinite(deposit) && deposit > 0 ? deposit : null
+}
+
 async function processCreateInvoiceStep(
   supabase: ReturnType<typeof createClient>,
   enrollment: AutomationEnrollment,
@@ -2028,7 +2090,7 @@ async function processCreateInvoiceStep(
   // Pull deal (need value, contact, owner)
   const { data: deal, error: dealError } = await supabase
     .from('deals')
-    .select('id, title, contact_id, deal_owner_id, owner_id, deal_value')
+    .select('id, title, contact_id, deal_owner_id, owner_id, deal_value, pipeline_id')
     .eq('id', enrollment.deal_id)
     .single()
 
@@ -2046,7 +2108,7 @@ async function processCreateInvoiceStep(
     .single()
 
   const cfg = (automationMeta?.config ?? {}) as {
-    invoice_amount_source?: 'deal_value' | 'percentage' | 'custom'
+    invoice_amount_source?: 'programme_deposit' | 'deal_value' | 'percentage' | 'custom'
     invoice_amount_percent?: number
     invoice_amount_custom?: number
     invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
@@ -2058,6 +2120,30 @@ async function processCreateInvoiceStep(
   const dealValue = Number(deal.deal_value ?? 0)
   let amount: number
   switch (cfg.invoice_amount_source) {
+    case 'programme_deposit': {
+      // The deposit the website charges for this programme, so the invoice a
+      // recruiter raises by moving a card to Send Invoice is for the same
+      // figure as the one a player would pay online.
+      //
+      // Taking it from a per-automation "custom amount" meant the deposit
+      // lived in two places and drifted the moment one was updated — the
+      // Residency deposit went £1,000 → £2,000 in the website settings
+      // (migration 179) and any invoice automation carrying the old number by
+      // hand would have gone on billing £1,000.
+      const resolved = await resolveProgrammeDeposit(supabase, deal.pipeline_id)
+      if (resolved === null) {
+        // Fall through to the configured custom amount rather than raising a
+        // £0 invoice, and say so, because a programme with no published
+        // deposit is a setup problem somebody has to see.
+        summary.errors.push(
+          `create_invoice: no published deposit found for deal ${deal.id}'s programme — using the configured custom amount instead`,
+        )
+        amount = Number(cfg.invoice_amount_custom ?? 0) || dealValue
+      } else {
+        amount = resolved
+      }
+      break
+    }
     case 'percentage': {
       const pct = Number(cfg.invoice_amount_percent ?? 0)
       amount = Math.round((dealValue * pct) / 100 * 100) / 100
