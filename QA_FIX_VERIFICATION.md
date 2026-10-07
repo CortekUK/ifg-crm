@@ -8,6 +8,35 @@ what to screenshot**.
 
 ---
 
+## 📍 CURRENT STATE — updated 7 Oct 2026, after the Supabase push
+
+| Target | Status | What that unblocks |
+| --- | --- | --- |
+| **Migration 192** (`activated_at`) | ✅ **APPLIED** — all 26 automations backfilled | prerequisite for 3.1 |
+| **`process-automations`** | ✅ **DEPLOYED** (v90) | **all of Part 3 and Part 5 are testable now** |
+| **`resend-inbound`** | ✅ **DEPLOYED** (v67) | test 3.12 |
+| **Web app** | ❌ **NOT DEPLOYED** | Parts 1, 2.1, and full 3.1/3.4 are blocked |
+| **Migrations 190 / 191 / 193** | ❌ **NOT APPLIED** — awaiting sign-off | tests 2.1, 2.2, 2.3 blocked |
+
+**So today: start with Part 5, then Part 3.** Parts 1 and 2 need a Vercel deploy
+and the remaining migrations.
+
+### One caveat on test 3.1 until the web app ships
+
+`activated_at` is written by the **toggle**, which is web-app code. Until that
+deploys, a newly created automation has `activated_at = NULL` and the engine
+falls back to `created_at`. Practical effect:
+
+- ✅ **Works now:** move the QA players onto the stage **first**, *then* create
+  the automation, *then* activate. (Players arrived before `created_at`.)
+- ❌ **Needs the web deploy:** create the automation first, then move players on,
+  then activate. Without the toggle stamping `activated_at`, those players
+  *would* be enrolled.
+
+Test 3.1 is written in the working order, so run it as written.
+
+---
+
 ## ⚠️ READ THIS FIRST — three things deploy separately
 
 A fix only appears once its deploy target is live. Most "it didn't work" reports
@@ -754,6 +783,67 @@ Do not test these; they need Ghulam's answer:
   one still fires immediately on entering Dormant. Which is wanted?
 - **QA-20 Suggestion 1** — re-entering Application re-sends the confirmation.
   The "Move deal backwards?" dialog does warn, so this is working as built.
+
+---
+
+# PART 5 — engine health check (do this first, it takes 2 minutes)
+
+Two **pre-existing** production bugs were found while deploying — neither was
+part of the Notion round, and neither was anyone's fault: nothing had ever read
+this function's error output. Both are now fixed. This is how you confirm they
+stay fixed, and it doubles as the fastest proof the deploy is healthy.
+
+## 5.1 — The automation engine reports no errors
+
+**Where:** Supabase Dashboard → **Edge Functions** → `process-automations` →
+**Logs**. Or invoke it directly and read the JSON response.
+
+| Before | Now |
+| --- | --- |
+| Every run returned an `errors` array containing **`Failed to fetch deals for exit check: ... http2 error: stream error detected`**. `checkExitConditions` collected all 452 active enrollment ids into a `.in('id', …)` filter, building an ~18KB URL that died before reaching Postgres. **Every run, silently.** | `"errors": []` |
+| Some runs also carried **`duplicate key value violates unique constraint "automation_enrollments_automation_id_deal_id_key"`** — one conflicting row failed the whole batch insert, silently un-enrolling every other deal in it. | gone |
+
+**Steps**
+1. Open the most recent `process-automations` invocation log.
+2. **Screenshot:** the response body showing `"errors": []`.
+3. Check two or three consecutive runs — all should be clean.
+
+A healthy run looks like:
+
+```json
+{ "success": true, "summary": {
+    "enrollmentsCreated": 0, "stepsProcessed": 0, "emailsQueued": 0,
+    "stagesMoved": 0, "enrollmentsCompleted": 0,
+    "enrollmentsStopped": 0, "enrollmentsStoppedByReply": 0,
+    "errors": [] } }
+```
+
+Non-zero numbers are fine and normal — they mean work happened. **Only a
+non-empty `errors` array is a failure.**
+
+## 5.2 — Exit-stage stopping actually works again
+
+`checkExitConditions` stops an enrollment when its deal reaches one of the
+automation's stop stages. It had been dead for a while — long enough that the
+count of such stops was frozen.
+
+**Evidence:** run this read-only query now, and again in a few days.
+
+```sql
+select count(*) as stopped_by_exit_check,
+       max(updated_at) as most_recent
+from automation_enrollments
+where stopped_reason = 'Deal moved to exit stage';
+```
+
+- At the moment of the fix this read **53** (it had been stuck at 52; the fix
+  stopped one on its very first clean run).
+- **Expected:** the number **grows** over the coming days as deals reach stop
+  stages. If it is still 53 in a week with normal pipeline activity, reopen.
+
+> This path is a safety net — the board also stops sequences client-side when
+> you drag a card — so you will not always see it fire on demand. The count
+> over time is the honest measure, not a single hand-run test.
 
 ---
 
