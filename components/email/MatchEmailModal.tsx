@@ -37,6 +37,8 @@ import type { EmailReply, EmailIntent } from '@/lib/types/email'
 import { OwnerSelect } from '@/components/ui/owner-select'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
+import { resolveNewLeadStageId } from '@/lib/forms/lead-routing'
+import { useDealValueForPipeline } from '@/lib/hooks/useDealValueForPipeline'
 
 interface MatchEmailModalProps {
   reply: EmailReply | null
@@ -72,6 +74,7 @@ export function MatchEmailModal({
   const { data: pipelines = [] } = usePipelines()
   const matchReply = useMatchEmailReply()
   const { data: currentUser } = useCurrentUser()
+  const dealValueForPipeline = useDealValueForPipeline()
   const defaultOwnerId = isExcludedDealOwnerEmail(currentUser?.email) ? null : userId
 
   // Reset state when modal opens
@@ -103,22 +106,22 @@ export function MatchEmailModal({
         const supabase = createClient()
         const selectedContact = contacts.find((c) => c.id === selectedContactId)
 
-        // Get the first stage of the pipeline
-        const { data: stages } = await supabase
-          .from('pipeline_stages')
-          .select('id')
-          .eq('pipeline_id', selectedPipelineId)
-          .order('display_order')
-          .limit(1)
+        // QA-32 bugs 1 and 2, surviving in a second place. This dialog's
+        // optional "create a deal" had the same two defects QA raised against
+        // Smart Deal and which were only fixed there: the first stage by
+        // display_order is `Dormant` on all three pipelines, so a player who
+        // had just written back was filed in a dead end nobody works, worth
+        // £0 beside the £12,000 and £15,000 deals around it.
+        const newLeadStageId = await resolveNewLeadStageId(supabase, selectedPipelineId)
 
-        if (stages && stages.length > 0 && selectedContact) {
+        if (newLeadStageId && selectedContact) {
           await supabase.from('deals').insert({
             contact_id: selectedContactId,
             pipeline_id: selectedPipelineId,
-            current_stage_id: stages[0].id,
+            current_stage_id: newLeadStageId,
             deal_owner_id: selectedOwnerId,
             title: `${selectedContact.first_name} ${selectedContact.last_name}`,
-            deal_value: 0,
+            deal_value: dealValueForPipeline(selectedPipelineId),
             source: 'email_reply',
           })
         }

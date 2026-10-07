@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Trash2, UserPlus, Eye, ExternalLink, MoreVertical, Undo2 } from 'lucide-react'
+import { Trash2, UserPlus, Eye, ExternalLink, MoreVertical, Undo2, UserCog, Link2Off } from 'lucide-react'
 import { formatRelativeTime, formatDateTime } from '@/lib/utils/format'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,10 @@ interface EmailReplyCardProps {
   onMarkSpam: (reply: EmailReply) => void
   onUnmarkSpam?: (reply: EmailReply) => void
   onViewFull: (reply: EmailReply) => void
+  /** Re-open the match dialog on an already-matched reply (QA-31 bug 5). */
+  onChangeContact?: (reply: EmailReply) => void
+  /** Detach a reply from the wrong player (QA-31 bug 5). */
+  onUnmatch?: (reply: EmailReply) => void
   selectable?: boolean
   selected?: boolean
   onSelectChange?: (reply: EmailReply, selected: boolean) => void
@@ -46,6 +50,8 @@ export function EmailReplyCard({
   onMarkSpam,
   onUnmarkSpam,
   onViewFull,
+  onChangeContact,
+  onUnmatch,
   selectable = false,
   selected = false,
   onSelectChange,
@@ -203,6 +209,21 @@ export function EmailReplyCard({
                 <DropdownMenuItem onClick={() => onViewContact(reply.contact!.id)}>
                   <ExternalLink className="h-3.5 w-3.5 mr-2" />
                   Open contact
+                </DropdownMenuItem>
+              )}
+              {/* QA-31 bug 5: a match was one-way. Matching a reply to the
+                  wrong player left it attached to them with no correction and
+                  no undo. */}
+              {isMatched && onChangeContact && (
+                <DropdownMenuItem onClick={() => onChangeContact(reply)}>
+                  <UserCog className="h-3.5 w-3.5 mr-2" />
+                  Change contact
+                </DropdownMenuItem>
+              )}
+              {isMatched && onUnmatch && (
+                <DropdownMenuItem onClick={() => onUnmatch(reply)}>
+                  <Link2Off className="h-3.5 w-3.5 mr-2" />
+                  Unmatch
                 </DropdownMenuItem>
               )}
               {!isMatched && !isSpam && (

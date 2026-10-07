@@ -31,8 +31,10 @@ import {
   analyzeEmailReplies,
   analyzeSMSMessages,
   getConfidenceLevel,
+  newContactNameFor,
   type MatchSuggestion,
 } from '@/lib/utils/smartMatch'
+import { ContactPickerPopover } from '@/components/replies/ContactPickerPopover'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import type { Contact } from '@/lib/types/contacts'
 import type { EmailReply } from '@/lib/types/email'
@@ -59,7 +61,9 @@ export function SmartMatchModal({
   const [isApplying, setIsApplying] = useState(false)
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [contacts, setContacts] = useState<Contact[]>([])
+  // QA-31 bug 2: the contact a human picked for a row, overriding whatever was
+  // suggested. `null` means they explicitly chose "create a new contact".
+  const [overrides, setOverrides] = useState<Map<string, Contact | null>>(new Map())
 
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -80,25 +84,16 @@ export function SmartMatchModal({
     setIsAnalyzing(true)
 
     try {
-      // Fetch all contacts for matching
-      const { data: contactsData, error } = await supabase
-        .from('contacts')
-        .select('*')
-        .order('first_name')
-
-      if (error) throw error
-
-      setContacts(contactsData || [])
-
-      // Run matching algorithm
-      let results: MatchSuggestion[]
-      if (type === 'email') {
-        results = analyzeEmailReplies(replies, contactsData || [])
-      } else {
-        results = analyzeSMSMessages(messages, contactsData || [])
-      }
+      // Scoring runs in the database now. It used to run here, over a
+      // `.select('*')` on contacts that PostgREST capped at 1,000 rows — see
+      // the note on analyzeEmailReplies.
+      const results: MatchSuggestion[] =
+        type === 'email'
+          ? await analyzeEmailReplies(supabase, replies)
+          : await analyzeSMSMessages(supabase, messages)
 
       setSuggestions(results)
+      setOverrides(new Map())
 
       // Pre-select high confidence matches (85%+)
       const highConfidenceIds = new Set(
@@ -149,6 +144,24 @@ export function SmartMatchModal({
     )
   }
 
+  /**
+   * The contact a row will actually be matched to: the human's choice if they
+   * made one, otherwise the database's suggestion. `null` means "create a new
+   * contact". Every read of the target goes through here so the preview, the
+   * footer counts and the apply loop cannot disagree about what will happen.
+   */
+  const targetFor = (suggestion: MatchSuggestion): Contact | null =>
+    overrides.has(suggestion.replyId)
+      ? overrides.get(suggestion.replyId) ?? null
+      : suggestion.suggestedContact
+
+  const setTarget = (replyId: string, contact: Contact | null) => {
+    setOverrides((prev) => new Map(prev).set(replyId, contact))
+    // Picking a contact by hand is a statement of intent — tick the row so the
+    // choice is not silently dropped on apply.
+    setSelectedIds((prev) => new Set(prev).add(replyId))
+  }
+
   const applyMatches = async () => {
     setIsApplying(true)
 
@@ -163,14 +176,19 @@ export function SmartMatchModal({
     try {
       for (const suggestion of selectedSuggestions) {
         try {
-          let contactId = suggestion.suggestedContact?.id
+          // QA-31 bug 2: honour the contact the user picked for this row, not
+          // whatever was originally suggested.
+          const target = targetFor(suggestion)
+          let contactId = target?.id
 
           // Create new contact if no match
-          if (suggestion.createNew || !contactId) {
+          if (!contactId) {
             if (type === 'email') {
-              const nameParts = suggestion.replyName?.split(' ') || []
-              const firstName = nameParts[0] || suggestion.replyIdentifier.split('@')[0]
-              const lastName = nameParts.slice(1).join(' ') || ''
+              // QA-31 bug 4: the SAME name the row previewed. This used to
+              // build its own, saving the raw local part as the first name
+              // with no surname, so `john.smith@…` became a contact called
+              // "john.smith" while the preview had promised "John Smith".
+              const { firstName, lastName } = newContactNameFor(suggestion)
               const email = suggestion.replyIdentifier.toLowerCase()
 
               // First check if contact with this email already exists
@@ -300,8 +318,9 @@ export function SmartMatchModal({
             }
           }
 
-          // Count as matched if we used an existing contact (from algorithm suggestion)
-          if (!suggestion.createNew && suggestion.suggestedContact) {
+          // Count as matched if we used an existing contact — whether the
+          // database suggested it or the user picked it.
+          if (target) {
             matchedCount++
           }
         } catch (error) {
@@ -347,38 +366,31 @@ export function SmartMatchModal({
     return `${contact.first_name?.[0] || ''}${contact.last_name?.[0] || ''}`.toUpperCase() || '??'
   }
 
+  // The name a "create new contact" row will be saved under. Shares its one
+  // definition with the INSERT, so the two can no longer differ (QA-31 bug 4).
   const getNewContactName = (suggestion: MatchSuggestion) => {
-    if (type === 'email' && suggestion.replyName) {
-      return suggestion.replyName
-    }
-    if (type === 'email') {
-      // Parse name from email address (before @)
-      const localPart = suggestion.replyIdentifier.split('@')[0]
-      // Convert dots/underscores to spaces and capitalize
-      return localPart
-        .replace(/[._]/g, ' ')
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ')
-    }
-    // For SMS, just show the phone number
-    return suggestion.replyIdentifier
+    const { firstName, lastName } = newContactNameFor(suggestion)
+    return `${firstName} ${lastName}`.trim()
   }
 
   const stats = useMemo(() => {
     const selected = suggestions.filter((s) => selectedIds.has(s.replyId))
+    // Counted off the effective target, so picking a contact by hand moves a
+    // row from "New Contacts" to "to Match" in the footer straight away.
+    const effective = (s: MatchSuggestion) =>
+      overrides.has(s.replyId) ? overrides.get(s.replyId) ?? null : s.suggestedContact
 
     return {
       total: suggestions.length,
       selected: selected.length,
-      toMatch: selected.filter((s) => s.suggestedContact && !s.createNew).length,
-      toCreate: selected.filter((s) => s.createNew || !s.suggestedContact).length,
+      toMatch: selected.filter((s) => !!effective(s)).length,
+      toCreate: selected.filter((s) => !effective(s)).length,
       highConfidence: suggestions.filter((s) => s.confidence >= 90).length,
       mediumConfidence: suggestions.filter((s) => s.confidence >= 70 && s.confidence < 90).length,
       lowConfidence: suggestions.filter((s) => s.confidence > 0 && s.confidence < 70).length,
-      noMatch: suggestions.filter((s) => s.confidence === 0).length,
+      noMatch: suggestions.filter((s) => !effective(s)).length,
     }
-  }, [suggestions, selectedIds])
+  }, [suggestions, selectedIds, overrides])
 
   // Get pipeline name helper
   const getPipelineName = (pipelineId: string | null) => {
@@ -461,6 +473,11 @@ export function SmartMatchModal({
               <div className="px-4 py-3 space-y-2">
                 {suggestions.map((suggestion) => {
                   const isSelected = selectedIds.has(suggestion.replyId)
+                  const target = targetFor(suggestion)
+                  const isOverridden = overrides.has(suggestion.replyId)
+                  // A hand-picked contact has no algorithmic confidence to
+                  // report — showing the old score next to a different
+                  // contact would be a lie about what was matched.
                   const level = getConfidenceLevel(suggestion.confidence)
                   const hasPipeline = !!suggestion.campaignPipelineId
                   const pipelineName = getPipelineName(suggestion.campaignPipelineId)
@@ -509,21 +526,25 @@ export function SmartMatchModal({
                         →
                       </div>
 
-                      {/* Suggested Match */}
-                      <div className="w-32 shrink-0 min-w-0">
-                        {suggestion.suggestedContact ? (
+                      {/* Target contact, with a picker so a wrong or missing
+                          suggestion can be corrected here (QA-31 bug 2). */}
+                      <div
+                        className="w-40 shrink-0 min-w-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {target ? (
                           <div className="flex items-center gap-2">
                             <Avatar className="h-8 w-8 shrink-0 border-2 border-green-200 dark:border-green-800">
                               <AvatarFallback className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-xs font-semibold">
-                                {getInitials(suggestion.suggestedContact)}
+                                {getInitials(target)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0 overflow-hidden">
                               <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                                {suggestion.suggestedContact.first_name} {suggestion.suggestedContact.last_name}
+                                {target.first_name} {target.last_name}
                               </p>
                               <p className="text-xs text-muted-foreground truncate">
-                                {suggestion.suggestedContact.email || suggestion.suggestedContact.phone}
+                                {target.email || target.phone}
                               </p>
                             </div>
                           </div>
@@ -542,6 +563,20 @@ export function SmartMatchModal({
                             </div>
                           </div>
                         )}
+                        <ContactPickerPopover
+                          initialSearch={suggestion.replyName || suggestion.replyIdentifier}
+                          selectedContactId={target?.id ?? null}
+                          onSelect={(c) => setTarget(suggestion.replyId, c)}
+                          onCreateNew={() => setTarget(suggestion.replyId, null)}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-0.5 h-6 w-full justify-start px-1 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            {target ? 'Change contact' : 'Choose a contact'}
+                          </Button>
+                        </ContactPickerPopover>
                       </div>
 
                       {/* Pipeline Badge (read-only info) */}
@@ -558,9 +593,20 @@ export function SmartMatchModal({
                         )}
                       </div>
 
-                      {/* Confidence Badge */}
+                      {/* Confidence Badge. A score describes how sure the
+                          matcher was — once a human has overridden the row it
+                          no longer describes the contact shown, so say
+                          "Chosen" rather than carrying the old number over. */}
                       <div className="w-16 shrink-0 text-right">
-                        {suggestion.confidence > 0 ? (
+                        {isOverridden ? (
+                          <Badge
+                            variant="outline"
+                            className="px-2 py-0.5 text-xs font-bold"
+                            title={target ? 'Contact chosen by hand' : 'Set to create a new contact'}
+                          >
+                            {target ? 'Chosen' : 'New'}
+                          </Badge>
+                        ) : suggestion.confidence > 0 ? (
                           <Badge
                             className={cn(
                               'font-bold text-xs px-2 py-0.5',
@@ -568,6 +614,7 @@ export function SmartMatchModal({
                               level === 'medium' && 'bg-amber-500 text-white',
                               level === 'low' && 'bg-red-500 text-white'
                             )}
+                            title={suggestion.matchReason}
                           >
                             {suggestion.confidence}%
                           </Badge>

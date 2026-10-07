@@ -344,6 +344,53 @@ export function useMatchEmailReply() {
   })
 }
 
+/**
+ * Undo a match (QA-31 bug 5).
+ *
+ * There was no way back: a reply matched to the wrong player stayed attached
+ * to them for good, and the ticket's own "Suggest if" list called that out.
+ * The reply returns to the Unmatched tab so it can be matched again, by hand
+ * or through Smart Match.
+ *
+ * deal_id is cleared along with contact_id. Leaving it would keep the reply
+ * pointing at the wrong player's deal — the same split-ownership state QA-31
+ * bug 6 describes — and an unmatched reply has no deal by definition.
+ *
+ * This does NOT undo what the match did to the deal. Stopping a sequence and
+ * moving a card are real events that were acted on; silently rewinding them
+ * would be a worse surprise than leaving them. The card can be dragged back,
+ * which warns and clears stale intent (QA-03).
+ */
+export function useUnmatchEmailReply() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ replyId }: { replyId: string }) => {
+      const { data, error } = await supabase
+        .from('email_replies')
+        .update({
+          contact_id: null,
+          deal_id: null,
+          match_status: 'unmatched',
+          matched_by_id: null,
+          matched_at: null,
+        })
+        .eq('id', replyId)
+        .select('id')
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
+      queryClient.invalidateQueries({ queryKey: ['unmatched-email-replies'] })
+    },
+  })
+}
+
 export function useUnmatchedEmailReplies() {
   const supabase = createClient()
 

@@ -37,10 +37,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-import { useMarkEmailAsSpam, useUnmarkEmailSpam, useMarkEmailRepliesRead } from '@/lib/hooks/useEmailReplies'
+import { useMarkEmailAsSpam, useUnmarkEmailSpam, useMarkEmailRepliesRead, useUnmatchEmailReply } from '@/lib/hooks/useEmailReplies'
 import { useMarkSMSAsSpam, useMarkSMSMessagesRead } from '@/lib/hooks/useSMSMessages'
 
 import { PageHeader } from '@/components/shared/PageHeader'
+import { toast } from '@/lib/hooks/use-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { EmailReply } from '@/lib/types/email'
 import type { SMSMessage } from '@/lib/types/sms'
 
@@ -68,6 +79,8 @@ export default function RepliesPage() {
   const [selectedEmail, setSelectedEmail] = useState<EmailReply | null>(null)
   const [matchEmailModalOpen, setMatchEmailModalOpen] = useState(false)
   const [emailToMatch, setEmailToMatch] = useState<EmailReply | null>(null)
+  // QA-31 bug 5: confirm before detaching a reply from a player.
+  const [emailToUnmatch, setEmailToUnmatch] = useState<EmailReply | null>(null)
 
   // SMS state
   const [smsTab, setSmsTab] = useState<'unmatched' | 'matched' | 'spam'>('unmatched')
@@ -100,6 +113,7 @@ export default function RepliesPage() {
   const markEmailRead = useMarkEmailRepliesRead()
   const markSMSRead = useMarkSMSMessagesRead()
   const unmarkEmailSpam = useUnmarkEmailSpam()
+  const unmatchEmailReply = useUnmatchEmailReply()
   const markSMSSpam = useMarkSMSAsSpam()
 
   // Fetch data
@@ -286,6 +300,26 @@ export default function RepliesPage() {
 
   const handleUnmarkEmailSpam = (reply: EmailReply) => {
     unmarkEmailSpam.mutate({ replyId: reply.id })
+  }
+
+  // QA-31 bug 5: a wrong match could not be corrected or undone.
+  const handleUnmatchEmail = async () => {
+    const reply = emailToUnmatch
+    if (!reply) return
+    setEmailToUnmatch(null)
+    try {
+      await unmatchEmailReply.mutateAsync({ replyId: reply.id })
+      toast({
+        title: 'Reply unmatched',
+        description: 'It is back on the Unmatched tab and can be matched again.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Could not unmatch the reply',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleMarkSMSSpam = (message: SMSMessage) => {
@@ -577,6 +611,8 @@ export default function RepliesPage() {
             onMarkSpam={handleMarkEmailSpam}
             onUnmarkSpam={handleUnmarkEmailSpam}
             onViewFull={setSelectedEmail}
+            onChangeContact={handleMatchEmail}
+            onUnmatch={setEmailToUnmatch}
             hasNextPage={emailRepliesQuery.hasNextPage}
             onLoadMore={() => emailRepliesQuery.fetchNextPage()}
             isLoadingMore={emailRepliesQuery.isFetchingNextPage}
@@ -712,6 +748,33 @@ export default function RepliesPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* QA-31 bug 5: unmatching detaches a reply from a player, so confirm
+          it and say plainly what is and is not reversed. */}
+      <AlertDialog
+        open={!!emailToUnmatch}
+        onOpenChange={(open) => !open && setEmailToUnmatch(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unmatch this reply?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {emailToUnmatch?.contact
+                ? `It will be detached from ${emailToUnmatch.contact.first_name ?? ''} ${
+                    emailToUnmatch.contact.last_name ?? ''
+                  }`.trim() + ' and returned to the Unmatched tab so you can match it again.'
+                : 'It will be returned to the Unmatched tab so you can match it again.'}{' '}
+              Anything the match already did — a stopped sequence, or a card moved
+              to Contact Response — stays as it is. Move the card back yourself if
+              it should not have moved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnmatchEmail}>Unmatch</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Smart Match Modal */}
       {userId && (

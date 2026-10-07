@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Contact } from '@/lib/types/contacts'
 import type { EmailReply } from '@/lib/types/email'
 import type { SMSMessage } from '@/lib/types/sms'
@@ -20,262 +21,181 @@ export interface MatchSuggestion {
 }
 
 /**
- * Normalize a phone number for comparison
- * Removes all non-digit characters and handles UK formats
+ * QA-31 bug 1.
+ *
+ * Scoring used to run here, in the browser, over a `contacts` array the modal
+ * fetched with `.select('*')` and no paging. PostgREST caps that at 1,000
+ * rows, so against 179,468 contacts the matcher only ever saw "A…" to
+ * "Abdiel": staff were shown "New contact" for players who plainly existed,
+ * and the similar-name and similar-email tiers could never fire at all.
+ *
+ * The tiers now live in `suggest_contact_for_reply` / `suggest_contact_for_sms`
+ * (migrations 207 and 208), where they can see every row and use the trigram
+ * and phone-digit indexes. The thresholds and confidence bands are unchanged,
+ * so a suggestion that was right before is still right — there are simply no
+ * longer 178,468 contacts hidden from it.
+ *
+ * Levenshtein, stringSimilarity and normalizePhone were deleted rather than
+ * kept alongside: two definitions of "matches" is how the contact search
+ * drifted out of step with itself (see lib/contacts/search.ts).
  */
-function normalizePhone(phone: string): string {
-  // Remove all non-digits
-  let normalized = phone.replace(/\D/g, '')
 
-  // Handle UK numbers: convert 07xxx to 447xxx
-  if (normalized.startsWith('0') && normalized.length === 11) {
-    normalized = '44' + normalized.slice(1)
+interface SuggestionRow {
+  contact_id: string
+  confidence: number
+  match_reason: string
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Client = SupabaseClient<any, any, any>
+
+/**
+ * A readable name from an email address: `john.smith@…` → "John Smith".
+ *
+ * QA-31 bug 4: the modal showed a name built like this but saved something
+ * else — the raw local part as the first name with the surname left empty, so
+ * the contact `john.smith@…` created was called "john.smith". Exported as one
+ * function so the preview and the INSERT cannot disagree again.
+ */
+export function tidyNameFromEmail(email: string): { firstName: string; lastName: string } {
+  const localPart = (email.split('@')[0] || '').trim()
+  const words = localPart
+    .replace(/[._\-+]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+
+  return {
+    firstName: words[0] || localPart || 'Unknown',
+    lastName: words.slice(1).join(' '),
   }
+}
 
-  // Remove leading 44 for comparison (we'll compare last 10 digits)
-  if (normalized.startsWith('44')) {
-    normalized = normalized.slice(2)
-  }
-
-  return normalized
+/** Split a display name from the sender's mail client into first / last. */
+export function splitDisplayName(name: string): { firstName: string; lastName: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') }
 }
 
 /**
- * Calculate similarity between two strings using Levenshtein distance
- * Returns a score from 0 to 1
+ * The name a new contact should be created with, and the name the preview
+ * shows. Prefers the sender's own display name when the mail client sent one.
  */
-function stringSimilarity(str1: string, str2: string): number {
-  const s1 = str1.toLowerCase().trim()
-  const s2 = str2.toLowerCase().trim()
-
-  if (s1 === s2) return 1
-  if (s1.length === 0 || s2.length === 0) return 0
-
-  const longer = s1.length > s2.length ? s1 : s2
-  const shorter = s1.length > s2.length ? s2 : s1
-
-  const longerLength = longer.length
-  if (longerLength === 0) return 1
-
-  const distance = levenshteinDistance(longer, shorter)
-  return (longerLength - distance) / longerLength
-}
-
-/**
- * Levenshtein distance between two strings
- */
-function levenshteinDistance(str1: string, str2: string): number {
-  const m = str1.length
-  const n = str2.length
-  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0))
-
-  for (let i = 0; i <= m; i++) dp[i][0] = i
-  for (let j = 0; j <= n; j++) dp[0][j] = j
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (str1[i - 1] === str2[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1]
-      } else {
-        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
-      }
+export function newContactNameFor(suggestion: MatchSuggestion): {
+  firstName: string
+  lastName: string
+} {
+  if (suggestion.replyType === 'email') {
+    if (suggestion.replyName) {
+      const split = splitDisplayName(suggestion.replyName)
+      if (split.firstName) return split
     }
+    return tidyNameFromEmail(suggestion.replyIdentifier)
+  }
+  // A text gives us a number and nothing else.
+  return { firstName: 'Unknown', lastName: suggestion.replyIdentifier }
+}
+
+/** Resolve the contact rows for a batch of suggestions in one round trip. */
+async function attachContacts(
+  supabase: Client,
+  partials: (Omit<MatchSuggestion, 'suggestedContact' | 'createNew'> & {
+    contactId: string | null
+  })[],
+): Promise<MatchSuggestion[]> {
+  const ids = Array.from(
+    new Set(partials.map((p) => p.contactId).filter((id): id is string => !!id)),
+  )
+
+  const byId = new Map<string, Contact>()
+  if (ids.length > 0) {
+    const { data, error } = await supabase.from('contacts').select('*').in('id', ids)
+    if (error) throw error
+    for (const c of (data || []) as Contact[]) byId.set(c.id, c)
   }
 
-  return dp[m][n]
+  return partials.map(({ contactId, ...rest }) => {
+    const suggestedContact = contactId ? byId.get(contactId) ?? null : null
+    return {
+      ...rest,
+      suggestedContact,
+      createNew: !suggestedContact,
+      // A suggestion we could not load the row for is not a suggestion.
+      confidence: suggestedContact ? rest.confidence : 0,
+      matchReason: suggestedContact ? rest.matchReason : 'No match found',
+    }
+  })
 }
 
-/**
- * Get email domain from email address
- */
-function getEmailDomain(email: string): string {
-  return email.toLowerCase().split('@')[1] || ''
-}
+/** Analyse email replies, asking the database for each suggestion. */
+export async function analyzeEmailReplies(
+  supabase: Client,
+  replies: EmailReply[],
+): Promise<MatchSuggestion[]> {
+  const partials = await Promise.all(
+    replies.map(async (reply) => {
+      const fromName = reply.from_name?.trim() || null
 
-/**
- * Find best matching contact for an email reply
- */
-function findEmailMatch(reply: EmailReply, contacts: Contact[]): MatchSuggestion {
-  const fromEmail = reply.from_email.toLowerCase()
-  const fromName = reply.from_name?.trim() || null
+      const { data, error } = await supabase.rpc('suggest_contact_for_reply', {
+        p_email: reply.from_email,
+        p_name: fromName,
+      })
+      if (error) throw error
 
-  // Extract campaign pipeline data
-  const campaignId = reply.campaign_id
-  const campaignName = reply.campaign?.name || null
-  const campaignPipelineId = reply.campaign?.pipeline_id || null
-  const aiIntent = reply.ai_intent
+      const top = ((data || []) as SuggestionRow[])[0] ?? null
 
-  let bestMatch: Contact | null = null
-  let bestConfidence = 0
-  let matchReason = ''
-
-  for (const contact of contacts) {
-    const contactEmail = contact.email?.toLowerCase() || ''
-    const contactName = `${contact.first_name} ${contact.last_name}`.trim()
-
-    // Exact email match - 100% confidence
-    if (contactEmail && contactEmail === fromEmail) {
       return {
         replyId: reply.id,
-        replyType: 'email',
+        replyType: 'email' as const,
         replyIdentifier: reply.from_email,
         replyName: fromName,
         replyPreview: reply.subject || reply.body_preview || '(No content)',
-        suggestedContact: contact,
-        confidence: 100,
-        matchReason: 'Exact email match',
-        createNew: false,
-        campaignId,
-        campaignName,
-        campaignPipelineId,
-        aiIntent,
+        confidence: top?.confidence ?? 0,
+        matchReason: top?.match_reason ?? 'No match found',
+        campaignId: reply.campaign_id,
+        campaignName: reply.campaign?.name || null,
+        campaignPipelineId: reply.campaign?.pipeline_id || null,
+        aiIntent: reply.ai_intent,
+        contactId: top?.contact_id ?? null,
       }
-    }
+    }),
+  )
 
-    // Email domain + name similarity
-    if (contactEmail && fromName && getEmailDomain(contactEmail) === getEmailDomain(fromEmail)) {
-      const nameSimilarity = stringSimilarity(fromName, contactName)
-      if (nameSimilarity > 0.7) {
-        const confidence = Math.round(70 + nameSimilarity * 25) // 70-95%
-        if (confidence > bestConfidence) {
-          bestConfidence = confidence
-          bestMatch = contact
-          matchReason = `Same domain + name match (${Math.round(nameSimilarity * 100)}%)`
-        }
-      }
-    }
-
-    // Name similarity only (if name is provided)
-    if (fromName && !bestMatch) {
-      const nameSimilarity = stringSimilarity(fromName, contactName)
-      if (nameSimilarity > 0.85) {
-        const confidence = Math.round(50 + nameSimilarity * 30) // 50-80%
-        if (confidence > bestConfidence) {
-          bestConfidence = confidence
-          bestMatch = contact
-          matchReason = `Name similarity (${Math.round(nameSimilarity * 100)}%)`
-        }
-      }
-    }
-  }
-
-  return {
-    replyId: reply.id,
-    replyType: 'email',
-    replyIdentifier: reply.from_email,
-    replyName: fromName,
-    replyPreview: reply.subject || reply.body_preview || '(No content)',
-    suggestedContact: bestMatch,
-    confidence: bestConfidence,
-    matchReason: bestMatch ? matchReason : 'No match found',
-    createNew: !bestMatch,
-    campaignId,
-    campaignName,
-    campaignPipelineId,
-    aiIntent,
-  }
+  return attachContacts(supabase, partials)
 }
 
-/**
- * Find best matching contact for an SMS message
- */
-function findSMSMatch(message: SMSMessage, contacts: Contact[]): MatchSuggestion {
-  const messagePhone = normalizePhone(message.phone_number)
+/** Analyse inbound texts, asking the database for each suggestion. */
+export async function analyzeSMSMessages(
+  supabase: Client,
+  messages: SMSMessage[],
+): Promise<MatchSuggestion[]> {
+  const partials = await Promise.all(
+    messages.map(async (message) => {
+      const { data, error } = await supabase.rpc('suggest_contact_for_sms', {
+        p_phone: message.phone_number,
+      })
+      if (error) throw error
 
-  // SMS messages have pipeline_id directly on the message
-  const campaignPipelineId = message.pipeline_id || null
-  const aiIntent = message.ai_intent || null
+      const top = ((data || []) as SuggestionRow[])[0] ?? null
 
-  let bestMatch: Contact | null = null
-  let bestConfidence = 0
-  let matchReason = ''
-
-  for (const contact of contacts) {
-    if (!contact.phone) continue
-
-    const contactPhone = normalizePhone(contact.phone)
-
-    // Exact phone match - 100% confidence
-    if (contactPhone === messagePhone) {
       return {
         replyId: message.id,
-        replyType: 'sms',
+        replyType: 'sms' as const,
         replyIdentifier: message.phone_number,
         replyName: null,
         replyPreview: message.content || '(No content)',
-        suggestedContact: contact,
-        confidence: 100,
-        matchReason: 'Exact phone match',
-        createNew: false,
+        confidence: top?.confidence ?? 0,
+        matchReason: top?.match_reason ?? 'No match found',
         campaignId: null,
         campaignName: null,
-        campaignPipelineId,
-        aiIntent,
+        campaignPipelineId: message.pipeline_id || null,
+        aiIntent: message.ai_intent || null,
+        contactId: top?.contact_id ?? null,
       }
-    }
+    }),
+  )
 
-    // Partial phone match - last 10 digits
-    const messageLast10 = messagePhone.slice(-10)
-    const contactLast10 = contactPhone.slice(-10)
-
-    if (messageLast10.length >= 10 && messageLast10 === contactLast10) {
-      const confidence = 90
-      if (confidence > bestConfidence) {
-        bestConfidence = confidence
-        bestMatch = contact
-        matchReason = 'Phone match (last 10 digits)'
-      }
-    }
-
-    // Partial match - last 9 digits (handles some edge cases)
-    const messageLast9 = messagePhone.slice(-9)
-    const contactLast9 = contactPhone.slice(-9)
-
-    if (!bestMatch && messageLast9.length >= 9 && messageLast9 === contactLast9) {
-      const confidence = 80
-      if (confidence > bestConfidence) {
-        bestConfidence = confidence
-        bestMatch = contact
-        matchReason = 'Phone match (partial)'
-      }
-    }
-  }
-
-  return {
-    replyId: message.id,
-    replyType: 'sms',
-    replyIdentifier: message.phone_number,
-    replyName: null,
-    replyPreview: message.content || '(No content)',
-    suggestedContact: bestMatch,
-    confidence: bestConfidence,
-    matchReason: bestMatch ? matchReason : 'No match found',
-    createNew: !bestMatch,
-    campaignId: null,
-    campaignName: null,
-    campaignPipelineId,
-    aiIntent,
-  }
-}
-
-/**
- * Analyze email replies and find matching contacts
- */
-export function analyzeEmailReplies(
-  replies: EmailReply[],
-  contacts: Contact[]
-): MatchSuggestion[] {
-  return replies.map((reply) => findEmailMatch(reply, contacts))
-}
-
-/**
- * Analyze SMS messages and find matching contacts
- */
-export function analyzeSMSMessages(
-  messages: SMSMessage[],
-  contacts: Contact[]
-): MatchSuggestion[] {
-  return messages.map((message) => findSMSMatch(message, contacts))
+  return attachContacts(supabase, partials)
 }
 
 /**

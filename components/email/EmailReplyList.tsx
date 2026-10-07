@@ -25,6 +25,8 @@ interface EmailReplyListProps {
   onMarkSpam: (reply: EmailReply) => void
   onUnmarkSpam?: (reply: EmailReply) => void
   onViewFull: (reply: EmailReply) => void
+  onChangeContact?: (reply: EmailReply) => void
+  onUnmatch?: (reply: EmailReply) => void
   emptyMessage?: string
   hasNextPage?: boolean
   onLoadMore?: () => void
@@ -59,6 +61,8 @@ export function EmailReplyList({
   onMarkSpam,
   onUnmarkSpam,
   onViewFull,
+  onChangeContact,
+  onUnmatch,
   emptyMessage = 'Replies from contacts will appear here once they respond to one of your emails.',
   hasNextPage,
   onLoadMore,
@@ -243,6 +247,8 @@ export function EmailReplyList({
                 onMarkSpam={onMarkSpam}
                 onUnmarkSpam={onUnmarkSpam}
                 onViewFull={onViewFull}
+                onChangeContact={onChangeContact}
+                onUnmatch={onUnmatch}
                 selectable={selectable}
                 selected={selectedIds?.has(reply.id)}
                 onSelectChange={onSelectChange}
