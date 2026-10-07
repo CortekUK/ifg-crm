@@ -589,9 +589,55 @@ async function processQueue(
         // ============================================
         const { data: automationMeta } = await supabase
           .from('automations')
-          .select('config')
+          .select('config, automation_type')
           .eq('id', enrollment.automation_id)
           .single()
+
+        // ============================================
+        // NOBODY WHO HAS PAID GETS CHASED FOR THE SALE
+        //
+        // Stopping on payment used to be opt-in per automation
+        // (config.stop_on_payment, set only by the Deposit Invoice template),
+        // so the "are you still interested?" sequences carried right on after
+        // a deposit landed. A Gap Year player who paid on 6 October was found
+        // still in Initial Contact with the next email due on the 9th — and
+        // because the sequence completes into the no-reply stage, paying moved
+        // them from Deposit Paid BACK to Dormant, where the fortnightly
+        // re-engagement reminders then started.
+        //
+        // The Stripe webhook ends a deal's sequences when a payment lands, but
+        // that only covers payments that arrive through Stripe. An invoice
+        // marked paid by hand in the CRM, or a payment recorded any other way,
+        // left the chasing running. So the engine checks too, on every tick.
+        //
+        // Scoped to the two sales-chase types on purpose. Sequences that are
+        // SUPPOSED to run after money arrives — welcome, pre-departure,
+        // invoice reminders for a later instalment — must not be killed by it.
+        // ============================================
+        const SALES_CHASE_TYPES = ['initial_contact', 'follow_up']
+        if (SALES_CHASE_TYPES.includes(automationMeta?.automation_type as string)) {
+          const { data: paidAlready } = await supabase
+            .from('invoices')
+            .select('id')
+            .eq('deal_id', enrollment.deal_id)
+            .eq('status', 'paid')
+            .limit(1)
+
+          if (paidAlready && paidAlready.length > 0) {
+            // 'Manual:' prefix so move_deal_on_enrollment_exit (migration 091
+            // / 180) leaves the deal alone. A player who has paid belongs
+            // wherever payment put them, not in the automation's no-reply
+            // stage.
+            await stopEnrollment(
+              supabase,
+              enrollment,
+              'Manual: payment received — sales sequence ended',
+            )
+            summary.enrollmentsStopped++
+            console.log(`Stopped enrollment ${enrollment.id} - deal has a paid invoice`)
+            continue
+          }
+        }
 
         const automationCfg = automationMeta?.config as {
           stop_on_payment?: boolean
