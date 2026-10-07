@@ -36,5 +36,10 @@ export function useCurrentUser() {
 
       return profile
     },
+    // The signed-in user's role does not change while they are using the CRM,
+    // and everything role-gated (drag permissions, admin-only screens) reads
+    // this. Re-fetching it on every window focus meant those gates briefly
+    // re-evaluated against undefined.
+    staleTime: 5 * 60 * 1000,
   })
 }

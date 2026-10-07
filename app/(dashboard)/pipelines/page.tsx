@@ -93,7 +93,7 @@ export default function PipelinesPage() {
   } | null>(null)
 
   // Fetch current user (with role)
-  const { data: currentUser } = useCurrentUser()
+  const { data: currentUser, isPending: currentUserLoading } = useCurrentUser()
   useEffect(() => {
     if (currentUser?.id) {
       setUserId(currentUser.id)
@@ -360,10 +360,18 @@ export default function PipelinesPage() {
   // Check if current user can move a specific deal
   const canMoveDeal = useCallback(
     (deal: Deal) => {
+      // Until the profile has loaded we do not know the role, and `userId` is
+      // still null — so `deal_owner_id === userId` was false for EVERY card.
+      // That window was invisible while a locked card looked identical to a
+      // draggable one; now that locked cards carry a padlock, it painted the
+      // whole board with them on every first render and refused every drag.
+      // Allow the move until we know better: RLS is the real gate and refuses
+      // someone else's deal server-side regardless of what this returns.
+      if (currentUserLoading || !userId) return true
       if (isAdmin) return true
       return deal.deal_owner_id === userId
     },
-    [isAdmin, userId]
+    [currentUserLoading, isAdmin, userId]
   )
 
   // Handle drag end (for Kanban board)
