@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAll } from '@/lib/reports/csv'
 import type { Campaign, CampaignFilters, CreateCampaignInput, UpdateCampaignInput } from '@/lib/types/campaigns'
 
 /**
@@ -412,13 +413,28 @@ export function useCampaignStats(campaignId: string | null, isSending?: boolean)
     queryFn: async () => {
       if (!campaignId) return null
 
-      // Get stats from email_sends table (tracks ALL sends including resends)
-      const { data: sends, error } = await supabase
-        .from('email_sends')
-        .select('id, status, delivered_at, opened_at, clicked_at, bounced_at, recipient_contact_id')
-        .eq('campaign_id', campaignId)
-
-      if (error) throw error
+      // Paged. Stats are counted in the browser from these rows, and a
+      // campaign's email_sends is one row per recipient — so an unpaged read
+      // stopped at PostgREST's 1,000-row cap and every figure on the screen
+      // was computed from the first thousand. A send to the 105k
+      // "ALL CONTACTS EVERYONE" list reported "Total 1,000" with 1,000
+      // delivered, next to a composer that correctly said 105,285. The send
+      // itself was always fine (it expands in SQL and drains in batches) —
+      // only the reporting was short, which is the harder kind to notice.
+      const sends = await fetchAll<{
+        id: string
+        status: string
+        delivered_at: string | null
+        opened_at: string | null
+        clicked_at: string | null
+        bounced_at: string | null
+        recipient_contact_id: string | null
+      }>(() =>
+        supabase
+          .from('email_sends')
+          .select('id, status, delivered_at, opened_at, clicked_at, bounced_at, recipient_contact_id')
+          .eq('campaign_id', campaignId),
+      )
 
       if (!sends || sends.length === 0) {
         return {
@@ -482,35 +498,45 @@ export function useCampaignRecipients(campaignId: string | null, isSending?: boo
     queryFn: async () => {
       if (!campaignId) return []
 
-      // Query email_sends table for full send history (includes all resends)
-      const { data: sends, error } = await supabase
-        .from('email_sends')
-        .select('*')
-        .eq('campaign_id', campaignId)
-        .order('sent_at', { ascending: false })
-
-      if (error) throw error
-      if (!sends || sends.length === 0) return []
-
-      // Fetch contact info for recipients
-      const contactIds = [...new Set(sends.map(s => s.recipient_contact_id).filter(Boolean))]
-      const contactsMap = new Map<string, { id: string; first_name: string; last_name: string; email: string }>()
-
-      if (contactIds.length > 0) {
-        const { data: contacts } = await supabase
-          .from('contacts')
-          .select('id, first_name, last_name, email')
-          .in('id', contactIds)
-
-        contacts?.forEach(c => {
-          contactsMap.set(c.id, c)
-        })
+      // Paged, and the recipient's details come from an embed rather than a
+      // second query.
+      //
+      // Two faults here, both from the same unpaged read: the history table
+      // showed at most 1,000 rows of a larger campaign, and the follow-up
+      // `.in('id', contactIds)` put every one of those ids into the query
+      // string — which breaks on URL length long before it breaks on the row
+      // cap. An embed hands the join to the database and keeps the request a
+      // fixed size however big the campaign is.
+      type EmbeddedContact = { id: string; first_name: string; last_name: string; email: string }
+      type SendRow = {
+        id: string
+        status: string
+        sent_at: string | null
+        delivered_at: string | null
+        opened_at: string | null
+        clicked_at: string | null
+        bounced_at: string | null
+        error_message: string | null
+        recipient_email: string | null
+        recipient_contact_id: string | null
+        contact: EmbeddedContact | EmbeddedContact[] | null
       }
 
-      // Combine sends with contact info
-      return sends.map(send => ({
+      const sends = await fetchAll<SendRow>(() =>
+        supabase
+          .from('email_sends')
+          .select('*, contact:contacts(id, first_name, last_name, email)')
+          .eq('campaign_id', campaignId)
+          .order('sent_at', { ascending: false }),
+      )
+
+      if (!sends || sends.length === 0) return []
+
+      // PostgREST types a to-one embed as an array in some shapes; normalise
+      // so callers always get an object or null.
+      return sends.map((send) => ({
         ...send,
-        contact: send.recipient_contact_id ? contactsMap.get(send.recipient_contact_id) : null
+        contact: (Array.isArray(send.contact) ? send.contact[0] : send.contact) ?? null,
       }))
     },
     enabled: !!campaignId,
