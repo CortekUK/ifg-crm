@@ -249,7 +249,15 @@ export function useToggleAutomation() {
     mutationFn: async ({ automationId, isActive }: { automationId: string; isActive: boolean }) => {
       const { error } = await supabase
         .from('automations')
-        .update({ is_active: isActive })
+        .update({
+          is_active: isActive,
+          // Stamp the moment of activation. checkTriggers enrols only deals
+          // that entered the trigger stage AFTER this, which is what stops
+          // switching an automation on from emailing the players who were
+          // already standing in that stage. Left alone when switching off, so
+          // the record of the last run survives.
+          ...(isActive ? { activated_at: new Date().toISOString() } : {}),
+        })
         .eq('id', automationId)
 
       if (error) throw error

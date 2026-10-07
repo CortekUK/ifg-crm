@@ -314,6 +314,8 @@ async function checkTriggers(
       trigger_stage_id,
       stop_on_stage_ids,
       is_active,
+      activated_at,
+      created_at,
       steps:automation_steps(id, step_order)
     `)
     .eq('is_active', true)
@@ -340,12 +342,36 @@ async function checkTriggers(
         continue // Skip automations with no steps
       }
 
-      // Find deals in the trigger stage that aren't already enrolled
-      const { data: deals, error: dealsError } = await supabase
+      // Deals in the trigger stage that ARRIVED SINCE THIS WAS SWITCHED ON,
+      // and aren't already enrolled.
+      //
+      // The arrival filter is the whole point. Without it this query returned
+      // the entire stage, so flicking an Initial Contact automation on sent
+      // email 1 to every player already standing in Initial Lead within about
+      // five minutes — hundreds of real people getting a cold "are you still
+      // interested?" at once, with no warning and nothing to recall.
+      //
+      // stage_entered_at is the arrival time; deals that predate stage
+      // tracking fall back to created_at, which is the same fallback the deal
+      // card's "time in stage" uses. A deal with neither later than
+      // activated_at was already here and is left alone.
+      const activatedAt =
+        (automation.activated_at as string | null) ||
+        (automation.created_at as string | null)
+
+      let dealsQuery = supabase
         .from('deals')
         .select('id, current_stage_id, pipeline_id')
         .eq('current_stage_id', automation.trigger_stage_id)
         .eq('pipeline_id', automation.pipeline_id)
+
+      if (activatedAt) {
+        dealsQuery = dealsQuery.or(
+          `stage_entered_at.gt.${activatedAt},and(stage_entered_at.is.null,created_at.gt.${activatedAt})`,
+        )
+      }
+
+      const { data: deals, error: dealsError } = await dealsQuery
 
       if (dealsError) {
         summary.errors.push(`Failed to fetch deals for automation ${automation.id}: ${dealsError.message}`)

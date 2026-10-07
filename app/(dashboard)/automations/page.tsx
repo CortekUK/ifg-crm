@@ -87,8 +87,32 @@ export default function AutomationsPage() {
   const handleToggle = async (automationId: string, isActive: boolean) => {
     try {
       await toggleAutomation.mutateAsync({ automationId, isActive })
+      // Say out loud which players this does and does not affect. Switching an
+      // automation on used to enrol the entire trigger stage, so the person
+      // flicking the switch had no idea they had just emailed everyone
+      // standing in it. It now only picks up arrivals, and that is worth
+      // stating — otherwise the absence of activity reads as "it isn't
+      // working".
+      const automation = automations.find((a) => a.id === automationId)
+      toast(
+        isActive
+          ? {
+              title: `"${automation?.name ?? 'Automation'}" is live`,
+              description:
+                'Players who enter the trigger stage from now on will be enrolled. Nobody already sitting in that stage is emailed.',
+            }
+          : {
+              title: `"${automation?.name ?? 'Automation'}" switched off`,
+              description: 'No new players will be enrolled.',
+            },
+      )
     } catch (error) {
       console.error('Failed to toggle automation:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to change the automation. Please try again.',
+        variant: 'destructive',
+      })
     }
   }
 
