@@ -63,6 +63,12 @@ export function QuickActions({
   }
 
   return (
+    // Hover styling is left to the ghost variant on purpose. These buttons
+    // used to carry `hover:bg-primary hover:text-primary-foreground`, and
+    // --primary is oklch(0.205 0 0) — near-black — so pointing at an icon
+    // painted it a hard black square on a white card (and a white one in dark
+    // mode). The variant's own hover:bg-accent is the subtle tint every other
+    // icon button in the CRM uses.
     <TooltipProvider delayDuration={200}>
       <div className="flex items-center gap-0.5">
         {hasEmail && (
@@ -71,7 +77,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
+                className="h-7 w-7 rounded-md"
                 onClick={handleEmail}
               >
                 <Mail className="h-3.5 w-3.5" />
@@ -89,7 +95,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
+                className="h-7 w-7 rounded-md"
                 onClick={handleCall}
               >
                 <Phone className="h-3.5 w-3.5" />
@@ -107,7 +113,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
+                className="h-7 w-7 rounded-md"
                 onClick={handleSchedule}
               >
                 <Calendar className="h-3.5 w-3.5" />
@@ -125,7 +131,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
+                className="h-7 w-7 rounded-md"
                 onClick={handleView}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
