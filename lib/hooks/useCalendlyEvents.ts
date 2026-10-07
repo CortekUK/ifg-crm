@@ -138,14 +138,25 @@ export function useCalendlyConnectionStatus() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return { connected: false } as CalendlyConnectionStatus
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('calendly_url')
-        .eq('id', user.id)
-        .single()
+      // Two separate facts, reported separately. A booking link on the
+      // profile only means outbound emails can offer one; a stored access
+      // token means the account is linked; a webhook_uri is the only thing
+      // that makes a booking come BACK and fill in the deal's interview date.
+      const [{ data: profile }, { data: credentials }] = await Promise.all([
+        supabase.from('profiles').select('calendly_url').eq('id', user.id).single(),
+        supabase
+          .from('calendly_credentials')
+          .select('access_token, webhook_uri, user_uri, connected_at')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ])
 
       return {
-        connected: !!profile?.calendly_url,
+        connected: !!credentials?.access_token,
+        booking_link_saved: !!profile?.calendly_url,
+        webhook_registered: !!credentials?.webhook_uri,
+        user_uri: credentials?.user_uri ?? undefined,
+        connected_at: credentials?.connected_at ?? undefined,
       } as CalendlyConnectionStatus
     },
   })

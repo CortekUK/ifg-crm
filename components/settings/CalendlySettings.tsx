@@ -158,40 +158,90 @@ export function CalendlySettings() {
               <div>
                 <CardTitle className="text-base">Calendly</CardTitle>
                 <CardDescription>
-                  {connectionStatus?.connected
-                    ? 'Your Calendly account is connected'
+                  {connectionStatus?.connected && connectionStatus?.webhook_registered
+                    ? 'Connected — booked meetings arrive in the CRM'
+                    : connectionStatus?.connected
+                    ? 'Connected, but booked meetings are not reaching the CRM'
+                    : connectionStatus?.booking_link_saved
+                    ? 'A booking link is saved, but your account is not connected'
                     : 'Connect your Calendly account'}
                 </CardDescription>
               </div>
             </div>
-            <Badge variant={connectionStatus?.connected ? 'default' : 'secondary'} className={connectionStatus?.connected ? 'bg-green-100 dark:bg-green-900/50 text-green-700' : ''}>
-              {connectionStatus?.connected ? (
-                <>
-                  <Check className="h-3 w-3 mr-1" />
-                  Connected
-                </>
-              ) : (
-                'Not connected'
-              )}
-            </Badge>
+            {/* Three states, not two. A green "Connected" for an account with
+                nothing but a booking link pasted in was how nobody noticed
+                that no Calendly booking had ever reached the CRM. */}
+            {connectionStatus?.connected && connectionStatus?.webhook_registered ? (
+              <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700">
+                <Check className="h-3 w-3 mr-1" />
+                Connected
+              </Badge>
+            ) : connectionStatus?.connected ? (
+              <Badge className="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Bookings not syncing
+              </Badge>
+            ) : connectionStatus?.booking_link_saved ? (
+              <Badge className="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Booking link only
+              </Badge>
+            ) : (
+              <Badge variant="secondary">Not connected</Badge>
+            )}
           </div>
         </CardHeader>
 
         {connectionStatus?.connected ? (
           <CardContent className="space-y-4">
-            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Check className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-green-900 dark:text-green-200">Connected successfully</p>
-                  {connectionStatus.connected_at && (
+            {connectionStatus.webhook_registered ? (
+              <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-green-900 dark:text-green-200">Connected successfully</p>
                     <p className="text-green-700 dark:text-green-300 mt-1">
-                      Connected on {formatDate(connectionStatus.connected_at)}
+                      Meetings booked through your link appear on the player&apos;s deal and set
+                      the interview date.
                     </p>
-                  )}
+                    {connectionStatus.connected_at && (
+                      <p className="text-green-700 dark:text-green-300 mt-1">
+                        Connected on {formatDate(connectionStatus.connected_at)}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Account linked but no webhook subscription. The booking link
+                 works in emails; nothing comes back, so interview dates are
+                 never filled in automatically and reminders cannot use the
+                 real meeting time. Calendly restricts webhooks to paid plans,
+                 so this is a normal state that must be visible rather than
+                 reported as "Connected". */
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-900 dark:text-amber-200">
+                      Your booking link works, but bookings are not syncing
+                    </p>
+                    <p className="text-amber-800 dark:text-amber-300 mt-1">
+                      No booking webhook is registered, so a meeting booked through your link
+                      will not appear on the player&apos;s deal and will not set the interview
+                      date. Reminders then have no meeting time to count back from. Registering
+                      the webhook needs a Calendly Standard plan or higher; reconnect once you
+                      have one.
+                    </p>
+                    {connectionStatus.connected_at && (
+                      <p className="text-amber-800 dark:text-amber-300 mt-1">
+                        Connected on {formatDate(connectionStatus.connected_at)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
