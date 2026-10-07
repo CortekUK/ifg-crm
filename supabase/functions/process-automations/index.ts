@@ -1112,7 +1112,7 @@ async function processEmailStep(
     // Fetch deal first (without joins - they don't work reliably)
     const { data: deal, error: dealError } = await supabase
       .from('deals')
-      .select('id, title, contact_id, deal_owner_id, owner_id, interview_date')
+      .select('id, title, contact_id, deal_owner_id, owner_id, interview_date, pipeline_id, pipeline:pipelines(name)')
       .eq('id', enrollment.deal_id)
       .single()
 
@@ -1278,6 +1278,17 @@ async function processEmailStep(
       parent_email: contact.parent_email || null,
       // Deal fields
       deal_title: deal.title || '',
+      // The programme the player applied for, which is the pipeline they are
+      // in ("UNIVERSITY 2027", "UK GAP 2027", "SUMMER RESIDENCY 2027").
+      // Templates had no way to name it: the Application Received confirmation
+      // is meant to say what the application was FOR, and only the player's
+      // name, contact details, graduation year, position, parent details and
+      // owner details were available.
+      programme: (() => {
+        const p = (deal as { pipeline?: unknown }).pipeline
+        const one = Array.isArray(p) ? p[0] : p
+        return (one as { name?: string } | null)?.name || null
+      })(),
       interview_date: deal.interview_date ? formatMeetingDate(deal.interview_date) : null,
       // Meeting (Calendly) fields
       schedule_link: owner?.calendly_url || null,

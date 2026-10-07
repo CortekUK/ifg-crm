@@ -80,6 +80,13 @@ export const MERGE_TAGS: MergeTagDefinition[] = [
   
   // Deal tags
   {
+    tag: '{{programme}}',
+    label: 'Programme',
+    category: 'deal',
+    description: "The programme the player applied for (their pipeline's name)",
+    example: 'UNIVERSITY 2027',
+  },
+  {
     tag: '{{deal_title}}',
     label: 'Deal Title',
     category: 'deal',
@@ -267,7 +274,11 @@ export function previewMergeTags(template: string, overrides: MergeTagData = {})
     last_name: 'Smith',
     email: 'john.smith@example.com',
     phone: '+44 7700 900123',
+    parent_name: 'Sarah Smith',
+    player_name: 'John Smith',
+    player_first_name: 'John',
     // Deal
+    programme: 'UK GAP 2026',
     deal_title: 'John Smith',
     deal_value: 5000,
     deal_stage: 'Initial Contact',
