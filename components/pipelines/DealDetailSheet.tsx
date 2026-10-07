@@ -204,7 +204,13 @@ export function DealDetailSheet({
   // that nothing ever filled, because closing a deal never captured one.
   const [isLostDialogOpen, setIsLostDialogOpen] = useState(false)
   const [lostReason, setLostReason] = useState('')
-  const [isClosing, setIsClosing] = useState(false)
+  // Which outcome is being saved, not just "something is". Clicking Won
+  // flipped the badge and showed nothing else, so during the round trip there
+  // was no sign the request was in progress — and the deal-closing route has a
+  // history of failing silently, which is exactly when you want the save to be
+  // visible. null = nothing in flight.
+  const [closingOutcome, setClosingOutcome] = useState<'won' | 'lost' | null>(null)
+  const isClosing = closingOutcome !== null
   const unenroll = useUnenrollFromAutomation()
   const pauseEnrollment = usePauseEnrollment()
   const resumeEnrollment = useResumeEnrollment()
@@ -261,7 +267,7 @@ export function DealDetailSheet({
   // and is also where the "Deal won" staff alert can be sent from.
   const closeDeal = async (outcome: 'won' | 'lost', reason?: string) => {
     if (!deal) return
-    setIsClosing(true)
+    setClosingOutcome(outcome)
     try {
       const res = await fetch(`/api/deals/${deal.id}/close`, {
         method: 'POST',
@@ -292,7 +298,7 @@ export function DealDetailSheet({
         variant: 'destructive',
       })
     } finally {
-      setIsClosing(false)
+      setClosingOutcome(null)
     }
   }
 
@@ -609,13 +615,48 @@ export function DealDetailSheet({
               </Select>
             </div>
             <div className="flex items-end gap-2">
-              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkWon} disabled={!canMove || isClosing}>
-                <Trophy className="h-4 w-4 mr-1" />
-                Won
+              {/* The deal's outcome is shown ON these buttons rather than
+                  nowhere: filled green for won, filled red for lost. Before
+                  this, nothing on the card said which (if either) was already
+                  set, so there was no way to tell a won deal from an open one
+                  without hunting for the Lost-reason panel. */}
+              <Button
+                size="sm"
+                variant={deal.status === 'won' ? 'default' : 'outline'}
+                className={cn(
+                  'flex-1',
+                  deal.status === 'won' &&
+                    'bg-green-600 hover:bg-green-700 text-white border-green-600',
+                )}
+                onClick={handleMarkWon}
+                disabled={!canMove || isClosing}
+                aria-pressed={deal.status === 'won'}
+              >
+                {closingOutcome === 'won' ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Trophy className="h-4 w-4 mr-1" />
+                )}
+                {closingOutcome === 'won' ? 'Saving…' : 'Won'}
               </Button>
-              <Button size="sm" variant="outline" className="flex-1" onClick={handleMarkLost} disabled={!canMove || isClosing}>
-                <XCircle className="h-4 w-4 mr-1" />
-                Lost
+              <Button
+                size="sm"
+                variant={deal.status === 'lost' ? 'default' : 'outline'}
+                className={cn(
+                  'flex-1',
+                  deal.status === 'lost' &&
+                    'bg-red-600 hover:bg-red-700 text-white border-red-600',
+                )}
+                onClick={handleMarkLost}
+                disabled={!canMove || isClosing}
+                aria-pressed={deal.status === 'lost'}
+              >
+                {closingOutcome === 'lost' ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-1" />
+                )}
+                {closingOutcome === 'lost' ? 'Saving…' : 'Lost'}
               </Button>
             </div>
           </div>
@@ -1576,7 +1617,14 @@ export function DealDetailSheet({
               disabled={isClosing}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {isClosing ? 'Saving…' : 'Mark as lost'}
+              {isClosing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                'Mark as lost'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
