@@ -63,6 +63,7 @@ import { useTemplates } from '@/lib/hooks/useTemplates'
 import { useUsers } from '@/lib/hooks/useUsers'
 import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 import { useLists } from '@/lib/hooks/useLists'
+import { useAutomations } from '@/lib/hooks/useAutomations'
 import { DynamicListRulesEditor } from './DynamicListRulesEditor'
 import { ListMultiSelect } from './ListMultiSelect'
 import { toast } from '@/lib/hooks/use-toast'
@@ -141,6 +142,7 @@ export function ConfigureAutomationModal({
   const { data: templates = [] } = useTemplates()
   const { data: users = [] } = useUsers()
   const { data: lists = [] } = useLists()
+  const { data: allAutomations = [] } = useAutomations()
   // Surface form_ids AC has actually fired against us so the recruiter
   // doesn't have to remember the slug. Top 12 most-recent are rendered as
   // one-click chips below the Form ID input.
@@ -167,6 +169,24 @@ export function ConfigureAutomationModal({
       null,
     [stages],
   )
+
+  // Other live automations already triggering on the chosen stage.
+  //
+  // Nothing used to say a word about this. Initial Contact is described as
+  // triggering on "enters stage" and Follow Up on "stage change", which reads
+  // as two different things, but the engine treats them identically — so
+  // pointing both at one stage means a player landing there is enrolled in
+  // both and receives three emails from each. Six emails, no warning, and the
+  // configurer has no way to know another automation is already there.
+  const stageClashes = useMemo(() => {
+    if (!formData.trigger_stage_id) return []
+    return allAutomations.filter(
+      (a) =>
+        a.trigger_stage_id === formData.trigger_stage_id &&
+        a.id !== editingAutomation?.id &&
+        a.is_active,
+    )
+  }, [allAutomations, formData.trigger_stage_id, editingAutomation])
 
   // What Goal 1 is actually set to, with the default applied.
   //
@@ -695,6 +715,21 @@ export function ConfigureAutomationModal({
                             ))}
                           </SelectContent>
                         </Select>
+
+                        {stageClashes.length > 0 && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                            <AlertTriangle className="h-3.5 w-3.5 mt-[1px] shrink-0" />
+                            <span>
+                              {stageClashes.length === 1
+                                ? `"${stageClashes[0].name}" already runs on this stage.`
+                                : `${stageClashes.length} automations already run on this stage: ${stageClashes
+                                    .map((a) => `"${a.name}"`)
+                                    .join(', ')}.`}{' '}
+                              A player landing here will be enrolled in both and receive both sets
+                              of emails.
+                            </span>
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
