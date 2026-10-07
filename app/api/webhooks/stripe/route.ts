@@ -75,8 +75,26 @@ export async function POST(request: NextRequest) {
         session.metadata?.terms_source === 'website'
       const termsVersion = Number(session.metadata?.terms_version)
 
-      // Update invoice to paid
-      await supabase
+      // Update invoice to paid.
+      //
+      // The result is CHECKED, and a failure aborts the whole handler with a
+      // 500 so Stripe redelivers the event.
+      //
+      // This write failed silently once (IFG-2026-00130, 7 Oct): the payment
+      // row was created and the deal moved on, but the invoice stayed "sent"
+      // with paid_at null, so the player still appeared to owe £100, the
+      // portal offered them a Pay Now button for money they had already sent,
+      // and the invoice was heading for "overdue" and a chaser. Nothing
+      // logged it, because `await supabase.update()` resolves with an `error`
+      // property rather than throwing — so execution simply carried on.
+      //
+      // Marking the invoice paid is the step every later consequence hangs
+      // off (the paid trigger stops the reminder enrolments, deal value
+      // recalculates, reporting balances). If it does not land, finishing the
+      // rest of this handler produces a half-applied payment, which is worse
+      // than doing it again from the top: every write here is keyed on ids
+      // from the session, so a redelivery is safe to repeat.
+      const { data: paidRows, error: invoiceError } = await supabase
         .from('invoices')
         .update({
           status: 'paid',
@@ -91,6 +109,18 @@ export async function POST(request: NextRequest) {
           }),
         })
         .eq('id', invoiceId)
+        .select('id')
+
+      // Zero rows is its own failure mode: no error, nothing updated. That is
+      // how a mistyped id or a row removed mid-flight looks.
+      if (invoiceError || !paidRows?.length) {
+        console.error(
+          `Stripe webhook: FAILED to mark invoice ${invoiceId} paid — ` +
+            `${invoiceError?.message ?? 'matched no rows'}. Session ${session.id}. ` +
+            'Returning 500 so Stripe retries; the player is currently shown as still owing.',
+        )
+        return NextResponse.json({ error: 'Could not mark invoice paid' }, { status: 500 })
+      }
 
       // Website deposits start as email-only contacts. Fill in what Stripe
       // collected before anything below reads the contact's name.

@@ -132,12 +132,9 @@ Deno.serve(async (req) => {
       .limit(1)
       .single()
 
-    const contactId = contact?.id || null
-    // Use the canonical enum values the rest of the app expects. Previously
-    // this set 'matched' which isn't a valid match_status, so the row fell
-    // back to 'unmatched' and was only ever flipped to 'manually_matched' by
-    // a human. As a result no reply was ever marked auto_matched.
-    const matchStatus = contact ? 'auto_matched' : 'unmatched'
+    // `let`, because a reply that does not come from the player's own address
+    // can still be identified from the thread it answers — see step 2.6.
+    let contactId: string | null = contact?.id || null
 
     if (contactError && contactError.code !== 'PGRST116') {
       console.error('Error finding contact:', contactError)
@@ -181,6 +178,43 @@ Deno.serve(async (req) => {
     // pipeline_id so the Replies list can show which programme the contact
     // was contacted under. Done here (rather than in the trigger) so the
     // values are present from the very first read of the row.
+    // ============================================
+    // 2.6 FALL BACK TO THE THREAD WHEN THE SENDER IS UNKNOWN
+    // ============================================
+    // The player is not always the person who replies. A parent answers from
+    // their own address, a school forwards from an alias, someone replies from
+    // a personal account rather than the one they applied with. Looking the
+    // contact up by sender address alone, every one of those arrived
+    // "unmatched": no badge on the player's card, no intent on the deal, and a
+    // human had to match it by hand — even though the CRM had already linked
+    // the reply to the exact email, deal and pipeline it answers.
+    //
+    // The reply-to address carries a tracking id unique to one send
+    // (replies+{tracking_id}@…), so the originating email_send identifies the
+    // player the message was sent to with no ambiguity. That is a stronger
+    // signal than the From: header, which anyone can reply from.
+    if (!contactId && linkedEmailSendId) {
+      const { data: originalSend } = await supabase
+        .from('email_sends')
+        .select('recipient_contact_id')
+        .eq('id', linkedEmailSendId)
+        .maybeSingle()
+
+      if (originalSend?.recipient_contact_id) {
+        contactId = originalSend.recipient_contact_id as string
+        console.log(
+          `Reply from ${fromEmail} matched to contact ${contactId} via the thread it answers ` +
+            '(the sender is not the player — parent, alias or forwarded address).',
+        )
+      }
+    }
+
+    // Use the canonical enum values the rest of the app expects. Previously
+    // this set 'matched' which isn't a valid match_status, so the row fell
+    // back to 'unmatched' and was only ever flipped to 'manually_matched' by
+    // a human. As a result no reply was ever marked auto_matched.
+    const matchStatus = contactId ? 'auto_matched' : 'unmatched'
+
     const replySourceMeta = await deriveReplySourceMeta(supabase, linkedEmailSendId)
     let linkedDealId = replySourceMeta.dealId
     if (!linkedDealId && contactId && replySourceMeta.pipelineId) {
@@ -669,11 +703,32 @@ const MAX_CLASSIFICATION_CHARS = 2000
 function stripQuotedThread(text: string): string {
   if (!text) return ''
   const patterns: RegExp[] = [
-    /^On .+ wrote:\s*$/im,
-    /^>+\s?/m,
-    /^-----\s*Original Message\s*-----\s*$/im,
-    /^From:\s.+$/im,
-    /^Sent from my (iPhone|iPad|Android|Samsung)/im,
+    // "On <date>, <name> wrote:" — Gmail, Apple Mail, Yahoo and Outlook all
+    // produce a variant of this, and the old anchored `^On .+ wrote:$` matched
+    // almost none of them in real mail:
+    //
+    //   Gmail wraps it   "On Fri, Aug 14, 2026 at 3:27 AM Nathan Bibby <n@x>\nwrote:"
+    //   Apple Mail inlines it, on the end of the reply text, with no newline
+    //   Yahoo indents it and pads it   "  On Mon, Oct 5, 2026 at 5:40 p.m., …"
+    //
+    // `.` never spans the wrap, and `^` never matched the indented or inline
+    // forms — so the quoted thread survived, the reply came in over the
+    // classification cap, and 11 of 37 real replies were never labelled at
+    // all. Hence: not anchored, and allowed to cross newlines.
+    //
+    // The {0,80}\d{4} is what keeps it honest. A four-digit year must appear
+    // on the same line as "On", so a player writing "On Monday I wrote:" is
+    // not mistaken for a quote header.
+    /\bOn\s[^\n]{0,80}\d{4}[\s\S]{0,200}?\bwrote:/i,
+    /^[ \t]*-{2,}\s*Original Message\s*-{2,}/im,
+    /^[ \t]*From:\s.+$/im,
+    /^[ \t]*>+/m,
+    /^[ \t]*Sent from my (iPhone|iPad|Android|Samsung)/im,
+    // Yahoo stamps this above the quoted thread.
+    /Yahoo Mail: Search, Organize, Conquer/i,
+    // Outlook's underscore rule and the plain long-dash divider.
+    /^[ \t]*_{10,}/m,
+    /^[ \t]*-{10,}[ \t]*$/m,
   ]
   let cutAt = text.length
   for (const re of patterns) {
