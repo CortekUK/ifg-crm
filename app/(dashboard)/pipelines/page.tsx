@@ -18,6 +18,7 @@ import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
+import { matchesDealSearch } from '@/lib/utils/deal-search'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
 import { findResponseStage } from '@/lib/types/pipelines'
 import { ErrorState } from '@/components/ui/error-state'
@@ -163,14 +164,10 @@ export default function PipelinesPage() {
 
   // Filter deals by search, owner, and status
   const filteredDeals = useMemo(() => deals.filter((deal) => {
-    // Search filter
-    if (search) {
-      const contactName = deal.contact
-        ? `${deal.contact.first_name} ${deal.contact.last_name}`.toLowerCase()
-        : deal.title.toLowerCase()
-      if (!contactName.includes(search.toLowerCase()) && !deal.title.toLowerCase().includes(search.toLowerCase())) {
-        return false
-      }
+    // Search filter. Token-based and across name / email / phone / title —
+    // see matchesDealSearch for why a plain includes() was not enough.
+    if (!matchesDealSearch(deal, search)) {
+      return false
     }
 
     // Owner filter
