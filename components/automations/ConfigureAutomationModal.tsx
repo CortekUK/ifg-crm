@@ -896,6 +896,25 @@ export function ConfigureAutomationModal({
                         Meeting Flow
                       </h3>
 
+                      {/* What this template depends on, said up front. A
+                          recruiter could set the whole thing up without being
+                          told the reminders have nothing to count back from
+                          until a meeting date exists, and then wonder why no
+                          reminder ever arrived. */}
+                      <div className="rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                          <p className="font-medium">The reminders need a meeting date to exist.</p>
+                          <p>
+                            They count backwards from the deal&apos;s interview date, which is
+                            filled in when the player books through Calendly — so the owner needs
+                            a connected Calendly account with booking sync — or set by hand on the
+                            deal card. Until there is a date, the booking email goes out and the
+                            player simply waits; no reminder is sent.
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <Label>Schedule meeting email *</Label>
                         <TemplateSearchSelect
