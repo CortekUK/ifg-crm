@@ -76,7 +76,37 @@ function timingSafeEqual(a: string, b: string): boolean {
 export async function verifyUnsubscribeToken(contactId: string, token: string): Promise<boolean> {
   if (!contactId || !token) return false
   const expected = await unsubscribeToken(contactId)
-  return expected !== null && timingSafeEqual(expected, token)
+
+  // Say WHY a token was rejected, server-side.
+  //
+  // A rejection has two very different causes that looked identical from the
+  // outside: a genuinely bad link, or the signer and the verifier holding
+  // different keys. The second one makes EVERY unsubscribe link in every email
+  // dead, and it is invisible — the reader sees "This link isn't valid" and
+  // nothing is logged, so it reads as one person mangling one URL.
+  //
+  // That is exactly what happened: the edge function signed with the
+  // service-role key Supabase injects, the web app verified with the one in
+  // its own environment, and after the project moved to the new API key format
+  // those two stopped being the same value. Nobody could have diagnosed it
+  // from the symptom. Hence the log line, and hence UNSUBSCRIBE_SECRET being
+  // set explicitly on both sides rather than relying on key parity.
+  if (expected === null) {
+    console.error(
+      '[unsubscribe] No signing key configured — set UNSUBSCRIBE_SECRET (or SUPABASE_SERVICE_ROLE_KEY). Every unsubscribe link will be rejected until this is set.',
+    )
+    return false
+  }
+
+  const ok = timingSafeEqual(expected, token)
+  if (!ok) {
+    console.warn(
+      `[unsubscribe] Token rejected for contact ${contactId}. If this is happening for every reader, ` +
+        'the signing key here differs from the one the sender used — UNSUBSCRIBE_SECRET must be byte-identical ' +
+        'in Vercel and in the Supabase edge-function secrets.',
+    )
+  }
+  return ok
 }
 
 /**
