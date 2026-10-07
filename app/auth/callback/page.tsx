@@ -79,10 +79,35 @@ function CallbackHandler() {
         return
       }
 
-      // Implicit flow (invite links) — token in hash fragment
+      // A REJECTED link must be reported, not quietly ignored.
+      //
+      // Supabase returns `error=access_denied&error_code=otp_expired` on a link
+      // that has already been used or has timed out — in the hash fragment for
+      // the implicit flow, and in the query string otherwise. Neither was read.
+      // The handler looked for an access token, did not find one, and fell
+      // through to "does a session already exist?" — which, for a player still
+      // signed in from setting their password the first time, it did. So a dead
+      // invite link cheerfully reopened the Set your password form.
+      //
+      // Checked before the session fallback, because the session is exactly
+      // what made the failure invisible.
       const hash = window.location.hash
+      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash)
+      const linkError =
+        hashParams.get('error_code') ||
+        hashParams.get('error') ||
+        searchParams.get('error_code') ||
+        searchParams.get('error')
+
+      if (linkError) {
+        console.error('Auth link rejected:', linkError, hashParams.get('error_description') ?? '')
+        router.replace('/login?error=invalid_link')
+        return
+      }
+
+      // Implicit flow (invite links) — token in hash fragment
       if (hash) {
-        const params = new URLSearchParams(hash.substring(1))
+        const params = hashParams
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
 

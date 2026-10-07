@@ -358,16 +358,21 @@ export function KanbanColumn({
       {/* Cards Container */}
       <Droppable droppableId={stage.id}>
         {(provided, snapshot) => (
-          /* A plain scroll container, not Radix ScrollArea. Radix wraps a
-             Viewport's children in its own `<div style="min-width:100%;
-             display:table">`, which has no height — so a percentage
-             min-height on the drop target would resolve against an
-             auto-height parent and compute to zero, and the target could
-             never be told to fill the column. A flex-1 div with
-             overflow-y-auto gives the drop target a definite-height parent,
-             and leaves the droppable with exactly one scrollable ancestor,
-             which is what @hello-pangea/dnd expects. */
-          <div className={cn('flex-1 min-h-[120px] overflow-y-auto pb-2', compact ? 'px-1' : 'px-2')}>
+          /* Deliberately NOT a scroll container, and not Radix ScrollArea.
+             @hello-pangea/dnd tracks exactly one scroll parent per droppable
+             — the closest one — so an `overflow-y-auto` here claimed that
+             slot and left the board's horizontal scroller untracked. The
+             library logged "unsupported nested scroll container detected"
+             once per column, and once the board scrolled sideways mid-drag
+             every column's cached position was stale: the highlight stopped
+             following the cursor and the card dropped into whichever stage
+             rbd had last measured. It never even earned the scrollbar —
+             columns stretch to the tallest one in the flex row, so this body
+             had nothing to scroll (scrollWidth === clientWidth).
+             Plain flex-1 keeps the definite-height parent that `min-h-full`
+             on the drop target needs, and hands the scroll-parent slot to
+             the board, which is the one that actually scrolls. */
+          <div className={cn('flex-1 min-h-[120px] pb-2', compact ? 'px-1' : 'px-2')}>
             {/* min-h-full, not a fixed strip.
                 Columns sit in a flex row, so every one of them stretches to the
                 height of the tallest. The drop target used to be min-h-[120px],

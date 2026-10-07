@@ -381,18 +381,29 @@ export function useMoveDeal() {
 
       return { dealId, newStageId, newStageName: newStage }
     },
-    onMutate: async ({ dealId, newStageId, pipelineId }) => {
+    onMutate: async ({ dealId, newStageId, pipelineId, boardPosition }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['deals', pipelineId] })
 
       // Snapshot previous value
       const previousDeals = queryClient.getQueryData<Deal[]>(['deals', pipelineId])
 
-      // Optimistically update
+      // Optimistically update. board_position moves with the stage: without
+      // it the card arrived in its new column carrying the position it had in
+      // the old one, so it sat in the wrong slot — usually jumping to the top
+      // — and then visibly hopped to where it was dropped once the refetch
+      // landed. Under a remote database that hop is long enough to read as
+      // the drop having gone to the wrong place.
       queryClient.setQueryData<Deal[]>(['deals', pipelineId], (old) => {
         if (!old) return old
         return old.map((deal) =>
-          deal.id === dealId ? { ...deal, current_stage_id: newStageId } : deal
+          deal.id === dealId
+            ? {
+                ...deal,
+                current_stage_id: newStageId,
+                ...(typeof boardPosition === 'number' ? { board_position: boardPosition } : {}),
+              }
+            : deal
         )
       })
 
@@ -528,7 +539,34 @@ export function useReorderDeal() {
       // erroring — same trap as useMoveDeal.
       if (!data?.length) throw new Error('You can only reorder deals that are assigned to you.')
     },
-    onSuccess: () => {
+    // Reorder is the one drag whose whole result is the new position, so
+    // waiting for the round-trip meant the card snapped back to where it
+    // started and only moved once the refetch returned. That read as the drag
+    // being rejected. The position is known before the request goes out, so
+    // apply it immediately and roll back if the write is refused.
+    //
+    // setQueriesData rather than setQueryData: the cache is keyed
+    // ['deals', pipelineId] and a reorder never changes pipeline, so patching
+    // every cached board by prefix avoids threading pipelineId through a
+    // mutation that has no other use for it.
+    onMutate: async ({ dealId, position }) => {
+      if (position === null) return { previous: undefined }
+
+      await queryClient.cancelQueries({ queryKey: ['deals'] })
+      const previous = queryClient.getQueriesData<Deal[]>({ queryKey: ['deals'] })
+
+      queryClient.setQueriesData<Deal[]>({ queryKey: ['deals'] }, (old) =>
+        old?.map((deal) =>
+          deal.id === dealId ? { ...deal, board_position: position } : deal
+        )
+      )
+
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous?.forEach(([key, deals]) => queryClient.setQueryData(key, deals))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] })
     },
   })

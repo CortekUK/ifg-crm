@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { DragDropContext, DropResult } from '@hello-pangea/dnd'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -126,51 +126,26 @@ export function KanbanBoard({
     visibleByStage.current[stageId] = deals
   }, [])
 
-  // Auto-scroll refs
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const rafRef = useRef<number | null>(null)
-  const mouseXRef = useRef(0)
-
-  // Track mouse position globally
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { mouseXRef.current = e.clientX }
-    window.addEventListener('mousemove', handler)
-    return () => window.removeEventListener('mousemove', handler)
-  }, [])
-
-  const startAutoScroll = useCallback(() => {
-    const scroll = () => {
-      const container = scrollRef.current
-      if (!container) return
-
-      const rect = container.getBoundingClientRect()
-      const edge = 100
-      const maxSpeed = 20
-      const x = mouseXRef.current
-
-      if (x > rect.left && x < rect.left + edge) {
-        const intensity = Math.max(0, 1 - (x - rect.left) / edge)
-        container.scrollLeft -= maxSpeed * intensity
-      } else if (x < rect.right && x > rect.right - edge) {
-        const intensity = Math.max(0, 1 - (rect.right - x) / edge)
-        container.scrollLeft += maxSpeed * intensity
-      }
-
-      rafRef.current = requestAnimationFrame(scroll)
-    }
-    rafRef.current = requestAnimationFrame(scroll)
-  }, [])
-
-  const stopAutoScroll = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-  }, [])
+  /**
+   * There is no hand-rolled auto-scroll here on purpose.
+   *
+   * This used to run its own requestAnimationFrame loop that nudged the
+   * board's scrollLeft whenever the pointer sat near either edge. Because
+   * @hello-pangea/dnd measures every column once at drag start and then only
+   * follows the window and each droppable's own scroll parent, those nudges
+   * were invisible to it: scrolling the board a couple of thousand pixels
+   * mid-drag left every column's cached position that far out of date, so the
+   * drop highlight stopped tracking the cursor and the card landed in
+   * whichever stage had last been measured — which is why a drop registered
+   * over the columns near where the drag began and over nothing further out.
+   *
+   * The board is now the single scroll parent each droppable reports (see the
+   * note on the column body), so the library auto-scrolls it itself and keeps
+   * its own measurements in step.
+   */
 
   /**
-   * Stop the auto-scroll, then turn "dropped at index 3 of the Follow Up
-   * column" into a board_position.
+   * Turn "dropped at index 3 of the Follow Up column" into a board_position.
    *
    * rbd reports an index into the list the user is looking at, which is not
    * the stage's full contents once a search, a date filter or the page size
@@ -179,7 +154,6 @@ export function KanbanBoard({
    */
   const handleDragEnd = useCallback(
     (result: DropResult) => {
-      stopAutoScroll()
       const { destination, draggableId } = result
       if (!destination) {
         onDragEnd(result)
@@ -189,7 +163,7 @@ export function KanbanBoard({
       const { before, after } = neighboursAt(visible, destination.index, draggableId)
       onDragEnd(result, positionBetween(before, after))
     },
-    [onDragEnd, stopAutoScroll],
+    [onDragEnd],
   )
 
   // Group deals by stage
@@ -230,8 +204,8 @@ export function KanbanBoard({
   const compact = zoom < 0.8
 
   return (
-    <DragDropContext onDragStart={startAutoScroll} onDragEnd={handleDragEnd}>
-      <div ref={scrollRef} className="w-full overflow-x-auto pb-4">
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="w-full overflow-x-auto pb-4">
         <div className="flex" style={{ gap }}>
           {stages.map((stage) => (
             <KanbanColumn

@@ -38,15 +38,35 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  // Set once we know this account already HAS a password, which turns this
+  // from "set your password" into "change your password" and requires proof.
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [isChangingExisting, setIsChangingExisting] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createCallbackClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.replace('/login?error=invalid_link')
-      } else {
-        setIsChecking(false)
+        return
       }
+      setUserEmail(user.email ?? null)
+
+      // Anyone holding an open session could previously set a new password
+      // here without proving they knew the old one — leaving a player's
+      // browser unlocked was enough to take over their account. profiles
+      // .password_set_at is the truth source for "this account already has a
+      // working password", so an account past that point has to prove it.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('password_set_at')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      setIsChangingExisting(Boolean(profile?.password_set_at))
+      setIsChecking(false)
     })
   }, [router])
 
@@ -68,6 +88,30 @@ export default function SetPasswordPage() {
 
     try {
       const supabase = createCallbackClient()
+
+      // Changing an existing password means re-authenticating first. Supabase
+      // has no "verify password" call, so a sign-in with the same client is
+      // the check — it refreshes the session this page is already using, so a
+      // correct password leaves the user exactly where they were.
+      if (isChangingExisting) {
+        if (!currentPassword) {
+          setError('Enter your current password to change it')
+          setIsLoading(false)
+          return
+        }
+        const { error: signInError } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: userEmail ?? '',
+            password: currentPassword,
+          }),
+          20000,
+        )
+        if (signInError) {
+          setError('Your current password is not correct')
+          setIsLoading(false)
+          return
+        }
+      }
 
       // Guard every await with a timeout so the button can never sit on
       // "Setting Password…" forever. The Supabase auth client can deadlock on
@@ -173,10 +217,12 @@ export default function SetPasswordPage() {
           <div className="p-8">
             <div className="text-center mb-6">
               <h2 className="font-oswald text-xl font-semibold tracking-tight text-gray-900 dark:text-white mb-1">
-                SET YOUR PASSWORD
+                {isChangingExisting ? 'CHANGE YOUR PASSWORD' : 'SET YOUR PASSWORD'}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Create a password for your account
+                {isChangingExisting
+                  ? 'Confirm your current password to choose a new one'
+                  : 'Create a password for your account'}
               </p>
             </div>
 
@@ -187,6 +233,40 @@ export default function SetPasswordPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Current password — only when this account already has one.
+                  Without it, anyone sitting at an unlocked browser could set a
+                  new password for the signed-in player. */}
+              {isChangingExisting && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="currentPassword" className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Current Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-gray-400 dark:text-gray-500" />
+                    <Input
+                      id="currentPassword"
+                      name="currentPassword"
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      required
+                      autoComplete="current-password"
+                      className="pl-10 pr-10 h-11 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:ring-blue-500 focus-visible:border-blue-500/50"
+                      disabled={isLoading}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                      tabIndex={-1}
+                    >
+                      {showCurrentPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Password Field */}
               <div className="space-y-1.5">
                 <Label htmlFor="password" className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
