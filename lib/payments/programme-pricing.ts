@@ -27,6 +27,12 @@ export const FORM_ID_TO_PROGRAMME: Record<string, PaymentProgramme> = Object.fro
   ]),
 )
 
+/** Which programme a form id belongs to. */
+export function programmeForFormId(formId: string | null | undefined): PaymentProgramme | null {
+  if (!formId) return null
+  return FORM_ID_TO_PROGRAMME[formId] ?? null
+}
+
 /**
  * Which programme a pipeline sells.
  *

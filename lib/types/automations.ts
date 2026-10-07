@@ -58,6 +58,17 @@ export interface AutomationConfig {
   // creates a new deal (form-webhook + WP/AC webhooks). Lets a configurer
   // set the programme price once per automation instead of every deal
   // landing at 0. Recruiter can still override on the deal page.
+  // For deal_creation:
+  //   deal_value_source — where a new deal's value comes from. Defaults to
+  //     the programme's published deposit, so the figure a recruiter sees on
+  //     the card is the one the website charges. 'custom' keeps the old
+  //     hand-typed default_deal_value.
+  //   deal_value_package_key — which published package to price from, for
+  //     programmes that sell several (Gap Year's two seasons).
+  // The invoice automation can then bill 'deal_value' and inherit whatever
+  // this chose — set the full price here and the invoice follows.
+  deal_value_source?: 'programme_deposit' | 'programme_full' | 'custom'
+  deal_value_package_key?: string
   default_deal_value?: number
   // For deal_creation: optional email to send immediately after the deal is
   // created. Compiles to a send_email step that runs right after create_deal,

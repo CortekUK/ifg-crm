@@ -67,9 +67,11 @@ import { useAutomations } from '@/lib/hooks/useAutomations'
 import { usePackages, usePricingSettings } from '@/lib/hooks/useWebsitePricing'
 import {
   programmeForPipeline,
+  programmeForFormId,
   resolveProgrammePrice,
   formatGBP,
 } from '@/lib/payments/programme-pricing'
+import { ProgrammePriceSummary } from './ProgrammePriceSummary'
 import { DynamicListRulesEditor } from './DynamicListRulesEditor'
 import { ListMultiSelect } from './ListMultiSelect'
 import { toast } from '@/lib/hooks/use-toast'
@@ -176,6 +178,69 @@ export function ConfigureAutomationModal({
     invoiceAmountSource,
     invoiceProgramme,
     formData.config.invoice_package_key,
+    websitePackages,
+    pricingSettings,
+  ])
+
+  // Deal Creation's value, resolved the same way. Its own form_id names the
+  // programme directly, which is more reliable than going via the pipeline —
+  // that lookup only works once the form-submission automation is saved.
+  const dealValueSource = formData.config.deal_value_source || 'programme_deposit'
+  const dealProgramme = useMemo(
+    () =>
+      programmeForFormId(formData.config.form_id) ??
+      programmeForPipeline(formData.pipeline_id, allAutomations),
+    [formData.config.form_id, formData.pipeline_id, allAutomations],
+  )
+  // What the pipeline's Deal Creation automation will put on a new deal. The
+  // client's rule: these two are a pair. If Deal Creation is set to the full
+  // price, the invoice should bill that, not the deposit — so the editor has
+  // to say what the other half is doing rather than leave the admin to guess.
+  const dealCreationOnPipeline = useMemo(
+    () =>
+      allAutomations.find(
+        (a) =>
+          a.pipeline_id === formData.pipeline_id &&
+          a.trigger_type === 'form_submission' &&
+          a.is_active &&
+          a.id !== editingAutomation?.id,
+      ),
+    [allAutomations, formData.pipeline_id, editingAutomation?.id],
+  )
+
+  const dealCreationValue = useMemo(() => {
+    const cfg = dealCreationOnPipeline?.config
+    if (!cfg) return null
+    const source = cfg.deal_value_source || 'programme_deposit'
+    if (source === 'custom') {
+      return { amount: Number(cfg.default_deal_value ?? 0) || 0, label: 'a fixed custom amount' }
+    }
+    const resolved = resolveProgrammePrice(
+      programmeForFormId(cfg.form_id) ?? invoiceProgramme,
+      source === 'programme_full' ? 'full' : 'deposit',
+      cfg.deal_value_package_key,
+      websitePackages,
+      pricingSettings,
+    )
+    return {
+      amount: resolved.amount,
+      label: source === 'programme_full' ? 'the full programme price' : 'the initial deposit',
+    }
+  }, [dealCreationOnPipeline, invoiceProgramme, websitePackages, pricingSettings])
+
+  const dealPrice = useMemo(() => {
+    if (dealValueSource === 'custom') return null
+    return resolveProgrammePrice(
+      dealProgramme,
+      dealValueSource === 'programme_full' ? 'full' : 'deposit',
+      formData.config.deal_value_package_key,
+      websitePackages,
+      pricingSettings,
+    )
+  }, [
+    dealValueSource,
+    dealProgramme,
+    formData.config.deal_value_package_key,
     websitePackages,
     pricingSettings,
   ])
@@ -660,34 +725,98 @@ export function ConfigureAutomationModal({
                           </p>
                         </div>
 
+                        {/* Deal value, from the published price rather than a
+                            number typed here. This is the first half of the
+                            pair: whatever a deal is created at is what the
+                            Invoice Generation automation can then bill, by
+                            choosing "Deal value" as its own amount source. Set
+                            the full price here and the invoice follows. */}
                         <div className="space-y-2">
-                          <Label>Default Deal Value (£)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="0"
-                            value={
-                              formData.config.default_deal_value ?? ''
-                            }
-                            onChange={(e) => {
-                              const raw = e.target.value
+                          <Label>Default Deal Value</Label>
+                          <Select
+                            value={dealValueSource}
+                            onValueChange={(value) =>
                               setFormData((prev) => ({
                                 ...prev,
                                 config: {
                                   ...prev.config,
-                                  default_deal_value:
-                                    raw === '' ? undefined : Number(raw),
+                                  deal_value_source: value as
+                                    | 'programme_deposit'
+                                    | 'programme_full'
+                                    | 'custom',
+                                  // A package chosen for one price does not
+                                  // carry over to another.
+                                  deal_value_package_key: undefined,
                                 },
                               }))
-                            }}
-                          />
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="programme_deposit">
+                                Initial deposit (recommended)
+                              </SelectItem>
+                              <SelectItem value="programme_full">
+                                Full programme price
+                              </SelectItem>
+                              <SelectItem value="custom">Fixed custom amount</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <p className="text-xs text-muted-foreground">
-                            Amount each new deal is created with (e.g. the
-                            programme price). Recruiter can override on the
-                            deal. Leave blank for £0.
+                            What each new deal is created with. A recruiter can still
+                            override it on the deal itself.
                           </p>
                         </div>
+
+                        {dealPrice && (
+                          <ProgrammePriceSummary
+                            price={dealPrice}
+                            packageKey={formData.config.deal_value_package_key}
+                            onPackageKeyChange={(key) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: { ...prev.config, deal_value_package_key: key },
+                              }))
+                            }
+                            fallbackLabel="new deals fall back to the fixed amount below."
+                          />
+                        )}
+
+                        {(dealValueSource === 'custom' ||
+                          (dealPrice !== null && dealPrice.amount === null)) && (
+                          <div className="space-y-2">
+                            <Label>
+                              {dealValueSource === 'custom'
+                                ? 'Custom Amount (£)'
+                                : 'Fallback Amount (£)'}
+                            </Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0"
+                              value={formData.config.default_deal_value ?? ''}
+                              onChange={(e) => {
+                                const raw = e.target.value
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    default_deal_value:
+                                      raw === '' ? undefined : Number(raw),
+                                  },
+                                }))
+                              }}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              {dealValueSource === 'custom'
+                                ? 'Used for every new deal. Leave blank for £0.'
+                                : 'Used only while the published price above cannot be resolved.'}
+                            </p>
+                          </div>
+                        )}
 
                         {/* No email selector here. First-touch sends are
                             owned by the separate Initial Contact
@@ -1292,7 +1421,7 @@ export function ConfigureAutomationModal({
                               Full programme price
                             </SelectItem>
                             <SelectItem value="deal_value">
-                              Full deal value
+                              Deal value (set by Deal Creation)
                             </SelectItem>
                             <SelectItem value="percentage">
                               Percentage of deal value (deposit)
@@ -1309,64 +1438,36 @@ export function ConfigureAutomationModal({
                           disagreed with the £2,000 the website was charging the
                           same player. Resolved here exactly as the engine
                           resolves it at send time. */}
-                      {invoicePrice && (
-                        <div className="space-y-2">
-                          {invoicePrice.choices.length > 1 && (
-                            <div className="space-y-2">
-                              <Label>
-                                Which package?{' '}
-                                <span className="text-destructive">*</span>
-                              </Label>
-                              <Select
-                                value={formData.config.invoice_package_key || ''}
-                                onValueChange={(value) =>
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    config: { ...prev.config, invoice_package_key: value },
-                                  }))
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select a package" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {invoicePrice.choices.map((choice) => (
-                                    <SelectItem key={choice.key} value={choice.key}>
-                                      {choice.label} — {formatGBP(choice.amount)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <p className="text-xs text-muted-foreground">
-                                This programme publishes more than one price and nothing on a
-                                deal records which one a player chose, so the automation has to
-                                name it.
-                              </p>
-                            </div>
+                      {/* The pair, stated. An admin configuring the invoice
+                          cannot see the Deal Creation automation from here, so
+                          if that one creates deals at the full price this says
+                          so and points at the option that follows it. */}
+                      {dealCreationValue && dealCreationValue.amount !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          Deal Creation on this pipeline creates deals at{' '}
+                          <span className="font-medium text-foreground">
+                            {formatGBP(dealCreationValue.amount)}
+                          </span>{' '}
+                          ({dealCreationValue.label}).
+                          {invoiceAmountSource !== 'deal_value' && (
+                            <> Choose <span className="font-medium text-foreground">Deal value</span> to bill
+                            that instead of the figure below.</>
                           )}
+                        </p>
+                      )}
 
-                          {invoicePrice.amount !== null ? (
-                            <div className="rounded-md border border-green-600/30 bg-green-50 p-3 dark:bg-green-900/20">
-                              <p className="text-sm font-medium text-green-900 dark:text-green-200">
-                                Every invoice will be raised for{' '}
-                                {formatGBP(invoicePrice.amount)}
-                              </p>
-                              <p className="mt-1 text-xs text-green-800/80 dark:text-green-200/70">
-                                The same amount a player pays on the website. Change it under
-                                Website &rarr; Pricing and every invoice follows, with nothing
-                                to re-type here.
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
-                              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                              <span>
-                                {invoicePrice.reason} Until this resolves, the invoice falls
-                                back to the fixed custom amount below.
-                              </span>
-                            </p>
-                          )}
-                        </div>
+                      {invoicePrice && (
+                        <ProgrammePriceSummary
+                          price={invoicePrice}
+                          packageKey={formData.config.invoice_package_key}
+                          onPackageKeyChange={(key) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              config: { ...prev.config, invoice_package_key: key },
+                            }))
+                          }
+                          fallbackLabel="the invoice falls back to the fixed amount below."
+                        />
                       )}
 
                       {formData.config.invoice_amount_source === 'percentage' && (

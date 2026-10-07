@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { resolveNewDealValue } from '@/lib/payments/programme-price-db'
 import { assignTag, computeApplicationRouting, applyRouting } from './lead-routing'
 import { excludedDealOwnerFilter } from '@/lib/constants/deal-owners'
 import {
@@ -96,6 +97,8 @@ interface AutomationConfig {
   static_list_ids?: string[]
   dynamic_list_rules?: { field: string; value: string; list_id: string }[]
   round_robin_users?: string[]
+  deal_value_source?: 'programme_deposit' | 'programme_full' | 'custom'
+  deal_value_package_key?: string
   default_deal_value?: number
 }
 
@@ -350,7 +353,11 @@ export async function processFormSubmission(args: ProcessArgs): Promise<ProcessR
               current_stage_id: automation.trigger_stage_id,
               deal_owner_id: assignedOwnerId,
               title: `${contact.first_name || 'New'} ${contact.last_name || 'Lead'}`,
-              deal_value: config?.default_deal_value ?? 0,
+              // The programme's published deposit by default, not a number
+              // re-typed into the automation months ago. A deal created at the
+              // website's real figure is also what lets the invoice automation
+              // bill 'deal value' and stay in step.
+              deal_value: await resolveNewDealValue(supabase, config, formId),
               source: `${formSource}:${formName}`,
             })
             .select('id')

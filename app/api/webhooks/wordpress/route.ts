@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveNewDealValue } from '@/lib/payments/programme-price-db'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
@@ -312,6 +313,8 @@ export async function POST(request: NextRequest) {
           form_id?: string
           static_list_ids?: string[]
           dynamic_list_rules?: { field: string; value: string; list_id: string }[]
+          deal_value_source?: 'programme_deposit' | 'programme_full' | 'custom'
+          deal_value_package_key?: string
           default_deal_value?: number
         } | null
 
@@ -406,7 +409,10 @@ export async function POST(request: NextRequest) {
                 pipeline_id: automation.pipeline_id,
                 current_stage_id: automation.trigger_stage_id,
                 title: `${normalized.first_name || 'New'} ${normalized.last_name || 'Lead'}`,
-                deal_value: config?.default_deal_value ?? 0,
+                // Same published-price resolution as the native form path,
+                // so a WordPress lead is not worth a different amount from an
+                // identical lead that came through the website.
+                deal_value: await resolveNewDealValue(supabase, config, formData.form_id || null),
                 source: normalized.source,
               })
               .select('id')
