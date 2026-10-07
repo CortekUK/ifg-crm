@@ -2167,6 +2167,50 @@ async function processCreateInvoiceStep(
     return
   }
 
+  // ============================================
+  // ONE INVOICE PER DEAL PER TYPE — re-entering the stage must not re-bill
+  //
+  // handle_deal_stage_change (migration 031) RESETS a completed or stopped
+  // enrollment back to active when a deal re-enters the trigger stage. That is
+  // right for an email sequence and wrong for this step: a recruiter who drags
+  // a card out of Send Invoice and back in — correcting a mis-drop, or
+  // re-running the stage — created a second real invoice against a real
+  // customer, with its own number, its own Stripe checkout session and its own
+  // payment-link email. Nothing deduplicated, and the only sign was two
+  // invoices in the list.
+  //
+  // Keyed on (deal, type) rather than on the automation, so moving the deal
+  // between two invoice automations of the same type cannot bill twice either.
+  // A CANCELLED invoice does not count — cancelling is how you deliberately
+  // re-raise one.
+  // ============================================
+  const invoiceType = cfg.invoice_type || 'deposit'
+  const { data: existingInvoices, error: existingErr } = await supabase
+    .from('invoices')
+    .select('id, invoice_number, status')
+    .eq('deal_id', deal.id)
+    .eq('type', invoiceType)
+    .neq('status', 'cancelled')
+    .limit(1)
+
+  if (existingErr) {
+    // Can't prove there isn't one already, so don't risk billing twice.
+    const reason = `create_invoice: could not check for an existing ${invoiceType} invoice on deal ${deal.id}: ${existingErr.message}`
+    summary.errors.push(reason)
+    await logStepExecution(supabase, enrollment, step, 'failed', reason)
+    return
+  }
+
+  if (existingInvoices && existingInvoices.length > 0) {
+    const existing = existingInvoices[0]
+    const reason =
+      `Skipped: this deal already has a ${invoiceType} invoice (${existing.invoice_number}, ${existing.status}). ` +
+      `Cancel it first if you need to raise another.`
+    await logStepExecution(supabase, enrollment, step, 'skipped', reason)
+    console.log(`create_invoice: skipped duplicate for deal ${deal.id} — ${existing.invoice_number} exists`)
+    return
+  }
+
   const ownerId = deal.deal_owner_id || deal.owner_id
   if (!ownerId) {
     const reason = `create_invoice: deal ${deal.id} has no owner — cannot set invoices.created_by_id`
@@ -2199,7 +2243,7 @@ async function processCreateInvoiceStep(
     .insert({
       contact_id: deal.contact_id,
       deal_id: deal.id,
-      type: cfg.invoice_type || 'deposit',
+      type: invoiceType,
       description,
       amount,
       status: 'sent',
