@@ -2116,7 +2116,22 @@ export function ConfigureAutomationModal({
                         )}
                       </div>
 
-                      {/* Goal 3 — No-reply / sequence finished. */}
+                      {/* Goal 3 — No-reply / sequence finished.
+                          Hidden for Stage Reminder. That template sends ONE
+                          nudge, so "the sequence finished with no reply" is
+                          true the instant the reminder goes out — the deal was
+                          moved before the player had any chance to read it.
+                          Worse, the move is not forward-only on this branch, so
+                          a stalled deal in Document Collecting was being sent
+                          backwards to Dormant. The template's own description
+                          says it nudges the player and moves nobody; offering
+                          this control contradicted that.
+
+                          The branch stays un-guarded on purpose for the other
+                          templates: Initial Contact's whole no-reply path is a
+                          move to Dormant, which sits at display_order 0 and is
+                          therefore "backwards" by design. */}
+                      {selectedTemplate?.type !== 'stage_reminder' && (
                       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-3">
                         <div className="flex items-start gap-2">
                           <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
@@ -2164,6 +2179,7 @@ export function ConfigureAutomationModal({
                           </p>
                         </div>
                       </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -2517,7 +2533,16 @@ export function ConfigureAutomationModal({
                     !formData.config.schedule_email_template_id) ||
                   (selectedTemplate?.configurable.emails &&
                     selectedTemplate?.type !== 'meeting_scheduler' &&
-                    !formData.config.emails?.some(e => e.template_id))
+                    !formData.config.emails?.some(e => e.template_id)) ||
+                  // Notifying the parent REQUIRES a template written for the
+                  // parent. Without one the parent is sent the player's email
+                  // verbatim — subject prefixed "[Parent Copy]", body still
+                  // opening "Hello Hamza" — a message plainly meant for their
+                  // child, landing in their inbox. The option existed but was
+                  // easy to leave unset, which is the only way this state ever
+                  // occurred.
+                  (formData.config.notify_parent === true &&
+                    !formData.config.parent_template_id)
                 }
                 className="bg-blue-600 hover:bg-blue-700"
               >
