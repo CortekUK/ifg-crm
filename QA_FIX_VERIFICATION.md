@@ -525,7 +525,11 @@ templates and the **minimum waits allowed**, using `+test` inboxes.
 
 ## 3.3 — QA-18a · New Initial Contact automations skip the wait
 
-**Requires:** EDGE deploy. (**2.2** covers the existing live ones.)
+**Requires:** EDGE deploy **+ the WEB deploy.** ⛔ *Blocked today.*
+The workflow steps are compiled **in the browser** when you save an automation
+(`lib/automations/compile.ts`), so until the web app ships, a newly created
+automation is still built by the old compiler and will not get the trailing
+wait. (**2.2** covers the existing live ones, via migration 190.)
 
 **Go to:** `/automations` → create a new Initial Contact automation.
 
@@ -546,7 +550,9 @@ templates and the **minimum waits allowed**, using `+test` inboxes.
 
 ## 3.4 — QA-18e / QA-19.6 · Emails went out in the order templates were picked
 
-**Requires:** EDGE deploy (and re-saving the automation, which recompiles it).
+**Requires:** EDGE deploy **+ the WEB deploy.** ⛔ *Blocked today.*
+Same reason as 3.3 — slot ordering is applied by the browser-side compiler when
+the automation is saved, not by the engine.
 
 | Before | Now |
 | --- | --- |
@@ -687,6 +693,8 @@ it still holds, plus a counter fix.*
 ## 3.11 — QA-20 Bug 1 · The parent's email (engine half)
 
 **Requires:** EDGE deploy. Pairs with **1.13**.
+Steps 1–3 (the re-addressed fallback) work **today**. Steps 4–5 need the WEB
+deploy, because the parent-template picker is web-app UI.
 
 **Steps**
 1. Create an Application Received automation on an empty stage. Tick notify
