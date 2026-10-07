@@ -67,7 +67,6 @@ export interface AutomationConfig {
   emails?: {
     step: number
     template_id: string
-    use_predictive_send?: boolean
   }[]
   wait_days?: number[]
   // Exit conditions
@@ -352,7 +351,13 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
   {
     id: 'follow_up_3',
     name: 'Follow Up (3-Email Sequence)',
-    description: 'Send 3 follow-up emails when a deal moves to the Follow Up stage, then update the stage',
+    // Was "…then update the stage", which it does not do on its own: there is
+    // no stage step in the sequence, and the deal only moves if an exit stage
+    // is set under Exit Goals. Two of the three live Follow Up automations had
+    // none set, so a player replied, the emails stopped, and the card never
+    // moved — exactly the behaviour the old description denied.
+    description:
+      'Send 3 follow-up emails when a deal moves to the Follow Up stage. Set an exit stage under Exit Goals if you want the deal to move when the player replies.',
     type: 'follow_up',
     trigger_type: 'stage_change',
     default_steps: [
@@ -360,7 +365,12 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
       { step_type: 'wait', delay_days: 2, description: 'Wait 2 days' },
       { step_type: 'send_email', description: 'Send Follow Up Email 2' },
       { step_type: 'wait', delay_days: 2, description: 'Wait 2 days' },
-      { step_type: 'send_email', description: 'Send Follow Up Email 3 (Predictive)' }
+      // The "(Predictive)" that used to be on this line described
+      // config.emails[].use_predictive_send, which nothing in the system ever
+      // read. Email 3 is sent exactly like 1 and 2, after the normal wait, so
+      // the label promised a behaviour that did not exist. The unused field has
+      // been dropped from AutomationConfig along with it.
+      { step_type: 'send_email', description: 'Send Follow Up Email 3' }
     ],
     configurable: {
       emails: true,
