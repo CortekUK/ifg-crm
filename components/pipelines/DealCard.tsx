@@ -187,9 +187,18 @@ export function DealCard({ deal, index, onClick, isDragDisabled, compact = false
               )}
             />
 
-            {/* Quick Actions - Visible on Hover (hidden in compact) */}
+            {/* Quick Actions - Visible on Hover (hidden in compact)
+                The row sits on top of the player's name, and the buttons were
+                translucent (bg-background/80 + backdrop-blur), so on hover the
+                name showed through the mail / phone / calendar icons and none
+                of them read cleanly. An opaque pill behind the row is what
+                makes them legible.
+                pointer-events are off until hover too: at opacity-0 the buttons
+                were still invisible and still clickable, so a click aimed at
+                the card's top-right corner could fire "send email" instead of
+                opening the deal. */}
             {!compact && (
-              <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="absolute right-2 top-2 z-10 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto rounded-md bg-background p-0.5 shadow-sm ring-1 ring-border">
                 <QuickActions deal={deal} onView={onClick} />
               </div>
             )}

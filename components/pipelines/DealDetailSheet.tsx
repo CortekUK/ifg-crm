@@ -561,7 +561,16 @@ export function DealDetailSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
+      {/* The sheet's own close button is suppressed and re-rendered in the
+          header action row below. It was absolutely positioned at top-4 right-4
+          while the delete button sat in the header at px-6 pt-6 — two
+          differently sized controls, 8px apart, on different baselines, one
+          overlapping the other's hit area. Putting both in one flex row is
+          what actually aligns them. */}
+      <SheetContent
+        className="w-full sm:max-w-xl flex flex-col p-0 gap-0"
+        showCloseButton={false}
+      >
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <div className="flex items-start gap-4">
@@ -584,19 +593,31 @@ export function DealDetailSheet({
                 {deal.pipeline && <span className="text-xs text-muted-foreground">{deal.pipeline.name}</span>}
               </div>
             </div>
-            {/* Admin-only delete. Hard-delete with cascade — see useDeleteDeal. */}
-            {isAdmin && (
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Admin-only delete. Hard-delete with cascade — see useDeleteDeal. */}
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  title="Delete deal"
+                  aria-label="Delete deal"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
-                title="Delete deal"
-                aria-label="Delete deal"
+                onClick={onClose}
+                className="h-8 w-8 text-muted-foreground"
+                title="Close"
+                aria-label="Close"
               >
-                <Trash2 className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </Button>
-            )}
+            </div>
           </div>
 
           {/* Quick Actions */}

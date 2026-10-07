@@ -71,7 +71,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground shadow-sm"
+                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
                 onClick={handleEmail}
               >
                 <Mail className="h-3.5 w-3.5" />
@@ -89,7 +89,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground shadow-sm"
+                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
                 onClick={handleCall}
               >
                 <Phone className="h-3.5 w-3.5" />
@@ -107,7 +107,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground shadow-sm"
+                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
                 onClick={handleSchedule}
               >
                 <Calendar className="h-3.5 w-3.5" />
@@ -125,7 +125,7 @@ export function QuickActions({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-md bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground shadow-sm"
+                className="h-7 w-7 rounded-md hover:bg-primary hover:text-primary-foreground"
                 onClick={handleView}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
