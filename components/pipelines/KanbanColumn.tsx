@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Droppable } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +38,13 @@ interface KanbanColumnProps {
   // its new column, the window grows to include it — otherwise the card
   // appears to vanish on drop, which reads as a failed drag.
   revealDealId?: string | null
+  /**
+   * Reports what this column currently has on screen, so the board can work
+   * out where a dropped card belongs. It has to be the VISIBLE list — the
+   * column's own search, date filter and page size all narrow it, and the drop
+   * index rbd reports is an index into what the user can see.
+   */
+  onVisibleDealsChange?: (stageId: string, deals: Deal[]) => void
 }
 
 /**
@@ -54,6 +61,17 @@ function sortDeals(deals: Deal[], sortBy: SortOption): Deal[] {
   const sorted = [...deals]
 
   switch (sortBy) {
+    case 'manual':
+      // Dragged order. Positions are always set (migration 196 backfilled
+      // every deal and a trigger stamps new ones), but a deal that somehow
+      // arrives without one sorts to the bottom rather than to the top, where
+      // it would look like the newest lead.
+      return sorted.sort((a, b) => {
+        const posA = a.board_position ?? Number.POSITIVE_INFINITY
+        const posB = b.board_position ?? Number.POSITIVE_INFINITY
+        if (posA !== posB) return posA - posB
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      })
     case 'value-desc':
       return sorted.sort((a, b) => (b.deal_value || 0) - (a.deal_value || 0))
     case 'value-asc':
@@ -98,6 +116,7 @@ export function KanbanColumn({
   columnWidth = 320,
   compact = false,
   revealDealId = null,
+  onVisibleDealsChange,
 }: KanbanColumnProps) {
   const totalValue = deals.reduce((sum, deal) => sum + (deal.deal_value || 0), 0)
 
@@ -139,6 +158,13 @@ export function KanbanColumn({
   const visibleDeals = matchedDeals.slice(0, effectiveCount)
   const hiddenCount = matchedDeals.length - visibleDeals.length
   const isNarrowed = search.trim() !== '' || dateRange !== 'all'
+
+  // Hand the visible list up. An effect writing into the board's ref rather
+  // than its state: the board only reads this inside onDragEnd, so turning it
+  // into state would re-render every column on every keystroke for nothing.
+  useEffect(() => {
+    onVisibleDealsChange?.(stage.id, visibleDeals)
+  }, [onVisibleDealsChange, stage.id, visibleDeals])
 
   const renderCard = (deal: Deal, index: number) => (
     <DealCard

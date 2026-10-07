@@ -14,7 +14,7 @@ import { CreatePipelineModal } from '@/components/pipelines/CreatePipelineModal'
 import { PipelineSettingsModal } from '@/components/pipelines/PipelineSettingsModal'
 import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
-import { useDeals, useMoveDeal } from '@/lib/hooks/useDeals'
+import { useDeals, useMoveDeal, useReorderDeal } from '@/lib/hooks/useDeals'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
@@ -89,6 +89,7 @@ export default function PipelinesPage() {
     newStageId: string
     oldStage: PipelineStage
     newStage: PipelineStage
+    boardPosition?: number | null
   } | null>(null)
 
   // Fetch current user (with role)
@@ -117,6 +118,7 @@ export default function PipelinesPage() {
 
   // Mutation for moving deals
   const moveDeal = useMoveDeal()
+  const reorderDeal = useReorderDeal()
 
   // View mode preference (kanban or list)
   const { viewMode, setViewMode } = usePipelineViewPreference()
@@ -214,7 +216,13 @@ export default function PipelinesPage() {
 
   // Execute the move deal mutation
   const executeMoveDeals = useCallback(
-    (dealId: string, newStageId: string, oldStageName?: string, newStageName?: string) => {
+    (
+      dealId: string,
+      newStageId: string,
+      oldStageName?: string,
+      newStageName?: string,
+      boardPosition?: number | null,
+    ) => {
       if (!selectedPipelineId) return
 
       // Set before the mutation so the card is already revealed when the
@@ -229,6 +237,7 @@ export default function PipelinesPage() {
           oldStageName,
           newStageName,
           performedById: userId || undefined,
+          boardPosition,
         },
         {
           onSuccess: () => {
@@ -254,7 +263,13 @@ export default function PipelinesPage() {
 
   // Core stage change logic - auto-stops active automations and moves the deal
   const handleStageChange = useCallback(
-    async (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => {
+    async (
+      dealId: string,
+      newStageId: string,
+      oldStage?: PipelineStage,
+      newStage?: PipelineStage,
+      boardPosition?: number | null,
+    ) => {
       if (!selectedPipelineId) return
 
       // List-view stage changes go through the same backward-confirmation
@@ -267,6 +282,7 @@ export default function PipelinesPage() {
           newStageId,
           oldStage,
           newStage,
+          boardPosition,
         })
         return
       }
@@ -292,7 +308,7 @@ export default function PipelinesPage() {
       }
 
       // Move the deal — DB trigger will auto-enroll in new stage's automation if one exists
-      executeMoveDeals(dealId, newStageId, oldStage?.name, newStage?.name)
+      executeMoveDeals(dealId, newStageId, oldStage?.name, newStage?.name, boardPosition)
     },
     [executeMoveDeals, selectedPipelineId]
   )
@@ -302,7 +318,7 @@ export default function PipelinesPage() {
   // updates handleStageChange would have done.
   const confirmBackwardMove = useCallback(async () => {
     if (!pendingBackwardMove || !selectedPipelineId) return
-    const { dealId, newStageId, oldStage, newStage } = pendingBackwardMove
+    const { dealId, newStageId, oldStage, newStage, boardPosition } = pendingBackwardMove
     setPendingBackwardMove(null)
 
     const supabase = createClient()
@@ -338,7 +354,7 @@ export default function PipelinesPage() {
         .eq('id', dealId)
     }
 
-    executeMoveDeals(dealId, newStageId, oldStage.name, newStage.name)
+    executeMoveDeals(dealId, newStageId, oldStage.name, newStage.name, boardPosition)
   }, [pendingBackwardMove, selectedPipelineId, executeMoveDeals, stages])
 
   // Check if current user can move a specific deal
@@ -352,7 +368,7 @@ export default function PipelinesPage() {
 
   // Handle drag end (for Kanban board)
   const handleDragEnd = useCallback(
-    async (result: DropResult) => {
+    async (result: DropResult, boardPosition?: number | null) => {
       const { destination, source, draggableId } = result
 
       // Dropped outside a valid droppable
@@ -363,6 +379,41 @@ export default function PipelinesPage() {
         destination.droppableId === source.droppableId &&
         destination.index === source.index
       ) {
+        return
+      }
+
+      // Same column, different position — a reorder. This used to fall
+      // through and do nothing at all, so the card snapped back to wherever
+      // the sort put it and the drag looked broken. Writes board_position
+      // only: no stage change, no activity entry, and time-in-stage is left
+      // alone, because nothing about the deal has actually changed.
+      if (destination.droppableId === source.droppableId) {
+        const deal = deals.find((d) => d.id === draggableId)
+        if (deal && !canMoveDeal(deal)) {
+          toast({
+            title: 'Cannot reorder deal',
+            description: 'You can only move deals that are assigned to you.',
+            variant: 'destructive',
+          })
+          return
+        }
+        setMovedDealId(draggableId)
+        reorderDeal.mutate(
+          {
+            dealId: draggableId,
+            position: boardPosition ?? null,
+            stageId: destination.droppableId,
+          },
+          {
+            onError: (error) => {
+              toast({
+                title: 'Failed to reorder deal',
+                description: error instanceof Error ? error.message : 'An error occurred',
+                variant: 'destructive',
+              })
+            },
+          },
+        )
         return
       }
 
@@ -395,10 +446,10 @@ export default function PipelinesPage() {
           return
         }
 
-        await handleStageChange(draggableId, destination.droppableId, oldStage, newStage)
+        await handleStageChange(draggableId, destination.droppableId, oldStage, newStage, boardPosition)
       }
     },
-    [handleStageChange, selectedPipelineId, stages, deals, canMoveDeal]
+    [handleStageChange, selectedPipelineId, stages, deals, canMoveDeal, reorderDeal]
   )
 
   // Handle add click from column

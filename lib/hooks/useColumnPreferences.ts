@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-export type SortOption = 'value-desc' | 'value-asc' | 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'activity-desc'
+// 'manual' is the order a user has dragged cards into, stored on
+// deals.board_position. It is the default because a drag has to stick: under
+// any other sort the card would snap straight back to where the sort puts it.
+// Migration 196 backfilled positions in newest-first order, so this looks
+// identical to the old 'date-desc' default until someone actually drags.
+export type SortOption = 'manual' | 'value-desc' | 'value-asc' | 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'activity-desc'
 
 export interface ColumnPreferences {
   collapsedColumns: string[]
@@ -100,7 +105,7 @@ export function useColumnPreferences(pipelineId: string | null) {
   // Get sort option for a column
   const getColumnSort = useCallback(
     (columnId: string): SortOption => {
-      return preferences.sortBy[columnId] || 'date-desc'
+      return preferences.sortBy[columnId] || 'manual'
     },
     [preferences.sortBy]
   )

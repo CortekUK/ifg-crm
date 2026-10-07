@@ -8,6 +8,7 @@ import { KanbanColumn } from './KanbanColumn'
 import { useColumnPreferences } from '@/lib/hooks/useColumnPreferences'
 import { LayoutGrid, RefreshCw } from 'lucide-react'
 import type { PipelineStage, Deal } from '@/lib/types/pipelines'
+import { neighboursAt, positionBetween } from '@/lib/utils/deal-ordering'
 
 interface KanbanBoardProps {
   stages: PipelineStage[]
@@ -15,7 +16,7 @@ interface KanbanBoardProps {
   pipelineId: string | null
   isLoading: boolean
   zoom?: number
-  onDragEnd: (result: DropResult) => void
+  onDragEnd: (result: DropResult, boardPosition?: number | null) => void
   onAddClick: (stage: PipelineStage) => void
   onDealClick?: (deal: Deal) => void
   canMoveDeal?: (deal: Deal) => boolean
@@ -117,6 +118,14 @@ export function KanbanBoard({
     getColumnSort,
   } = useColumnPreferences(pipelineId)
 
+  // What each column currently has on screen, kept in a ref because it is only
+  // ever read inside onDragEnd. Holding it as state would re-render every
+  // column each time one of them filtered its own list.
+  const visibleByStage = useRef<Record<string, Deal[]>>({})
+  const registerVisibleDeals = useCallback((stageId: string, deals: Deal[]) => {
+    visibleByStage.current[stageId] = deals
+  }, [])
+
   // Auto-scroll refs
   const scrollRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -159,10 +168,29 @@ export function KanbanBoard({
     }
   }, [])
 
-  const handleDragEnd = useCallback((result: DropResult) => {
-    stopAutoScroll()
-    onDragEnd(result)
-  }, [onDragEnd, stopAutoScroll])
+  /**
+   * Stop the auto-scroll, then turn "dropped at index 3 of the Follow Up
+   * column" into a board_position.
+   *
+   * rbd reports an index into the list the user is looking at, which is not
+   * the stage's full contents once a search, a date filter or the page size
+   * has narrowed it — hence reading the column's own visible list rather than
+   * dealsByStage.
+   */
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      stopAutoScroll()
+      const { destination, draggableId } = result
+      if (!destination) {
+        onDragEnd(result)
+        return
+      }
+      const visible = visibleByStage.current[destination.droppableId] ?? []
+      const { before, after } = neighboursAt(visible, destination.index, draggableId)
+      onDragEnd(result, positionBetween(before, after))
+    },
+    [onDragEnd, stopAutoScroll],
+  )
 
   // Group deals by stage
   const dealsByStage = useMemo(() => {
@@ -220,6 +248,7 @@ export function KanbanBoard({
               columnWidth={columnWidth}
               compact={compact}
               revealDealId={revealDealId}
+              onVisibleDealsChange={registerVisibleDeals}
             />
           ))}
         </div>

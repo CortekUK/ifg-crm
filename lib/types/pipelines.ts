@@ -63,6 +63,12 @@ export interface Deal {
   lost_reason: string | null
   last_activity_at: string | null
   stage_entered_at?: string | null
+  /**
+   * Manual order within a stage (migration 196). Lower sorts higher. A double
+   * so dropping between two cards is a midpoint write of one row rather than a
+   * renumber of the whole stage.
+   */
+  board_position?: number | null
   // New fields
   win_probability?: number | null // 0-100 percentage
   forecasted_close_date?: string | null // ISO date string

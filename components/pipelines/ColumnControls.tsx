@@ -77,6 +77,9 @@ export function ColumnControls({
         </DropdownMenuLabel>
 
         <DropdownMenuRadioGroup value={sortBy} onValueChange={(v) => onSortChange(v as SortOption)}>
+          <DropdownMenuRadioItem value="manual" className="text-sm">
+            Manual (drag to reorder)
+          </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="value-desc" className="text-sm">
             Value (High to Low)
           </DropdownMenuRadioItem>

@@ -277,6 +277,7 @@ export function useMoveDeal() {
       oldStageName,
       newStageName,
       performedById,
+      boardPosition,
     }: {
       dealId: string
       newStageId: string
@@ -284,6 +285,8 @@ export function useMoveDeal() {
       oldStageName?: string
       newStageName?: string
       performedById?: string
+      /** Where in the destination stage the card was dropped. */
+      boardPosition?: number | null
     }) => {
       // Read the stage the deal is leaving, so the activity log records its id
       // (and its name, if the caller didn't pass one)
@@ -341,6 +344,10 @@ export function useMoveDeal() {
           // days since the lead was created instead.
           stage_entered_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          // Where the card was dropped in its new column. Without this a moved
+          // card keeps the position it held in the stage it came from, which
+          // bears no relation to the order of the stage it landed in.
+          ...(typeof boardPosition === 'number' ? { board_position: boardPosition } : {}),
         })
         .eq('id', dealId)
         .select('id')
@@ -461,6 +468,68 @@ export function useDeleteDeal() {
       queryClient.invalidateQueries({ queryKey: ['deals'] })
       queryClient.invalidateQueries({ queryKey: ['pipeline-deal-counts'] })
       queryClient.invalidateQueries({ queryKey: ['deal-automations'] })
+    },
+  })
+}
+
+/**
+ * Reorder a card within its stage.
+ *
+ * Deliberately separate from useMoveDeal: nothing about the deal changes
+ * except where it sits on the board, so this writes no stage, stamps no
+ * stage_entered_at and logs no activity. A recruiter tidying their column
+ * should not fill the deal's timeline with "moved" entries, and it must not
+ * reset time-in-stage.
+ */
+export function useReorderDeal() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      dealId,
+      position,
+      stageId,
+    }: {
+      dealId: string
+      /** null when the midpoint ran out of precision — renumber the stage first. */
+      position: number | null
+      stageId: string
+    }) => {
+      let target = position
+
+      if (target === null) {
+        // Precision backstop. Rewrite the stage on the gaps the backfill used,
+        // then drop the card at the end; the user can nudge it again and the
+        // midpoints will have room.
+        const { data: rows } = await supabase
+          .from('deals')
+          .select('id, board_position, created_at')
+          .eq('current_stage_id', stageId)
+          .order('board_position', { ascending: true, nullsFirst: false })
+
+        const ordered = rows ?? []
+        await Promise.all(
+          ordered.map((row, i) =>
+            supabase.from('deals').update({ board_position: (i + 1) * 1000 }).eq('id', row.id),
+          ),
+        )
+        target = (ordered.length + 1) * 1000
+      }
+
+      const { data, error } = await supabase
+        .from('deals')
+        .update({ board_position: target })
+        .eq('id', dealId)
+        .select('id')
+
+      if (error) throw new Error(error.message || 'Failed to reorder deal')
+      // RLS refuses someone else's deal by matching zero rows rather than
+      // erroring — same trap as useMoveDeal.
+      if (!data?.length) throw new Error('You can only reorder deals that are assigned to you.')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
     },
   })
 }

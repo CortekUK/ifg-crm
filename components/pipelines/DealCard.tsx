@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Clock, GraduationCap, User } from 'lucide-react'
+import { Clock, GraduationCap, Lock, User } from 'lucide-react'
 import { formatCurrency, formatRelativeTime, formatDuration } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { QuickActions } from './QuickActions'
@@ -165,6 +165,17 @@ export function DealCard({ deal, index, onClick, isDragDisabled, compact = false
             {...provided.dragHandleProps}
             style={style}
             onClick={onClick}
+            // A locked card used to look identical to a draggable one and
+            // simply refuse to pick up, with no cursor change, no tooltip and
+            // nothing on the card to explain it. That reads as the board being
+            // broken rather than as a permission, and it is the single most
+            // reported "drag and drop doesn't work".
+            title={
+              isDragDisabled
+                ? 'You can only move deals assigned to you. Click to open it.'
+                : undefined
+            }
+            aria-disabled={isDragDisabled || undefined}
             className={cn(
               'group relative bg-card rounded-lg border cursor-pointer',
               'hover:shadow-md hover:border-primary/30',
@@ -175,9 +186,27 @@ export function DealCard({ deal, index, onClick, isDragDisabled, compact = false
               // combined with the previous padding transition read as
               // the card zooming on itself. Stick to shadow + border
               // tint as the only hover affordance.
+              // Locked cards stay readable and still open on click — they are
+              // only undraggable — so this is a dashed edge rather than the
+              // dimming that would say "inactive".
+              isDragDisabled && 'border-dashed',
               compact ? 'p-2 mb-1' : 'p-3 mb-2'
             )}
           >
+            {isDragDisabled && !compact && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="absolute left-1.5 top-1.5 z-10 text-muted-foreground/50">
+                      <Lock className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    You can only move deals assigned to you
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {/* Status Indicator Bar */}
             <div
               className={cn(
