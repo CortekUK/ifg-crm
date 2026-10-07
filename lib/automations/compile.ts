@@ -160,7 +160,7 @@ function waitUntilBeforeDateStep(
 // of treating 0 as "use the default", preserving Option B behaviour-parity.
 function threeEmailSequence(
   config: AutomationConfig | null | undefined,
-  options: { finalStageId?: string | null } = {},
+  options: { finalStageId?: string | null; trailingWait?: boolean } = {},
 ): CompiledStep[] {
   const emails = emailsBySlot(config)
   const waitDays = config?.wait_days ?? []
@@ -174,6 +174,22 @@ function threeEmailSequence(
   if (options.finalStageId) {
     steps.push(waitStep(waitDays[2] || DEFAULT_WAIT_DAYS[2]))
     steps.push(moveToStageStep(options.finalStageId))
+  } else if (options.trailingWait) {
+    // The grace period after the LAST email, before the player is written off.
+    //
+    // The Initial Contact template declares four steps' worth of waiting —
+    // 3, 5 and 7 days — and the builder shows all three, but only the first
+    // two were ever compiled. With no step left after email 3 the enrollment
+    // completed on the same cron tick that sent it, and
+    // move_deal_on_enrollment_exit moved the deal to the no-reply stage
+    // immediately. So a player got "are you still interested?" and was filed
+    // as Dormant seconds later, with no chance to answer — and the 7 days the
+    // recruiter configured did nothing at all.
+    //
+    // Emitting the wait makes the configured number the real one: the deal
+    // sits in the trigger stage for it, and only then completes (or, with the
+    // Dormant reminder tail below, moves on and starts re-engagement).
+    steps.push(waitStep(waitDays[2] || DEFAULT_WAIT_DAYS[2]))
   }
   return appendDormantReminderTail(steps, config)
 }
@@ -361,7 +377,10 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
   // hard-coded move step into the compiled output would duplicate that
   // job and produce two different "no-reply destination" UIs in the
   // modal (workflow steps + exit goals). One source of truth wins.
-  initial_contact: (config) => threeEmailSequence(config),
+  // trailingWait: the Initial Contact template promises a wait after email 3
+  // (default 7 days) before the no-reply outcome applies. follow_up has no
+  // such step — it ends on email 3 and leaves the player in Follow Up.
+  initial_contact: (config) => threeEmailSequence(config, { trailingWait: true }),
   follow_up: (config) => threeEmailSequence(config),
   deposit_invoice: (config) => depositInvoiceSequence(config),
   application_received: variableEmailSequence,
