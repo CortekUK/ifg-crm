@@ -779,6 +779,36 @@ async function processQueue(
 
         summary.stepsProcessed++
 
+        // ============================================
+        // RE-CHECK BEFORE ADVANCING — a stop that lands mid-step must stick
+        //
+        // Everything above ran while the enrollment was locked by setting
+        // next_step_at to NULL. That lock keeps a second worker out; it does
+        // nothing about a recruiter dragging the card, or a reply arriving,
+        // while the final email is being handed to Resend. Both of those end
+        // the enrollment by writing status='stopped' from elsewhere — and the
+        // completion write further down then set status='completed' straight
+        // over the top of it. move_deal_on_enrollment_exit read 'completed'
+        // and filed the player in the no-reply stage, so the recruiter's move
+        // was undone, or someone who had just written back was treated as
+        // having ignored three emails.
+        //
+        // Reading the status back here reports it; the .eq('status','active')
+        // added to every write below is what actually enforces it, since the
+        // stop can also land in the microseconds after this read.
+        const { data: statusNow } = await supabase
+          .from('automation_enrollments')
+          .select('status, stopped_reason')
+          .eq('id', enrollment.id)
+          .single()
+
+        if (statusNow && statusNow.status !== 'active') {
+          console.log(
+            `Enrollment ${enrollment.id} was ended during its step (${statusNow.stopped_reason ?? statusNow.status}) — not advancing`,
+          )
+          continue
+        }
+
         // Find next step
         const { data: nextStep, error: nextStepError } = await supabase
           .from('automation_steps')
@@ -850,6 +880,7 @@ async function processQueue(
               next_step_at: nextStepAt ? nextStepAt.toISOString() : null,
             })
             .eq('id', enrollment.id)
+            .eq('status', 'active') // never revive an enrollment stopped mid-step
 
           if (updateError) {
             summary.errors.push(`Failed to update enrollment ${enrollment.id}: ${updateError.message}`)
@@ -932,6 +963,7 @@ async function processQueue(
                     next_step_at: loopAt ? loopAt.toISOString() : new Date().toISOString(),
                   })
                   .eq('id', enrollment.id)
+                  .eq('status', 'active') // don't re-arm a reminder for someone who just replied
 
                 if (loopError) {
                   summary.errors.push(`Failed to loop recurring enrollment ${enrollment.id}: ${loopError.message}`)
@@ -964,7 +996,11 @@ async function processQueue(
             // Re-armed for the next cycle — skip completion + final-stage logic.
           } else {
           // No next step - mark as completed
-          const { error: completeError } = await supabase
+          // The guard that matters most. 'completed' is the status
+          // move_deal_on_enrollment_exit treats as "ignored every email" and
+          // acts on, so writing it over a 'stopped' that a move or a reply
+          // just set is what sent the card to Dormant anyway.
+          const { data: completed, error: completeError } = await supabase
             .from('automation_enrollments')
             .update({
               status: 'completed',
@@ -972,9 +1008,16 @@ async function processQueue(
               next_step_at: null,
             })
             .eq('id', enrollment.id)
+            .eq('status', 'active')
+            .select('id')
 
           if (completeError) {
             summary.errors.push(`Failed to complete enrollment ${enrollment.id}: ${completeError.message}`)
+          } else if (!completed || completed.length === 0) {
+            console.log(
+              `Enrollment ${enrollment.id} was stopped while its last step ran — leaving the deal where it is`,
+            )
+            continue
           } else {
             summary.enrollmentsCompleted++
           }
