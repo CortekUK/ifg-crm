@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Droppable } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -116,26 +116,28 @@ export function KanbanColumn({
     return sortDeals(filtered, sortBy)
   }, [deals, dateRange, search, sortBy])
 
-  // Narrowing the list should start it from the top again, or a search that
-  // matches 3 cards would still be sitting on a window sized for the last one.
-  useEffect(() => {
+  // Narrowing the list starts it from the top again — a search matching three
+  // cards should not keep a window sized for the last one. Adjusted during
+  // render rather than in an effect: this is derived state, and an effect
+  // would paint the stale window once before correcting it.
+  const narrowKey = `${stage.id}|${sortBy}|${dateRange}|${search}`
+  const [lastNarrowKey, setLastNarrowKey] = useState(narrowKey)
+  if (narrowKey !== lastNarrowKey) {
+    setLastNarrowKey(narrowKey)
     setVisibleCount(PAGE_SIZE)
-  }, [search, dateRange, sortBy, stage.id])
+  }
 
   // A dropped card keeps the created_at it has always had, so it can land
-  // anywhere in the order — including past the visible window. Grow the window
-  // rather than let the drop look like it failed.
+  // anywhere in the order — including past the visible window. Widening the
+  // window for it is a pure derivation, so no state and no effect: the card is
+  // shown on the render that follows the drop.
   const revealIndex = useMemo(
     () => (revealDealId ? matchedDeals.findIndex((deal) => deal.id === revealDealId) : -1),
     [matchedDeals, revealDealId],
   )
-  useEffect(() => {
-    if (revealIndex >= 0) {
-      setVisibleCount((current) => (revealIndex < current ? current : revealIndex + 1))
-    }
-  }, [revealIndex])
+  const effectiveCount = revealIndex >= 0 ? Math.max(visibleCount, revealIndex + 1) : visibleCount
 
-  const visibleDeals = matchedDeals.slice(0, visibleCount)
+  const visibleDeals = matchedDeals.slice(0, effectiveCount)
   const hiddenCount = matchedDeals.length - visibleDeals.length
   const isNarrowed = search.trim() !== '' || dateRange !== 'all'
 
