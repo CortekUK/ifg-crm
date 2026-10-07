@@ -252,8 +252,8 @@ export function useDealAutomations(dealId: string | null) {
         .from('automation_enrollments')
         .select(`
           *,
-          automation:automations(id, name),
-          current_step:automation_steps(id, step_order, step_type)
+          automation:automations(id, name, is_active),
+          current_step:automation_steps(id, step_order, step_type, conditions)
         `)
         .eq('deal_id', dealId)
         .order('enrolled_at', { ascending: false })

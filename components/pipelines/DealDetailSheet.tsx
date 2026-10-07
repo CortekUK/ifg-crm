@@ -51,6 +51,7 @@ import {
   Eye,
   MousePointerClick,
   Reply,
+  AlertTriangle,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
@@ -98,6 +99,32 @@ interface DealDetailSheetProps {
    *  backward-move confirmation, automation stop and intent clearing as a drag. */
   onStageChange: (dealId: string, newStageId: string, oldStage?: PipelineStage, newStage?: PipelineStage) => void
   isMoving?: boolean
+}
+
+/**
+ * Why an active enrollment has nothing scheduled.
+ *
+ * A date-relative wait step with no date to count back from parks the
+ * enrollment (next_step_at NULL) and waits for the date to appear. That is a
+ * legitimate state — the player has not booked yet — but it rendered as
+ * "Active" with no further detail, so a player stuck waiting on a meeting date
+ * that nobody was ever going to set was indistinguishable from one half way
+ * through a sequence. A recruiter had no way to see that it needed them.
+ */
+function describeParkedEnrollment(
+  step: { step_type?: string | null; conditions?: unknown } | null | undefined,
+): string {
+  const field = (step?.conditions as { field?: string } | null)?.field
+  if (step?.step_type === 'wait_until_before_date') {
+    if (field === 'interview_date') {
+      return 'Waiting for an interview date on this deal. Set one below, or have the player book through Calendly — until then no reminder can be scheduled.'
+    }
+    return `Waiting for the deal's ${(field ?? 'date').replace(/_/g, ' ')} to be set.`
+  }
+  if (step?.step_type === 'wait_until_meeting_ends') {
+    return 'Waiting for the booked meeting to finish.'
+  }
+  return 'Waiting — no next step is scheduled. Check the automation is switched on.'
 }
 
 export function DealDetailSheet({
@@ -937,6 +964,18 @@ export function DealDetailSheet({
                               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 Next: {formatRelativeTime(enrollment.next_step_at)}
+                              </p>
+                            )}
+                            {/* Active with nothing scheduled used to render as
+                                a bare "Active" badge and no second line, so a
+                                player parked indefinitely — waiting on a
+                                meeting date nobody had set — looked identical
+                                to one mid-sequence. Say what it is waiting
+                                for. */}
+                            {enrollment.status === 'active' && !enrollment.next_step_at && (
+                              <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 flex items-start gap-1">
+                                <AlertTriangle className="h-3 w-3 mt-[1px] shrink-0" />
+                                {describeParkedEnrollment(enrollment.current_step)}
                               </p>
                             )}
                           </div>
