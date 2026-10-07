@@ -64,9 +64,16 @@ export const SCOUT_TOOLS: ChatCompletionTool[] = [
         type: 'object',
         properties: {
           search: stringField(
-            'Free-text search across first_name, last_name, email, phone, club_name. Case-insensitive. Optional.',
+            'Free-text search across first_name, last_name, full_name, email, phone, club_name. ' +
+              'Matched word by word, so "John Smith" finds a contact however their name is stored. ' +
+              'Case-insensitive. Optional.',
           ),
           country: stringField('Filter by country (case-insensitive substring match).'),
+          state: stringField(
+            'Filter by US state. Give EITHER the two-letter code or the full name — both spellings ' +
+              'are matched, so "CA" and "California" return the same contacts. Use this rather than ' +
+              'writing your own SQL for a state, because the column holds a mixture of both.',
+          ),
           position: stringField('Filter by football position.'),
           source: stringField("Filter by acquisition source (e.g. 'website_form', 'manual')."),
           owner_user_id: stringField('Filter to contacts owned by this profile/user UUID.'),

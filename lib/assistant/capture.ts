@@ -48,12 +48,27 @@ export async function captureEnquiry(supabase: SupabaseClient, args: EnquiryArgs
   // rather than an odd "Enquiry" filler after it.
   const lastName: string | null = hasName ? parts.slice(1).join(' ') || null : 'Enquiry'
 
-  const { data: existing } = await supabase.from('contacts').select('id').eq('email', email).maybeSingle()
+  const { data: existing } = await supabase
+    .from('contacts')
+    .select('id, first_name, last_name')
+    .eq('email', email)
+    .maybeSingle()
   let contactId: string | null = existing?.id ?? null
 
   if (contactId) {
     const updates: Record<string, unknown> = {}
-    if (hasName) {
+    // Fill a missing name in; never replace one the CRM already holds.
+    //
+    // Whoever types into the chat is not necessarily whose email it is. A
+    // parent entering their own name against the player's address renamed the
+    // player's contact record — the record staff then work from, address
+    // emails to, and search by. A name already on file came from an
+    // application form; a name typed into a chat gate is not better evidence
+    // than that.
+    const hasExistingName = Boolean(
+      (existing?.first_name ?? '').trim() || (existing?.last_name ?? '').trim(),
+    )
+    if (hasName && !hasExistingName) {
       updates.first_name = firstName
       if (lastName) updates.last_name = lastName
     }

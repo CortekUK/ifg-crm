@@ -33,6 +33,7 @@ function getAdmin(): AdminClient {
 // partial argument objects safely.
 type FilterMap = Array<
   | { type: 'eq'; column: string; value: string | number | boolean }
+  | { type: 'neq'; column: string; value: string | number | boolean }
   | { type: 'ilike'; column: string; pattern: string }
   | { type: 'gte'; column: string; value: string | number }
   | { type: 'lte'; column: string; value: string | number }
@@ -59,6 +60,7 @@ async function runQuery({
   let q = admin.from(view).select(select)
   for (const f of filters) {
     if (f.type === 'eq') q = q.eq(f.column, f.value)
+    else if (f.type === 'neq') q = q.neq(f.column, f.value)
     else if (f.type === 'ilike') q = q.ilike(f.column, f.pattern)
     else if (f.type === 'gte') q = q.gte(f.column, f.value)
     else if (f.type === 'lte') q = q.lte(f.column, f.value)
@@ -106,20 +108,81 @@ function ilikePattern(s: string) {
 // Executors
 // ---------------------------------------------------------------------------
 
+/**
+ * The most natural question anybody asks Scout is "tell me about John Smith",
+ * and it returned "no contact" every time.
+ *
+ * The whole search string was matched against first_name and last_name
+ * SEPARATELY, so "Hamza QA 36" had to equal one field or the other — it never
+ * could. Searching one word at a time fixes it: every word must appear in some
+ * field, so a first + last name matches, in any order, and a middle name in the
+ * record no longer breaks it. runQuery chains each filter, so N `or` filters
+ * AND together.
+ */
+function tokenSearchFilters(search: string, columns: string[]): FilterMap {
+  const tokens = search.trim().split(/\s+/).filter(Boolean)
+  return tokens.map((token) => {
+    const p = ilikePattern(token)
+    return { type: 'or' as const, expr: columns.map((c) => `${c}.ilike.${p}`).join(',') }
+  })
+}
+
+/**
+ * The same state written three ways.
+ *
+ * "How many contacts are in California?" answered zero, while 3,977 rows hold
+ * "CA", 513 hold "CALIGFORNIA" in caps and 214 "California". Scout searched one
+ * spelling and said none confidently, which is the worst possible answer.
+ * Matching the code and the name together is what makes the question work.
+ */
+const US_STATE_ALIASES: Record<string, string[]> = {
+  AL: ['Alabama'], AK: ['Alaska'], AZ: ['Arizona'], AR: ['Arkansas'], CA: ['California'],
+  CO: ['Colorado'], CT: ['Connecticut'], DE: ['Delaware'], FL: ['Florida'], GA: ['Georgia'],
+  HI: ['Hawaii'], ID: ['Idaho'], IL: ['Illinois'], IN: ['Indiana'], IA: ['Iowa'],
+  KS: ['Kansas'], KY: ['Kentucky'], LA: ['Louisiana'], ME: ['Maine'], MD: ['Maryland'],
+  MA: ['Massachusetts'], MI: ['Michigan'], MN: ['Minnesota'], MS: ['Mississippi'],
+  MO: ['Missouri'], MT: ['Montana'], NE: ['Nebraska'], NV: ['Nevada'], NH: ['New Hampshire'],
+  NJ: ['New Jersey'], NM: ['New Mexico'], NY: ['New York'], NC: ['North Carolina'],
+  ND: ['North Dakota'], OH: ['Ohio'], OK: ['Oklahoma'], OR: ['Oregon'], PA: ['Pennsylvania'],
+  RI: ['Rhode Island'], SC: ['South Carolina'], SD: ['South Dakota'], TN: ['Tennessee'],
+  TX: ['Texas'], UT: ['Utah'], VT: ['Vermont'], VA: ['Virginia'], WA: ['Washington'],
+  WV: ['West Virginia'], WI: ['Wisconsin'], WY: ['Wyoming'], DC: ['District of Columbia'],
+}
+
+function stateVariants(input: string): string[] {
+  const trimmed = input.trim()
+  const upper = trimmed.toUpperCase()
+  if (US_STATE_ALIASES[upper]) return [upper, ...US_STATE_ALIASES[upper]]
+  for (const [code, names] of Object.entries(US_STATE_ALIASES)) {
+    if (names.some((n) => n.toUpperCase() === upper)) return [code, ...names]
+  }
+  return [trimmed]
+}
+
 async function execQueryContacts(args: Args) {
   const filters: FilterMap = []
   const search = str(args.search)
   if (search) {
-    const p = ilikePattern(search)
+    filters.push(
+      ...tokenSearchFilters(search, [
+        'first_name',
+        'last_name',
+        // The view has carried full_name all along and the search never used
+        // it — which is why "John Smith" could not match anybody.
+        'full_name',
+        'email',
+        'phone',
+        'club_name',
+      ]),
+    )
+  }
+  const state = str(args.state)
+  if (state) {
     filters.push({
       type: 'or',
-      expr: [
-        `first_name.ilike.${p}`,
-        `last_name.ilike.${p}`,
-        `email.ilike.${p}`,
-        `phone.ilike.${p}`,
-        `club_name.ilike.${p}`,
-      ].join(','),
+      expr: stateVariants(state)
+        .map((v) => `state.ilike.${ilikePattern(v)}`)
+        .join(','),
     })
   }
   const country = str(args.country)
@@ -207,7 +270,13 @@ async function execQueryInvoices(args: Args) {
   const pipelineName = str(args.pipeline_name)
   if (pipelineName)
     filters.push({ type: 'ilike', column: 'pipeline_name', pattern: ilikePattern(pipelineName) })
-  if (bool(args.unpaid_only)) filters.push({ type: 'is_null', column: 'paid_at', isNull: true })
+  if (bool(args.unpaid_only)) {
+    filters.push({ type: 'is_null', column: 'paid_at', isNull: true })
+    // A cancelled invoice is not money anybody owes. Counting it as unpaid put
+    // £23,366.70 of voided invoices into Scout's "outstanding" total and
+    // reported 22 unpaid where there were 18.
+    filters.push({ type: 'neq', column: 'status', value: 'cancelled' })
+  }
   if (bool(args.overdue_only)) filters.push({ type: 'gte', column: 'days_overdue', value: 1 })
   const minAmount = num(args.min_amount)
   if (minAmount !== undefined) filters.push({ type: 'gte', column: 'amount', value: minAmount })
@@ -477,6 +546,7 @@ async function execExecuteReadonlySql(args: Args) {
 const ALLOWED_VIEWS = [
   'v_scout_users',
   'v_scout_contacts',
+  'v_scout_contact_tags',
   'v_scout_deals',
   'v_scout_invoices',
   'v_scout_automations',
