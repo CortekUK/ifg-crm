@@ -371,12 +371,53 @@ export function ConfigureAutomationModal({
   }
 
   const handleSave = () => {
-    // Persist the resolved value, not the untouched `undefined` — otherwise
-    // the default shown in the dropdown would not be what gets saved.
-    onSave({
-      ...formData,
-      config: { ...formData.config, exit_to_stage_id: effectiveExitStageId },
-    })
+    /**
+     * Save what the form is showing.
+     *
+     * Every control below renders a default when its setting has no value —
+     * "Stop on payment" draws itself ticked, Amount Source reads "Programme
+     * deposit", Invoice Type reads "Deposit". None of those defaults were
+     * written to the saved config unless the person actually clicked the
+     * control, and the engine treats a missing setting as off/unset. The
+     * screen and the database disagreed, silently:
+     *
+     *   - stop_on_payment unsaved → the engine reads it as OFF, so players who
+     *     have paid keep getting chased. Both live invoice automations were in
+     *     this state, one with 8 real players enrolled.
+     *   - invoice_amount_source unsaved → the engine's switch falls through to
+     *     `default: amount = dealValue`, so the invoice is raised for the full
+     *     deal value (£12,000 on a University deal) or £0 when the deal has
+     *     none — instead of the deposit the dropdown was displaying.
+     *   - create_portal_account / date_field unsaved → the step simply never
+     *     does the thing the form said it would.
+     *
+     * exit_to_stage_id already did this. The rule is now applied to every
+     * control that shows a default, gated on the same condition that decides
+     * whether the control is rendered at all.
+     */
+    const config = { ...formData.config, exit_to_stage_id: effectiveExitStageId }
+
+    if (selectedTemplate?.type === 'invoice_generation') {
+      config.invoice_amount_source = invoiceAmountSource
+      config.invoice_type = config.invoice_type || 'deposit'
+    }
+    if (selectedTemplate?.type === 'deal_creation') {
+      config.deal_value_source = dealValueSource
+    }
+    if (selectedTemplate?.configurable.stop_on_payment) {
+      config.stop_on_payment = config.stop_on_payment ?? true
+    }
+    if (selectedTemplate?.configurable.create_portal_account) {
+      config.create_portal_account = config.create_portal_account ?? true
+    }
+    if (selectedTemplate?.configurable.days_before_date) {
+      config.date_field = config.date_field || 'programme_start_date'
+    }
+    if (config.dormant_reminder_enabled) {
+      config.dormant_reminder_interval_days = config.dormant_reminder_interval_days ?? 14
+    }
+
+    onSave({ ...formData, config })
     onClose()
   }
 
