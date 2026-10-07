@@ -5,7 +5,6 @@ import { Droppable } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -194,13 +193,18 @@ export function KanbanColumn({
 
   return (
     <div
-      className="flex flex-col flex-shrink-0 rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden"
+      // No overflow-hidden here. @hello-pangea/dnd drags a card in place rather
+      // than through a portal, so a clipping ancestor cuts the card off the
+      // moment it leaves this column — which looks exactly like the drag has
+      // stopped working, and is worst for the far-apart columns you have to
+      // drag the longest to reach.
+      className="flex flex-col flex-shrink-0 rounded-xl border border-border/50 bg-card shadow-sm"
       style={{ width: columnWidth }}
     >
       {/* Column Header */}
       <div
         className={cn(
-          'sticky top-0 z-10 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80',
+          'sticky top-0 z-10 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 rounded-t-xl',
           compact ? 'px-2 py-2' : 'px-3 py-3',
         )}
         style={{ borderLeftColor: stage.color, borderLeftWidth: 3 }}
@@ -278,9 +282,17 @@ export function KanbanColumn({
           <Select value={dateRange} onValueChange={(value) => setDateRange(value as DateRange)}>
             <SelectTrigger
               aria-label={`Filter ${stage.name} by date added`}
+              // Height has to be set through the same data-variant the
+              // component uses. SelectTrigger ships `data-[size=default]:h-9`,
+              // and tailwind-merge does not treat a plain `h-7` as a conflict
+              // with a modified class, so both survived and the
+              // higher-specificity h-9 won — leaving the select 36px tall next
+              // to a 28px input.
               className={cn(
-                'w-auto shrink-0 gap-1',
-                compact ? 'h-6 px-1.5 text-[10px]' : 'h-7 px-2 text-xs',
+                'w-auto shrink-0 gap-1 py-0',
+                compact
+                  ? 'data-[size=default]:h-6 px-1.5 text-[10px]'
+                  : 'data-[size=default]:h-7 px-2 text-xs',
               )}
             >
               <SelectValue />
@@ -320,12 +332,28 @@ export function KanbanColumn({
       {/* Cards Container */}
       <Droppable droppableId={stage.id}>
         {(provided, snapshot) => (
-          <ScrollArea className={cn('flex-1 pb-2', compact ? 'px-1' : 'px-2')}>
+          /* A plain scroll container, not Radix ScrollArea. Radix wraps a
+             Viewport's children in its own `<div style="min-width:100%;
+             display:table">`, which has no height — so a percentage
+             min-height on the drop target would resolve against an
+             auto-height parent and compute to zero, and the target could
+             never be told to fill the column. A flex-1 div with
+             overflow-y-auto gives the drop target a definite-height parent,
+             and leaves the droppable with exactly one scrollable ancestor,
+             which is what @hello-pangea/dnd expects. */
+          <div className={cn('flex-1 min-h-[120px] overflow-y-auto pb-2', compact ? 'px-1' : 'px-2')}>
+            {/* min-h-full, not a fixed strip.
+                Columns sit in a flex row, so every one of them stretches to the
+                height of the tallest. The drop target used to be min-h-[120px],
+                which in a short or empty column left hundreds of pixels that
+                looked droppable and were not — dropping into Arrival, Lost or
+                any stage with few cards did nothing unless you aimed at the top
+                inch. Filling the column makes the whole body a target. */}
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
               className={cn(
-                'min-h-[120px] pt-2 rounded-lg',
+                'min-h-full pt-2 rounded-lg',
                 'transition-[background-color,box-shadow] duration-300 ease-out',
                 snapshot.isDraggingOver && 'bg-primary/5 ring-2 ring-dashed ring-primary/30',
               )}
@@ -370,7 +398,7 @@ export function KanbanColumn({
                 </Button>
               </div>
             )}
-          </ScrollArea>
+          </div>
         )}
       </Droppable>
     </div>
