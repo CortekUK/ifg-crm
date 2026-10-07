@@ -36,6 +36,43 @@ type Compiler = (config: AutomationConfig | null | undefined) => CompiledStep[]
 
 const DEFAULT_WAIT_DAYS = [3, 5, 7] as const
 
+type ConfiguredEmail = NonNullable<AutomationConfig['emails']>[number]
+
+/**
+ * The configured emails in SLOT order, not pick order.
+ *
+ * The builder appends to `config.emails` as templates are chosen and records
+ * which slot each one is for on `email.step` — so picking the template for
+ * email 2 before email 1 stored them as [{step:1}, {step:0}]. The editor reads
+ * by `step` and looked right, but every compiler below indexes the array
+ * positionally, so the compiled sequence sent email 2 first and the player
+ * received the three emails in the order the recruiter happened to click them.
+ *
+ * Re-seating each entry at its own `step` fixes the order at the one place
+ * that turns config into steps, so every automation type is covered rather
+ * than just the 3-email ones. Holes are filled with null (an unpicked slot),
+ * which the emailStep() calls already treat as "no template yet".
+ *
+ * Legacy configs written before `step` existed are returned untouched: with no
+ * slot recorded, array position IS the slot.
+ */
+function emailsBySlot(
+  config: AutomationConfig | null | undefined,
+): (ConfiguredEmail | null)[] {
+  const emails = config?.emails ?? []
+  if (!emails.some((e) => typeof e?.step === 'number')) return emails
+  const highest = emails.reduce(
+    (max, e, i) => Math.max(max, typeof e?.step === 'number' ? e.step : i),
+    -1,
+  )
+  const slots: (ConfiguredEmail | null)[] = new Array(highest + 1).fill(null)
+  emails.forEach((email, i) => {
+    const slot = typeof email?.step === 'number' ? email.step : i
+    if (slot >= 0) slots[slot] = email
+  })
+  return slots
+}
+
 function emailStep(templateId: string | null = null): CompiledStep {
   return {
     step_type: 'send_email',
@@ -125,7 +162,7 @@ function threeEmailSequence(
   config: AutomationConfig | null | undefined,
   options: { finalStageId?: string | null } = {},
 ): CompiledStep[] {
-  const emails = config?.emails ?? []
+  const emails = emailsBySlot(config)
   const waitDays = config?.wait_days ?? []
   const steps: CompiledStep[] = [
     emailStep(emails[0]?.template_id || null),
@@ -196,7 +233,7 @@ export function deriveRecurringMeta(
 // payment_overdue, pre_departure, custom). If the user configured no emails
 // but set single_template_id, emit exactly one email.
 function variableEmailSequence(config: AutomationConfig | null | undefined): CompiledStep[] {
-  const emails = config?.emails ?? []
+  const emails = emailsBySlot(config)
   const waitDays = config?.wait_days ?? []
   const steps: CompiledStep[] = []
   if (emails.length > 0) {
@@ -255,14 +292,14 @@ function stageReminderSequence(
 ): CompiledStep[] {
   const days = config?.wait_days?.[0] || 7
   const templateId =
-    config?.emails?.[0]?.template_id || config?.single_template_id || null
+    emailsBySlot(config)[0]?.template_id || config?.single_template_id || null
   return [waitStep(days), emailStep(templateId)]
 }
 
 // deposit_invoice always emits at least 4 emails with waits between,
 // falling back to a 3/5/7-day cadence if wait_days is unset past index 0.
 function depositInvoiceSequence(config: AutomationConfig | null | undefined): CompiledStep[] {
-  const emails = config?.emails ?? []
+  const emails = emailsBySlot(config)
   const waitDays = config?.wait_days ?? []
   const maxEmails = Math.max(emails.length, 4)
   const steps: CompiledStep[] = []
@@ -306,7 +343,7 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
   // post-send").
   invoice_generation: (config) => {
     const steps: CompiledStep[] = [createInvoiceStep()]
-    const emails = config?.emails ?? []
+    const emails = emailsBySlot(config)
     const waitDays = config?.wait_days ?? []
     const reminderCount = Math.max(emails.length, 2)
     for (let i = 0; i < reminderCount; i++) {
