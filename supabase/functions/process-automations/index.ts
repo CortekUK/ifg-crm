@@ -383,12 +383,26 @@ async function checkTriggers(
         continue
       }
 
-      // Get existing enrollments for this automation
+      // Every deal that already has an enrollment row for this automation —
+      // whatever its status.
+      //
+      // This filtered to active/completed only, on the reasoning "don't
+      // re-enroll stopped deals". But a deal with a STOPPED or PAUSED row
+      // then passed the filter and reached the INSERT below, where
+      // automation_enrollments_automation_id_deal_id_key rejected it. The
+      // insert is one batch for all of this automation's new deals, so a
+      // single conflicting row failed the WHOLE batch — every other deal in
+      // it silently went un-enrolled. That was happening in production.
+      //
+      // Re-enrolment after a stop is not this function's job: when a deal
+      // re-enters a trigger stage, handle_deal_stage_change (migration 031)
+      // resets the existing row by UPDATE, which is the correct way to do it
+      // against a unique constraint. checkTriggers is only the safety net for
+      // deals that have no row at all.
       const { data: existingEnrollments, error: enrollmentsError } = await supabase
         .from('automation_enrollments')
         .select('deal_id')
         .eq('automation_id', automation.id)
-        .in('status', ['active', 'completed']) // Don't re-enroll stopped deals
 
       if (enrollmentsError) {
         summary.errors.push(`Failed to fetch enrollments for automation ${automation.id}: ${enrollmentsError.message}`)
@@ -2864,13 +2878,29 @@ async function checkExitConditions(
   supabase: ReturnType<typeof createClient>,
   summary: ProcessingSummary
 ) {
-  // Get active enrollments with their automation's stop conditions
+  // Active enrollments WITH their deal's current stage, in one query.
+  //
+  // This used to read the enrollments, collect every deal_id, and fetch the
+  // deals with `.in('id', dealIds)`. At 452 active enrollments that id list
+  // built an ~18KB query string, and the request died before it reached
+  // Postgres — `http2 error: stream error detected`. So checkExitConditions
+  // has been failing on EVERY run: every call returned early at the error
+  // branch and no enrollment was ever stopped by reaching a stop stage. The
+  // only reason it was not visible is that handle_deal_stage_change covers
+  // the same ground when a card is dragged, and nobody was reading this
+  // function's error summary.
+  //
+  // An embed hands the join to the database and keeps the request a fixed
+  // size no matter how many enrollments are live. `.in()` with hundreds of
+  // ids breaks on URL length long before it breaks on the row cap, which is
+  // why the id-list shape is worth removing wherever it appears.
   const { data: enrollments, error: enrollmentsError } = await supabase
     .from('automation_enrollments')
     .select(`
       id,
       deal_id,
-      automation:automations(stop_on_stage_ids)
+      automation:automations(stop_on_stage_ids),
+      deal:deals!inner(id, current_stage_id)
     `)
     .eq('status', 'active')
 
@@ -2883,20 +2913,14 @@ async function checkExitConditions(
     return
   }
 
-  // Get all deal IDs to fetch their current stages
-  const dealIds = enrollments.map((e) => e.deal_id)
-
-  const { data: deals, error: dealsError } = await supabase
-    .from('deals')
-    .select('id, current_stage_id')
-    .in('id', dealIds)
-
-  if (dealsError) {
-    summary.errors.push(`Failed to fetch deals for exit check: ${dealsError.message}`)
-    return
-  }
-
-  const dealStageMap = new Map(deals?.map((d) => [d.id, d.current_stage_id]) || [])
+  // PostgREST types a to-one embed as an array in some shapes; normalise.
+  const dealStageMap = new Map(
+    enrollments.map((e) => {
+      const embedded = (e as { deal?: unknown }).deal
+      const one = Array.isArray(embedded) ? embedded[0] : embedded
+      return [e.deal_id, (one as { current_stage_id?: string } | null)?.current_stage_id]
+    }),
+  )
 
   for (const enrollment of enrollments) {
     try {
