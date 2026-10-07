@@ -87,6 +87,20 @@ function matchesPhone(token: string, stored: string): boolean {
 }
 
 /**
+ * Does every word of the query appear somewhere in `text`?
+ *
+ * The generic half of the deal matcher, so the Replies inbox searches the same
+ * way the board does — word by word, accent- and case-insensitive — rather
+ * than growing a second, subtly different search.
+ */
+export function matchesTokens(text: string, query: string): boolean {
+  const tokens = searchTokens(query)
+  if (tokens.length === 0) return true
+  const haystack = normalise(text)
+  return tokens.every((token) => haystack.includes(token))
+}
+
+/**
  * Does this deal match the search box?
  *
  * Every token must match something, which is what lets a first + last name

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { Inbox, MessagesSquare, Sparkles, Briefcase, Check, Loader2 } from 'lucide-react'
+import { Inbox, MessagesSquare, Sparkles, Briefcase, Check, Loader2, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -15,6 +15,8 @@ import { IntentFilterChips } from '@/components/email/IntentFilterChips'
 import { EmailDetailSheet } from '@/components/email/EmailDetailSheet'
 import { MatchEmailModal } from '@/components/email/MatchEmailModal'
 import { useEmailReplies, useEmailReplyCounts } from '@/lib/hooks/useEmailReplies'
+import { Input } from '@/components/ui/input'
+import { matchesTokens } from '@/lib/utils/deal-search'
 import { useContact } from '@/lib/hooks/useContacts'
 
 // SMS Replies Components
@@ -57,6 +59,7 @@ export default function RepliesPage() {
   const [emailIntentFilter, setEmailIntentFilter] = useState<'all' | 'positive' | 'question' | 'negative' | 'neutral' | 'unknown'>('all')
   // Coarse filters: 'all' shows everything, 'none' shows replies with
   // no campaign/pipeline at all, otherwise a specific id is matched.
+  const [emailSearch, setEmailSearch] = useState('')
   const [emailCampaignFilter, setEmailCampaignFilter] = useState<string>('all')
   const [emailPipelineFilter, setEmailPipelineFilter] = useState<string>('all')
   const [emailTab, setEmailTab] = useState<'all' | 'unmatched' | 'matched' | 'spam'>(
@@ -168,18 +171,38 @@ export default function RepliesPage() {
     }
     return counts
   }, [filteredScopedReplies])
-  const emailReplies = useMemo(
-    () => emailIntentFilter === 'all'
-      ? filteredScopedReplies
-      : filteredScopedReplies.filter((r) => {
-          const k = r.ai_intent ?? 'unknown'
-          if (emailIntentFilter === 'unknown') {
-            return k !== 'positive' && k !== 'question' && k !== 'negative' && k !== 'neutral'
-          }
-          return k === emailIntentFilter
-        }),
-    [emailIntentFilter, filteredScopedReplies]
-  )
+  const emailReplies = useMemo(() => {
+    const byIntent =
+      emailIntentFilter === 'all'
+        ? filteredScopedReplies
+        : filteredScopedReplies.filter((r) => {
+            const k = r.ai_intent ?? 'unknown'
+            if (emailIntentFilter === 'unknown') {
+              return k !== 'positive' && k !== 'question' && k !== 'negative' && k !== 'neutral'
+            }
+            return k === emailIntentFilter
+          })
+
+    // Search across who sent it, what it was about and what it said. Matched
+    // word by word by the same helper the pipeline board uses, so "john smith"
+    // finds a reply however the name is stored and in whichever order it is
+    // typed.
+    if (!emailSearch.trim()) return byIntent
+    return byIntent.filter((r) =>
+      matchesTokens(
+        [
+          r.from_email,
+          r.from_name,
+          r.subject,
+          r.body,
+          r.contact ? `${r.contact.first_name ?? ''} ${r.contact.last_name ?? ''}` : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+        emailSearch,
+      ),
+    )
+  }, [emailIntentFilter, filteredScopedReplies, emailSearch])
   const smsMessages = smsMessagesQuery.data?.pages?.flat() || []
 
   // Auto-open the most recent reply for a deep-linked contact. Runs once when
@@ -513,6 +536,29 @@ export default function RepliesPage() {
               >
                 Clear filters
               </Button>
+            )}
+          </div>
+
+          {/* Search. The inbox had no way to find a player at all: a recruiter
+              looking for one reply had to page through the list by eye. */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={emailSearch}
+              onChange={(e) => setEmailSearch(e.target.value)}
+              placeholder="Search name, email or message…"
+              aria-label="Search replies"
+              className="h-9 pl-9 pr-9"
+            />
+            {emailSearch && (
+              <button
+                type="button"
+                onClick={() => setEmailSearch('')}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
           </div>
 
