@@ -103,7 +103,8 @@ export default function AutomationsPage() {
             }
           : {
               title: `"${automation?.name ?? 'Automation'}" switched off`,
-              description: 'No new players will be enrolled.',
+              description:
+                'No further emails will be sent from it, including to players already part-way through. They resume where they left off if you switch it back on.',
             },
       )
     } catch (error) {
