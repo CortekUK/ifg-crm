@@ -96,6 +96,14 @@ export interface AutomationConfig {
   single_template_id?: string
   // For notifications
   notify_parent?: boolean
+  // The template used for the parent's email when notify_parent is on.
+  //
+  // Without this the parent was sent the player's email verbatim, subject
+  // prefixed "[Parent Copy]" and body still opening "Hello Hamza" — a message
+  // plainly written to their child, landing in the parent's inbox. Picking a
+  // template here lets the parent be written to as the parent; leaving it unset
+  // falls back to the player's template re-addressed to them.
+  parent_template_id?: string | null
   notify_deal_owner?: boolean
   notify_admin?: boolean
   // For welcome sequence

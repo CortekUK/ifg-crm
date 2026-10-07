@@ -1526,7 +1526,11 @@ async function processEmailStep(
         .eq('id', enrollment.automation_id)
         .single()
 
-      const cfg = (automationCfg?.config ?? {}) as { notify_parent?: boolean; create_portal_account?: boolean }
+      const cfg = (automationCfg?.config ?? {}) as {
+        notify_parent?: boolean
+        create_portal_account?: boolean
+        parent_template_id?: string | null
+      }
       const notifyParent = cfg.notify_parent === true
 
       // Don't send the parent a copy of a message that already went to that
@@ -1545,14 +1549,78 @@ async function processEmailStep(
       }
 
       if (notifyParent && parentAddress && !parentIsSameInbox) {
-        const parentSubject = `[Parent Copy] ${subject}`
+        // ============================================
+        // WRITE TO THE PARENT, DON'T CC THEM THE CHILD'S EMAIL
+        //
+        // The parent used to receive `htmlBody` — the player's email, byte for
+        // byte — with "[Parent Copy] " glued onto the subject. The body still
+        // opened "Hello Hamza" and spoke to the player throughout, so a parent
+        // got a message visibly meant for their child and had to work out that
+        // it was a notification.
+        //
+        // Two levels of fix, in order of preference:
+        //   1. config.parent_template_id — a template the configurer wrote for
+        //      the parent. Rendered with the parent as the recipient, so
+        //      {{first_name}} is the parent's name and {{player_name}} /
+        //      {{player_first_name}} are the child's.
+        //   2. No parent template set — still the player's template, but with
+        //      the greeting re-pointed at the parent and a subject line that
+        //      says whose application it is rather than "[Parent Copy]".
+        // ============================================
+        const playerFirstName = (contact.first_name ?? '').trim()
+        const playerFullName =
+          `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || contact.email
+        const parentMergeData: typeof mergeData = {
+          ...mergeData,
+          // The recipient of THIS email is the parent, so the greeting tags
+          // resolve to them.
+          first_name: greetingName(contact.parent_name),
+          parent_name: contact.parent_name || null,
+          email: contact.parent_email || '',
+          // ...and the child is addressable by name.
+          player_first_name: playerFirstName || null,
+          player_name: playerFullName,
+        }
+
+        let parentSubject: string
+        let parentHtml: string
+
+        const { data: parentTemplate } = cfg.parent_template_id
+          ? await supabase
+              .from('email_templates')
+              .select('subject, body_html')
+              .eq('id', cfg.parent_template_id)
+              .maybeSingle()
+          : { data: null }
+
+        if (parentTemplate) {
+          parentSubject = replaceMergeTags(parentTemplate.subject, parentMergeData)
+          parentHtml = replaceMergeTags(
+            applyBranding(parentTemplate.body_html, brandingSlots),
+            parentMergeData,
+          )
+        } else {
+          if (cfg.parent_template_id) {
+            summary.errors.push(
+              `notify_parent: parent template ${cfg.parent_template_id} not found — fell back to the player's template for contact ${contact.id}`,
+            )
+          }
+          parentSubject = playerFullName
+            ? `${playerFullName}: ${subject}`
+            : subject
+          parentHtml = replaceMergeTags(
+            applyBranding(template.body_html, brandingSlots),
+            parentMergeData,
+          )
+        }
+
         const parentTrackingId = crypto.randomUUID()
         const { data: parentEmailData, error: parentSendError } = await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
           to: [contact.parent_email],
           reply_to: replyTo,
           subject: parentSubject,
-          html: htmlBody,
+          html: parentHtml,
           headers: {
             'Message-ID': buildOutboundMessageId(parentTrackingId),
           },
@@ -1569,7 +1637,7 @@ async function processEmailStep(
             recipient_contact_id: contact.id,
             automation_log_id: logEntryId,
             subject: parentSubject,
-            body_html: htmlBody,
+            body_html: parentHtml,
             from_name: fromName,
             from_email: fromEmail,
             status: 'sent',

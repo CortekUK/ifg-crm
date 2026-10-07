@@ -1921,8 +1921,36 @@ export function ConfigureAutomationModal({
                         </label>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        A separate notification email will be sent to the parent&apos;s email address if available on the contact record
+                        A separate notification email will be sent to the parent&apos;s email address if available on the contact record.
+                        Parents whose email is the same as the player&apos;s are skipped, so nobody gets the message twice.
                       </p>
+
+                      {/* The parent's own template. Without one the parent was
+                          sent the player's email verbatim — "Hello <player>",
+                          written to their child. */}
+                      {formData.config.notify_parent && (
+                        <div className="space-y-2">
+                          <Label>Parent&apos;s email template</Label>
+                          <TemplateSearchSelect
+                            templates={templates}
+                            value={formData.config.parent_template_id || ''}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                config: { ...prev.config, parent_template_id: value || null },
+                              }))
+                            }
+                            placeholder="Select the template written for the parent"
+                            className="h-9"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Use <code>{'{{parent_name}}'}</code> to greet the parent and{' '}
+                            <code>{'{{player_name}}'}</code> for their child. Leave blank and the
+                            parent gets the player&apos;s email re-addressed to them, which reads
+                            less well.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}

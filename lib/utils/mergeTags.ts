@@ -53,6 +53,30 @@ export const MERGE_TAGS: MergeTagDefinition[] = [
     description: "Contact's phone number",
     example: '+44 7700 900123',
   },
+  {
+    tag: '{{parent_name}}',
+    label: 'Parent Name',
+    category: 'contact',
+    description: "Parent or guardian's name on the contact record",
+    example: 'Sarah Smith',
+  },
+  // For a template chosen as the PARENT's email on an Application Received
+  // automation, {{first_name}} is the parent — these two are how you refer to
+  // their child.
+  {
+    tag: '{{player_name}}',
+    label: 'Player Name (parent emails)',
+    category: 'contact',
+    description: "In a parent's email, the player's full name",
+    example: 'John Smith',
+  },
+  {
+    tag: '{{player_first_name}}',
+    label: 'Player First Name (parent emails)',
+    category: 'contact',
+    description: "In a parent's email, the player's first name",
+    example: 'John',
+  },
   
   // Deal tags
   {
