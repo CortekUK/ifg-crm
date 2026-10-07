@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -152,6 +152,36 @@ export function ConfigureAutomationModal({
     (u) => u.role === 'recruiter' && !isExcludedDealOwnerEmail(u.email)
   )
 
+  // The stage a reply should land a player on.
+  //
+  // "Contact Response" by name first (that is what all three IFG pipelines
+  // call it), then the stage typed `contact`. Used to pre-select Goal 1 so a
+  // sequence is never built with "stop the emails but leave the deal where it
+  // is" by accident — which is what the live Gap Year and Summer Follow Up
+  // automations ended up doing. A player wrote back, the emails stopped, the
+  // card never moved, and nothing told the recruiter they had replied.
+  const replyStage = useMemo(
+    () =>
+      stages.find((s) => s.name.trim().toLowerCase() === 'contact response') ??
+      stages.find((s) => s.stage_type === 'contact') ??
+      null,
+    [stages],
+  )
+
+  // What Goal 1 is actually set to, with the default applied.
+  //
+  // Derived rather than written into state by an effect, so opening the modal
+  // never mutates anything. `undefined` means "the configurer has not touched
+  // this field", and only then does the default apply — and only for a NEW
+  // automation. An existing one keeps exactly what it was configured with;
+  // silently re-pointing a live sequence's destination on open would be worse
+  // than the gap this closes. Explicitly choosing "Don't move the deal" stores
+  // null, which is respected.
+  const effectiveExitStageId =
+    formData.config.exit_to_stage_id === undefined && !editingAutomation
+      ? replyStage?.id ?? null
+      : formData.config.exit_to_stage_id ?? null
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -220,7 +250,12 @@ export function ConfigureAutomationModal({
   }
 
   const handleSave = () => {
-    onSave(formData)
+    // Persist the resolved value, not the untouched `undefined` — otherwise
+    // the default shown in the dropdown would not be what gets saved.
+    onSave({
+      ...formData,
+      config: { ...formData.config, exit_to_stage_id: effectiveExitStageId },
+    })
     onClose()
   }
 
@@ -1588,7 +1623,7 @@ export function ConfigureAutomationModal({
                         <div className="pl-9 space-y-1.5">
                           <Label className="text-xs">Move deal to:</Label>
                           <Select
-                            value={formData.config.exit_to_stage_id ?? '__none__'}
+                            value={effectiveExitStageId ?? '__none__'}
                             onValueChange={(value) =>
                               setFormData((prev) => ({
                                 ...prev,
@@ -1612,9 +1647,23 @@ export function ConfigureAutomationModal({
                               ))}
                             </SelectContent>
                           </Select>
-                          <p className="text-[11px] text-muted-foreground">
-                            Typically <span className="font-medium">Contact Response</span>.
-                          </p>
+                          {formData.config.exit_on_reply && !effectiveExitStageId ? (
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1">
+                              <AlertTriangle className="h-3 w-3 mt-[1px] shrink-0" />
+                              <span>
+                                A reply will stop the emails but leave the card where it is, so
+                                nothing on the board shows that the player wrote back. Pick{' '}
+                                <span className="font-medium">
+                                  {replyStage?.name ?? 'Contact Response'}
+                                </span>{' '}
+                                unless you mean this.
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                              Typically <span className="font-medium">Contact Response</span>.
+                            </p>
+                          )}
                         </div>
                       </div>
 
