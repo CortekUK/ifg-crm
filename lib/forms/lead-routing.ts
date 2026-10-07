@@ -53,6 +53,15 @@ export interface RoutingInput {
 export interface Routing {
   lists: string[]
   tags: { name: string; category: string }[]
+  /**
+   * The two attributes the cohort naming is derived from, carried through so
+   * applyRouting can also remove the cohort the contact has moved out of
+   * without re-deriving them (and risking the two disagreeing).
+   */
+  cohort: {
+    gender: 'male' | 'female' | null
+    graduationYear: number | null
+  }
 }
 
 /**
@@ -130,7 +139,11 @@ export function computeApplicationRouting(input: RoutingInput): Routing {
   const rawState = input.state?.trim()
   if (rawState) tags.push({ name: normaliseState(rawState) ?? rawState, category: 'location' })
 
-  return { lists: Array.from(new Set(lists)), tags }
+  return {
+    lists: Array.from(new Set(lists)),
+    tags,
+    cohort: { gender: input.gender, graduationYear: input.graduationYear },
+  }
 }
 
 // ---- Low-level helpers (single source of truth, no cyclic imports) ---------
@@ -196,10 +209,93 @@ export async function addContactToLists(supabase: SupabaseClient, contactId: str
   }
 }
 
+/**
+ * Take a contact out of the cohort they are no longer in.
+ *
+ * Routing was add-only, so a player who resubmitted with a different
+ * graduation year was filed into the new year group and left in the old one.
+ * Submitting Gap Year as 2026 and again as 2027 put the same player in both
+ * "2026 MENS" and "2027 MENS", with both year tags — so a campaign aimed at
+ * the 2026 cohort still emailed someone who had told us they were 2027. The
+ * duplicate is invisible: both memberships look perfectly normal on the
+ * contact.
+ *
+ * Only the cohort naming convention is touched — the `{year} MENS/WOMENS` and
+ * `ALL MENS/WOMENS` lists this module generates, and tags in the `year`
+ * category. Hand-made lists, programme lists (owned by the
+ * deal_sync_to_pipeline_list trigger) and every other tag are left alone: this
+ * removes what WE put there under a value that has since changed, nothing else.
+ *
+ * Does nothing without a gender and a graduation year, because without both
+ * there is no new cohort to be sure about and removing the old one would just
+ * lose information.
+ */
+async function pruneSupersededCohort(
+  supabase: SupabaseClient,
+  contactId: string,
+  gender: 'male' | 'female' | null | undefined,
+  graduationYear: number | null | undefined,
+) {
+  if ((gender !== 'male' && gender !== 'female') || !graduationYear) return
+
+  const keepLists = new Set(cohortListNames(gender, graduationYear))
+
+  try {
+    // Cohort lists the contact is currently on, by the naming convention.
+    const { data: memberships } = await supabase
+      .from('contact_lists')
+      .select('list_id, list:lists!inner(id, name)')
+      .eq('contact_id', contactId)
+
+    const COHORT_NAME = /^(ALL|\d{4}) (MENS|WOMENS)$/
+    const staleListIds: string[] = []
+    for (const row of memberships ?? []) {
+      const embedded = (row as { list?: unknown }).list
+      const one = Array.isArray(embedded) ? embedded[0] : embedded
+      const name = (one as { name?: string } | null)?.name?.trim().toUpperCase()
+      if (!name || !COHORT_NAME.test(name)) continue
+      if (!keepLists.has(name)) staleListIds.push(row.list_id as string)
+    }
+
+    if (staleListIds.length > 0) {
+      await supabase
+        .from('contact_lists')
+        .delete()
+        .eq('contact_id', contactId)
+        .in('list_id', staleListIds)
+    }
+
+    // Year tags other than the current one.
+    const { data: yearTags } = await supabase
+      .from('tags')
+      .select('id, name')
+      .eq('category', 'year')
+
+    const staleTagIds = (yearTags ?? [])
+      .filter((t) => String(t.name).trim() !== String(graduationYear))
+      .map((t) => t.id as string)
+
+    if (staleTagIds.length > 0) {
+      await supabase
+        .from('contact_tags')
+        .delete()
+        .eq('contact_id', contactId)
+        .in('tag_id', staleTagIds)
+    }
+  } catch (err) {
+    // Best-effort, exactly like assignTag: a failed clean-up must never fail
+    // the submission that triggered it.
+    console.error('Failed to prune superseded cohort:', err)
+  }
+}
+
 /** Apply a computed routing (lists + tags) to a contact. Best-effort. */
 export async function applyRouting(supabase: SupabaseClient, contactId: string, routing: Routing) {
   await addContactToLists(supabase, contactId, routing.lists)
   for (const t of routing.tags) await assignTag(supabase, contactId, t.name, t.category)
+  // After adding, remove the cohort they have moved OUT of. Add first so a
+  // failure here never leaves the contact in no cohort at all.
+  await pruneSupersededCohort(supabase, contactId, routing.cohort.gender, routing.cohort.graduationYear)
 }
 
 /**
