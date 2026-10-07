@@ -132,21 +132,37 @@ export interface AutomationConfig {
   // For invoice_generation:
   //   amount_source — how the invoice amount is derived:
   //     'programme_deposit' → the deposit the website charges for this
-  //                     programme (website_pricing_settings.deposit_default,
-  //                     resolved from the deal's pipeline). The default, and
-  //                     what the client asked for: the deposit should come
-  //                     from the deposit, not from a number re-typed per
-  //                     automation. Two copies drift — the Residency deposit
-  //                     moved £1,000 → £2,000 on the website side and a
-  //                     hand-set custom amount would still be billing £1,000.
+  //                     programme, resolved from the deal's pipeline. THE
+  //                     DEFAULT, and what the client asked for: the deposit
+  //                     should come from the deposit, not from a number
+  //                     re-typed per automation. Two copies drift — the
+  //                     Residency deposit moved £1,000 → £2,000 on the website
+  //                     side and a hand-set custom amount would still be
+  //                     billing £1,000.
+  //     'programme_full' → the full published price for the same programme,
+  //                     for pipelines that bill the whole cost up front
+  //                     instead of a deposit. Same single source of truth.
   //     'deal_value'  → use deal.deal_value as-is
   //     'percentage'  → invoice_amount_percent% of deal.deal_value
   //                     (e.g. 25 → 25% deposit)
   //     'custom'      → fixed invoice_amount_custom regardless of deal
+  //   invoice_package_key — which published package to price from, for
+  //                     programmes that sell several. Gap Year publishes two
+  //                     seasons at different deposits (£6,500 full, £4,000
+  //                     half) and nothing on a deal records which one a player
+  //                     chose, so the pipeline's automation names it instead.
+  //                     Unset is correct for Residency and University, which
+  //                     publish one deposit for the whole programme.
   //   invoice_type   — maps to invoices.type column (deposit/full_payment/etc).
   //   invoice_due_in_days — due_date = today + this many days (default 7).
   //   invoice_description — free-text shown on the invoice line item.
-  invoice_amount_source?: 'programme_deposit' | 'deal_value' | 'percentage' | 'custom'
+  invoice_amount_source?:
+    | 'programme_deposit'
+    | 'programme_full'
+    | 'deal_value'
+    | 'percentage'
+    | 'custom'
+  invoice_package_key?: string
   invoice_amount_percent?: number
   invoice_amount_custom?: number
   invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'

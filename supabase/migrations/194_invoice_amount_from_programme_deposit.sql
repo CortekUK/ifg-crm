@@ -27,8 +27,10 @@
 --   * Gap Year is NOT flipped. It publishes two deposits (£6,500 full season,
 --     £4,000 half) and there is no package or season column on `deals`, so
 --     nothing says which one a given player owes. Billing either would be
---     wrong half the time. It keeps its hand-set amount until the client
---     decides how a season is chosen — a product decision, not a data fix.
+--     wrong half the time. Picking a season is now a human decision made in
+--     the automation editor — open UK-GAP invoice generation, set Amount
+--     Source to "Programme deposit" and choose the package. SQL cannot make
+--     that choice, so this migration does not pretend to.
 --   * The two automations with a NULL pipeline_id are NOT flipped. Nothing
 --     ties them to a programme, so there is no deposit to resolve.
 --   * Because the selection is computed rather than hardcoded, re-running this

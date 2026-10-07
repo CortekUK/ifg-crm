@@ -2034,7 +2034,8 @@ async function processMoveToStageStep(
  * invoice amount instead of the programme's list price.
  */
 /**
- * The published deposit for the programme a pipeline belongs to.
+ * The published price for the programme a pipeline belongs to — its deposit,
+ * or its full cost when the pipeline bills everything up front.
  *
  * There is no programme column on pipelines, so the link is the one the public
  * deposit route already uses: a programme's form-submission automation names
@@ -2055,20 +2056,27 @@ async function processMoveToStageStep(
  * Reading only the first is why Gap Year invoices never picked up a deposit
  * and went on billing a hand-typed amount.
  *
- * It never guesses. When a programme publishes SEVERAL different deposits and
- * nothing on the deal says which package the player chose — there is no
- * package column on deals — billing either one would be wrong half the time.
- * So it reports why it could not decide and lets the caller fall back
- * visibly, rather than quietly charging a half-season player for a full one.
+ * It never guesses. When a programme publishes SEVERAL different prices — Gap
+ * Year sells two seasons — nothing on the deal says which one the player
+ * chose, because there is no package column on deals. So the automation names
+ * it in `invoice_package_key`, chosen in the editor against the live published
+ * list. Without that key this reports why it could not decide and lets the
+ * caller fall back visibly, rather than quietly charging a half-season player
+ * for a full one.
+ *
+ * MIRROR: lib/payments/programme-pricing.ts applies the same rules in the
+ * automation editor, so the figure an admin is shown is the figure billed.
  */
-type DepositResolution =
+type PriceResolution =
   | { amount: number; reason: null }
   | { amount: null; reason: string }
 
-async function resolveProgrammeDeposit(
+async function resolveProgrammePrice(
   supabase: ReturnType<typeof createClient>,
   pipelineId: string | null,
-): Promise<DepositResolution> {
+  mode: 'deposit' | 'full',
+  packageKey: string | null,
+): Promise<PriceResolution> {
   if (!pipelineId) return { amount: null, reason: 'the deal has no pipeline' }
 
   const FORM_ID_TO_PROGRAMME: Record<string, string> = {
@@ -2104,47 +2112,64 @@ async function resolveProgrammeDeposit(
     }
   }
 
-  // 1. The programme-wide deposit.
-  const { data: settings } = await supabase
-    .from('website_pricing_settings')
-    .select('deposit_default, deposit_enabled')
-    .eq('programme', programmeKey)
-    .maybeSingle()
+  const noun = mode === 'deposit' ? 'deposit' : 'full price'
 
-  if (settings?.deposit_enabled) {
-    const deposit = Number(settings.deposit_default)
-    if (Number.isFinite(deposit) && deposit > 0) return { amount: deposit, reason: null }
-  }
+  // 1. The programme-wide deposit. Covers Residency and University, which sell
+  //    one deposit for the whole programme. There is no programme-wide full
+  //    price — that is always per package.
+  if (mode === 'deposit') {
+    const { data: settings } = await supabase
+      .from('website_pricing_settings')
+      .select('deposit_default, deposit_enabled')
+      .eq('programme', programmeKey)
+      .maybeSingle()
 
-  // 2. Per-package deposits, for programmes that price by package instead.
-  const { data: packages } = await supabase
-    .from('website_packages')
-    .select('deposit_amount, deposit_enabled, published')
-    .eq('programme', programmeKey)
-    .eq('published', true)
-    .eq('deposit_enabled', true)
-
-  const amounts = [
-    ...new Set(
-      ((packages ?? []) as { deposit_amount: number | null }[])
-        .map((pkg) => Number(pkg.deposit_amount))
-        .filter((n) => Number.isFinite(n) && n > 0),
-    ),
-  ]
-
-  if (amounts.length === 1) return { amount: amounts[0], reason: null }
-
-  if (amounts.length > 1) {
-    return {
-      amount: null,
-      reason:
-        `${programmeKey} publishes ${amounts.length} different deposits (` +
-        `${amounts.sort((a, b) => a - b).join(', ')}) and nothing on the deal records ` +
-        'which package the player chose, so the right one cannot be determined',
+    if (settings?.deposit_enabled) {
+      const deposit = Number(settings.deposit_default)
+      if (Number.isFinite(deposit) && deposit > 0) return { amount: deposit, reason: null }
     }
   }
 
-  return { amount: null, reason: `${programmeKey} has no published deposit` }
+  // 2. Per-package prices, for programmes that price by package instead.
+  const { data: packages } = await supabase
+    .from('website_packages')
+    .select('key, deposit_amount, full_amount, deposit_enabled, full_enabled, published')
+    .eq('programme', programmeKey)
+    .eq('published', true)
+    .eq(mode === 'deposit' ? 'deposit_enabled' : 'full_enabled', true)
+
+  type PackageRow = { key: string; deposit_amount: number | null; full_amount: number | null }
+  const priced = ((packages ?? []) as PackageRow[])
+    .map((pkg) => ({
+      key: pkg.key,
+      amount: Number(mode === 'deposit' ? pkg.deposit_amount : pkg.full_amount),
+    }))
+    .filter((pkg) => Number.isFinite(pkg.amount) && pkg.amount > 0)
+
+  if (priced.length === 0) {
+    return { amount: null, reason: `${programmeKey} has no published ${noun}` }
+  }
+
+  // The automation names its package when the programme sells several.
+  if (packageKey) {
+    const picked = priced.find((pkg) => pkg.key === packageKey)
+    if (picked) return { amount: picked.amount, reason: null }
+    return {
+      amount: null,
+      reason: `${programmeKey} has no published ${noun} for package "${packageKey}" — it may have been renamed or unpublished`,
+    }
+  }
+
+  const amounts = [...new Set(priced.map((pkg) => pkg.amount))]
+  if (amounts.length === 1) return { amount: amounts[0], reason: null }
+
+  return {
+    amount: null,
+    reason:
+      `${programmeKey} publishes ${amounts.length} different ${noun}s (` +
+      `${amounts.sort((a, b) => a - b).join(', ')}) and the automation does not say ` +
+      'which package to bill — choose one in the automation editor',
+  }
 }
 
 async function processCreateInvoiceStep(
@@ -2174,7 +2199,13 @@ async function processCreateInvoiceStep(
     .single()
 
   const cfg = (automationMeta?.config ?? {}) as {
-    invoice_amount_source?: 'programme_deposit' | 'deal_value' | 'percentage' | 'custom'
+    invoice_amount_source?:
+      | 'programme_deposit'
+      | 'programme_full'
+      | 'deal_value'
+      | 'percentage'
+      | 'custom'
+    invoice_package_key?: string
     invoice_amount_percent?: number
     invoice_amount_custom?: number
     invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
@@ -2186,25 +2217,32 @@ async function processCreateInvoiceStep(
   const dealValue = Number(deal.deal_value ?? 0)
   let amount: number
   switch (cfg.invoice_amount_source) {
-    case 'programme_deposit': {
-      // The deposit the website charges for this programme, so the invoice a
-      // recruiter raises by moving a card to Send Invoice is for the same
-      // figure as the one a player would pay online.
+    case 'programme_deposit':
+    case 'programme_full': {
+      // What the website charges for this programme, so the invoice a recruiter
+      // raises by dragging a card to Send Invoice is for the same figure as the
+      // one a player would pay online.
       //
-      // Taking it from a per-automation "custom amount" meant the deposit
-      // lived in two places and drifted the moment one was updated — the
-      // Residency deposit went £1,000 → £2,000 in the website settings
-      // (migration 179) and any invoice automation carrying the old number by
-      // hand would have gone on billing £1,000.
-      const resolved = await resolveProgrammeDeposit(supabase, deal.pipeline_id)
+      // Taking it from a per-automation "custom amount" meant the price lived
+      // in two places and drifted the moment one was updated — the Residency
+      // deposit went £1,000 → £2,000 in the website settings (migration 179)
+      // and any invoice automation carrying the old number by hand would have
+      // gone on billing £1,000.
+      const mode = cfg.invoice_amount_source === 'programme_full' ? 'full' : 'deposit'
+      const resolved = await resolveProgrammePrice(
+        supabase,
+        deal.pipeline_id,
+        mode,
+        cfg.invoice_package_key ?? null,
+      )
       if (resolved.amount === null) {
         // Fall through to the configured custom amount rather than raising a
-        // £0 invoice, and say WHY. A programme that cannot resolve a deposit
-        // is a setup problem somebody has to see, and the figure billed in its
+        // £0 invoice, and say WHY. A programme that cannot resolve a price is
+        // a setup problem somebody has to see, and the figure billed in its
         // place is one somebody typed by hand months ago.
         summary.errors.push(
-          `create_invoice: no deposit resolved for deal ${deal.id} (${resolved.reason}) — ` +
-            `billed the configured custom amount instead`,
+          `create_invoice: no published ${mode === 'full' ? 'full price' : 'deposit'} resolved ` +
+            `for deal ${deal.id} (${resolved.reason}) — billed the configured custom amount instead`,
         )
         amount = Number(cfg.invoice_amount_custom ?? 0) || dealValue
       } else {

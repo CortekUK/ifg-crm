@@ -64,6 +64,12 @@ import { useUsers } from '@/lib/hooks/useUsers'
 import { isExcludedDealOwnerEmail } from '@/lib/constants/deal-owners'
 import { useLists } from '@/lib/hooks/useLists'
 import { useAutomations } from '@/lib/hooks/useAutomations'
+import { usePackages, usePricingSettings } from '@/lib/hooks/useWebsitePricing'
+import {
+  programmeForPipeline,
+  resolveProgrammePrice,
+  formatGBP,
+} from '@/lib/payments/programme-pricing'
 import { DynamicListRulesEditor } from './DynamicListRulesEditor'
 import { ListMultiSelect } from './ListMultiSelect'
 import { toast } from '@/lib/hooks/use-toast'
@@ -143,6 +149,36 @@ export function ConfigureAutomationModal({
   const { data: users = [] } = useUsers()
   const { data: lists = [] } = useLists()
   const { data: allAutomations = [] } = useAutomations()
+  const { data: websitePackages = [] } = usePackages()
+  const { data: pricingSettings = [] } = usePricingSettings()
+
+  // What the invoice will ACTUALLY be raised for, worked out the same way the
+  // engine works it out at send time, and shown in the editor. The admin used
+  // to type an amount here and hope it still matched the website; now they see
+  // the published figure and can tell at a glance when nothing resolves.
+  const invoiceAmountSource = formData.config.invoice_amount_source || 'programme_deposit'
+  const invoiceProgramme = useMemo(
+    () => programmeForPipeline(formData.pipeline_id, allAutomations),
+    [formData.pipeline_id, allAutomations],
+  )
+  const invoicePrice = useMemo(() => {
+    if (invoiceAmountSource !== 'programme_deposit' && invoiceAmountSource !== 'programme_full') {
+      return null
+    }
+    return resolveProgrammePrice(
+      invoiceProgramme,
+      invoiceAmountSource === 'programme_deposit' ? 'deposit' : 'full',
+      formData.config.invoice_package_key,
+      websitePackages,
+      pricingSettings,
+    )
+  }, [
+    invoiceAmountSource,
+    invoiceProgramme,
+    formData.config.invoice_package_key,
+    websitePackages,
+    pricingSettings,
+  ])
   // Surface form_ids AC has actually fired against us so the recruiter
   // doesn't have to remember the slug. Top 12 most-recent are rendered as
   // one-click chips below the Form ID input.
@@ -1214,17 +1250,16 @@ export function ConfigureAutomationModal({
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         Configure the invoice this automation will issue when
-                        a deal enters the trigger stage. The deal must already
-                        have a value (from the Deal Creation automation or
-                        manual entry) for the percentage and full-value options
-                        to work — the programme deposit needs nothing on the
-                        deal.
+                        a deal enters the trigger stage. The programme deposit
+                        and full price are read from Website &rarr; Pricing and
+                        need nothing on the deal; the percentage and deal-value
+                        options need the deal to already carry a value.
                       </p>
 
                       <div className="space-y-2">
                         <Label>Amount Source</Label>
                         <Select
-                          value={formData.config.invoice_amount_source || 'programme_deposit'}
+                          value={invoiceAmountSource}
                           onValueChange={(value) =>
                             setFormData((prev) => ({
                               ...prev,
@@ -1232,9 +1267,16 @@ export function ConfigureAutomationModal({
                                 ...prev.config,
                                 invoice_amount_source: value as
                                   | 'programme_deposit'
+                                  | 'programme_full'
                                   | 'deal_value'
                                   | 'percentage'
                                   | 'custom',
+                                // The package choice belongs to whichever
+                                // published figure is being read. Carrying a
+                                // stale key across a switch to 'custom' and
+                                // back would silently re-apply a season the
+                                // admin had moved off.
+                                invoice_package_key: undefined,
                               },
                             }))
                           }
@@ -1245,6 +1287,9 @@ export function ConfigureAutomationModal({
                           <SelectContent>
                             <SelectItem value="programme_deposit">
                               Programme deposit (recommended)
+                            </SelectItem>
+                            <SelectItem value="programme_full">
+                              Full programme price
                             </SelectItem>
                             <SelectItem value="deal_value">
                               Full deal value
@@ -1257,15 +1302,72 @@ export function ConfigureAutomationModal({
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                        {(formData.config.invoice_amount_source || 'programme_deposit') ===
-                          'programme_deposit' && (
-                          <p className="text-xs text-muted-foreground">
-                            Uses the deposit published for this programme under Website &rarr;
-                            Pricing — the same amount a player pays on the website. Change it
-                            there and every invoice follows, with nothing to re-type here.
-                          </p>
-                        )}
                       </div>
+
+                      {/* The published figure, shown rather than described.
+                          An admin typing £100 into a box had no way to tell it
+                          disagreed with the £2,000 the website was charging the
+                          same player. Resolved here exactly as the engine
+                          resolves it at send time. */}
+                      {invoicePrice && (
+                        <div className="space-y-2">
+                          {invoicePrice.choices.length > 1 && (
+                            <div className="space-y-2">
+                              <Label>
+                                Which package?{' '}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Select
+                                value={formData.config.invoice_package_key || ''}
+                                onValueChange={(value) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    config: { ...prev.config, invoice_package_key: value },
+                                  }))
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a package" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {invoicePrice.choices.map((choice) => (
+                                    <SelectItem key={choice.key} value={choice.key}>
+                                      {choice.label} — {formatGBP(choice.amount)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">
+                                This programme publishes more than one price and nothing on a
+                                deal records which one a player chose, so the automation has to
+                                name it.
+                              </p>
+                            </div>
+                          )}
+
+                          {invoicePrice.amount !== null ? (
+                            <div className="rounded-md border border-green-600/30 bg-green-50 p-3 dark:bg-green-900/20">
+                              <p className="text-sm font-medium text-green-900 dark:text-green-200">
+                                Every invoice will be raised for{' '}
+                                {formatGBP(invoicePrice.amount)}
+                              </p>
+                              <p className="mt-1 text-xs text-green-800/80 dark:text-green-200/70">
+                                The same amount a player pays on the website. Change it under
+                                Website &rarr; Pricing and every invoice follows, with nothing
+                                to re-type here.
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                              <span>
+                                {invoicePrice.reason} Until this resolves, the invoice falls
+                                back to the fixed custom amount below.
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {formData.config.invoice_amount_source === 'percentage' && (
                         <div className="space-y-2">
@@ -1295,9 +1397,19 @@ export function ConfigureAutomationModal({
                         </div>
                       )}
 
-                      {formData.config.invoice_amount_source === 'custom' && (
+                      {/* Also shown when a published price cannot be
+                          resolved: that is precisely when the engine falls
+                          back to this figure, so hiding it would leave the
+                          admin unable to set the amount that will actually be
+                          billed. */}
+                      {(invoiceAmountSource === 'custom' ||
+                        (invoicePrice !== null && invoicePrice.amount === null)) && (
                         <div className="space-y-2">
-                          <Label>Custom Amount (£)</Label>
+                          <Label>
+                            {invoiceAmountSource === 'custom'
+                              ? 'Custom Amount (£)'
+                              : 'Fallback Amount (£)'}
+                          </Label>
                           <Input
                             type="number"
                             min="0"
@@ -1317,7 +1429,9 @@ export function ConfigureAutomationModal({
                             }}
                           />
                           <p className="text-xs text-muted-foreground">
-                            Used regardless of the deal value.
+                            {invoiceAmountSource === 'custom'
+                              ? 'Used regardless of the deal value.'
+                              : 'Billed only while the published price above cannot be resolved.'}
                           </p>
                         </div>
                       )}
