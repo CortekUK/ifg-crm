@@ -1324,6 +1324,52 @@ async function processEmailStep(
     const subject = replaceMergeTags(template.subject, mergeData)
     const htmlBody = replaceMergeTags(applyBranding(template.body_html, brandingSlots), mergeData)
 
+    // ============================================
+    // DON'T SEND A BOOKING EMAIL WITH NO BOOKING LINK
+    //
+    // "Book a time with me" built around {{deal_owner_calendly}} resolves to
+    // an empty string when the deal's owner has no Calendly link saved, so the
+    // player received an invitation with a dead button. That is not rare: the
+    // round robin assigns to every active recruiter, and recruiters who have
+    // never connected Calendly are assigned deals like anyone else.
+    //
+    // A tag written with a fallback — {{deal_owner_calendly|https://…}} — is
+    // deliberate and left alone; only a bare tag with nothing behind it is
+    // treated as broken. Skipped (not failed) with a reason a recruiter can
+    // read on the run history, and the enrollment moves on to its next step
+    // rather than stalling.
+    // ============================================
+    const BOOKING_LINK_TAGS = ['deal_owner_calendly', 'schedule_link']
+    const templateSource = `${template.subject ?? ''}\n${template.body_html ?? ''}`
+    const needsBookingLink = BOOKING_LINK_TAGS.some((tag) =>
+      new RegExp(`\\{\\{\\s*${tag}\\s*\\}\\}`).test(templateSource),
+    )
+    if (needsBookingLink && !owner?.calendly_url) {
+      const who = owner?.full_name || owner?.email || 'the deal owner'
+      const reason =
+        `Not sent: this email contains a booking link but ${who} has no Calendly link saved. ` +
+        `Add one under Settings → Calendly, or take them out of the round robin.`
+      summary.errors.push(`booking link missing for enrollment ${enrollment.id}: ${reason}`)
+      await logStepExecution(supabase, enrollment, step, 'skipped', reason, enrolledAt)
+
+      // Tell the recruiter, otherwise the only trace is a run-history row
+      // nobody opens.
+      if (owner?.id) {
+        // 'general' because notifications_type_check (migration 076) has no
+        // 'automation' value; anything else is rejected and the recruiter is
+        // told nothing.
+        await supabase.from('notifications').insert({
+          user_id: owner.id,
+          type: 'general',
+          title: 'Booking email not sent — no Calendly link',
+          message:
+            'An automation tried to email a player your booking link, but your profile has none saved. Add one to start receiving bookings.',
+          href: '/settings',
+        })
+      }
+      return
+    }
+
     // Determine from name and reply_to.
     //
     // Reply-To routing: when INBOUND_REPLY_DOMAIN is set (e.g.
