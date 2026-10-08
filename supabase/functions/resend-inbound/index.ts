@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Parse the "from" field to extract email and name
-    const { email: fromEmail, name: fromName } = parseEmailAddress(event.data.from)
+    const { email: fromEmail, name: webhookFromName } = parseEmailAddress(event.data.from)
 
     if (!fromEmail) {
       console.error('Could not parse from email address:', event.data.from)
@@ -175,6 +175,16 @@ Deno.serve(async (req) => {
     const inReplyTo = fetched.inReplyTo || event.data.in_reply_to || null
     const references = fetched.references || null
     const inboundTo = fetched.to ?? (event.data.to as string[] | undefined) ?? null
+
+    // The sender's own name, e.g. "Hamza Shafique". Worth having for two
+    // reasons: Smart Match scores a similar-name suggestion off it, and a
+    // contact created from an unknown address is named from it instead of
+    // from the email's local part.
+    //
+    // The webhook payload only ever gave the bare address, so this was always
+    // null. The fetched From: header is the one that carries the name.
+    const fromName =
+      webhookFromName || parseEmailAddress(fetched.from || '').name || null
 
     // ============================================
     // 2.5 RESOLVE THE OUTBOUND EMAIL THIS REPLIES TO
@@ -850,9 +860,11 @@ async function fetchInboundBody(
   inReplyTo: string | null
   references: string | null
   to: string[] | null
+  /** The raw `From:` header, which is where the sender's display name lives. */
+  from: string | null
 }> {
   const apiKey = Deno.env.get('RESEND_API_KEY')
-  const empty = { text: null, html: null, inReplyTo: null, references: null, to: null }
+  const empty = { text: null, html: null, inReplyTo: null, references: null, to: null, from: null }
   if (!apiKey || !emailId) return empty
 
   try {
@@ -900,6 +912,11 @@ async function fetchInboundBody(
       inReplyTo,
       references,
       to,
+      // The webhook's event.data.from is the bare address — no display name —
+      // so every reply was stored with from_name null (0 of 38 in the live
+      // table). The From: header on the fetched message is where "Hamza
+      // Shafique" <hamza@...> actually is.
+      from: headers['from'] || null,
     }
   } catch (err) {
     console.error('Resend inbound fetch error:', err)
