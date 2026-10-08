@@ -90,9 +90,22 @@ export async function updateSession(request: NextRequest) {
   if (user && !isApiRoute && !isAuthNeutralRoute) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_active')
       .eq('id', user.id)
       .single()
+
+    // An account deactivated while it was signed in is shown the door on its
+    // next request. Blocking this at login alone would leave anyone already
+    // holding a session working on for as long as it lasted — which, for
+    // somebody who has just left, is exactly the window that matters.
+    if (profile && profile.is_active === false) {
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = pathname.startsWith('/portal') ? '/portal/login' : '/login'
+      url.search = ''
+      url.searchParams.set('error', 'Your account has been deactivated.')
+      return NextResponse.redirect(url)
+    }
 
     const role = profile?.role
 

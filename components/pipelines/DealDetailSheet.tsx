@@ -625,7 +625,10 @@ export function DealDetailSheet({
             <div className="space-y-1">
               <Label className="text-xs text-slate-500 dark:text-slate-400">Move to Stage</Label>
               <Select value={deal.current_stage_id} onValueChange={handleStageChange} disabled={isMoving || !canMove}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger
+                  className="h-9"
+                  title={canMove ? undefined : 'Only the deal owner can move this deal.'}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -634,6 +637,13 @@ export function DealDetailSheet({
                   ))}
                 </SelectContent>
               </Select>
+              {/* Greyed out with no reason reads as a broken screen. Say whose
+                  deal it is, so the recruiter knows to ask rather than retry. */}
+              {!canMove && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Only the deal owner{deal.owner?.full_name ? ` (${deal.owner.full_name})` : ''} can move this deal.
+                </p>
+              )}
             </div>
             <div className="flex items-end gap-2">
               {/* The deal's outcome is shown ON these buttons rather than

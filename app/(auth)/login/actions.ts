@@ -37,9 +37,24 @@ export async function login(formData: FormData) {
   if (authData.user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, password_set_at')
+      .select('role, password_set_at, is_active')
       .eq('id', authData.user.id)
       .single()
+
+    // Deactivating somebody has to actually lock them out.
+    //
+    // Nothing checked is_active — not the login, not the page guards — so an
+    // account marked inactive in the Users screen signed in normally and
+    // carried on working: dashboard, contacts, pipelines, moving its own
+    // deals. Somebody who has left IFG kept their access, and the person who
+    // deactivated them had every reason to believe they had not.
+    if (profile && profile.is_active === false) {
+      await supabase.auth.signOut()
+      return {
+        error:
+          'This account has been deactivated. Speak to an administrator if you think that is wrong.',
+      }
+    }
 
     // A player always lands in the portal, whatever they asked for — the
     // staff CRM is not theirs to deep-link into.
