@@ -128,6 +128,15 @@ export function UsersTable({
           {users.map((user) => {
             const role = roleConfig[user.role]
             const isPendingInvite = user.is_invite
+            // An invite dies after 7 days, but the list only ever said
+            // "Pending" — so a dead link looked identical to a live one and
+            // new starters were told to "use the link in your email" when it
+            // could no longer work. expires_at was already loaded and simply
+            // never read.
+            const isExpiredInvite =
+              isPendingInvite &&
+              !!user.expires_at &&
+              new Date(user.expires_at).getTime() < Date.now()
 
             return (
               <TableRow
@@ -150,9 +159,15 @@ export function UsersTable({
                         <span className="text-xs text-muted-foreground">{user.title}</span>
                       )}
                       {isPendingInvite && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <span
+                          className={`text-xs flex items-center gap-1 ${
+                            isExpiredInvite
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
                           <Clock className="h-3 w-3" />
-                          Invitation pending
+                          {isExpiredInvite ? 'Invitation expired — resend it' : 'Invitation pending'}
                         </span>
                       )}
                     </div>
@@ -172,8 +187,14 @@ export function UsersTable({
                 {/* Status */}
                 <TableCell>
                   {isPendingInvite ? (
-                    <Badge className="bg-amber-100 dark:bg-amber-900/50 text-amber-700">
-                      Pending
+                    <Badge
+                      className={
+                        isExpiredInvite
+                          ? 'bg-red-100 dark:bg-red-900/50 text-red-700'
+                          : 'bg-amber-100 dark:bg-amber-900/50 text-amber-700'
+                      }
+                    >
+                      {isExpiredInvite ? 'Expired' : 'Pending'}
                     </Badge>
                   ) : (
                     <Badge
@@ -191,7 +212,9 @@ export function UsersTable({
                 {/* Last Login */}
                 <TableCell className="text-sm text-muted-foreground">
                   {isPendingInvite
-                    ? `Invited ${formatDate(user.created_at)}`
+                    ? isExpiredInvite
+                      ? `Expired ${formatDate(user.expires_at!)}`
+                      : `Invited ${formatDate(user.created_at)}`
                     : user.last_login_at ? formatDate(user.last_login_at) : 'Never'
                   }
                 </TableCell>
