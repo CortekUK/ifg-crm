@@ -12,6 +12,13 @@ import { createClient } from '@/lib/supabase/client'
 
 export interface DashboardOverview {
   generated_at: string
+  /**
+   * Whose numbers these are. 'own' is a recruiter's dashboard — their own
+   * deals and contacts, with every money figure zeroed (QA-53 Issue 2). The
+   * shape is identical either way so no card has to guard; the cards that
+   * only make sense business-wide check this and hide themselves.
+   */
+  scope?: 'own' | 'business'
   contacts: { total: number; added_7d: number; added_prev_7d: number }
   deals: {
     open: number

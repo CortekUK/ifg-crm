@@ -157,17 +157,24 @@ export function PipelineFilters({
           dedicated footer under PipelineStats so the whole row stays
           tight and the kanban gets the freed vertical space. */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          className="hidden h-8 md:inline-flex"
-          onClick={() => exportDealsToCSV(exportableDeals)}
-          disabled={exportableDeals.length === 0}
-          title="Export current deals to CSV"
-        >
-          <Download className="mr-1.5 h-3.5 w-3.5" />
-          Export CSV
-        </Button>
+        {/* Admins only. The export was scoped to the recruiter's own deals, so
+            it leaked nothing — but QA-53 and QA-11 both say recruiters get no
+            export anywhere, and a button that is present for one list and
+            absent for others is the kind of inconsistency people work around
+            rather than report. */}
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden h-8 md:inline-flex"
+            onClick={() => exportDealsToCSV(exportableDeals)}
+            disabled={exportableDeals.length === 0}
+            title="Export current deals to CSV"
+          >
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Export CSV
+          </Button>
+        )}
 
         <div className="ml-auto flex items-center gap-3">
         {/* Zoom Controls - hidden on mobile */}

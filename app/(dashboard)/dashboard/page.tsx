@@ -39,6 +39,9 @@ import { formatCurrency, formatNumber } from '@/lib/utils/format'
 
 export default function DashboardPage() {
   const { data, isLoading, error } = useDashboardOverview()
+  // A recruiter's dashboard is scoped to their own work and carries no money
+  // figures — dashboard_overview() says so on the payload.
+  const isOwnScope = data?.scope === 'own'
   const { data: currentUser } = useCurrentUser()
   const [createContactOpen, setCreateContactOpen] = useState(false)
 
@@ -102,7 +105,14 @@ export default function DashboardPage() {
         <KpiCard
           label="Open deals"
           value={formatNumber(data?.deals.open ?? 0)}
-          detail={data ? formatCurrency(data.deals.open_value) : undefined}
+          detail={
+            // Their own count, but no value — the recruiter payload zeroes it.
+            isOwnScope
+              ? 'your deals'
+              : data
+                ? formatCurrency(data.deals.open_value)
+                : undefined
+          }
           delta={
             data
               ? deltaPercent(data.deals.created_this_month, data.deals.created_last_month)
@@ -176,34 +186,44 @@ export default function DashboardPage() {
               moved, and the stages are named differently per pipeline (Zoom
               Scheduled, Interview), so no single label can define itself. */}
           {awaitingCall}
-          <KpiCard
-            label="Paid this month"
-            value={formatCurrency(data?.finance.paid_this_month ?? 0)}
-            delta={
-              data ? deltaPercent(data.finance.paid_this_month, data.finance.paid_last_month) : null
-            }
-            deltaLabel="vs last month"
-            icon={BadgePoundSterling}
-            href="/invoices"
-            isLoading={isLoading}
-          />
-          <KpiCard
-            label="Outstanding"
-            value={formatCurrency(data?.finance.outstanding ?? 0)}
-            detail={
-              data ? `${formatNumber(data.finance.outstanding_count)} unpaid invoices` : undefined
-            }
-            icon={Receipt}
-            tone={data && data.attention.overdue_invoices > 0 ? 'warning' : 'default'}
-            href="/invoices"
-            isLoading={isLoading}
-          />
+          {/* Money is admin-only (QA-53 Issue 2). A recruiter's payload zeroes
+              these, so showing the cards would read as "£0 taken this month"
+              rather than "not your figures" — hide them instead. Invoices is
+              an admin-only page anyway, so the links went nowhere for them. */}
+          {!isOwnScope && (
+            <>
+              <KpiCard
+                label="Paid this month"
+                value={formatCurrency(data?.finance.paid_this_month ?? 0)}
+                delta={
+                  data ? deltaPercent(data.finance.paid_this_month, data.finance.paid_last_month) : null
+                }
+                deltaLabel="vs last month"
+                icon={BadgePoundSterling}
+                href="/invoices"
+                isLoading={isLoading}
+              />
+              <KpiCard
+                label="Outstanding"
+                value={formatCurrency(data?.finance.outstanding ?? 0)}
+                detail={
+                  data ? `${formatNumber(data.finance.outstanding_count)} unpaid invoices` : undefined
+                }
+                icon={Receipt}
+                tone={data && data.attention.overdue_invoices > 0 ? 'warning' : 'default'}
+                href="/invoices"
+                isLoading={isLoading}
+              />
+            </>
+          )}
         </div>
       )}
 
       {isAdmin && <MarketingSnapshot data={data} isLoading={isLoading} />}
 
-      <AudienceSnapshot data={data} isLoading={isLoading} />
+      {/* Lead sources, biggest lists and biggest tags are business-wide
+          figures a recruiter cannot act on, and are empty in their payload. */}
+      {!isOwnScope && <AudienceSnapshot data={data} isLoading={isLoading} />}
 
       <CreateContactModal
         isOpen={createContactOpen}
