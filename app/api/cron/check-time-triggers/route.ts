@@ -33,7 +33,18 @@ interface RunResult {
   timeBeforeDateEnrolled: number
   timeBeforeDateAutomations: number
   timeBeforeDateError?: string
+  notificationsAged: number
+  notificationsAgedError?: string
 }
+
+// How long a notification stays "new" in the bell.
+//
+// Nothing ever aged out, so the Super Admin's bell reached 1,368 unread going
+// back to May and the count stopped carrying any information — a real alert
+// landed in a pile nobody could triage. Marking old ones read (rather than
+// deleting them) means the badge reflects recent activity while the history
+// stays intact and readable in the dropdown.
+const NOTIFICATION_UNREAD_DAYS = 30
 
 export async function GET(request: NextRequest) {
   // Auth — same gate as the other cron routes.
@@ -56,6 +67,7 @@ export async function GET(request: NextRequest) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const result: RunResult = {
+    notificationsAged: 0,
     invoicesMarkedOverdue: 0,
     timeBeforeDateEnrolled: 0,
     timeBeforeDateAutomations: 0,
@@ -222,8 +234,25 @@ export async function GET(request: NextRequest) {
     result.timeBeforeDateError = msg
   }
 
+  // ---- AGE OUT STALE BELL NOTIFICATIONS ----
+  try {
+    const cutoff = new Date(Date.now() - NOTIFICATION_UNREAD_DAYS * 86_400_000).toISOString()
+    const { data: aged, error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('is_read', false)
+      .lt('created_at', cutoff)
+      .select('id')
+    if (error) throw new Error(error.message)
+    result.notificationsAged = aged?.length ?? 0
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('check-time-triggers: notification ageing failed', err)
+    result.notificationsAgedError = msg
+  }
+
   return NextResponse.json({
-    success: !result.invoicesError && !result.timeBeforeDateError,
+    success: !result.invoicesError && !result.timeBeforeDateError && !result.notificationsAgedError,
     timestamp: new Date().toISOString(),
     ...result,
   })

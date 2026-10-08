@@ -564,20 +564,45 @@ async function notifyOwnerOfReply(
       ownerId = (contact as { owner_id?: string | null } | null)?.owner_id ?? null
     }
 
-    if (!ownerId) {
-      console.log(`Reply ${reply.replyId}: no owner to alert, skipping email`)
-      return
+    // Owner first; the admins when nobody owns the player.
+    //
+    // A reply from an unowned player used to email nobody at all — the
+    // function simply returned. A player writing in is the single most
+    // time-sensitive thing in the CRM, and the ones with no owner are exactly
+    // the ones nobody is watching, so silence there is the worst case. This
+    // mirrors the New lead alert, which already falls back to the admins.
+    const recipients: string[] = []
+
+    if (ownerId) {
+      const { data: owner } = await supabase
+        .from('profiles')
+        .select('email, is_active')
+        .eq('id', ownerId)
+        .maybeSingle()
+      const ownerEmail = (owner as { email?: string } | null)?.email
+      if (ownerEmail && (owner as { is_active?: boolean } | null)?.is_active !== false) {
+        recipients.push(ownerEmail)
+      }
     }
 
-    const { data: owner } = await supabase
-      .from('profiles')
-      .select('email, full_name, is_active')
-      .eq('id', ownerId)
-      .maybeSingle()
+    if (recipients.length === 0) {
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('role', ['admin', 'super_admin'])
+        .eq('is_active', true)
+      for (const a of (admins ?? []) as { email?: string }[]) {
+        if (a.email) recipients.push(a.email)
+      }
+      if (recipients.length > 0) {
+        console.log(
+          `Reply ${reply.replyId}: no owner, alerting ${recipients.length} admin(s) instead`,
+        )
+      }
+    }
 
-    const to = (owner as { email?: string } | null)?.email
-    if (!to || (owner as { is_active?: boolean } | null)?.is_active === false) {
-      console.log(`Reply ${reply.replyId}: owner has no usable email, skipping`)
+    if (recipients.length === 0) {
+      console.log(`Reply ${reply.replyId}: nobody to alert, skipping email`)
       return
     }
 
@@ -633,7 +658,7 @@ async function notifyOwnerOfReply(
     const resend = new Resend(apiKey)
     const { error } = await resend.emails.send({
       from: `IFG CRM <${fromEmailAddr}>`,
-      to: [to],
+      to: recipients,
       // Straight back to the player, not through the tracked address — this
       // is an internal alert and must not be threaded as a lead reply.
       reply_to: reply.fromEmail,
@@ -642,10 +667,12 @@ async function notifyOwnerOfReply(
     })
 
     if (error) {
-      console.error(`Reply alert to ${to} failed:`, error)
+      console.error(`Reply alert to ${recipients.join(', ')} failed:`, error)
       return
     }
-    console.log(`Reply alert sent to ${to} for reply ${reply.replyId}`)
+    console.log(
+      `Reply alert sent to ${recipients.join(', ')} for reply ${reply.replyId}`,
+    )
   } catch (err) {
     console.error('Reply alert threw (reply itself is unaffected):', err)
   }
