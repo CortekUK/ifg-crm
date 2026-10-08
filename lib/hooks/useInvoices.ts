@@ -89,6 +89,10 @@ export function useAbandonedDeposits() {
         .in('type', ['deposit', 'full_payment'])
         .in('status', ['draft', 'sent', 'overdue'])
         .not('stripe_checkout_session_id', 'is', null)
+        // Anything a staff member has already chased is out of the list. See
+        // migration 212 — before this the only way to clear a row was to mark
+        // it paid, which faked a payment.
+        .is('abandoned_handled_at', null)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -289,6 +293,36 @@ export function useUpdateInvoiceStatus() {
       queryClient.invalidateQueries({ queryKey: ['invoice'] })
       queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })
+    },
+  })
+}
+
+/**
+ * Take an abandoned checkout off the panel without touching the invoice.
+ *
+ * Deliberately not a status change: the invoice is still genuinely unpaid and
+ * may yet be paid, so it keeps its status and simply stops appearing in the
+ * "needs chasing" list.
+ */
+export function useMarkAbandonedHandled() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ invoiceId, handled }: { invoiceId: string; handled: boolean }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          abandoned_handled_at: handled ? new Date().toISOString() : null,
+          abandoned_handled_by: handled ? user?.id ?? null : null,
+        })
+        .eq('id', invoiceId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['abandoned-deposits'] })
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
     },
   })
 }

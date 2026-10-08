@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ChevronRight, Mail, Phone, ShoppingCart, Check } from 'lucide-react'
-import { useAbandonedDeposits, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
+import { ChevronDown, ChevronRight, Mail, Phone, ShoppingCart, Check, CircleSlash } from 'lucide-react'
+import { useAbandonedDeposits, useUpdateInvoiceStatus, useMarkAbandonedHandled } from '@/lib/hooks/useInvoices'
 import { formatCurrency } from '@/lib/utils/format'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Invoice } from '@/lib/types/invoices'
@@ -18,6 +18,7 @@ import type { Invoice } from '@/lib/types/invoices'
 export function AbandonedDeposits({ onView }: { onView?: (invoice: Invoice) => void }) {
   const { data: rows = [], isLoading } = useAbandonedDeposits()
   const updateStatus = useUpdateInvoiceStatus()
+  const markHandled = useMarkAbandonedHandled()
   const [open, setOpen] = useState(false)
   const [markingId, setMarkingId] = useState<string | null>(null)
 
@@ -43,11 +44,32 @@ export function AbandonedDeposits({ onView }: { onView?: (invoice: Invoice) => v
   // "Summer Residency — deposit to secure your place" → "Summer Residency"
   const programme = (inv: Invoice) => (inv.description || '').split('—')[0].trim() || '—'
 
+  // Website checkouts and staff-raised invoices both land here, and the panel
+  // read as if everything were a website checkout. They need chasing
+  // differently — one is a stranger who got cold feet, the other is a player
+  // already being handled by a recruiter — so each row says which it is.
+  const fromWebsite = (inv: Invoice) => inv.contact?.source?.startsWith('website') ?? false
+
   async function markPaid(inv: Invoice) {
     setMarkingId(inv.id)
     try {
       await updateStatus.mutateAsync({ invoiceId: inv.id, status: 'paid' })
       toast({ title: 'Marked as paid', description: `${name(inv)}'s ${inv.type === 'full_payment' ? 'payment' : 'deposit'} recorded.` })
+    } catch (e) {
+      toast({ title: 'Could not update', description: e instanceof Error ? e.message : '', variant: 'destructive' })
+    } finally {
+      setMarkingId(null)
+    }
+  }
+
+  async function handled(inv: Invoice) {
+    setMarkingId(inv.id)
+    try {
+      await markHandled.mutateAsync({ invoiceId: inv.id, handled: true })
+      toast({
+        title: 'Marked as followed up',
+        description: `${name(inv)} is off the list. The invoice is untouched and can still be paid.`,
+      })
     } catch (e) {
       toast({ title: 'Could not update', description: e instanceof Error ? e.message : '', variant: 'destructive' })
     } finally {
@@ -113,21 +135,37 @@ export function AbandonedDeposits({ onView }: { onView?: (invoice: Invoice) => v
                     {programme(inv)}
                   </span>
                   <span className="ml-2">{inv.type === 'full_payment' ? 'Full payment' : 'Deposit'}</span>
+                  <span className="ml-2 text-slate-400">
+                    {fromWebsite(inv) ? 'website checkout' : 'invoice sent by staff'}
+                  </span>
                 </div>
 
                 <div className="text-sm font-semibold text-slate-900 dark:text-white">
                   {formatCurrency(Number(inv.amount))}
                 </div>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => markPaid(inv)}
-                  disabled={markingId === inv.id}
-                  className="h-7 gap-1 text-xs"
-                >
-                  <Check className="h-3 w-3" /> Mark paid
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => markPaid(inv)}
+                    disabled={markingId === inv.id || markHandled.isPending}
+                    className="h-7 gap-1 text-xs"
+                  >
+                    <Check className="h-3 w-3" /> Mark paid
+                  </Button>
+                  {/* Clears the row without pretending money arrived. */}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handled(inv)}
+                    disabled={markingId === inv.id || markHandled.isPending}
+                    className="h-7 gap-1 text-xs text-slate-600 dark:text-slate-300"
+                    title="Take this off the list without recording a payment"
+                  >
+                    <CircleSlash className="h-3 w-3" /> Followed up
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

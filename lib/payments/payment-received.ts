@@ -10,6 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { PAYMENT_PROGRAMMES } from './programmes'
 
 export type PaymentAppliedResult = {
   dealId: string | null
@@ -41,9 +42,21 @@ export async function applyPaymentToDeal(
 ): Promise<PaymentAppliedResult> {
   const { data: invoice } = await supabase
     .from('invoices')
-    .select('deal_id')
+    .select('deal_id, contact_id')
     .eq('id', invoiceId)
     .single()
+
+  // Someone who has paid must come off the "Abandoned … Deposits" chase list.
+  //
+  // Only the Stripe webhook did this, and only for website checkouts, so a
+  // deposit settled by bank transfer or marked paid in the CRM left the
+  // contact sitting on the list. Two real people were already in that state:
+  // one on Abandoned Gap Year Deposits and one on Abandoned University
+  // Deposits, both with a paid invoice, both still queued to be chased for
+  // money they had sent.
+  if (invoice?.contact_id) {
+    await removeFromAbandonedLists(supabase, invoice.contact_id as string)
+  }
 
   if (!invoice?.deal_id) {
     return { dealId: null, stoppedEnrollments: [], movedToStageId: null, skipped: 'no-deal' }
@@ -139,4 +152,37 @@ export async function applyPaymentToDeal(
   console.log(`Deal ${deal.id} moved to Deposit Paid stage`)
 
   return { dealId: deal.id, stoppedEnrollments: toStop, movedToStageId: depositPaidStage.id }
+}
+
+
+/**
+ * Take a contact off every "Abandoned … Deposits" list.
+ *
+ * Deliberately all of them rather than the one matching the programme: the
+ * manual payment paths often have no programme to match on, and a contact who
+ * has paid IFG anything should not be sitting in a "they never paid" chase
+ * queue. If they later start a different programme's checkout and abandon it,
+ * that checkout puts them back on the relevant list.
+ */
+export async function removeFromAbandonedLists(
+  supabase: SupabaseClient,
+  contactId: string,
+): Promise<number> {
+  const names = Object.values(PAYMENT_PROGRAMMES).map((p) => p.abandonedList.name)
+  const { data: lists } = await supabase.from('lists').select('id').in('name', names)
+  const ids = (lists ?? []).map((l) => l.id as string)
+  if (ids.length === 0) return 0
+
+  const { data: removed } = await supabase
+    .from('contact_lists')
+    .delete()
+    .eq('contact_id', contactId)
+    .in('list_id', ids)
+    .select('list_id')
+
+  const count = removed?.length ?? 0
+  if (count > 0) {
+    console.log(`Contact ${contactId} removed from ${count} abandoned-deposit list(s) — payment received`)
+  }
+  return count
 }

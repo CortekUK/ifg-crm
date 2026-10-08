@@ -483,9 +483,22 @@ async function enrichContactFromCheckout(
 
     const update: Record<string, string | number> = {}
     if (playerName && blank(contact.first_name) && blank(contact.last_name)) {
-      const cut = playerName.lastIndexOf(' ')
-      update.first_name = cut > 0 ? playerName.slice(0, cut) : playerName
-      update.last_name = cut > 0 ? playerName.slice(cut + 1) : ''
+      // The player-name question often comes back as a first name only, while
+      // the full name sits in the name Stripe collected for the card. A
+      // deposit paid as "Hamza" + "Hamza Shafique" was saved as first name
+      // "Hamza" and no surname, so recruiters saw a half-named player.
+      //
+      // Only borrowed when the two clearly refer to the same person — same
+      // first word — so a parent paying for their child never overwrites the
+      // child's surname with the parent's.
+      let full = playerName
+      if (!playerName.includes(' ') && payerName && payerName.includes(' ')) {
+        const payerFirst = payerName.slice(0, payerName.indexOf(' '))
+        if (payerFirst.toLowerCase() === playerName.toLowerCase()) full = payerName
+      }
+      const cut = full.lastIndexOf(' ')
+      update.first_name = cut > 0 ? full.slice(0, cut) : full
+      update.last_name = cut > 0 ? full.slice(cut + 1) : ''
     }
     if (payerName && blank(contact.parent_name)) update.parent_name = payerName
     if (payerPhone && blank(contact.parent_phone)) update.parent_phone = payerPhone
