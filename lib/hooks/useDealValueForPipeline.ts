@@ -18,8 +18,21 @@ import { programmeForPipeline, resolveProgrammePrice } from '@/lib/payments/prog
  * form-submission path and the invoice automations use — so a lead is worth
  * the same however it arrived.
  *
- * Falls back to 0 when the programme cannot be resolved, which is the old
- * behaviour and never worse than it.
+ * WHERE A PROGRAMME PUBLISHES MORE THAN ONE DEPOSIT
+ *
+ * resolveProgrammePrice refuses to choose, by design: it is shared with the
+ * invoice editor, and guessing between £6,500 and £4,000 there would bill a
+ * real player the wrong amount (see migration 197). But returning its `null`
+ * straight to the board puts us back on £0, which is what this hook exists to
+ * fix — and UK GAP 2027 is exactly that case, so Gap Year leads would still
+ * have been created worthless.
+ *
+ * A deal value is a forecast on a card, not an invoice; nobody is charged by
+ * it. So where the programme publishes several deposits we take its primary
+ * package — `featured` first, then `sort_order` — which is the same package
+ * migration 197 chose for Gap Year invoicing and the one the CMS presents as
+ * the headline price. Being roughly right on a forecast beats being certainly
+ * wrong at zero, and the card is editable.
  */
 export function useDealValueForPipeline(): (pipelineId: string) => number {
   const { data: allAutomations = [] } = useAutomations()
@@ -36,7 +49,24 @@ export function useDealValueForPipeline(): (pipelineId: string) => number {
         websitePackages,
         pricingSettings,
       )
-      return price.amount ?? 0
+      if (price.amount != null) return price.amount
+
+      // Several published deposits and no package named — take the primary one.
+      if (programme && price.choices.length > 0) {
+        const rank = new Map(
+          websitePackages
+            .filter((p) => p.programme === programme)
+            .map((p) => [p.key, (p.featured ? 0 : 1) * 1000 + (p.sort_order ?? 0)]),
+        )
+        const primary = [...price.choices].sort(
+          (a, b) => (rank.get(a.key) ?? 9999) - (rank.get(b.key) ?? 9999),
+        )[0]
+        if (primary) return primary.amount
+      }
+
+      // No programme, or nothing published at all. The old behaviour, and
+      // never worse than it.
+      return 0
     },
     [allAutomations, websitePackages, pricingSettings],
   )
