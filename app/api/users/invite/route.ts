@@ -112,12 +112,46 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
+    // Inviting is super-admin only.
+    //
+    // This used to accept any admin, and never looked at the role being handed
+    // out — so an ordinary admin could invite someone as a Super Admin and
+    // give them more access than the admin had themselves. That is privilege
+    // escalation, and it is reachable by calling this route directly even if
+    // the button is hidden in the UI.
+    if (!profile || profile.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: 'Only a super admin can invite people to the CRM.' },
+        { status: 403 },
+      )
     }
 
     const body = await request.json()
     const { email: rawEmail, fullName, role, title, sport, phone, calendlyUrl, zoomUrl, pipelineIds } = body
+
+    // Whatever arrives in `role` ends up on a real account, so it is checked
+    // against the list rather than passed through. Anything unrecognised would
+    // otherwise be written verbatim into profiles.role.
+    const ASSIGNABLE_ROLES = ['recruiter', 'admin', 'super_admin'] as const
+    const requestedRole = typeof role === 'string' && role ? role : 'recruiter'
+    if (!ASSIGNABLE_ROLES.includes(requestedRole as (typeof ASSIGNABLE_ROLES)[number])) {
+      return NextResponse.json(
+        { error: `"${requestedRole}" is not a role that can be granted.` },
+        { status: 400 },
+      )
+    }
+
+    // Second layer, deliberately kept even though only super admins get this
+    // far: nobody may create an account more powerful than their own. If the
+    // gate above is ever relaxed to let admins invite recruiters, this still
+    // stops an admin minting a super admin.
+    const RANK: Record<string, number> = { recruiter: 1, admin: 2, super_admin: 3 }
+    if ((RANK[requestedRole] ?? 0) > (RANK[profile.role] ?? 0)) {
+      return NextResponse.json(
+        { error: 'You cannot give someone a role higher than your own.' },
+        { status: 403 },
+      )
+    }
 
     // Normalise before anything looks it up. Addresses are case-insensitive in
     // practice, but every comparison below (and the profiles/user_invites
@@ -198,7 +232,7 @@ export async function POST(request: NextRequest) {
       .insert({
         email,
         full_name: fullName,
-        role: role || 'recruiter',
+        role: requestedRole,
         title: title || null,
         sport: sport || 'football',
         phone: phone || null,
@@ -231,7 +265,7 @@ export async function POST(request: NextRequest) {
         options: {
           data: {
             full_name: fullName,
-            role: role || 'recruiter',
+            role: requestedRole,
             title: title || null,
             sport: sport || 'football',
             phone: phone || null,
@@ -272,7 +306,7 @@ export async function POST(request: NextRequest) {
       const sendResult = await sendInviteEmail({
         to: email,
         fullName,
-        role: role || 'recruiter',
+        role: requestedRole,
         inviteLink,
       })
       emailSent = sendResult.sent

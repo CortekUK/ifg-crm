@@ -5,9 +5,11 @@ import { UserPlus } from 'lucide-react'
 
 interface UsersPageHeaderProps {
   onInviteClick: () => void
+  /** Only a super admin may invite. Matches the check on /api/users/invite. */
+  canInvite: boolean
 }
 
-export function UsersPageHeader({ onInviteClick }: UsersPageHeaderProps) {
+export function UsersPageHeader({ onInviteClick, canInvite }: UsersPageHeaderProps) {
   return (
     <div className="banner-gradient rounded-xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -15,13 +17,15 @@ export function UsersPageHeader({ onInviteClick }: UsersPageHeaderProps) {
           Manage team members and their permissions.
         </p>
 
-        <Button
-          onClick={onInviteClick}
-          className="bg-white text-blue-600 hover:bg-blue-50"
-        >
-          <UserPlus className="h-4 w-4 mr-2" />
-          Invite User
-        </Button>
+        {canInvite && (
+          <Button
+            onClick={onInviteClick}
+            className="bg-white text-blue-600 hover:bg-blue-50"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite User
+          </Button>
+        )}
       </div>
     </div>
   )

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UsersPageHeader } from '@/components/users/UsersPageHeader'
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { UsersFilters, UsersFiltersState } from '@/components/users/UsersFilters'
 import { UsersTable } from '@/components/users/UsersTable'
 import { PlayerPortalDialog } from '@/components/users/PlayerPortalDialog'
@@ -31,6 +32,7 @@ type ConfirmAction =
   | { type: 'cancel-invite'; invite: UserOrInvite }
 
 export default function UsersPage() {
+  const { data: currentUser } = useCurrentUser()
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [playerDialogUser, setPlayerDialogUser] = useState<UserOrInvite | null>(null)
@@ -284,7 +286,7 @@ export default function UsersPage() {
       {/* Page Header — only on Staff tab. Players are invited from the
           contact sheet, not via this page. */}
       {activeTab === 'staff' && (
-        <UsersPageHeader onInviteClick={() => setInviteModalOpen(true)} />
+        <UsersPageHeader canInvite={currentUser?.role === 'super_admin'} onInviteClick={() => setInviteModalOpen(true)} />
       )}
 
       {/* Tabs */}
