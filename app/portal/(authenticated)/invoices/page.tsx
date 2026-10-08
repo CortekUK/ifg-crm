@@ -27,6 +27,10 @@ import {
   Calendar,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
+import {
+  downloadPlayerInvoicePDF,
+  type PlayerInvoiceBillTo,
+} from '@/lib/invoices/player-invoice-pdf'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -90,6 +94,9 @@ export default function PortalInvoicesPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(false)
   const [contactId, setContactId] = useState<string | null>(null)
+  // Who the invoice is addressed to. Fetched so the PDF can carry a "Bill to"
+  // block — without it no name appeared on the document at all.
+  const [billTo, setBillTo] = useState<PlayerInvoiceBillTo | null>(null)
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -107,6 +114,22 @@ export default function PortalInvoicesPage() {
         profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
       if (!playerContactId) return
       setContactId(playerContactId)
+
+      const { data: contact } = await supabase
+        .from('contacts')
+        .select('first_name, last_name, email, phone, city, state, country')
+        .eq('id', playerContactId)
+        .maybeSingle()
+      if (contact) {
+        setBillTo({
+          name: [contact.first_name, contact.last_name].filter(Boolean).join(' ') || null,
+          email: contact.email,
+          phone: contact.phone,
+          city: contact.city,
+          state: contact.state,
+          country: contact.country,
+        })
+      }
 
       const { data } = await supabase
         .from('invoices')
@@ -152,7 +175,7 @@ export default function PortalInvoicesPage() {
       })
       const data = await res.json()
       if (data.url) {
-        window.location.href = data.url
+        window.location.assign(data.url)
       } else {
         toast({ title: 'Error', description: data.error || 'Failed to start payment', variant: 'destructive' })
       }
@@ -163,97 +186,24 @@ export default function PortalInvoicesPage() {
   }
 
   const handleDownload = async (invoice: Invoice) => {
-    const { default: jsPDF } = await import('jspdf')
-    const doc = new jsPDF()
-    const pageWidth = doc.internal.pageSize.getWidth()
-
-    // Header background
-    doc.setFillColor(30, 64, 175)
-    doc.rect(0, 0, pageWidth, 45, 'F')
-
-    // Header text
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(24)
-    doc.setFont('helvetica', 'bold')
-    doc.text('INVOICE', 20, 25)
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'normal')
-    doc.text('The International Football Group', 20, 35)
-
-    // Invoice number & status
-    doc.setTextColor(30, 64, 175)
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.text(invoice.invoice_number, 20, 62)
-
-    const statusLabel = getPlayerStatus(invoice.status).label
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(100, 116, 139)
-    doc.text(`Status: ${statusLabel}`, pageWidth - 20, 62, { align: 'right' })
-
-    // Divider
-    doc.setDrawColor(226, 232, 240)
-    doc.line(20, 68, pageWidth - 20, 68)
-
-    // Details
-    let y = 80
-    const addRow = (label: string, value: string) => {
-      doc.setTextColor(100, 116, 139)
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      doc.text(label, 20, y)
-      doc.setTextColor(15, 23, 42)
-      doc.setFont('helvetica', 'bold')
-      doc.text(value, pageWidth - 20, y, { align: 'right' })
-      y += 12
-    }
-
-    addRow('Description', invoice.description || '-')
-    addRow('Type', typeLabels[invoice.type] || invoice.type)
-    addRow('Issue Date', formatDate(invoice.created_at))
-    addRow('Due Date', formatDate(invoice.due_date))
-    if (invoice.paid_at) addRow('Paid On', formatDate(invoice.paid_at))
-
-    // Notes
-    if (invoice.notes) {
-      y += 4
-      doc.setTextColor(100, 116, 139)
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      doc.text('Notes:', 20, y)
-      y += 8
-      doc.setTextColor(15, 23, 42)
-      const lines = doc.splitTextToSize(invoice.notes, pageWidth - 40)
-      doc.text(lines, 20, y)
-      y += lines.length * 6
-    }
-
-    // Total section
-    y += 10
-    doc.setDrawColor(226, 232, 240)
-    doc.line(20, y, pageWidth - 20, y)
-    y += 15
-
-    doc.setTextColor(100, 116, 139)
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Total Amount', 20, y)
-    doc.setTextColor(30, 64, 175)
-    doc.setFontSize(22)
-    doc.setFont('helvetica', 'bold')
-    doc.text(formatCurrency(invoice.amount, invoice.currency), pageWidth - 20, y, { align: 'right' })
-
-    // Footer
-    const footerY = doc.internal.pageSize.getHeight() - 20
-    doc.setDrawColor(226, 232, 240)
-    doc.line(20, footerY - 10, pageWidth - 20, footerY - 10)
-    doc.setTextColor(148, 163, 184)
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    doc.text('The International Football Group | info@theinternationalfootballgroup.com', pageWidth / 2, footerY, { align: 'center' })
-
-    doc.save(`${invoice.invoice_number}.pdf`)
+    await downloadPlayerInvoicePDF(
+      {
+        id: invoice.id,
+        status: invoice.status,
+        invoice_number: invoice.invoice_number,
+        description: invoice.description,
+        amount: invoice.amount,
+        currency: invoice.currency,
+        type: invoice.type,
+        statusLabel: getPlayerStatus(invoice.status).label,
+        due_date: invoice.due_date,
+        created_at: invoice.created_at,
+        paid_at: invoice.paid_at,
+        notes: invoice.notes,
+        programme_name: invoice.programme_name,
+      },
+      billTo,
+    )
   }
 
   // Stats
