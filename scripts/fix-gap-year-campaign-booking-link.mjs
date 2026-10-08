@@ -12,6 +12,12 @@
  * fallback to the public contact page. This brings the odd one out into line,
  * so there is no second convention to remember.
  *
+ * The same template also carried a second booking link — an inline "book a
+ * call" using a bare `{{deal_owner_calendly}}` with no fallback — which
+ * rendered as href="" for any sender without a Calendly on their profile.
+ * That is fixed here too, so clearing a profile's Calendly degrades to the
+ * contact page rather than to a dead link.
+ *
  * Both `body_json` and `body_html` are updated. body_json is what the editor
  * loads, so changing only the HTML would mean the next person who opened and
  * saved the template silently reinstated Nathan's link.
@@ -33,6 +39,10 @@ const TEMPLATE_ID = 'aea5e2cf-64a4-4567-8086-a12636098333'
 const OLD_URL = 'https://calendly.com/nathan-9394/15min'
 // The convention the other 17 templates already use.
 const NEW_URL = '{{deal_owner_calendly|https://ifg-crm-cvz9.vercel.app/contact}}'
+// A booking tag with no fallback renders href="" when the sender has no
+// Calendly. Give it the same safe destination.
+const BARE_TAG = 'href="{{deal_owner_calendly}}"'
+const BARE_FIXED = `href="${NEW_URL}"`
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -61,18 +71,31 @@ const blocks = Array.isArray(template.body_json) ? template.body_json : []
 let buttonsChanged = 0
 const nextBlocks = blocks.map((block) => {
   const url = block?.content?.url
-  if (block?.type !== 'button' || url !== OLD_URL) return block
-  buttonsChanged++
-  console.log(`  button "${String(block.content.text).trim()}": ${url} → ${NEW_URL}`)
-  return { ...block, content: { ...block.content, url: NEW_URL } }
+  if (block?.type === 'button' && url === OLD_URL) {
+    buttonsChanged++
+    console.log(`  button "${String(block.content.text).trim()}": ${url} → ${NEW_URL}`)
+    return { ...block, content: { ...block.content, url: NEW_URL } }
+  }
+  // Inline links live inside a text block's html.
+  const html = block?.content?.html
+  if (typeof html === 'string' && html.includes(BARE_TAG)) {
+    buttonsChanged++
+    console.log('  inline "book a call" link: added the contact-page fallback')
+    return { ...block, content: { ...block.content, html: html.split(BARE_TAG).join(BARE_FIXED) } }
+  }
+  return block
 })
 
 const htmlOccurrences = (template.body_html ?? '').split(OLD_URL).length - 1
-const nextHtml = (template.body_html ?? '').split(OLD_URL).join(NEW_URL)
+const bareOccurrences = (template.body_html ?? '').split(BARE_TAG).length - 1
+const nextHtml = (template.body_html ?? '')
+  .split(OLD_URL).join(NEW_URL)
+  .split(BARE_TAG).join(BARE_FIXED)
 console.log(`  body_json buttons changed: ${buttonsChanged}`)
-console.log(`  body_html occurrences replaced: ${htmlOccurrences}`)
+console.log(`  body_html Nathan links replaced: ${htmlOccurrences}`)
+console.log(`  body_html no-fallback booking links given one: ${bareOccurrences}`)
 
-if (buttonsChanged === 0 && htmlOccurrences === 0) {
+if (buttonsChanged === 0 && htmlOccurrences === 0 && bareOccurrences === 0) {
   console.log('\nAlready fixed — nothing to change.')
   process.exit(0)
 }

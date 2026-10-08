@@ -26,6 +26,7 @@ import { Loader2, Save, Phone, Calendar, FileSignature, Video, Briefcase, GitBra
 import { useUpdateUser } from '@/lib/hooks/useUsers'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { toast } from '@/lib/hooks/use-toast'
+import { calendlyUrlError as getCalendlyUrlError } from '@/lib/users/booking-link'
 import type { User } from '@/lib/types/users'
 
 interface EditUserModalProps {
@@ -71,6 +72,12 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  // Derived, not stored: it is a pure function of the current value, so there
+  // is no stale copy to reset when the modal opens on a different user.
+  // Whatever is stored here is emailed to players as this person's booking
+  // link, so it is checked here as well as on the self-serve profile screen.
+  const bookingLinkError = getCalendlyUrlError(formData.calendlyUrl)
+
   const handlePipelineToggle = (pipelineId: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -82,6 +89,15 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
 
   const handleSubmit = async () => {
     if (!user || !formData.fullName) return
+
+    if (bookingLinkError) {
+      toast({
+        title: 'Check the booking link',
+        description: bookingLinkError,
+        variant: 'destructive',
+      })
+      return
+    }
 
     try {
       await updateUser.mutateAsync({
@@ -220,10 +236,16 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
                   value={formData.calendlyUrl}
                   onChange={(e) => handleChange('calendlyUrl', e.target.value)}
                   placeholder="https://calendly.com/your-link"
+                  className={bookingLinkError ? 'border-red-500' : ''}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Available as {'{{deal_owner_calendly}}'} in templates.
-                </p>
+                {bookingLinkError ? (
+                  <p className="text-xs text-red-500">{bookingLinkError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Available as {'{{deal_owner_calendly}}'} in templates. Leave it empty
+                    and booking links fall back to the public contact page.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -21,6 +21,7 @@ import {
 import { Save, Calendar, Phone, FileSignature, Eye, Loader2, Upload, Key, AlertTriangle, Briefcase } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
+import { calendlyUrlError as getCalendlyUrlError } from '@/lib/users/booking-link'
 
 interface ProfileData {
   full_name: string
@@ -39,39 +40,8 @@ interface PasswordData {
   confirmPassword: string
 }
 
-// URL validation helper
-function isValidUrl(url: string): boolean {
-  if (!url) return true // Empty is valid (optional field)
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-/**
- * Whether a booking link really is a Calendly one.
- *
- * The field only checked that the value was an http(s) address, so a link to
- * any site at all was accepted and then sent to players as their recruiter's
- * "Book a meeting" link. The screen did warn while you typed, but Save ignored
- * the warning and stored it anyway.
- *
- * Matched on the hostname rather than as a substring, so `evil.example.com/
- * calendly.com` does not pass. Subdomains do (`ifg.calendly.com`).
- */
-function isCalendlyUrl(url: string): boolean {
-  if (!url) return true // Empty is fine — the field is optional.
-  try {
-    const host = new URL(url).hostname.toLowerCase()
-    return host === 'calendly.com' || host.endsWith('.calendly.com')
-  } catch {
-    return false
-  }
-}
-
-const CALENDLY_HINT = 'Use your Calendly booking link, e.g. https://calendly.com/your-name'
+// Calendly validation is shared with the admin-side Users → Edit user screen,
+// which can set the same field. See lib/users/booking-link.ts.
 
 export function ProfileSettings() {
   const [isLoading, setIsLoading] = useState(true)
@@ -321,13 +291,7 @@ export function ProfileSettings() {
     
     // Validate Calendly URL
     if (field === 'calendly_url') {
-      if (value && !isValidUrl(value)) {
-        setCalendlyUrlError(`Please enter a full web address. ${CALENDLY_HINT}`)
-      } else if (value && !isCalendlyUrl(value)) {
-        setCalendlyUrlError(`That is not a Calendly link, so players could not book with it. ${CALENDLY_HINT}`)
-      } else {
-        setCalendlyUrlError(null)
-      }
+      setCalendlyUrlError(getCalendlyUrlError(value))
     }
   }
 
@@ -353,22 +317,14 @@ export function ProfileSettings() {
 
   const handleSave = async () => {
     // Validate Calendly URL before saving
-    if (profile.calendly_url && !isValidUrl(profile.calendly_url)) {
+    // Save now refuses a bad link rather than only warning about it. What gets
+    // stored here is emailed to players as their booking link.
+    const bookingError = getCalendlyUrlError(profile.calendly_url ?? '')
+    if (bookingError) {
+      setCalendlyUrlError(bookingError)
       toast({
-        title: 'Invalid URL',
-        description: `Please enter a full web address. ${CALENDLY_HINT}`,
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // Save now refuses a non-Calendly link rather than only warning about it.
-    // What gets stored here is emailed to players as a booking link.
-    if (profile.calendly_url && !isCalendlyUrl(profile.calendly_url)) {
-      setCalendlyUrlError(`That is not a Calendly link, so players could not book with it. ${CALENDLY_HINT}`)
-      toast({
-        title: 'That is not a Calendly link',
-        description: `Players are sent this as their booking link. ${CALENDLY_HINT}`,
+        title: 'Check the booking link',
+        description: bookingError,
         variant: 'destructive',
       })
       return
