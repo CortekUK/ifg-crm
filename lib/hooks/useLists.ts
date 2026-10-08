@@ -382,25 +382,42 @@ export function useBulkRemoveContactsFromList() {
   })
 }
 
-// Hook to get contact IDs already in a list (for Add Contacts modal)
-export function useListContactIds(listId: string | null) {
+/**
+ * Which of `contactIds` are already on the list (for the Add Contacts modal).
+ *
+ * Asked the other way round — "every contact_id on this list" — because the
+ * modal only ever compares against the handful of contacts on screen. That read
+ * had no paging, and PostgREST caps a response at 1000 rows with a plain 200,
+ * so on ALL CONTACTS EVERYONE (179,395 members) it returned the first 1000 and
+ * every other member looked like a non-member: the modal offered to add people
+ * who were already there, and "All matching contacts are already in this list"
+ * never appeared when it should.
+ *
+ * Paging that read would mean ~180 requests to open a modal. Scoping it to the
+ * ids being displayed is one request that stays correct however big the list
+ * gets — the search above it returns at most 50.
+ */
+export function useListMembership(listId: string | null, contactIds: string[]) {
   const supabase = createClient()
+  // Sorted so an unchanged set of results doesn't re-fetch on reorder.
+  const key = [...contactIds].sort().join(',')
 
   return useQuery<Set<string>>({
-    queryKey: ['list-contact-ids', listId],
+    queryKey: ['list-membership', listId, key],
+    enabled: !!listId && contactIds.length > 0,
     queryFn: async () => {
-      if (!listId) return new Set()
+      if (!listId || contactIds.length === 0) return new Set()
 
       const { data, error } = await supabase
         .from('contact_lists')
         .select('contact_id')
         .eq('list_id', listId)
+        .in('contact_id', contactIds)
 
       if (error) throw error
 
       return new Set((data || []).map((item) => item.contact_id))
     },
-    enabled: !!listId,
   })
 }
 

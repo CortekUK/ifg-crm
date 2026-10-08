@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Search, Loader2, Users, Check } from 'lucide-react'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
-import { useAddContactsToList, useListContactIds } from '@/lib/hooks/useLists'
+import { useAddContactsToList, useListMembership } from '@/lib/hooks/useLists'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
 import type { Contact } from '@/lib/types/contacts'
@@ -40,7 +40,11 @@ export function AddContactsToListModal({
 
   const debouncedSearch = useDebouncedValue(search, 300)
   const { data: contacts = [], isLoading: contactsLoading } = useSearchContacts(debouncedSearch)
-  const { data: existingContactIds = new Set() } = useListContactIds(listId)
+  // Scoped to the contacts actually on screen — see useListMembership.
+  const { data: existingContactIds = new Set() } = useListMembership(
+    listId,
+    contacts.map((c) => c.id),
+  )
   const addContacts = useAddContactsToList()
 
   // Filter out contacts that can be added (not already in list)
@@ -88,7 +92,7 @@ export function AddContactsToListModal({
         description: `${selectedIds.size} contact${selectedIds.size > 1 ? 's' : ''} added to "${listName}".`,
       })
       onClose()
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to add contacts to list.',
@@ -109,7 +113,7 @@ export function AddContactsToListModal({
             Add Players to List
           </DialogTitle>
           <DialogDescription>
-            Search and select contacts to add to "{listName}".
+            Search and select contacts to add to &ldquo;{listName}&rdquo;.
           </DialogDescription>
         </DialogHeader>
 

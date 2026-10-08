@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { fetchRankedContactIds } from '@/lib/contacts/search'
+import { fetchAll } from '@/lib/reports/csv'
 import type { ContactTag } from '@/lib/types/contacts'
 
 export interface TagWithCount extends ContactTag {
@@ -229,30 +230,45 @@ export function useMergeTags() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    // Merging moved only the first 1000 contacts and then deleted the tag,
+    // whose cascade took the rest with it. PostgREST caps a response at 1000
+    // rows and says so with a plain 200, so the unpaged read below looked like
+    // the whole tag. On a tag the size of "2027" (65,136 contacts) a merge
+    // silently dropped 64,136 tag assignments, with no error and no way back.
+    //
+    // So: page the read, write in batches, and only delete once the move has
+    // actually succeeded.
     mutationFn: async ({ keepTagId, mergeTagIds }: { keepTagId: string; mergeTagIds: string[] }) => {
-      // For each tag being merged, reassign its contacts to the keep tag
+      const UPSERT_BATCH = 1000
+
       for (const mergeId of mergeTagIds) {
-        // Get contacts that have the merge tag
-        const { data: mergeContacts } = await supabase
-          .from('contact_tags')
-          .select('contact_id')
-          .eq('tag_id', mergeId)
+        const mergeContacts = await fetchAll<{ contact_id: string }>(() =>
+          supabase.from('contact_tags').select('contact_id').eq('tag_id', mergeId),
+        )
 
-        if (mergeContacts && mergeContacts.length > 0) {
-          const contactIds = mergeContacts.map((c) => c.contact_id)
-
-          // Upsert contacts into the keep tag (ignore duplicates)
-          const records = contactIds.map((contactId) => ({
-            contact_id: contactId,
+        if (mergeContacts.length > 0) {
+          const records = mergeContacts.map((c) => ({
+            contact_id: c.contact_id,
             tag_id: keepTagId,
           }))
 
-          await supabase
-            .from('contact_tags')
-            .upsert(records, { onConflict: 'contact_id,tag_id' })
+          // One upsert of 65k rows is a request big enough to be refused.
+          for (let i = 0; i < records.length; i += UPSERT_BATCH) {
+            const { error: upsertError } = await supabase
+              .from('contact_tags')
+              .upsert(records.slice(i, i + UPSERT_BATCH), { onConflict: 'contact_id,tag_id' })
+
+            // Stop before the delete — a half-moved tag that still exists can
+            // be merged again, but one that has been deleted cannot.
+            if (upsertError) {
+              throw new Error(
+                `Could not move contacts onto the tag you are keeping, so nothing was deleted: ${upsertError.message}`,
+              )
+            }
+          }
         }
 
-        // Delete the merged tag (cascade deletes its contact_tags)
+        // Safe now: every contact on the merged tag also carries the kept one.
         const { error } = await supabase
           .from('tags')
           .delete()
