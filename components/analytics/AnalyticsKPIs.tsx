@@ -38,7 +38,8 @@ export function AnalyticsKPIs({ isLoading, data }: Props) {
         deltaLabel="vs previous"
         isLoading={isLoading}
         href="/contacts"
-        hint="Contacts created during the selected period."
+        hint="Contacts created during the selected period. Not filtered by programme — a contact is not tied to one pipeline, so this figure is the same whichever programme is selected."
+        detail="all programmes"
       />
       <KpiCard
         label="Deals created"
@@ -72,7 +73,7 @@ export function AnalyticsKPIs({ isLoading, data }: Props) {
       <KpiCard
         label="Open pipeline"
         value={money(k?.open_value ?? 0)}
-        detail="value of live deals"
+        detail="created in this period"
         icon={Wallet}
         isLoading={isLoading}
         href="/pipelines"

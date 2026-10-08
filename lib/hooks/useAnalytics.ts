@@ -56,7 +56,37 @@ export interface AnalyticsData {
   }
 }
 
+/** A custom range is encoded as `custom:YYYY-MM-DD:YYYY-MM-DD`. */
+export const CUSTOM_RANGE_PREFIX = 'custom:'
+
+export function parseCustomRange(range: string): { from: string; to: string } | null {
+  if (!range.startsWith(CUSTOM_RANGE_PREFIX)) return null
+  const [from, to] = range.slice(CUSTOM_RANGE_PREFIX.length).split(':')
+  if (!from || !to) return null
+  return { from, to }
+}
+
 export function getDateRange(range: string) {
+  // Custom range.
+  //
+  // The presets only went back 90 days or to the start of the year, so it was
+  // impossible to look at a single day, a period with no data, or anything
+  // before this year — which is also why the no-data and divide-by-zero cases
+  // could not be checked from the screen at all.
+  const custom = parseCustomRange(range)
+  if (custom) {
+    const start = new Date(`${custom.from}T00:00:00`)
+    const end = new Date(`${custom.to}T23:59:59.999`)
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
+      const length = end.getTime() - start.getTime()
+      const previousEnd = new Date(start.getTime() - 1)
+      const previousStart = new Date(previousEnd.getTime() - length)
+      return { start, end, previousStart, previousEnd }
+    }
+    // An incomplete or backwards range falls through to the default below
+    // rather than querying with nonsense dates.
+  }
+
   const end = new Date()
   const start = new Date()
 

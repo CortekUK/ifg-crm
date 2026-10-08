@@ -8,6 +8,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { usePipelines } from '@/lib/hooks/usePipelines'
+import { CUSTOM_RANGE_PREFIX, parseCustomRange } from '@/lib/hooks/useAnalytics'
+import { Input } from '@/components/ui/input'
 
 interface AnalyticsPageHeaderProps {
   dateRange: string
@@ -23,6 +25,17 @@ export function AnalyticsPageHeader({
   onPipelineChange,
 }: AnalyticsPageHeaderProps) {
   const { data: pipelines = [] } = usePipelines()
+  const custom = parseCustomRange(dateRange)
+  const today = new Date().toISOString().slice(0, 10)
+
+  // Switching to "Custom range" seeds the last 30 days so the screen always
+  // has a valid window rather than going blank while two dates are typed.
+  const startCustom = () => {
+    const from = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+    onDateRangeChange(`${CUSTOM_RANGE_PREFIX}${from}:${today}`)
+  }
+  const setCustom = (from: string, to: string) =>
+    onDateRangeChange(`${CUSTOM_RANGE_PREFIX}${from}:${to}`)
 
   return (
     <div className="banner-gradient rounded-xl p-6">
@@ -49,7 +62,32 @@ export function AnalyticsPageHeader({
             </SelectContent>
           </Select>
 
-          <Select value={dateRange} onValueChange={onDateRangeChange}>
+          {custom && (
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                aria-label="From"
+                value={custom.from}
+                max={custom.to || today}
+                onChange={(e) => setCustom(e.target.value, custom.to)}
+                className="w-[150px] bg-white/10 border-white/20 text-white"
+              />
+              <span className="text-white/70 text-sm">to</span>
+              <Input
+                type="date"
+                aria-label="To"
+                value={custom.to}
+                min={custom.from}
+                onChange={(e) => setCustom(custom.from, e.target.value)}
+                className="w-[150px] bg-white/10 border-white/20 text-white"
+              />
+            </div>
+          )}
+
+          <Select
+            value={custom ? 'custom' : dateRange}
+            onValueChange={(v) => (v === 'custom' ? startCustom() : onDateRangeChange(v))}
+          >
             <SelectTrigger className="w-[160px] bg-white/10 border-white/20 text-white hover:bg-white/20">
               <SelectValue />
             </SelectTrigger>
@@ -58,6 +96,7 @@ export function AnalyticsPageHeader({
               <SelectItem value="30d">Last 30 days</SelectItem>
               <SelectItem value="90d">Last 90 days</SelectItem>
               <SelectItem value="year">This Year</SelectItem>
+              <SelectItem value="custom">Custom range…</SelectItem>
             </SelectContent>
           </Select>
         </div>
