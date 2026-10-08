@@ -36,6 +36,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 function LoginContent() {
   const searchParams = useSearchParams()
   const urlError = searchParams.get('error')
+  // Set by the middleware when it bounced someone here from a page they
+  // asked for. Passed through so they land there instead of the dashboard.
+  const nextPath = searchParams.get('next')
   const { theme, setTheme } = useTheme()
   const [showPassword, setShowPassword] = useState(false)
   // useTransition gives a reliable pending flag that flips synchronously
@@ -155,6 +158,7 @@ function LoginContent() {
             )}
 
             <form action={handleSubmit} className="space-y-5">
+              {nextPath && <input type="hidden" name="next" value={nextPath} />}
               {/* Email Field */}
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">

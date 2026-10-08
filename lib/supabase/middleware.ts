@@ -71,6 +71,16 @@ export async function updateSession(request: NextRequest) {
     } else {
       url.pathname = '/login'
     }
+    // Remember where they were heading. Without this, somebody following a
+    // link to a specific contact or deal signed in and landed on the
+    // dashboard, with no clue what they had been sent to open.
+    //
+    // Only a path on this site is carried, never a full URL — taking an
+    // arbitrary `next` would turn the login page into an open redirect.
+    const intended = `${request.nextUrl.pathname}${request.nextUrl.search}`
+    if (intended && intended !== '/' && !intended.startsWith('//')) {
+      url.searchParams.set('next', intended)
+    }
     return NextResponse.redirect(url)
   }
 

@@ -31,6 +31,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Admins only. This hands back every account's last sign-in time and
+    // email-confirmation status, and it is read with the service key, so
+    // "is the caller signed in at all" was not a sufficient gate — any
+    // recruiter could list the whole team's login activity. It feeds the
+    // Users screen, which is admin-only anyway.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Only an admin can do this.' }, { status: 403 })
+    }
+
     const admin = getSupabaseAdmin()
     const { data: { users }, error } = await admin.auth.admin.listUsers({ perPage: 1000 })
 

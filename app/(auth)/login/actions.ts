@@ -21,7 +21,19 @@ export async function login(formData: FormData) {
   // Check role to determine redirect destination, and self-heal
   // password_set_at if missing (signInWithPassword succeeded → real password
   // exists, regardless of whether set-password ran our stamp endpoint).
-  let destination = '/dashboard'
+  // Where they were trying to get to before they were sent here, if anywhere.
+  // Only a path on this site is honoured — accepting an arbitrary value would
+  // make the login form an open redirect, which is a phishing primitive.
+  const requested = formData.get('next')
+  const intended =
+    typeof requested === 'string' &&
+    requested.startsWith('/') &&
+    !requested.startsWith('//') &&
+    !requested.startsWith('/login')
+      ? requested
+      : null
+
+  let destination = intended ?? '/dashboard'
   if (authData.user) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -29,8 +41,10 @@ export async function login(formData: FormData) {
       .eq('id', authData.user.id)
       .single()
 
+    // A player always lands in the portal, whatever they asked for — the
+    // staff CRM is not theirs to deep-link into.
     if (profile?.role === 'player') {
-      destination = '/portal'
+      destination = intended?.startsWith('/portal') ? intended : '/portal'
     }
 
     if (profile && !profile.password_set_at) {
