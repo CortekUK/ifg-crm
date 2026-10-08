@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   toCSV,
   fetchAll,
+  fetchAllByIds,
   labelMap,
   dt,
   day,
@@ -85,14 +86,16 @@ const deals: Runner = async (ctx) => {
   // every row — so "days in stage" comes from the last recorded move into
   // the deal's current stage, falling back to when the deal was created.
   const dealIds = rows.map((d) => String(d.id))
-  const history = dealIds.length
-    ? await fetchAll<Record<string, unknown>>(() =>
-        ctx.supabase
-          .from('deal_stage_history')
-          .select('deal_id, changed_at')
-          .in('deal_id', dealIds.slice(0, 1000)),
-      )
-    : []
+  // Batched, and no longer cut off at the first 1000 deals: every deal beyond
+  // that silently lost its "days in stage" figure.
+  const history = await fetchAllByIds<Record<string, unknown>>(
+    (ids) =>
+      ctx.supabase
+        .from('deal_stage_history')
+        .select('deal_id, changed_at')
+        .in('deal_id', ids),
+    dealIds,
+  )
   const lastMove = new Map<string, string>()
   for (const h of history) {
     const id = String(h.deal_id)
@@ -169,14 +172,14 @@ const stageMovements: Runner = async (ctx) => {
   })
 
   const dealIds = [...new Set(history.map((h) => h.deal_id as string))]
-  const dealRows = dealIds.length
-    ? await fetchAll<Record<string, unknown>>(() =>
-        ctx.supabase
-          .from('deals')
-          .select('id, title, pipeline_id, contact:contacts(first_name, last_name), pipeline:pipelines(name)')
-          .in('id', dealIds),
-      )
-    : []
+  const dealRows = await fetchAllByIds<Record<string, unknown>>(
+    (ids) =>
+      ctx.supabase
+        .from('deals')
+        .select('id, title, pipeline_id, contact:contacts(first_name, last_name), pipeline:pipelines(name)')
+        .in('id', ids),
+    dealIds,
+  )
   const dealsById = new Map(dealRows.map((d) => [String(d.id), d]))
 
   const stages = await labelMap(
@@ -675,11 +678,13 @@ const campaignConversions: Runner = async (ctx) => {
   })
 
   const ids = campaignRows.map((c) => String(c.id))
-  const recipients = ids.length
-    ? await fetchAll<Record<string, unknown>>(() =>
-        ctx.supabase.from('campaign_recipients').select('campaign_id, contact_id').in('campaign_id', ids),
-      )
-    : []
+  // Same shape as the three exports that failed outright. Campaigns are fewer
+  // than deals so this one had not broken yet; batching it means it cannot.
+  const recipients = await fetchAllByIds<Record<string, unknown>>(
+    (batch) =>
+      ctx.supabase.from('campaign_recipients').select('campaign_id, contact_id').in('campaign_id', batch),
+    ids,
+  )
 
   const dealRows = await fetchAll<Record<string, unknown>>(() => {
     let q = ctx.supabase.from('deals').select('contact_id, status, value')
@@ -1019,25 +1024,25 @@ const automations: Runner = async (ctx) => {
   })
 
   const stepIds = [...new Set(logs.map((l) => l.step_id as string).filter(Boolean))]
-  const steps = stepIds.length
-    ? await fetchAll<Record<string, unknown>>(() =>
-        ctx.supabase
-          .from('automation_steps')
-          .select('id, step_order, step_type, delay_days, delay_hours, automation:automations(name, pipeline_id)')
-          .in('id', stepIds),
-      )
-    : []
+  const steps = await fetchAllByIds<Record<string, unknown>>(
+    (ids) =>
+      ctx.supabase
+        .from('automation_steps')
+        .select('id, step_order, step_type, delay_days, delay_hours, automation:automations(name, pipeline_id)')
+        .in('id', ids),
+    stepIds,
+  )
   const stepsById = new Map(steps.map((s) => [String(s.id), s]))
 
   const dealIds = [...new Set(logs.map((l) => l.deal_id as string).filter(Boolean))]
-  const dealRows = dealIds.length
-    ? await fetchAll<Record<string, unknown>>(() =>
-        ctx.supabase
-          .from('deals')
-          .select('id, title, pipeline_id, contact:contacts(first_name, last_name, email), pipeline:pipelines(name)')
-          .in('id', dealIds),
-      )
-    : []
+  const dealRows = await fetchAllByIds<Record<string, unknown>>(
+    (ids) =>
+      ctx.supabase
+        .from('deals')
+        .select('id, title, pipeline_id, contact:contacts(first_name, last_name, email), pipeline:pipelines(name)')
+        .in('id', ids),
+    dealIds,
+  )
   const dealsById = new Map(dealRows.map((d) => [String(d.id), d]))
 
   const scoped = ctx.pipelineId

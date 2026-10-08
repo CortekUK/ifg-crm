@@ -9,6 +9,18 @@ export interface Column {
 export type Row = Record<string, unknown>
 
 /**
+ * A value that is plainly a phone number rather than a formula: an optional
+ * `+`, then digits, spaces, brackets, dots and dashes and nothing else.
+ *
+ * Needed because the formula guard below fires on a leading `+`, so every
+ * exported phone number came out as `'+447123456789` — and the apostrophe is
+ * visible in the cell in both Excel and Google Sheets, which is not what the
+ * column is supposed to contain. Anything with a letter in it (`+SUM(A1)`,
+ * `=cmd|…`) still gets the guard.
+ */
+const PHONE_LIKE = /^\+?\d[\d\s().-]{5,}$/
+
+/**
  * CSV that survives Excel.
  *
  * A BOM is prepended so Excel reads it as UTF-8 rather than mangling
@@ -22,7 +34,7 @@ export function toCSV(rows: Row[], columns: Column[]): string {
     if (typeof value === 'boolean') return value ? '"Yes"' : '"No"'
 
     let text = value instanceof Date ? value.toISOString() : String(value)
-    if (/^[=+\-@]/.test(text)) text = `'${text}`
+    if (/^[=+\-@]/.test(text) && !PHONE_LIKE.test(text)) text = `'${text}`
     return `"${text.replace(/"/g, '""')}"`
   }
 
@@ -109,6 +121,45 @@ export async function fetchAll<T = Row>(
   }
 
   return unique
+}
+
+/**
+ * Read every row matching a set of ids, in batches that fit in a URL.
+ *
+ * PostgREST takes its filters in the query string, so `.in('id', ids)` with a
+ * few thousand UUIDs builds a URL of 100KB+ and the server rejects it before
+ * it reaches the database. That is what broke three exports: Stage movements
+ * and Automations failed on every date range with "TypeError: fetch failed",
+ * and Deals failed on a wide range with "Bad Request" while a nine-day range
+ * worked — the only difference being how many ids went into the filter.
+ *
+ * Each batch still goes through `fetchAll`, because a batch of 200 deals can
+ * easily have more than 1000 history rows between them and would otherwise be
+ * silently truncated at the page cap.
+ *
+ * Batches run in waves for the same reason `fetchAll` pages in waves: the cost
+ * is round trips, not database work.
+ */
+export async function fetchAllByIds<T = Row>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  build: (ids: string[]) => PostgrestFilterBuilder<any, any, any, any, any>,
+  ids: (string | null | undefined)[],
+  { chunk = 200, concurrency = 4 }: { chunk?: number; concurrency?: number } = {},
+): Promise<T[]> {
+  const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))]
+  if (unique.length === 0) return []
+
+  const batches: string[][] = []
+  for (let i = 0; i < unique.length; i += chunk) batches.push(unique.slice(i, i + chunk))
+
+  const collected: T[] = []
+  for (let i = 0; i < batches.length; i += concurrency) {
+    const wave = batches
+      .slice(i, i + concurrency)
+      .map((slice) => fetchAll<T>(() => build(slice)))
+    for (const rows of await Promise.all(wave)) collected.push(...rows)
+  }
+  return collected
 }
 
 /** Look up ids → labels in one query, paged. */
