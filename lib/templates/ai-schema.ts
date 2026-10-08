@@ -1379,3 +1379,66 @@ const BASIC_TYPES: ReadonlySet<string> = new Set([
 function isBasic(b: AiBlock | null): b is BasicAiBlock {
   return !!b && BASIC_TYPES.has(b.type)
 }
+
+// ---------------------------------------------------------------------------
+// Markdown leaking into the email body.
+//
+// The model is told to write HTML in a text block's `html` and plain words
+// everywhere else, but it reaches for markdown anyway — one generated template
+// shipped with literal `**Programme Dates:**` and `**What's Next:**` in the
+// body. Asterisks are saved into the template, so they go out to players
+// exactly as typed.
+//
+// Prompt wording alone never fully fixes this, so the content is cleaned on
+// the way in: bold/italic become real tags where tags are allowed, and are
+// stripped where they are not (headings and button labels render as plain
+// text). Deliberately conservative — only paired markers on one line convert,
+// so a genuine asterisk ("5 * 3", "T&Cs apply*") is left alone.
+// ---------------------------------------------------------------------------
+
+/** `**bold**` → `<strong>bold</strong>`, `*italic*`/`_italic_` → `<em>…</em>`. */
+export function markdownEmphasisToHtml(input: string): string {
+  return input
+    .replace(/\*\*(?!\s)((?:[^*\n]|\*(?!\*))+?)(?<!\s)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(>])\*(?!\s)([^*\n]+?)(?<!\s)\*(?=$|[\s).,;:!?<])/g, '$1<em>$2</em>')
+    .replace(/(^|[\s(>])_(?!\s)([^_\n]+?)(?<!\s)_(?=$|[\s).,;:!?<])/g, '$1<em>$2</em>')
+}
+
+/** Same pairs, but the markers are simply removed — for plain-text fields. */
+export function stripMarkdownEmphasis(input: string): string {
+  return input
+    .replace(/\*\*(?!\s)((?:[^*\n]|\*(?!\*))+?)(?<!\s)\*\*/g, '$1')
+    .replace(/(^|[\s(])\*(?!\s)([^*\n]+?)(?<!\s)\*(?=$|[\s).,;:!?])/g, '$1$2')
+    .replace(/(^|[\s(])_(?!\s)([^_\n]+?)(?<!\s)_(?=$|[\s).,;:!?])/g, '$1$2')
+}
+
+/**
+ * Clean markdown emphasis out of every AI-authored block, recursing into
+ * columns. Returns a new array; the input is not mutated.
+ */
+export function deMarkdownAiBlocks(blocks: AiBlock[]): AiBlock[] {
+  return blocks.map((block) => {
+    switch (block.type) {
+      case 'text':
+        return { ...block, html: markdownEmphasisToHtml(block.html) }
+      case 'heading':
+        return { ...block, text: stripMarkdownEmphasis(block.text) }
+      case 'button':
+        return { ...block, text: stripMarkdownEmphasis(block.text) }
+      case 'html':
+        return { ...block, code: markdownEmphasisToHtml(block.code) }
+      case 'columns': {
+        const clean = <T>(list: T[] | null | undefined): T[] | null | undefined =>
+          Array.isArray(list) ? (deMarkdownAiBlocks(list as unknown as AiBlock[]) as unknown as T[]) : list
+        return {
+          ...block,
+          leftBlocks: clean(block.leftBlocks) ?? block.leftBlocks,
+          rightBlocks: clean(block.rightBlocks) ?? block.rightBlocks,
+          centerBlocks: clean(block.centerBlocks),
+        }
+      }
+      default:
+        return block
+    }
+  })
+}

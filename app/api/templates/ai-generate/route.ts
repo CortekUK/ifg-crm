@@ -25,6 +25,8 @@ import {
   compactBlockForPrompt,
   openAiJsonSchema,
   stripGlobalBlocks,
+  deMarkdownAiBlocks,
+  stripMarkdownEmphasis,
 } from '@/lib/templates/ai-schema'
 import type { EditorBlock } from '@/lib/templates/editor-types'
 import type { AiAttachment } from '@/lib/ai/attachments'
@@ -392,14 +394,96 @@ application form or similar. If none of them fits, a normal URL is fine.
 `
 }
 
+export type ProgrammeFact = {
+  programme: string
+  label: string | null
+  subtitle: string | null
+  duration: string | null
+  full_amount: number | null
+  deposit_amount: number | null
+  currency: string | null
+}
+
+/**
+ * The real programme blocks, dates and prices, injected from the CMS.
+ *
+ * Asked to "include the programme dates", the model used to invent them — one
+ * generated welcome email announced a Summer Residency running "June 15th to
+ * August 15th", which is not a real block, alongside a "kit fitting and
+ * orientation schedule" that does not exist. Wrong dates in an email to a
+ * player and their parents is worse than no dates, and staff do not reliably
+ * catch it.
+ *
+ * So the facts come from website_packages (the same rows the public site
+ * prices from), and the rule below forbids inventing any that are missing.
+ */
+function buildProgrammeFactsSection(facts: ProgrammeFact[]): string {
+  const money = (n: number | null, ccy: string | null) =>
+    n == null ? null : new Intl.NumberFormat('en-GB', { style: 'currency', currency: ccy || 'GBP', maximumFractionDigits: 0 }).format(n)
+
+  const byProgramme = new Map<string, ProgrammeFact[]>()
+  for (const f of facts) {
+    const list = byProgramme.get(f.programme) ?? []
+    list.push(f)
+    byProgramme.set(f.programme, list)
+  }
+
+  const blocks = [...byProgramme.entries()]
+    .map(([programme, rows]) => {
+      const lines = rows
+        .map((r) => {
+          const bits = [
+            r.label,
+            r.subtitle ? `dates: ${r.subtitle}` : null,
+            r.duration ? `duration: ${r.duration}` : null,
+            money(r.full_amount, r.currency) ? `pay in full: ${money(r.full_amount, r.currency)}` : null,
+            money(r.deposit_amount, r.currency) ? `deposit: ${money(r.deposit_amount, r.currency)}` : null,
+          ].filter(Boolean)
+          return `  - ${bits.join(' · ')}`
+        })
+        .join('\n')
+      return `- **${programme}**\n${lines}`
+    })
+    .join('\n')
+
+  const known = blocks
+    ? `These are the only real programme dates and prices. Use them verbatim when
+the user asks for dates or prices, and match the programme they named.
+
+${blocks}
+
+`
+    : ''
+
+  return `# Programme facts — never invent these
+
+${known}**NEVER make up a factual specific.** That means dates, date ranges,
+deadlines, prices, deposit amounts, durations, venue names, fixture lists,
+kit/orientation schedules, scouting or trial opportunities, and anything about
+professional outcomes. If a fact is not in the list above or in the user's own
+message, you have two choices and only two:
+
+1. Leave a clear placeholder in square brackets — \`[PROGRAMME DATES]\`,
+   \`[DEPOSIT AMOUNT]\`, \`[ARRIVAL TIME]\` — so whoever reviews the draft can
+   see at a glance what still needs filling in.
+2. Leave the detail out and say so in your \`reply\`.
+
+A plausible-looking invented date is the single worst thing you can put in one
+of these emails: it goes to a player and their parents, who plan around it.
+A placeholder is never wrong. Inventing is always wrong.
+
+`
+}
+
 // Builds the system prompt with a per-user greeting block prepended.
 // The static SYSTEM_PROMPT below carries everything else.
 function buildSystemPrompt(
   firstName: string,
   isFirstTurn: boolean,
   sharedLinks: { key: string; label: string; url: string }[] = [],
+  programmeFacts: ProgrammeFact[] = [],
 ): string {
-  const linksSection = buildSharedLinksSection(sharedLinks)
+  const linksSection = buildSharedLinksSection(sharedLinks) + buildProgrammeFactsSection(programmeFacts)
   if (!firstName) return linksSection + SYSTEM_PROMPT
 
   const greetingRule = `# Greeting
@@ -609,7 +693,23 @@ export async function POST(req: NextRequest) {
       console.error('Could not load shared links for the AI prompt:', err)
     }
 
-    const systemPrompt = buildSystemPrompt(firstName, isFirstTurn, sharedLinks)
+    // Real programme dates and prices, so the model has no reason to invent
+    // them. Best effort — on failure the "never invent" rule still applies and
+    // it falls back to placeholders.
+    let programmeFacts: ProgrammeFact[] = []
+    try {
+      const { data: packages } = await admin
+        .from('website_packages')
+        .select('programme, label, subtitle, duration, full_amount, deposit_amount, currency')
+        .eq('published', true)
+        .order('programme')
+        .order('sort_order')
+      if (Array.isArray(packages)) programmeFacts = packages as ProgrammeFact[]
+    } catch (err) {
+      console.error('Could not load programme facts for the AI prompt:', err)
+    }
+
+    const systemPrompt = buildSystemPrompt(firstName, isFirstTurn, sharedLinks, programmeFacts)
 
     const messages: ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
@@ -716,10 +816,16 @@ export async function POST(req: NextRequest) {
       // gets reused as-is (preserving custom paddings, colours, and the
       // existing block id). Only blocks the AI actually changed get freshly
       // expanded. Stops "change one word" from regenerating the whole email.
+      // Strip markdown the model wrote into block content. It was told to use
+      // HTML in a text block and plain words elsewhere, but it reaches for
+      // `**bold**` anyway, and those asterisks get saved into the template and
+      // go out to players verbatim.
+      const cleanedBlocks = deMarkdownAiBlocks(validation.data.blocks)
+
       const produced =
         aiIntent === 'enhance' && Array.isArray(body.existingBlocks)
-          ? mergeAiBlocksWithExisting(validation.data.blocks, body.existingBlocks)
-          : expandAiBlocks(validation.data.blocks)
+          ? mergeAiBlocksWithExisting(cleanedBlocks, body.existingBlocks)
+          : expandAiBlocks(cleanedBlocks)
 
       // Last line of defence against a duplicated footer: the signature,
       // social row and partner logos are appended globally at send time, so
@@ -731,9 +837,10 @@ export async function POST(req: NextRequest) {
         )
       }
       blocks = guarded.blocks
-      subject = validation.data.subject
-      preheader = validation.data.preheader ?? ''
-      name = validation.data.name
+      // Same for the fields outside the canvas — all three render as plain text.
+      subject = stripMarkdownEmphasis(validation.data.subject)
+      preheader = stripMarkdownEmphasis(validation.data.preheader ?? '')
+      name = stripMarkdownEmphasis(validation.data.name)
       const t = validation.data.theme
       if (t) {
         const onlySet: ThemeOverrides = {}
