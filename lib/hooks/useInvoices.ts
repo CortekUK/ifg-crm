@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Invoice, InvoiceFilters, CreateInvoiceInput, InvoiceStatus } from '@/lib/types/invoices'
+import { applyPaymentReceived } from '@/lib/payments/notify-payment-received'
 
 export function useInvoices(filters?: InvoiceFilters) {
   const supabase = createClient()
@@ -273,11 +274,21 @@ export function useUpdateInvoiceStatus() {
         .eq('id', invoiceId)
 
       if (error) throw error
+
+      // Marking an invoice paid by hand has to do everything a card payment
+      // does — move the deal to Deposit Paid, end the chasing sequences, tell
+      // staff. None of that happened here, so a player who paid by bank
+      // transfer kept being chased for the deposit they had already sent.
+      // Needs the service-role key, hence the route.
+      if (status === 'paid') {
+        await applyPaymentReceived(invoiceId, 'manual')
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
       queryClient.invalidateQueries({ queryKey: ['invoice'] })
       queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
     },
   })
 }
@@ -330,10 +341,17 @@ export function useBulkUpdateInvoiceStatus() {
         .in('id', invoiceIds)
 
       if (error) throw error
+
+      // Same reasoning as the single-invoice path above: a bulk Mark Paid is
+      // still a payment, and each deal has to move and stop being chased.
+      if (status === 'paid') {
+        for (const id of invoiceIds) await applyPaymentReceived(id, 'manual')
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
       queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
     },
   })
 }

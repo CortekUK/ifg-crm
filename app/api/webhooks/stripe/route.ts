@@ -15,6 +15,7 @@ import {
   CHECKOUT_GRAD_YEAR_KEY,
 } from '@/lib/payments/programmes'
 import { computeApplicationRouting, applyRouting } from '@/lib/forms/lead-routing'
+import { applyPaymentToDeal } from '@/lib/payments/payment-received'
 
 export async function POST(request: NextRequest) {
   const payload = await request.text()
@@ -371,99 +372,10 @@ export async function POST(request: NextRequest) {
       }
 
       // ---- AUTO-MOVE DEAL TO "DEPOSIT PAID" ----
-
-      // Find the deal linked to this invoice
-      const { data: invoiceWithDeal } = await supabase
-        .from('invoices')
-        .select('deal_id')
-        .eq('id', invoiceId)
-        .single()
-
-      if (invoiceWithDeal?.deal_id) {
-        const { data: deal } = await supabase
-          .from('deals')
-          .select('id, pipeline_id, current_stage_id')
-          .eq('id', invoiceWithDeal.deal_id)
-          .single()
-
-        if (deal) {
-          // Find "Deposit Paid" stage
-          const { data: depositPaidStage } = await supabase
-            .from('pipeline_stages')
-            .select('id, display_order')
-            .eq('pipeline_id', deal.pipeline_id)
-            .ilike('name', '%deposit%paid%')
-            .single()
-
-          // ---- STOP CHASING SOMEONE WHO HAS JUST PAID ----
-          //
-          // Nothing here used to end a sequence. It relied on the
-          // handle_deal_stage_change trigger, which only stops an enrollment
-          // when the destination is in that automation's stop_on_stage_ids —
-          // and "Deposit Paid" is absent from the INITIAL CONTACT MAP stop
-          // list on both UNIVERSITY 2027 and UK GAP 2027. A UK Gap player who
-          // had paid their deposit was found still active in the initial
-          // "are you interested?" sequence.
-          //
-          // Fixing the stop lists by hand would leave the next automation
-          // someone builds with the same hole, so payment itself ends the
-          // chasing. Done BEFORE the stage move, so the welcome sequence that
-          // Deposit Paid triggers survives; and an automation triggered BY
-          // that stage is excluded, for a repeat payment on a deal already
-          // sitting there.
-          const { data: liveEnrollments } = await supabase
-            .from('automation_enrollments')
-            .select('id, automation:automations!inner(trigger_stage_id)')
-            .eq('deal_id', deal.id)
-            .eq('status', 'active')
-
-          // PostgREST types a to-one embed as an array; normalise either shape.
-          const triggerStageOf = (row: { automation?: unknown }): string | null => {
-            const a = row.automation
-            const one = Array.isArray(a) ? a[0] : a
-            return (one as { trigger_stage_id?: string | null } | null)?.trigger_stage_id ?? null
-          }
-
-          const toStop = (liveEnrollments ?? [])
-            .filter((e) => !depositPaidStage || triggerStageOf(e) !== depositPaidStage.id)
-            .map((e) => e.id as string)
-
-          if (toStop.length) {
-            await supabase
-              .from('automation_enrollments')
-              .update({
-                status: 'stopped',
-                stopped_reason: 'Payment received',
-                next_step_at: null,
-              })
-              .in('id', toStop)
-            console.log(`Stopped ${toStop.length} active sequence(s) on deal ${deal.id} — payment received`)
-          }
-
-          if (depositPaidStage) {
-            // Only move FORWARD — never drag a deal back if it's already past
-            // Deposit Paid (e.g. Arrival).
-            let currentOrder = -1
-            if (deal.current_stage_id) {
-              const { data: currentStage } = await supabase
-                .from('pipeline_stages')
-                .select('display_order')
-                .eq('id', deal.current_stage_id)
-                .single()
-              currentOrder = currentStage?.display_order ?? -1
-            }
-            if (currentOrder < (depositPaidStage.display_order ?? 0)) {
-              await supabase
-                .from('deals')
-                .update({ current_stage_id: depositPaidStage.id })
-                .eq('id', deal.id)
-              console.log(`Deal ${deal.id} moved to Deposit Paid stage`)
-            } else {
-              console.log(`Deal ${deal.id} already at/after Deposit Paid — not moving back`)
-            }
-          }
-        }
-      }
+      //
+      // Shared with the manual Record Payment route, which used to do none of
+      // this — see lib/payments/payment-received.ts.
+      await applyPaymentToDeal(supabase, invoiceId)
 
       // ---- AUTO-CREATE PORTAL ACCOUNT ----
 

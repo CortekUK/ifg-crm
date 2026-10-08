@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
 import { useCreatePayment } from '@/lib/hooks/usePayments'
+import { applyPaymentReceived } from '@/lib/payments/notify-payment-received'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
@@ -174,6 +175,16 @@ export function RecordPaymentModal({
         recorded_by_id: recordedById,
         payment_date: format(paymentDate, 'yyyy-MM-dd'),
       })
+
+      // Everything a card payment triggers — the deal moving to Deposit Paid,
+      // the chasing sequences ending, staff being told. Only applies when the
+      // payment is against an invoice; an ad-hoc payment has no deal to move.
+      if (selectedInvoiceId) {
+        await applyPaymentReceived(selectedInvoiceId, paymentMethod, {
+          contactId: selectedContactId,
+          amount: parseFloat(amount),
+        })
+      }
 
       toast({
         title: 'Payment recorded',
