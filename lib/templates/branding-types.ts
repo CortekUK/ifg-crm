@@ -413,4 +413,8 @@ export interface EmailBrandingRecord {
   renderer_version: number
 }
 
-export const BRANDING_RENDERER_VERSION = 6
+// 7: the recruiter signature no longer fills a missing field from Nathan
+// Bibby's details. A recruiter with no phone on their profile was sending
+// emails under their own name carrying Nathan's phone number, and players who
+// rang it reached Nathan. See renderRecruiterSignatureBlock in render-html.ts.
+export const BRANDING_RENDERER_VERSION = 7

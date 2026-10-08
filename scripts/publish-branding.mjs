@@ -33,25 +33,63 @@ for (const line of fs.readFileSync('.env', 'utf8').split('\n')) {
 // than maintaining a parallel .js copy of the defaults.
 const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ifg-branding-'))
 try {
-  execFileSync(
-    'npx',
-    [
-      'tsc',
-      'lib/templates/render-branding.ts',
-      '--outDir', outDir,
-      '--rootDir', 'lib/templates',
-      '--module', 'commonjs',
-      '--target', 'es2020',
-      '--moduleResolution', 'node',
-      '--esModuleInterop',
-      '--skipLibCheck',
-    ],
-    { stdio: 'inherit' },
+  // Compiled through a generated tsconfig rather than bare `tsc <file>` flags.
+  //
+  // The flag form takes no path mappings, so the moment the renderer's import
+  // graph picked up an `@/`-aliased module (render-html.ts → @/lib/config/
+  // site-url) the compile failed with TS2307 and this script could not run at
+  // all. That is worse than it sounds: the rendered signature HTML lives in
+  // crm_settings and the edge functions read it straight from there, so a
+  // script that won't run means a fix to the renderer never reaches an email.
+  const tsconfigPath = path.join(outDir, 'tsconfig.branding.json')
+  fs.writeFileSync(
+    tsconfigPath,
+    JSON.stringify({
+      compilerOptions: {
+        outDir,
+        rootDir: path.resolve('lib'),
+        module: 'commonjs',
+        target: 'es2020',
+        moduleResolution: 'node',
+        esModuleInterop: true,
+        skipLibCheck: true,
+        baseUrl: path.resolve('.'),
+        paths: { '@/*': ['./*'] },
+        typeRoots: [path.resolve('node_modules/@types')],
+      },
+      files: [path.resolve('lib/templates/render-branding.ts')],
+    }),
   )
 
+  execFileSync('npx', ['tsc', '-p', tsconfigPath], { stdio: 'inherit' })
+
+  // tsc resolves `@/…` imports but emits them verbatim, so the compiled
+  // JavaScript still asks Node for a module called "@/lib/config/site-url".
+  // Rewrite each one to a relative path inside the emitted tree. rootDir is
+  // `lib`, so `@/lib/x/y` was emitted as `<outDir>/x/y.js`.
+  const rewriteAliases = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        rewriteAliases(full)
+        continue
+      }
+      if (!entry.name.endsWith('.js')) continue
+      const before = fs.readFileSync(full, 'utf8')
+      const after = before.replace(/require\((["'])@\/lib\/([^"']+)\1\)/g, (_m, q, rest) => {
+        let rel = path.relative(path.dirname(full), path.join(outDir, rest)).replace(/\\/g, '/')
+        if (!rel.startsWith('.')) rel = `./${rel}`
+        return `require(${q}${rel}${q})`
+      })
+      if (after !== before) fs.writeFileSync(full, after)
+    }
+  }
+  rewriteAliases(outDir)
+
+  const emitted = path.join(outDir, 'templates')
   const { resolveBranding, BRANDING_RENDERER_VERSION } =
-    require(path.join(outDir, 'branding-types.js'))
-  const { renderBrandingSlots } = require(path.join(outDir, 'render-branding.js'))
+    require(path.join(emitted, 'branding-types.js'))
+  const { renderBrandingSlots } = require(path.join(emitted, 'render-branding.js'))
 
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,

@@ -1119,40 +1119,73 @@ function renderRecruiterSignatureBlock(content: RecruiterSignatureBlockContent):
       ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: ${c || '#374151'};">${escapeHtml(content.signOff || 'Kind Regards,')}</p>`
       : ''
 
-  // Default fallback recruiter — Nathan Bibby. Mirrors the AC behaviour
-  // where Nathan is the catch-all when a deal has no owner / unrecognised
-  // owner. Falls back per-field via the `{{tag|fallback}}` syntax (handled
-  // by lib/utils/merge-tags-core), so a deal with a real owner gets that
-  // owner's data and only missing fields draw from these defaults.
+  // Fallback recruiter — Nathan Bibby — for a deal with NO OWNER AT ALL.
+  //
+  // This used to fall back per field, via `{{deal_owner_phone|+1 (714)…}}`.
+  // Each gap filled independently, so a recruiter who simply hadn't entered a
+  // phone number sent emails under their own name carrying Nathan's phone and
+  // Nathan's job title. Real players received those: Oli Kendrick's emails
+  // gave Nathan's number, and anyone who rang it reached Nathan while Oli
+  // never knew. A signature must never attribute one person's contact details
+  // to another.
+  //
+  // So the whole block now switches on whether the deal has an owner, rather
+  // than on each field:
+  //   owner present → only that owner's own details; a blank field is omitted
+  //   no owner      → Nathan's complete block, as the catch-all (AC behaviour)
+  //
+  // The two branches are siblings, not nested, because the conditional
+  // matcher in merge-tags-core is non-greedy and stops at the first {{/if}}.
   const FALLBACK_NAME = 'Nathan Bibby'
-  const FALLBACK_TITLE = 'Director of Recruitment & Scouting'
+  // Matches Nathan's actual profile, which reads "Director of Scouting &
+  // Recruitment" — the old fallback string had the two words the other way
+  // round, so even Nathan's own signature disagreed with his profile.
+  const FALLBACK_TITLE = 'Director of Scouting & Recruitment'
   const FALLBACK_EMAIL = 'nathan@macclesfieldfc.com'
   const FALLBACK_PHONE = '+1 (714) 515-2767'
 
+  const nameStyle = `margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: ${c || '#111827'}`
+  const titleStyle = `margin: 0 0 2px 0; font-size: 14px; color: ${c || '#6b7280'}`
+  const emailStyle = `margin: 0 0 2px 0; font-size: 14px`
+  const linkStyle = `color: ${c || '#3b82f6'}; text-decoration: none`
+  const phoneStyle = `margin: 0 0 2px 0; font-size: 14px; color: ${c || '#374151'}`
+
+  // --- the deal's own owner. Each row appears only if they filled it in. ---
   const nameHtml = content.showName
-    ? `<p style="margin: 0 0 2px 0; font-weight: bold; font-size: 16px; color: ${c || '#111827'};">{{deal_owner_name|${FALLBACK_NAME}}}</p>`
+    ? `{{#if deal_owner_name}}<p style="${nameStyle};">{{deal_owner_name}}</p>{{/if}}`
     : ''
 
   const titleHtml = content.showTitle
-    ? `<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#6b7280'};">{{deal_owner_title|${FALLBACK_TITLE}}}</p>`
+    ? `{{#if deal_owner_title}}<p style="${titleStyle};">{{deal_owner_title}}</p>{{/if}}`
     : ''
 
   const emailHtml = content.showEmail
-    ? `<p style="margin: 0 0 2px 0; font-size: 14px;"><a href="mailto:{{deal_owner_email|${FALLBACK_EMAIL}}}" style="color: ${c || '#3b82f6'}; text-decoration: none;">{{deal_owner_email|${FALLBACK_EMAIL}}}</a></p>`
+    ? `{{#if deal_owner_email}}<p style="${emailStyle};"><a href="mailto:{{deal_owner_email}}" style="${linkStyle};">{{deal_owner_email}}</a></p>{{/if}}`
     : ''
 
   const phoneHtml = content.showPhone
-    ? `<p style="margin: 0 0 2px 0; font-size: 14px; color: ${c || '#374151'};">{{deal_owner_phone|${FALLBACK_PHONE}}}</p>`
+    ? `{{#if deal_owner_phone}}<p style="${phoneStyle};">{{deal_owner_phone}}</p>{{/if}}`
     : ''
 
-  // Calendly stays gated on {{#if}} — Nathan doesn't have a public
-  // Calendly link configured, so we'd rather hide the row than render a
-  // broken/blank "Book a meeting" link.
+  // Calendly was already gated this way, for the same reason.
   const calendlyHtml = content.showCalendly
-    ? `{{#if deal_owner_calendly}}<p style="margin: 4px 0 0 0;"><a href="{{deal_owner_calendly}}" target="_blank" style="color: ${c || '#3b82f6'}; text-decoration: none; font-size: 14px;">Book a meeting</a></p>{{/if}}`
+    ? `{{#if deal_owner_calendly}}<p style="margin: 4px 0 0 0;"><a href="{{deal_owner_calendly}}" target="_blank" style="${linkStyle}; font-size: 14px;">Book a meeting</a></p>{{/if}}`
     : ''
 
-  const detailsHtml = `${signOffHtml}${nameHtml}${titleHtml}${emailHtml}${phoneHtml}${calendlyHtml}`
+  // --- no owner on the deal: the catch-all, as one coherent person. ---
+  const fallbackRows = [
+    content.showName ? `<p style="${nameStyle};">${FALLBACK_NAME}</p>` : '',
+    content.showTitle ? `<p style="${titleStyle};">${FALLBACK_TITLE}</p>` : '',
+    content.showEmail
+      ? `<p style="${emailStyle};"><a href="mailto:${FALLBACK_EMAIL}" style="${linkStyle};">${FALLBACK_EMAIL}</a></p>`
+      : '',
+    content.showPhone ? `<p style="${phoneStyle};">${FALLBACK_PHONE}</p>` : '',
+  ].join('')
+  const fallbackHtml = fallbackRows
+    ? `{{#unless deal_owner_name}}${fallbackRows}{{/unless}}`
+    : ''
+
+  const detailsHtml = `${signOffHtml}${nameHtml}${titleHtml}${emailHtml}${phoneHtml}${calendlyHtml}${fallbackHtml}`
 
   // Sender details only — partner logos + legal disclaimer moved out
   // into the dedicated company_signature block below. Templates that
