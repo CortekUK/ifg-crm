@@ -63,9 +63,21 @@ export function GeneralSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Organisation Details</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base">Organisation Details</CardTitle>
+            <Badge variant="secondary" className="text-xs">Not applied yet</Badge>
+          </div>
+          {/* Company name saves and nothing reads it — emails, headers, footers
+              and invoices all carry their own wording. Labelled for the same
+              reason as the regional settings below: a field that accepts a new
+              name and changes nothing is worse than no field, because the
+              person who typed it believes the CRM now says it. Whether to wire
+              it up or drop it is a product decision, so it is marked rather
+              than removed. */}
           <CardDescription>
-            Basic information about your organisation.
+            Your company name is stored but not yet used anywhere in the CRM —
+            emails, invoices and page headers keep their current wording
+            whatever you enter here.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
