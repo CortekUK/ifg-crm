@@ -6,8 +6,12 @@ import { Icon } from "./icons";
 /**
  * "Pay deposit" / "Pay in full" button.
  *
- * Stripe-first journey: we ask only for the visitor's email (plus the T&C tick
- * where terms are published). The CRM records them as a lead, then:
+ * Stripe-first journey: we ask for the player's name and the visitor's email
+ * (plus the T&C tick where terms are published). The name is collected here
+ * rather than left to Stripe because the CRM writes the lead down BEFORE
+ * checkout opens — so anyone who drops off on the Stripe page used to land in
+ * the CRM as a nameless email address that no recruiter could follow up.
+ * The CRM records them as a lead, then:
  *   - checkout     → straight to Stripe, where name, phone and player name
  *                    are collected.
  *   - already_paid → they've paid this programme before: show what and when,
@@ -59,6 +63,8 @@ export function DepositButton({
 
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [paid, setPaid] = useState<PaidInvoice | null>(null);
@@ -107,6 +113,9 @@ export function DepositButton({
   async function submit(e?: React.FormEvent, confirmRepeat = false) {
     e?.preventDefault();
     const addr = email.trim();
+    const first = firstName.trim();
+    const last = lastName.trim();
+    if (!first || !last) { setError("Please enter the player's first and last name."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setError("Please enter a valid email."); return; }
     if (terms?.published && !agreed) {
       setError("Please confirm you have read and agree to the Terms & Conditions.");
@@ -123,6 +132,8 @@ export function DepositButton({
           mode,
           amount: isFull ? amount : deposit,
           email: addr,
+          firstName: first,
+          lastName: last,
           // Agreed here rather than on the Stripe page, so nobody is asked to
           // tick the same box twice. The server checks this again before it
           // will create a payment.
@@ -207,8 +218,8 @@ export function DepositButton({
                 <p className="ei-kicker">{DEPOSIT_LABEL[programme]}{isFull && label ? ` · ${label}` : ""}</p>
                 <h3 className="ei-title">{isFull ? "Pay in full" : "Secure your place"}</h3>
                 <p className="ei-sub">
-                  Enter your email to continue to secure payment. You&apos;ll add the player&apos;s details on the
-                  payment page.
+                  Enter the player&apos;s name and your email to continue to secure payment.
+                  You&apos;ll confirm the remaining details on the payment page.
                 </p>
 
                 {amountDisplay && (
@@ -221,12 +232,31 @@ export function DepositButton({
 
                 <form onSubmit={submit} className="ei-form">
                   <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => { setFirstName(e.target.value); setError(null); }}
+                    placeholder="Player's first name"
+                    aria-label="Player's first name"
+                    autoComplete="given-name"
+                    autoFocus
+                    required
+                  />
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => { setLastName(e.target.value); setError(null); }}
+                    placeholder="Player's last name"
+                    aria-label="Player's last name"
+                    autoComplete="family-name"
+                    required
+                  />
+                  <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
                     placeholder="you@email.com"
                     aria-label="Email"
-                    autoFocus
+                    autoComplete="email"
                     required
                   />
                   {terms?.published && (

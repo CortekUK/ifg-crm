@@ -13,11 +13,14 @@ import { sendPaymentLinkEmail } from '@/lib/invoices/payment-link-email'
  * Public deposit / full-payment checkout for the website (Summer Residency,
  * University, Gap Year).
  *
- * STRIPE-FIRST: the visitor gives only their email (plus the T&C tick where
- * terms are published) and goes straight to Stripe. Called with
- * { email, programme, mode, amount, confirmRepeat }:
+ * STRIPE-FIRST: the visitor gives their name and email (plus the T&C tick where
+ * terms are published) and goes straight to Stripe — there is no application
+ * form in front of payment. Called with
+ * { email, firstName, lastName, programme, mode, amount, confirmRepeat }:
  *
- *   1. find-or-create the contact (email only; the webhook fills in names)
+ *   1. find-or-create the contact from the name and email given (the Stripe
+ *      webhook fills in the rest on payment). firstName/lastName are optional
+ *      on the wire so a stale cached copy of the website still checks out.
  *   2. find-or-create a deal in the programme's pipeline at Initial Lead
  *   3. add them to ALL CONTACTS EVERYONE and the automation's static lists
  *   4. a PAID deposit/full invoice already exists and confirmRepeat isn't set
@@ -214,30 +217,62 @@ async function resolveAutomation(supabase: Db, formId: string): Promise<Programm
   return null
 }
 
-/** Find the contact by email (case-insensitive) or create an email-only one.
- *  Names stay blank — the Stripe webhook fills them from the checkout. */
-async function findOrCreateContact(supabase: Db, email: string): Promise<string | null> {
+/** Find the contact by email (case-insensitive) or create one.
+ *
+ *  The name now comes from the checkout dialogue. It used to be left blank
+ *  until Stripe reported it back, which meant anyone who opened checkout and
+ *  did not pay sat in the CRM as a nameless email address — and the whole point
+ *  of writing the lead down BEFORE Stripe is that a drop-off is still somebody
+ *  to follow up. A recruiter cannot chase, greet or segment "(no name)".
+ *
+ *  Stripe still fills in the rest on payment; this only seeds what we were
+ *  told up front, and never overwrites a name already on the record.
+ */
+async function findOrCreateContact(
+  supabase: Db,
+  email: string,
+  firstName?: string,
+  lastName?: string,
+): Promise<string | null> {
   const find = async () => {
     const { data } = await supabase
       .from('contacts')
-      .select('id')
+      .select('id, first_name, last_name')
       .ilike('email', email.replace(/[%_\\]/g, '\\$&'))
       .order('created_at', { ascending: true })
       .limit(1)
-    return (data?.[0]?.id as string | undefined) ?? null
+    return data?.[0] ?? null
   }
+
   const existing = await find()
-  if (existing) return existing
+  if (existing) {
+    // A returning visitor whose record never got a name (an earlier abandoned
+    // checkout) gets one now. An existing name is left alone: the person at the
+    // keyboard may be a parent paying for a player already on file.
+    const patch: Record<string, string> = {}
+    if (firstName && !(existing.first_name as string | null)?.trim()) patch.first_name = firstName
+    if (lastName && !(existing.last_name as string | null)?.trim()) patch.last_name = lastName
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from('contacts').update(patch).eq('id', existing.id)
+      if (error) console.warn('Could not backfill deposit contact name:', error.message)
+    }
+    return existing.id as string
+  }
 
   const { data: created, error } = await supabase
     .from('contacts')
-    .insert({ email, first_name: '', last_name: '', source: 'website_deposit' })
+    .insert({
+      email,
+      first_name: firstName ?? '',
+      last_name: lastName ?? '',
+      source: 'website_deposit',
+    })
     .select('id')
     .single()
   if (created?.id) return created.id as string
   // Lost a race with a parallel request for the same email — re-read.
   if (error) console.warn('Deposit contact insert failed, re-reading:', error.message)
-  return find()
+  return (await find())?.id as string | undefined ?? null
 }
 
 /** The contact's deal in this pipeline, or a new one at Initial Lead with a
@@ -373,6 +408,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 })
   }
 
+  // Optional so that an older cached copy of the website — which sends email
+  // only — keeps working rather than failing checkout. Capped because these
+  // land straight on the contact record.
+  const firstName = str(body.firstName)?.slice(0, 80)
+  const lastName = str(body.lastName)?.slice(0, 80)
+
   // Payment mode: 'deposit' or 'full' (whole programme).
   const mode = str(body.mode) === 'full' ? 'full' : 'deposit'
   const invoiceType: 'deposit' | 'full_payment' = mode === 'full' ? 'full_payment' : 'deposit'
@@ -428,7 +469,7 @@ export async function POST(request: NextRequest) {
 
     // 1-2. The lead exists in the CRM before Stripe opens, so closing the
     // Stripe tab still leaves a contact and a deal.
-    const contactId = await findOrCreateContact(supabase, email)
+    const contactId = await findOrCreateContact(supabase, email, firstName, lastName)
     if (!contactId) {
       return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
     }
