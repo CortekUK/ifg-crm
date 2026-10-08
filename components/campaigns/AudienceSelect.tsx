@@ -51,6 +51,13 @@ interface AudienceSelectProps {
   emptyText?: string
   /** Shown under the trigger when nothing is loaded at all. */
   noOptionsText?: string
+  /**
+   * Options are still being fetched. Distinct from "there are none": an empty
+   * list mid-fetch is indistinguishable from an empty list, so the tag picker
+   * announced "No tags yet" on every open before its 220 tags arrived. A
+   * recruiter reading that has no reason to wait and try again.
+   */
+  loading?: boolean
 }
 
 export function AudienceSelect({
@@ -65,6 +72,7 @@ export function AudienceSelect({
   searchPlaceholder = 'Search…',
   emptyText = 'Nothing matches that search',
   noOptionsText,
+  loading = false,
 }: AudienceSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -116,14 +124,16 @@ export function AudienceSelect({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between font-normal"
-            disabled={options.length === 0}
+            disabled={loading || options.length === 0}
           >
             <span className={cn(selected.length === 0 && 'text-muted-foreground')}>
-              {options.length === 0
-                ? (noOptionsText ?? 'None available')
-                : selected.length === 0
-                  ? placeholder
-                  : `${selected.length} selected`}
+              {loading
+                ? 'Loading…'
+                : options.length === 0
+                  ? (noOptionsText ?? 'None available')
+                  : selected.length === 0
+                    ? placeholder
+                    : `${selected.length} selected`}
             </span>
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -215,7 +225,14 @@ export function AudienceSelect({
                   : undefined
               }
             >
-              <span className="truncate">{option.name}</span>
+              {/* Stage names repeat across pipelines — every board has a Dead
+                  and a Won — so a chip reading "Dead · 3 deals" on its own left
+                  no way to tell which pipeline's Dead had been picked. The
+                  group (the pipeline name) is carried into the chip for that
+                  reason; lists and tags have no group and are unaffected. */}
+              <span className="truncate">
+                {option.group ? `${option.group} · ${option.name}` : option.name}
+              </span>
               <span className="opacity-70">
                 {formatNumber(option.count ?? 0)} {countNoun}
               </span>

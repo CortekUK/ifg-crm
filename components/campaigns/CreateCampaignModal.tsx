@@ -140,11 +140,11 @@ export function CreateCampaignModal({
   // Guards against re-initialising the form while the user is typing in it.
   const initializedForRef = useRef<string | null>(null)
 
-  const { data: lists = [] } = useCampaignLists()
+  const { data: lists = [], isLoading: listsLoading } = useCampaignLists()
   const { data: pipelines = [] } = usePipelines()
   const { data: templates = [] } = useEmailTemplates()
-  const { data: tags = [] } = useTags()
-  const { data: allStages = [] } = useAllPipelineStages()
+  const { data: tags = [], isLoading: tagsLoading } = useTags()
+  const { data: allStages = [], isLoading: stagesLoading } = useAllPipelineStages()
   const { data: recipientData, isLoading: recipientCountLoading } =
     useCalculateCombinedRecipients(selectedLists, selectedTags, selectedStages)
 
@@ -246,11 +246,33 @@ export function CreateCampaignModal({
   // Stages are grouped under their pipeline. When a pipeline is chosen for the
   // campaign we only offer that pipeline's stages, so the two settings can't
   // contradict each other.
+  //
+  // Sorted by pipeline first, because the headings are emitted whenever the
+  // group changes while walking the list. The source query orders by
+  // display_order across every pipeline at once, so stages interleaved and the
+  // same pipeline heading appeared repeatedly ("University 2027, Summer
+  // Residency 2027, UK Gap 2027, University 2027 again…"), which read as a bug
+  // in the picker. display_order still orders the stages within a pipeline, so
+  // each board reads in its real order.
   const stageOptions: AudienceOption[] = useMemo(() => {
     const byPipeline = new Map(pipelines.map((p) => [p.id, p.name]))
     return allStages
       .filter((s: { pipeline_id: string }) =>
         selectedPipelineId ? s.pipeline_id === selectedPipelineId : true,
+      )
+      .slice()
+      .sort(
+        (
+          a: { pipeline_id: string; display_order?: number },
+          b: { pipeline_id: string; display_order?: number },
+        ) => {
+          const pipelineA = byPipeline.get(a.pipeline_id) ?? ''
+          const pipelineB = byPipeline.get(b.pipeline_id) ?? ''
+          return (
+            pipelineA.localeCompare(pipelineB) ||
+            (a.display_order ?? 0) - (b.display_order ?? 0)
+          )
+        },
       )
       .map(
         (s: {
@@ -534,7 +556,7 @@ export function CreateCampaignModal({
 
               {/* -------------------------------------------- 2. Audience */}
               <div className="space-y-4">
-                {sectionHeading(2, 'Audience', 'any combination')}
+                {sectionHeading(2, 'Audience', 'sends to anyone in ANY selection')}
 
                 <AudienceSelect
                   label="Lists"
@@ -547,6 +569,7 @@ export function CreateCampaignModal({
                   searchPlaceholder="Search lists…"
                   emptyText="No lists match that search"
                   noOptionsText="No lists yet"
+                  loading={listsLoading}
                 />
 
                 <AudienceSelect
@@ -560,6 +583,7 @@ export function CreateCampaignModal({
                   searchPlaceholder="Search tags…"
                   emptyText="No tags match that search"
                   noOptionsText="No tags yet"
+                  loading={tagsLoading}
                 />
 
                 <AudienceSelect
@@ -574,14 +598,16 @@ export function CreateCampaignModal({
                   searchPlaceholder="Search stages…"
                   emptyText="No stages match that search"
                   noOptionsText="No pipeline stages yet"
+                  loading={stagesLoading}
                 />
 
                 {!hasAudience ? (
                   <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/50">
                     <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                     <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                      Pick at least one list, tag or pipeline stage. You can mix them —
-                      anyone in more than one only gets the email once.
+                      Pick at least one list, tag or pipeline stage. Picking more than one
+                      sends to everyone in ANY of them, not only the people in all of them.
+                      Anyone in more than one still gets the email once.
                     </AlertDescription>
                   </Alert>
                 ) : (
@@ -607,6 +633,21 @@ export function CreateCampaignModal({
                         </span>
                       )}
                     </div>
+                    {/* The "any of them" rule only ever appeared in the empty
+                        state, so it vanished at exactly the moment it mattered —
+                        once selections existed and the number on screen was the
+                        one about to be emailed. Picking ALL MENS + the 2027 tag
+                        expecting "2027 men" sends to 67,775 people rather than
+                        the overlap, and nothing on screen contradicted that
+                        reading. Shown whenever more than one thing is selected. */}
+                    {selectedLists.length + selectedTags.length + selectedStages.length > 1 && (
+                      <p className="mt-2 text-xs font-medium text-blue-700 dark:text-blue-300">
+                        This is everyone in ANY of your {selectedLists.length +
+                          selectedTags.length +
+                          selectedStages.length}{' '}
+                        selections added together — not only the people in all of them.
+                      </p>
+                    )}
                     <p className="mt-2 text-xs text-muted-foreground">
                       De-duplicated across every source, and unsubscribed or bounced
                       contacts are already excluded.
