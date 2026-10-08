@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { orderByIds } from '@/lib/contacts/search'
 import type { EmailReply as EmailReplyType, EmailReplyCounts } from '@/lib/types/email'
 
 // Re-export for backwards compatibility
@@ -31,51 +32,186 @@ export interface CreateEmailReplyInput {
 
 const PAGE_SIZE = 20
 
-// Hook for fetching email replies by tab/status (for email-replies page).
-// 'all' returns every reply regardless of match_status — including
-// 'deal_created' replies that were promoted via Smart Deal, which would
-// otherwise vanish from the tabs entirely.
-export function useEmailReplies(tab: 'all' | 'unmatched' | 'matched' | 'spam' = 'unmatched') {
+/** The columns and embeds the Replies screen needs for a row. */
+const REPLY_SELECT = `
+  *,
+  contact:contacts(*),
+  campaign:campaigns(*, pipeline:pipelines(id, name, programme_id, programme:programmes(id, name))),
+  pipeline:pipelines!email_replies_pipeline_id_fkey(id, name, programme_id, programme:programmes(id, name)),
+  matched_by:profiles(*),
+  deal:deals(id, title, status, stage:pipeline_stages!deals_current_stage_id_fkey(id, name))
+`
+
+export type EmailReplyTab = 'all' | 'unmatched' | 'matched' | 'spam'
+
+export interface EmailReplyFilters {
+  /** 'all' or one of the intent buckets. */
+  intent?: string
+  /** Free text across sender, subject, body and the matched contact. */
+  search?: string
+  /** 'all' | 'none' | campaign uuid. */
+  campaign?: string
+  /** 'all' | 'none' | pipeline uuid. */
+  pipeline?: string
+  /** Deep-link from the automation detail sheet. */
+  contactId?: string | null
+}
+
+/**
+ * Everything that has to be refetched after a reply changes.
+ *
+ * The tab badges, the intent chips and the filter options are three separate
+ * queries off the same table. Each mutation used to list the ones its author
+ * remembered, which is how the chip counts could sit stale behind a
+ * mark-as-read while the tab badge updated.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function invalidateReplyViews(queryClient: any) {
+  for (const key of [
+    ['email-replies'],
+    ['email-reply-counts'],
+    ['email-reply-intent-counts'],
+    ['email-reply-filter-options'],
+    ['unmatched-email-replies'],
+  ]) {
+    queryClient.invalidateQueries({ queryKey: key })
+  }
+}
+
+/** Normalised RPC arguments, so every hook below filters identically. */
+function rpcArgs(tab: EmailReplyTab, f: EmailReplyFilters = {}) {
+  return {
+    p_tab: tab,
+    p_search: f.search?.trim() || null,
+    p_campaign: f.campaign || 'all',
+    p_pipeline: f.pipeline || 'all',
+    p_contact_id: f.contactId || null,
+  }
+}
+
+/**
+ * Email replies for a tab, filtered in the database.
+ *
+ * QA-33 bug 1: the tab filter was applied server-side but intent, search,
+ * campaign and pipeline were all applied in the browser to the pages loaded so
+ * far. The Matched tab therefore read 30 while its chips read "All 20", and
+ * filtering by Positive only searched those 20 rows — older positive replies
+ * stayed hidden behind Load More.
+ *
+ * `email_replies_page` (migration 210) returns the matching ids for one page
+ * plus the total the filter matches. Rows are then fetched by id, which keeps
+ * the column list and the embeds here rather than duplicated in SQL — the same
+ * split lib/contacts/search.ts uses for contacts.
+ *
+ * 'all' returns every reply regardless of match_status — including
+ * 'deal_created' replies promoted via Smart Deal, which the other tabs
+ * intentionally exclude.
+ */
+export function useEmailReplies(
+  tab: EmailReplyTab = 'unmatched',
+  filters: EmailReplyFilters = {},
+) {
   const supabase = createClient()
+  const args = rpcArgs(tab, filters)
+  const intent = filters.intent && filters.intent !== 'all' ? filters.intent : null
 
   return useInfiniteQuery<EmailReplyType[]>({
-    queryKey: ['email-replies', tab],
+    queryKey: ['email-replies', tab, intent, args.p_search, args.p_campaign, args.p_pipeline, args.p_contact_id],
     queryFn: async ({ pageParam }) => {
       const page = (pageParam as number) ?? 0
-      let query = supabase
-        .from('email_replies')
-        .select(`
-          *,
-          contact:contacts(*),
-          campaign:campaigns(*, pipeline:pipelines(id, name, programme_id, programme:programmes(id, name))),
-          pipeline:pipelines!email_replies_pipeline_id_fkey(id, name, programme_id, programme:programmes(id, name)),
-          matched_by:profiles(*)
-        `)
-        .order('received_at', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-      if (tab === 'unmatched') {
-        query = query.eq('match_status', 'unmatched')
-      } else if (tab === 'matched') {
-        // Matched only shows UNREAD replies — once the user marks one
-        // read it disappears from this tab and is only visible in the
-        // 'all' tab. Mirrors a typical inbox / archive UX.
-        query = query
-          .in('match_status', ['auto_matched', 'manually_matched'])
-          .eq('read', false)
-      } else if (tab === 'spam') {
-        query = query.eq('match_status', 'spam')
-      }
-      // tab === 'all' — no filter, return everything (read OR unread)
+      const { data: idRows, error: idError } = await supabase.rpc('email_replies_page', {
+        ...args,
+        p_intent: intent,
+        p_limit: PAGE_SIZE,
+        p_offset: page * PAGE_SIZE,
+      })
+      if (idError) throw idError
 
-      const { data, error } = await query
+      const ids = ((idRows ?? []) as { id: string }[]).map((r) => r.id)
+      if (ids.length === 0) return []
 
+      const { data, error } = await supabase.from('email_replies').select(REPLY_SELECT).in('id', ids)
       if (error) throw error
-      return (data || []) as EmailReplyType[]
+
+      // PostgREST returns rows in planner order, which would throw away the
+      // newest-first ordering the RPC established.
+      return orderByIds((data || []) as EmailReplyType[], ids)
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.length === PAGE_SIZE ? allPages.length : undefined
+    },
+  })
+}
+
+/**
+ * Chip counts for the whole tab under the current filters (QA-33 bug 1).
+ *
+ * Counted in the database, so the chips describe every reply in the tab rather
+ * than the 20 rows that happen to be on screen, and they always sum to the
+ * "All" figure.
+ */
+export function useEmailReplyIntentCounts(
+  tab: EmailReplyTab = 'unmatched',
+  filters: EmailReplyFilters = {},
+) {
+  const supabase = createClient()
+  const args = rpcArgs(tab, filters)
+
+  return useQuery({
+    queryKey: ['email-reply-intent-counts', tab, args.p_search, args.p_campaign, args.p_pipeline, args.p_contact_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('email_replies_intent_counts', args)
+      if (error) throw error
+
+      const row = ((data ?? []) as {
+        all_count: number
+        positive: number
+        question: number
+        negative: number
+        neutral: number
+        unknown: number
+      }[])[0]
+
+      return {
+        all: Number(row?.all_count ?? 0),
+        positive: Number(row?.positive ?? 0),
+        question: Number(row?.question ?? 0),
+        negative: Number(row?.negative ?? 0),
+        neutral: Number(row?.neutral ?? 0),
+        unknown: Number(row?.unknown ?? 0),
+      }
+    },
+  })
+}
+
+/**
+ * Campaign and pipeline options for the filter dropdowns.
+ *
+ * Previously collected from the replies already loaded, so a campaign whose
+ * replies were all on a later page was never offered as a filter.
+ */
+export function useEmailReplyFilterOptions(
+  tab: EmailReplyTab = 'unmatched',
+  contactId?: string | null,
+) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['email-reply-filter-options', tab, contactId ?? null],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('email_reply_filter_options', {
+        p_tab: tab,
+        p_contact_id: contactId || null,
+      })
+      if (error) throw error
+
+      const rows = (data ?? []) as { kind: string; id: string; name: string }[]
+      return {
+        campaigns: rows.filter((r) => r.kind === 'campaign').map(({ id, name }) => ({ id, name })),
+        pipelines: rows.filter((r) => r.kind === 'pipeline').map(({ id, name }) => ({ id, name })),
+      }
     },
   })
 }
@@ -179,8 +315,7 @@ export function useMarkEmailRepliesRead() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
+      invalidateReplyViews(queryClient)
     },
   })
 }
@@ -206,8 +341,7 @@ export function useMarkEmailAsSpam() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
+      invalidateReplyViews(queryClient)
     },
   })
 }
@@ -241,8 +375,7 @@ export function useUnmarkEmailSpam() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
+      invalidateReplyViews(queryClient)
     },
   })
 }
@@ -270,10 +403,9 @@ export function useCreateEmailReply() {
       if (error) throw error
       return data
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['email-replies', data.contact_id] })
+    onSuccess: () => {
+      invalidateReplyViews(queryClient)
       queryClient.invalidateQueries({ queryKey: ['contact-automations'] })
-      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
       // Also trigger reply processing
       queryClient.invalidateQueries({ queryKey: ['automation-enrollments'] })
     },
@@ -337,9 +469,7 @@ export function useMatchEmailReply() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-      queryClient.invalidateQueries({ queryKey: ['unmatched-email-replies'] })
-      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
+      invalidateReplyViews(queryClient)
     },
   })
 }
@@ -384,9 +514,7 @@ export function useUnmatchEmailReply() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
-      queryClient.invalidateQueries({ queryKey: ['unmatched-email-replies'] })
+      invalidateReplyViews(queryClient)
     },
   })
 }

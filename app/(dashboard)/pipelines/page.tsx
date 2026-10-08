@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DropResult } from '@hello-pangea/dnd'
 import { PipelinesPageHeader } from '@/components/pipelines/PipelinesPageHeader'
 import { PipelineFilters } from '@/components/pipelines/PipelineFilters'
@@ -14,7 +15,7 @@ import { CreatePipelineModal } from '@/components/pipelines/CreatePipelineModal'
 import { PipelineSettingsModal } from '@/components/pipelines/PipelineSettingsModal'
 import { usePipelines, usePipelineDealCounts } from '@/lib/hooks/usePipelines'
 import { usePipelineStages } from '@/lib/hooks/usePipelineStages'
-import { useDeals, useMoveDeal, useReorderDeal } from '@/lib/hooks/useDeals'
+import { useDeals, useDeal, useMoveDeal, useReorderDeal } from '@/lib/hooks/useDeals'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { toast } from '@/lib/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
@@ -50,6 +51,11 @@ function isBackwardMove(oldStage?: PipelineStage, newStage?: PipelineStage): boo
 }
 
 export default function PipelinesPage() {
+  // QA-33 bug 3: the Replies screen could show which pipeline a reply belonged
+  // to but had no way to open the player's deal. /pipelines?dealId=<id> selects
+  // that deal's board and opens its card, so a reply can link straight to it.
+  const searchParams = useSearchParams()
+  const dealIdParam = searchParams.get('dealId')
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
@@ -108,6 +114,11 @@ export default function PipelinesPage() {
   // Fetch deal counts per pipeline
   const { data: dealCounts = {} } = usePipelineDealCounts()
 
+  // The deep-linked deal, if any. Fetched on its own rather than looked for in
+  // `deals`, because the board only holds the selected pipeline's deals and the
+  // link may point at a different pipeline entirely.
+  const { data: deepLinkedDeal } = useDeal(dealIdParam)
+
   // Fetch stages for selected pipeline
   const { data: stages = [], isLoading: stagesLoading } = usePipelineStages(
     selectedPipelineId
@@ -150,6 +161,21 @@ export default function PipelinesPage() {
     setSelectedPipelineId(next)
     localStorage.setItem(PIPELINE_STORAGE_KEY, next)
   }, [pipelines, selectedPipelineId])
+
+  // Open the deep-linked deal once it has loaded, switching the board to its
+  // pipeline first. `hasOpenedDeepLink` keeps it to one shot so dismissing the
+  // sheet doesn't immediately re-open it.
+  const [hasOpenedDeepLink, setHasOpenedDeepLink] = useState(false)
+  useEffect(() => {
+    if (!dealIdParam || hasOpenedDeepLink || !deepLinkedDeal) return
+    // Reacting to the deal arriving from the server is what this is for: the
+    // board and the sheet both have to catch up to a URL the user arrived on.
+    // Same shape as the contactId deep-link on the Replies page.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (deepLinkedDeal.pipeline_id) setSelectedPipelineId(deepLinkedDeal.pipeline_id)
+    setSelectedDeal(deepLinkedDeal)
+    setHasOpenedDeepLink(true)
+  }, [dealIdParam, deepLinkedDeal, hasOpenedDeepLink])
 
   // Save selected pipeline to localStorage
   const handlePipelineChange = useCallback((pipelineId: string) => {

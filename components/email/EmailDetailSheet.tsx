@@ -26,6 +26,7 @@ import {
   ChevronUp,
   Check,
   Edit3,
+  Briefcase,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -33,7 +34,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
 import { formatDateLong, formatRelativeTime } from '@/lib/utils/format'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
-import type { EmailReply, EmailIntent } from '@/lib/types/email'
+import type { EmailReply, EmailIntent, EmailFollowUpStatus } from '@/lib/types/email'
 
 interface EmailDetailSheetProps {
   reply: EmailReply | null
@@ -58,6 +59,14 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   deal_created: { label: 'Deal created', className: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700' },
   spam: { label: 'Spam', className: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700' },
   unmatched: { label: 'Unmatched', className: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700' },
+}
+
+// QA-33 bug 4. The three values EmailFollowUpStatus already declared; nothing
+// had ever written one, so every reply reads as "open" until someone sets it.
+const followUpConfig: Record<EmailFollowUpStatus, { label: string; className: string }> = {
+  open: { label: 'Open', className: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700' },
+  in_progress: { label: 'In progress', className: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700' },
+  completed: { label: 'Done', className: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700' },
 }
 
 export function EmailDetailSheet({
@@ -87,11 +96,42 @@ export function EmailDetailSheet({
     },
   })
 
+  const updateFollowUp = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: EmailFollowUpStatus }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('email_replies')
+        .update({ follow_up_status: status })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+    },
+  })
+
   if (!reply) return null
 
   const intent = reply.ai_intent as EmailIntent | null
   const intentInfo = intent && intent !== 'unknown' ? intentConfig[intent] : null
   const status = statusConfig[reply.match_status] || statusConfig.unmatched
+
+  // Null means nobody has set one yet, which is "open" by any reading.
+  const currentFollowUp: EmailFollowUpStatus = reply.follow_up_status || 'open'
+  const followUp = followUpConfig[currentFollowUp] ?? followUpConfig.open
+
+  const handleSetFollowUp = async (next: EmailFollowUpStatus) => {
+    try {
+      await updateFollowUp.mutateAsync({ id: reply.id, status: next })
+      toast({ title: `Follow-up set to ${followUpConfig[next].label.toLowerCase()}` })
+    } catch (err) {
+      toast({
+        title: 'Failed to update follow-up',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const handleSetIntent = async (next: EmailIntent | null) => {
     try {
@@ -350,6 +390,88 @@ export function EmailDetailSheet({
                     <span className="text-sm text-gray-900 dark:text-white">{reply.contact.email}</span>
                   </div>
                 )}
+
+                {/* QA-33 bug 3: the sheet showed the pipeline and the contact
+                    but never the player's deal, and there was no way to open
+                    it — so triaging a reply meant finding the card by hand. */}
+                {isMatched && (
+                  <div className="flex items-start justify-between">
+                    <span className="text-sm text-muted-foreground shrink-0">Deal</span>
+                    {reply.deal ? (
+                      <div className="text-right min-w-0">
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {reply.deal.title || 'Untitled deal'}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                            title="Open this deal on the board"
+                            onClick={() => router.push(`/pipelines?dealId=${reply.deal!.id}`)}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        {reply.deal.stage?.name && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {reply.deal.stage.name}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        No deal in this pipeline
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* QA-33 bug 4: follow_up_status has existed on the table all
+                    along and nothing ever read or wrote it, so there was no way
+                    to record that a reply had been dealt with. */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Follow-up</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-full"
+                        title="Set the follow-up status for this reply"
+                      >
+                        <Badge
+                          variant="outline"
+                          className={`${followUp.className} cursor-pointer hover:opacity-80`}
+                        >
+                          {followUp.label}
+                          <Edit3 className="h-2.5 w-2.5 ml-1 opacity-60" />
+                        </Badge>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-48 p-1">
+                      <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Follow-up status
+                      </div>
+                      {(['open', 'in_progress', 'completed'] as const).map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          disabled={updateFollowUp.isPending}
+                          onClick={() => handleSetFollowUp(opt)}
+                          className="w-full flex items-center justify-between gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 text-left disabled:opacity-50"
+                        >
+                          <Badge variant="outline" className={followUpConfig[opt].className}>
+                            {followUpConfig[opt].label}
+                          </Badge>
+                          {currentFollowUp === opt && (
+                            <Check className="h-3.5 w-3.5 text-green-600" />
+                          )}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </div>
           </div>

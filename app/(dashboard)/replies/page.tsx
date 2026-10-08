@@ -14,9 +14,14 @@ import { EmailReplyList } from '@/components/email/EmailReplyList'
 import { IntentFilterChips } from '@/components/email/IntentFilterChips'
 import { EmailDetailSheet } from '@/components/email/EmailDetailSheet'
 import { MatchEmailModal } from '@/components/email/MatchEmailModal'
-import { useEmailReplies, useEmailReplyCounts } from '@/lib/hooks/useEmailReplies'
+import {
+  useEmailReplies,
+  useEmailReplyCounts,
+  useEmailReplyIntentCounts,
+  useEmailReplyFilterOptions,
+} from '@/lib/hooks/useEmailReplies'
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { Input } from '@/components/ui/input'
-import { matchesTokens } from '@/lib/utils/deal-search'
 import { useContact } from '@/lib/hooks/useContacts'
 
 // SMS Replies Components
@@ -116,107 +121,43 @@ export default function RepliesPage() {
   const unmatchEmailReply = useUnmatchEmailReply()
   const markSMSSpam = useMarkSMSAsSpam()
 
-  // Fetch data
-  const emailRepliesQuery = useEmailReplies(emailTab)
+  // Fetch data. The search is debounced so typing doesn't fire a query per
+  // keystroke now that filtering is a round trip.
+  const debouncedEmailSearch = useDebouncedValue(emailSearch, 300)
+  // The chip counts must NOT be narrowed by the intent chip itself, or picking
+  // "Positive" would leave every other chip reading 0.
+  const emailFiltersWithoutIntent = useMemo(
+    () => ({
+      search: debouncedEmailSearch,
+      campaign: emailCampaignFilter,
+      pipeline: emailPipelineFilter,
+      contactId: contactIdParam,
+    }),
+    [debouncedEmailSearch, emailCampaignFilter, emailPipelineFilter, contactIdParam],
+  )
+  const emailRepliesQuery = useEmailReplies(emailTab, {
+    ...emailFiltersWithoutIntent,
+    intent: emailIntentFilter,
+  })
   const { data: emailCounts } = useEmailReplyCounts(contactIdParam)
   const { data: filteredContact } = useContact(contactIdParam)
   const smsMessagesQuery = useSMSMessages(smsTab)
   const { data: smsCounts } = useSMSMessageCounts()
 
-  const allEmailReplies = emailRepliesQuery.data?.pages?.flat() || []
-  // Apply contact deep-link filter first; intent filter is layered on top so
-  // counts under the chips reflect the contact context too.
-  const contactScopedReplies = useMemo(
-    () => contactIdParam
-      ? allEmailReplies.filter((r) => r.contact_id === contactIdParam)
-      : allEmailReplies,
-    [contactIdParam, allEmailReplies]
+  // Every email filter is applied in the database now (migration 210). It used
+  // to be applied here, to the pages already loaded, so the Matched tab read 30
+  // while its chips read "All 20" and filtering by Positive only searched those
+  // 20 rows (QA-33 bug 1).
+  const emailReplies = useMemo(
+    () => emailRepliesQuery.data?.pages?.flat() || [],
+    [emailRepliesQuery.data],
   )
-  // Distinct campaigns + pipelines pulled from the currently-loaded
-  // replies, so the filter dropdowns only offer options that actually
-  // have matches in view.
-  const campaignOptions = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const r of contactScopedReplies) {
-      if (r.campaign_id) {
-        map.set(r.campaign_id, r.campaign?.name || 'Untitled campaign')
-      }
-    }
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
-  }, [contactScopedReplies])
-  const pipelineOptions = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const r of contactScopedReplies) {
-      if (r.pipeline_id) {
-        map.set(r.pipeline_id, r.pipeline?.name || 'Untitled pipeline')
-      }
-    }
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
-  }, [contactScopedReplies])
+  const { data: emailIntentCounts = { all: 0, positive: 0, question: 0, negative: 0, neutral: 0, unknown: 0 } } =
+    useEmailReplyIntentCounts(emailTab, emailFiltersWithoutIntent)
+  const { data: emailFilterOptions } = useEmailReplyFilterOptions(emailTab, contactIdParam)
+  const campaignOptions = emailFilterOptions?.campaigns ?? []
+  const pipelineOptions = emailFilterOptions?.pipelines ?? []
 
-  // Apply campaign + pipeline filters before the intent layer so the
-  // intent counts reflect only what's currently visible.
-  const filteredScopedReplies = useMemo(() => {
-    let rows = contactScopedReplies
-    if (emailCampaignFilter !== 'all') {
-      rows = rows.filter((r) =>
-        emailCampaignFilter === 'none' ? !r.campaign_id : r.campaign_id === emailCampaignFilter,
-      )
-    }
-    if (emailPipelineFilter !== 'all') {
-      rows = rows.filter((r) =>
-        emailPipelineFilter === 'none' ? !r.pipeline_id : r.pipeline_id === emailPipelineFilter,
-      )
-    }
-    return rows
-  }, [contactScopedReplies, emailCampaignFilter, emailPipelineFilter])
-
-  // Counts per intent — drives the chip badges. 'unknown' bucket covers null
-  // (never classified), the literal 'unknown' label, and anything else.
-  const emailIntentCounts = useMemo(() => {
-    const counts = { all: filteredScopedReplies.length, positive: 0, question: 0, negative: 0, neutral: 0, unknown: 0 }
-    for (const r of filteredScopedReplies) {
-      const k = r.ai_intent ?? 'unknown'
-      if (k === 'positive' || k === 'question' || k === 'negative' || k === 'neutral') {
-        counts[k]++
-      } else {
-        counts.unknown++
-      }
-    }
-    return counts
-  }, [filteredScopedReplies])
-  const emailReplies = useMemo(() => {
-    const byIntent =
-      emailIntentFilter === 'all'
-        ? filteredScopedReplies
-        : filteredScopedReplies.filter((r) => {
-            const k = r.ai_intent ?? 'unknown'
-            if (emailIntentFilter === 'unknown') {
-              return k !== 'positive' && k !== 'question' && k !== 'negative' && k !== 'neutral'
-            }
-            return k === emailIntentFilter
-          })
-
-    // Search across who sent it, what it was about and what it said. Matched
-    // word by word by the same helper the pipeline board uses, so "john smith"
-    // finds a reply however the name is stored and in whichever order it is
-    // typed.
-    if (!emailSearch.trim()) return byIntent
-    return byIntent.filter((r) =>
-      matchesTokens(
-        [
-          r.from_email,
-          r.from_name,
-          r.subject,
-          r.body,
-          r.contact ? `${r.contact.first_name ?? ''} ${r.contact.last_name ?? ''}` : '',
-        ]
-          .filter(Boolean)
-          .join(' '),
-        emailSearch,
-      ),
-    )
-  }, [emailIntentFilter, filteredScopedReplies, emailSearch])
   const smsMessages = smsMessagesQuery.data?.pages?.flat() || []
 
   // Auto-open the most recent reply for a deep-linked contact. Runs once when
@@ -448,7 +389,7 @@ export default function RepliesPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <EmailReplyTabs activeTab={emailTab} onTabChange={setEmailTab} counts={emailCounts || { all: 0, unmatched: 0, matched: 0, spam: 0 }} />
             {emailTab === 'unmatched' && emailReplies.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -472,7 +413,7 @@ export default function RepliesPage() {
               </div>
             )}
             {(emailTab === 'matched' || emailTab === 'all') && emailReplies.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -645,7 +586,7 @@ export default function RepliesPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <SMSReplyTabs activeTab={smsTab} onTabChange={setSmsTab} counts={smsCounts || { unmatched: 0, matched: 0, spam: 0 }} />
             {smsTab === 'unmatched' && smsMessages.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -669,7 +610,7 @@ export default function RepliesPage() {
               </div>
             )}
             {smsTab === 'matched' && smsMessages.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"

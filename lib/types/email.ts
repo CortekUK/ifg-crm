@@ -9,6 +9,7 @@ export type EmailFollowUpStatus = 'open' | 'in_progress' | 'completed'
 export interface EmailReply {
   id: string
   contact_id: string | null
+  deal_id: string | null
   from_email: string
   from_name: string | null
   subject: string | null
@@ -29,6 +30,14 @@ export interface EmailReply {
   campaign?: Campaign | null
   matched_by?: Profile | null
   pipeline?: Pipeline | null
+  /** The matched player's deal in the reply's pipeline, for the click-through
+   *  the Replies screen was missing (QA-33 bug 3). */
+  deal?: {
+    id: string
+    title: string | null
+    status: string | null
+    stage?: { id: string; name: string | null } | null
+  } | null
 }
 
 export interface EmailReplyCounts {

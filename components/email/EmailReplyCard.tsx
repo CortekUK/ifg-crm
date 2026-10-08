@@ -109,11 +109,11 @@ export function EmailReplyCard({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[160px]">
+            <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[110px] sm:max-w-[160px]">
               {displayName}
             </p>
             {reply.from_name && (
-              <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">
+              <p className="text-[11px] text-muted-foreground truncate max-w-[110px] sm:max-w-[160px]">
                 {reply.from_email}
               </p>
             )}
@@ -123,16 +123,30 @@ export function EmailReplyCard({
 
       {/* Subject & Preview */}
       <TableCell>
-        <p className={cn('text-sm font-medium truncate max-w-[280px]', isSpam && 'line-through')}>
+        <p className={cn('text-sm font-medium truncate max-w-[200px] sm:max-w-[280px]', isSpam && 'line-through')}>
           {reply.subject || '(No subject)'}
         </p>
-        <p className={cn('text-[11px] text-muted-foreground truncate max-w-[280px]', isSpam && 'line-through')}>
+        <p className={cn('text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-[280px]', isSpam && 'line-through')}>
           {cleanPreview || '(No content)'}
         </p>
+        {/* QA-33 bug 5: on a phone the intent and received columns were pushed
+            off-screen behind a sideways scroll. Those columns are hidden at
+            small widths, so the same two facts ride along under the subject
+            instead of being unreachable. */}
+        <div className="mt-1 flex items-center gap-2 sm:hidden">
+          {intentInfo && (
+            <Badge className={cn('text-[10px] font-medium', intentInfo.className)}>
+              {intentInfo.label}
+            </Badge>
+          )}
+          <span className="text-[10px] text-muted-foreground">
+            {formatRelativeTime(reply.received_at || reply.created_at)}
+          </span>
+        </div>
       </TableCell>
 
       {/* Intent — only render a badge when classification produced a real signal */}
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         {intentInfo ? (
           <Badge className={cn('text-[10px] font-medium', intentInfo.className)}>
             {intentInfo.label}
@@ -143,7 +157,7 @@ export function EmailReplyCard({
       </TableCell>
 
       {/* Campaign */}
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
         {reply.campaign ? (
           <span className="truncate block max-w-[120px]">{reply.campaign.name}</span>
         ) : (
@@ -154,7 +168,7 @@ export function EmailReplyCard({
       {/* Pipeline — direct join on email_replies.pipeline_id (covers both
           automation and campaign sources). Falls back to the campaign-side
           join for old rows that predate the direct column being populated. */}
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
         {(() => {
           const pipeline = reply.pipeline ?? reply.campaign?.pipeline ?? null
           return pipeline ? (
@@ -167,7 +181,7 @@ export function EmailReplyCard({
 
       {/* Received — relative time ("3 minutes ago", "1 day ago").
           Hover reveals the full timestamp. */}
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
         <span title={formatDateTime(reply.received_at || reply.created_at)}>
           {formatRelativeTime(reply.received_at || reply.created_at)}
         </span>

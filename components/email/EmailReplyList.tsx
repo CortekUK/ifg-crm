@@ -44,12 +44,14 @@ type SortOrder = 'asc' | 'desc'
 // ("3 minutes ago"), not a calendar date.
 const columns: { key: SortKey | 'checkbox' | 'pipeline' | 'actions'; label: string; sortable: boolean; className?: string }[] = [
   { key: 'checkbox', label: '', sortable: false, className: 'w-10' },
-  { key: 'from', label: 'From', sortable: true, className: 'w-[200px]' },
+  { key: 'from', label: 'From', sortable: true, className: 'w-[140px] sm:w-[200px]' },
   { key: 'subject', label: 'Subject', sortable: true },
-  { key: 'intent', label: 'Intent', sortable: true, className: 'w-[100px]' },
-  { key: 'campaign', label: 'Campaign', sortable: true, className: 'w-[140px]' },
-  { key: 'pipeline', label: 'Pipeline', sortable: false, className: 'w-[120px]' },
-  { key: 'received', label: 'Received', sortable: true, className: 'w-[110px]' },
+  // The hidden-at-small-width classes must mirror EmailReplyCard's cells or the
+  // header and the body drift out of alignment on a phone (QA-33 bug 5).
+  { key: 'intent', label: 'Intent', sortable: true, className: 'w-[100px] hidden sm:table-cell' },
+  { key: 'campaign', label: 'Campaign', sortable: true, className: 'w-[140px] hidden lg:table-cell' },
+  { key: 'pipeline', label: 'Pipeline', sortable: false, className: 'w-[120px] hidden lg:table-cell' },
+  { key: 'received', label: 'Received', sortable: true, className: 'w-[110px] hidden sm:table-cell' },
   { key: 'actions', label: '', sortable: false, className: 'w-[100px]' },
 ]
 
@@ -184,10 +186,12 @@ export function EmailReplyList({
                   <Skeleton className="h-3 w-48 mb-1" />
                   <Skeleton className="h-2.5 w-64" />
                 </TableCell>
-                <TableCell><Skeleton className="h-5 w-14" /></TableCell>
-                <TableCell><Skeleton className="h-3 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-3 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-3 w-16" /></TableCell>
+                {/* Same hidden-at-small-width classes as the header and the
+                    real rows, so the skeleton doesn't jump on a phone. */}
+                <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-14" /></TableCell>
+                <TableCell className="hidden lg:table-cell"><Skeleton className="h-3 w-24" /></TableCell>
+                <TableCell className="hidden lg:table-cell"><Skeleton className="h-3 w-20" /></TableCell>
+                <TableCell className="hidden sm:table-cell"><Skeleton className="h-3 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-7 w-16" /></TableCell>
               </TableRow>
             ))}
