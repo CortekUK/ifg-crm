@@ -64,6 +64,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MoreVertical, Pause, Play, MessageCircle, UserPlus, ShieldCheck, RotateCw } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { LogReplyModal } from './LogReplyModal'
 import { AddDealFromContactSheet } from './AddDealFromContactSheet'
 import { GuardianAccessPanel } from './GuardianAccessPanel'
@@ -135,6 +145,7 @@ export function ContactDetailSheet({
   const [isEditingOwner, setIsEditingOwner] = useState(false)
   const [newNoteContent, setNewNoteContent] = useState('')
   const [isInviting, setIsInviting] = useState(false)
+  const [isConfirmingPortalInvite, setIsConfirmingPortalInvite] = useState(false)
 
   const { data: contact, isLoading: contactLoading } = useContact(contactId)
   const { data: deals = [], isLoading: dealsLoading } = useContactDeals(contactId)
@@ -376,7 +387,25 @@ export function ContactDetailSheet({
               const isActive = state === 'active'
               const isInvited = state === 'invited'
 
-              const handlePortalClick = async () => {
+              // One click used to email the player immediately, so a misclick
+              // on the Quick Actions grid sent a real invitation to a real
+              // person with no way to take it back. The state and the address
+              // are now shown first and the send is a deliberate second click.
+              const handlePortalClick = () => {
+                if (!contact || isActive) return
+                if (!contact.email?.trim()) {
+                  toast({
+                    title: 'No email address',
+                    description:
+                      'This contact has no email address, so there is nobody to send the invitation to. Add an email to the contact first.',
+                    variant: 'destructive',
+                  })
+                  return
+                }
+                setIsConfirmingPortalInvite(true)
+              }
+
+              const sendPortalInvite = async () => {
                 if (!contact || isActive) return
                 setIsInviting(true)
                 try {
@@ -405,32 +434,79 @@ export function ContactDetailSheet({
               const label = isActive ? 'Portal Active' : isInvited ? 'Resend' : 'Portal'
 
               return (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    'flex-col h-auto py-2 gap-1',
-                    isActive && 'border-green-500/40 text-green-700 dark:text-green-400 cursor-default'
-                  )}
-                  disabled={isInviting || isActive}
-                  title={
-                    isActive && portalStatus?.last_sign_in_at
-                      ? `Last login ${formatDate(portalStatus.last_sign_in_at)}`
-                      : isActive
-                        ? 'Player has activated their portal account'
-                        : isInvited
-                          ? 'Invite pending — click to resend'
-                          : 'Send portal invitation'
-                  }
-                  onClick={handlePortalClick}
-                >
-                  {isInviting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Icon className="h-4 w-4" />
-                  )}
-                  <span className="text-xs">{label}</span>
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'flex-col h-auto py-2 gap-1',
+                      isActive && 'border-green-500/40 text-green-700 dark:text-green-400 cursor-default'
+                    )}
+                    disabled={isInviting || isActive}
+                    title={
+                      isActive && portalStatus?.last_sign_in_at
+                        ? `Last login ${formatDate(portalStatus.last_sign_in_at)}`
+                        : isActive
+                          ? 'Player has activated their portal account'
+                          : isInvited
+                            ? 'Invite pending — click to resend'
+                            : 'Send portal invitation'
+                    }
+                    onClick={handlePortalClick}
+                  >
+                    {isInviting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Icon className="h-4 w-4" />
+                    )}
+                    <span className="text-xs">{label}</span>
+                  </Button>
+
+                  <AlertDialog
+                    open={isConfirmingPortalInvite}
+                    onOpenChange={setIsConfirmingPortalInvite}
+                  >
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {isInvited ? 'Resend the portal invitation?' : 'Send a portal invitation?'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                          <div className="space-y-2">
+                            <p>
+                              Portal status:{' '}
+                              <span className="font-medium text-foreground">
+                                {isInvited ? 'Invitation pending' : 'Not invited'}
+                              </span>
+                            </p>
+                            <p>
+                              This emails{' '}
+                              <span className="font-medium text-foreground">{contact?.email}</span>{' '}
+                              a link to set a password and sign in to the player portal.
+                            </p>
+                            {isInvited && (
+                              <p>
+                                The link in the earlier invitation will stop working once this one
+                                is sent.
+                              </p>
+                            )}
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            setIsConfirmingPortalInvite(false)
+                            void sendPortalInvite()
+                          }}
+                        >
+                          {isInvited ? 'Resend invitation' : 'Send invitation'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
               )
             })()}
           </div>

@@ -215,6 +215,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // A portal login IS an email address, so there is nothing to create
+    // without one. Checked here rather than left to Supabase, which refuses
+    // with its own wording ("Unable to validate email address") that reads as
+    // a system fault rather than "this contact has no email".
+    if (!contact.email?.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            'This contact has no email address, so there is nobody to send the invitation to. Add an email to the contact first.',
+        },
+        { status: 400 }
+      )
+    }
+
     // Player path. profiles.password_set_at is the single source of truth
     // for "this account has a working password" (see migration 098).
     const { data: existingProfile } = await supabase
