@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/stripe'
 import { getTermsForInvoice } from '@/lib/website-content/terms'
-import { formatInvoiceAmount, sendPaymentLinkEmail } from '@/lib/invoices/payment-link-email'
+import { formatInvoiceAmount, sendPaymentLinkEmail, buildPaymentLinkEmail } from '@/lib/invoices/payment-link-email'
 
 export async function POST(
   request: NextRequest,
@@ -115,7 +115,7 @@ export async function POST(
     // auto-move the deal stage.
     const playerName = `${contact.first_name} ${contact.last_name}`
 
-    const sendResult = await sendPaymentLinkEmail(recipientEmail, {
+    const emailInput = {
       invoiceNumber: invoice.invoice_number,
       description: invoice.description,
       amount: invoice.amount,
@@ -123,9 +123,11 @@ export async function POST(
       dueDate: invoice.due_date,
       recipientName,
       playerName,
-      recipientType: recipientType === 'guardian' ? 'guardian' : 'player',
+      recipientType: (recipientType === 'guardian' ? 'guardian' : 'player') as 'guardian' | 'player',
       payUrl: session.url!,
-    })
+    }
+
+    const sendResult = await sendPaymentLinkEmail(recipientEmail, emailInput)
 
     // KEEP the invoice as draft on failure so the user can retry. The Stripe
     // session is harmless — it just sits unused; we don't bill until somebody
@@ -182,6 +184,34 @@ export async function POST(
           }
         }
       }
+    }
+
+    // ---- RECORD IT IN THE CRM'S EMAIL HISTORY ----
+    //
+    // The invoice email went out but was never written to email_sends, so
+    // staff looking at the CRM had no evidence it had been sent — the only
+    // sign was the invoice flipping to "sent". Also noted on QA-23.
+    //
+    // Storing the Resend message id is what lets the delivered/opened/clicked
+    // webhook attach to this email too, once that webhook is configured.
+    // Best effort: the email is already gone, so a logging failure must not
+    // turn a successful send into an error.
+    try {
+      const { subject } = buildPaymentLinkEmail(emailInput)
+      const { error: logError } = await supabase.from('email_sends').insert({
+        tracking_id: crypto.randomUUID(),
+        recipient_email: recipientEmail,
+        recipient_contact_id: contact.id,
+        subject,
+        from_name: 'IFG',
+        from_email: process.env.FROM_EMAIL || 'onboarding@resend.dev',
+        status: 'sent',
+        resend_message_id: sendResult.id ?? null,
+        sent_at: new Date().toISOString(),
+      })
+      if (logError) console.error('Invoice email sent but not logged:', logError.message)
+    } catch (err) {
+      console.error('Invoice email sent but not logged:', err)
     }
 
     // Create in-app notification for player

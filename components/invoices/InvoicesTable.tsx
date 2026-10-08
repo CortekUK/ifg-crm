@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useState, useMemo } from 'react'
-import { MoreHorizontal, Eye, Send, CheckCircle, Trash2, ReceiptPoundSterling, FileDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { MoreHorizontal, Eye, Send, CheckCircle, Ban, Trash2, ReceiptPoundSterling, FileDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -35,6 +35,7 @@ interface InvoicesTableProps {
   onView: (invoice: Invoice) => void
   onSend: (invoice: Invoice) => void
   onMarkPaid: (invoice: Invoice) => void
+  onCancel: (invoice: Invoice) => void
   onDelete: (invoice: Invoice) => void
   onBulkSend?: (ids: string[]) => void
   onBulkMarkPaid?: (ids: string[]) => void
@@ -75,6 +76,7 @@ export function InvoicesTable({
   onView,
   onSend,
   onMarkPaid,
+  onCancel,
   onDelete,
   onBulkSend,
   onBulkMarkPaid,
@@ -429,6 +431,15 @@ export function InvoicesTable({
                         <DropdownMenuItem onClick={() => onMarkPaid(invoice)}>
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Mark Paid
+                        </DropdownMenuItem>
+                      )}
+                      {/* Cancelling was only reachable by opening the invoice and
+                          finding "Void Invoice" at the bottom, so staff could not
+                          find it from the list at all. */}
+                      {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+                        <DropdownMenuItem onClick={() => onCancel(invoice)}>
+                          <Ban className="h-4 w-4 mr-2" />
+                          Cancel Invoice
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />

@@ -136,15 +136,18 @@ export function RecordPaymentModal({
     }
   }, [isOpen, preselectedContactId, preselectedInvoiceId])
 
-  // Auto-fill amount when invoice is selected
+  // Auto-fill the amount from the invoice.
+  //
+  // `isOpen` is in the deps on purpose. Opening the modal blanks the amount,
+  // and when it is opened a second time for the same invoice neither
+  // selectedInvoiceId nor invoices changes — so this never re-ran and the
+  // amount field just sat empty, leaving staff to retype a figure the CRM
+  // already knew. Reported as "Record Payment doesn't pre-fill the amount".
   useEffect(() => {
-    if (selectedInvoiceId) {
-      const invoice = invoices.find((i) => i.id === selectedInvoiceId)
-      if (invoice) {
-        setAmount(invoice.amount.toString())
-      }
-    }
-  }, [selectedInvoiceId, invoices])
+    if (!isOpen || !selectedInvoiceId) return
+    const invoice = invoices.find((i) => i.id === selectedInvoiceId)
+    if (invoice) setAmount(invoice.amount.toString())
+  }, [isOpen, selectedInvoiceId, invoices])
 
   const handleSelectContact = (contact: { id: string; first_name: string; last_name: string }) => {
     setSelectedContactId(contact.id)

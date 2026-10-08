@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { toast } from '@/lib/hooks/use-toast'
 import { formatCurrency, formatDateLong } from '@/lib/utils/format'
+import { formatInvoiceAmount } from '@/lib/invoices/payment-link-email'
 import { cn } from '@/lib/utils'
 import { useInvoice, useUpdateInvoiceStatus } from '@/lib/hooks/useInvoices'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -36,6 +37,16 @@ import { RecordPaymentModal } from '@/components/payments/RecordPaymentModal'
 import { useState } from 'react'
 import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF'
 import type { InvoiceStatus, InvoiceType } from '@/lib/types/invoices'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface InvoiceDetailSheetProps {
   invoiceId: string | null
@@ -66,6 +77,10 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
   const updateStatus = useUpdateInvoiceStatus()
   const queryClient = useQueryClient()
   const [recordPaymentOpen, setRecordPaymentOpen] = useState(false)
+  // Voiding used to happen on the first click, with no way back. Cancelling a
+  // real invoice by mistake means the player gets a cancellation email and the
+  // payment link dies, so it asks first now.
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false)
   const supabase = createClient()
 
   // Fetch payment history for this invoice
@@ -150,6 +165,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
     if (!invoiceId) return
     try {
       await updateStatus.mutateAsync({ invoiceId, status: 'cancelled' })
+      setVoidDialogOpen(false)
       toast({
         title: 'Invoice cancelled',
         description: 'The invoice has been marked as cancelled.',
@@ -426,7 +442,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                         <Send className="h-4 w-4 mr-2" />
                         Send Invoice
                       </Button>
-                      <Button variant="outline" onClick={handleVoid} disabled={updateStatus.isPending}>
+                      <Button variant="outline" onClick={() => setVoidDialogOpen(true)} disabled={updateStatus.isPending}>
                         <Ban className="h-4 w-4 mr-2" />
                         Cancel
                       </Button>
@@ -466,7 +482,7 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
                       </Button>
                     )}
                     {invoice.status !== 'draft' && (
-                      <Button variant="ghost" size="sm" onClick={handleVoid} disabled={updateStatus.isPending} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Button variant="ghost" size="sm" onClick={() => setVoidDialogOpen(true)} disabled={updateStatus.isPending} className="text-red-600 hover:text-red-700 hover:bg-red-50">
                         <Ban className="h-4 w-4 mr-2" />
                         Void Invoice
                       </Button>
@@ -488,6 +504,48 @@ export function InvoiceDetailSheet({ invoiceId, isOpen, onClose }: InvoiceDetail
           preselectedInvoiceId={invoice.id}
         />
       )}
+
+      <AlertDialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this invoice?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              {invoice && (
+                <span className="block">
+                  <strong>{invoice.invoice_number}</strong>
+                  <span className="text-muted-foreground">
+                    {' '}
+                    — {formatInvoiceAmount(invoice.amount, invoice.currency)}
+                    {invoice.contact
+                      ? ` for ${invoice.contact.first_name} ${invoice.contact.last_name}`
+                      : ''}
+                  </span>
+                </span>
+              )}
+              <span className="block">
+                The payment link stops working and the player is emailed to say it has
+                been cancelled. It is also taken out of revenue and outstanding totals.
+              </span>
+              <span className="block font-medium text-red-600">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateStatus.isPending}>
+              Keep the invoice
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleVoid()
+              }}
+              disabled={updateStatus.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {updateStatus.isPending ? 'Cancelling…' : 'Cancel the invoice'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }

@@ -28,6 +28,7 @@ import {
   useBulkDeleteInvoices,
 } from '@/lib/hooks/useInvoices'
 import { toast } from '@/lib/hooks/use-toast'
+import { formatInvoiceAmount } from '@/lib/invoices/payment-link-email'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { createClient } from '@/lib/supabase/client'
 import type { InvoiceFilters as InvoiceFiltersType, Invoice } from '@/lib/types/invoices'
@@ -40,6 +41,7 @@ export default function InvoicesPage() {
   const [paymentPlanModalOpen, setPaymentPlanModalOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single'; invoice: Invoice } | { type: 'bulk'; ids: string[] } | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<Invoice | null>(null)
 
   // Debounce search
   const debouncedFilters = {
@@ -111,6 +113,31 @@ export default function InvoicesPage() {
 
   const handleDelete = (invoice: Invoice) => {
     setDeleteTarget({ type: 'single', invoice })
+  }
+
+  // Cancelling is destructive — the payment link dies and the player is emailed
+  // — so it confirms first, the same as delete.
+  const handleCancel = (invoice: Invoice) => {
+    setCancelTarget(invoice)
+  }
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return
+    try {
+      await updateStatus.mutateAsync({ invoiceId: cancelTarget.id, status: 'cancelled' })
+      toast({
+        title: 'Invoice cancelled',
+        description: `Invoice ${cancelTarget.invoice_number} can no longer be paid.`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Failed to cancel',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    } finally {
+      setCancelTarget(null)
+    }
   }
 
   const confirmDelete = async () => {
@@ -239,6 +266,7 @@ export default function InvoicesPage() {
         onView={handleView}
         onSend={handleSend}
         onMarkPaid={handleMarkPaid}
+        onCancel={handleCancel}
         onDelete={handleDelete}
         onBulkSend={handleBulkSend}
         onBulkMarkPaid={handleBulkMarkPaid}
@@ -271,6 +299,47 @@ export default function InvoicesPage() {
       />
 
       {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this invoice?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              {cancelTarget && (
+                <span className="block">
+                  <strong>{cancelTarget.invoice_number}</strong>
+                  <span className="text-muted-foreground">
+                    {' '}&mdash; {formatInvoiceAmount(cancelTarget.amount, cancelTarget.currency)}
+                    {cancelTarget.contact
+                      ? ` for ${cancelTarget.contact.first_name} ${cancelTarget.contact.last_name}`
+                      : ''}
+                  </span>
+                </span>
+              )}
+              <span className="block">
+                The payment link stops working and the player is emailed to say it has
+                been cancelled. It is also taken out of revenue and outstanding totals.
+              </span>
+              <span className="block font-medium text-red-600">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateStatus.isPending}>
+              Keep the invoice
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                confirmCancel()
+              }}
+              disabled={updateStatus.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {updateStatus.isPending ? 'Cancelling\u2026' : 'Cancel the invoice'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

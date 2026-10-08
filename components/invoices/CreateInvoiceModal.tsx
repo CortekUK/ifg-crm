@@ -111,7 +111,10 @@ export function CreateInvoiceModal({
     checkExistingInvoices()
   }, [selectedContactId])
 
-  // Filter deals: hide ones that already have an active invoice
+  // Deals that don't already carry an active invoice. Used to pick the default
+  // link, but NOT to hide the rest: a second invoice against the same deal is a
+  // legitimate thing to raise (an installment, a corrected amount), and hiding
+  // the deal did not stop the link — it only stopped the user seeing it.
   const availableDeals = deals.filter(d => !dealsWithInvoice.has(d.id))
 
   // Auto-link the contact's most recent unlinked deal so the invoice
@@ -284,6 +287,18 @@ export function CreateInvoiceModal({
     parseFloat(amount) > 0 &&
     dueDate
 
+  // A greyed-out button with no explanation is the worst version of
+  // validation — with a missing or negative amount both buttons simply went
+  // dead and nothing said why. Same wording as the campaign composer.
+  const blockers: string[] = []
+  if (!selectedContactId) blockers.push('a contact')
+  if (!description.trim()) blockers.push('a description')
+  const parsedAmount = parseFloat(amount)
+  if (!amount) blockers.push('an amount')
+  else if (!Number.isFinite(parsedAmount)) blockers.push('an amount in numbers')
+  else if (parsedAmount <= 0) blockers.push('an amount above £0')
+  if (!dueDate) blockers.push('a due date')
+
   const isSubmitting = createInvoice.isPending
 
   return (
@@ -369,26 +384,41 @@ export function CreateInvoiceModal({
               {selectedContactId && deals.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Link to Deal (optional)</Label>
-                  {availableDeals.length > 0 ? (
-                    <Select
-                      value={selectedDealId || '__none__'}
-                      onValueChange={(v) => setSelectedDealId(v === '__none__' ? null : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a deal..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">No deal</SelectItem>
-                        {availableDeals.map((deal) => (
-                          <SelectItem key={deal.id} value={deal.id}>
-                            {deal.title} - {deal.pipeline?.name || 'Unknown pipeline'}
-                          </SelectItem>
-                        ))}
+                  {/* Every deal is listed, including ones that already have an
+                      invoice. Previously those were hidden and replaced with
+                      "Initial invoice already sent/paid… you can still create an
+                      invoice without linking", which was simply untrue: the
+                      auto-link had already chosen that deal before the check
+                      came back, so the invoice went out linked anyway and the
+                      note sat there contradicting it. */}
+                  <Select
+                    value={selectedDealId || '__none__'}
+                    onValueChange={(v) => setSelectedDealId(v === '__none__' ? null : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a deal..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No deal</SelectItem>
+                      {deals.map((deal) => (
+                        <SelectItem key={deal.id} value={deal.id}>
+                          {deal.title} - {deal.pipeline?.name || 'Unknown pipeline'}
+                          {dealsWithInvoice.has(deal.id) ? ' · already invoiced' : ''}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  ) : (
-                    <p className="text-xs text-muted-foreground py-2">Initial invoice already sent/paid for this programme. You can still create an invoice without linking — the contact will be notified and can pay.</p>
-                  )}
+                  {selectedDealId && dealsWithInvoice.has(selectedDealId) ? (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      This deal already has an invoice. Raising another is fine for an
+                      installment or a correction — the player will be asked to pay both.
+                    </p>
+                  ) : !selectedDealId ? (
+                    <p className="text-xs text-muted-foreground">
+                      With no deal linked, the invoice has no programme — so the payment
+                      page shows no terms to agree to.
+                    </p>
+                  ) : null}
                 </div>
               )}
 
@@ -600,7 +630,18 @@ export function CreateInvoiceModal({
           </div>
         </div>
 
-        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0">
+        <SheetFooter className="border-t px-6 py-4 bg-slate-50 dark:bg-slate-800 shrink-0 flex-col gap-3">
+          {blockers.length > 0 && (
+            <p className="w-full text-xs text-muted-foreground">
+              <span className="font-medium text-amber-600 dark:text-amber-400">
+                Still needed:
+              </span>{' '}
+              {blockers.length === 1
+                ? blockers[0]
+                : `${blockers.slice(0, -1).join(', ')} and ${blockers[blockers.length - 1]}`}
+              .
+            </p>
+          )}
           <div className="flex gap-3 w-full">
             <Button
               variant="outline"
