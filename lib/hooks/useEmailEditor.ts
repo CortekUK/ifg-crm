@@ -60,6 +60,16 @@ export function useEmailEditor(templateId?: string) {
   // pill in the header. null until the first save lands.
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [isAutoSaving, setIsAutoSaving] = useState(false)
+  // Whether the row currently in the DB is still a draft.
+  //
+  // Needed because publishing is a change the editor cannot see in the
+  // canvas. Without it, the "nothing changed since the last save" guard
+  // below swallowed Update on a draft whose content auto-save had already
+  // persisted, so the template stayed a draft — and draft templates are
+  // hidden from the campaign picker, which made it unusable for ever.
+  // A brand-new template is a draft until a publishing save lands (the
+  // is_draft column defaults to true).
+  const [isDraftInDb, setIsDraftInDb] = useState(true)
 
   // The "live" template id. Starts as the prop (when editing existing)
   // or null (when creating new). After a successful first INSERT we
@@ -193,6 +203,7 @@ export function useEmailEditor(templateId?: string) {
 
         setBlocks(loadedBlocks)
         setSettings(loadedSettings)
+        setIsDraftInDb(data.is_draft !== false)
 
         // Seed history with the loaded blocks as the single starting
         // entry. Settings aren't tracked.
@@ -413,11 +424,21 @@ export function useEmailEditor(templateId?: string) {
         return
       }
 
+      // Publishing a draft is a change in its own right, even when the
+      // canvas is untouched. Auto-save persists content within a couple of
+      // seconds of the last edit, so by the time anyone clicks Update there
+      // are usually no content changes left — and the guard below then
+      // returned "Already saved" and left is_draft alone. The template stayed
+      // a draft, invisible to the campaign template picker, and no amount of
+      // editing-then-Updating could rescue it because auto-save kept
+      // absorbing the edit.
+      const wouldPublish = isDraft === false && isDraftInDb
+
       // Guard: nothing changed since the last save. The user clicking
       // "Save Draft" with no edits used to fire a network round-trip
       // that surfaced confusing race-condition errors when concurrent
       // saves landed; now we just no-op with a friendly toast.
-      if (!hasUnsavedChanges && !silent) {
+      if (!hasUnsavedChanges && !wouldPublish && !silent) {
         toast({
           title: 'Already saved',
           description: 'No changes to save.',
@@ -425,7 +446,7 @@ export function useEmailEditor(templateId?: string) {
         if (exit) router.push('/templates')
         return
       }
-      if (!hasUnsavedChanges && silent) return
+      if (!hasUnsavedChanges && !wouldPublish && silent) return
 
       savingRef.current = true
       if (silent) {
@@ -507,9 +528,14 @@ export function useEmailEditor(templateId?: string) {
           if (error) throw error
 
           if (!silent) {
+            // Say so when the draft flag comes off: "Template saved" on a
+            // template that was still a draft gave no clue whether it could
+            // be used in a campaign yet.
             toast({
-              title: 'Template saved',
-              description: `"${derivedName}" has been updated.`,
+              title: wouldPublish ? 'Template published' : 'Template saved',
+              description: wouldPublish
+                ? `"${derivedName}" is no longer a draft and can now be used in a campaign.`
+                : `"${derivedName}" has been updated.`,
             })
           }
         } else {
@@ -558,6 +584,9 @@ export function useEmailEditor(templateId?: string) {
 
         setHasUnsavedChanges(false)
         setLastSavedAt(new Date())
+        // Keep the local view of the row's draft flag honest, so a second
+        // Update doesn't think it still has a draft to publish.
+        if (isDraft !== undefined) setIsDraftInDb(isDraft)
 
         if (exit) {
           router.push('/templates')
@@ -601,7 +630,7 @@ export function useEmailEditor(templateId?: string) {
         setIsAutoSaving(false)
       }
     },
-    [activeTemplateId, blocks, settings, supabase, router, hasUnsavedChanges, branding],
+    [activeTemplateId, blocks, settings, supabase, router, hasUnsavedChanges, isDraftInDb, branding],
   )
 
   // Auto-save: fires AUTOSAVE_DEBOUNCE_MS after the last edit. Only
