@@ -34,6 +34,18 @@ export async function updateSession(request: NextRequest) {
   // Skip auth redirect for API routes (they handle their own auth and return JSON errors)
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
+  // Routes that must behave the same whether or not somebody is signed in.
+  // These arrive as links in emails, so the person following one is just as
+  // likely to have a player portal session in that browser as not — and the
+  // role routing below sends every signed-in player back to /portal. That
+  // turned every unsubscribe link into a trip to the portal (the person keeps
+  // getting emails, which is how a mailing list earns spam complaints) and
+  // every "Pay Now" button into the same dead end. The signed token in the
+  // link is the authorisation here; a session is beside the point.
+  const isAuthNeutralRoute =
+    request.nextUrl.pathname.startsWith('/unsubscribe') ||
+    request.nextUrl.pathname.startsWith('/pay/')
+
   // Public routes that don't require auth
   const isPublicRoute =
     request.nextUrl.pathname.startsWith('/login') ||
@@ -43,18 +55,13 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/set-password') ||
     request.nextUrl.pathname.startsWith('/unauthorized') ||
     request.nextUrl.pathname === '/portal/login' ||
-    // Email unsubscribe. The people using this link have no CRM account by
-    // definition, so a redirect to /login would make every unsubscribe link
-    // in every email a dead end — and an unsubscribe you can't complete is a
-    // spam complaint instead. The signed token in the link is its auth.
-    request.nextUrl.pathname.startsWith('/unsubscribe') ||
-    // Invoice payment links. /pay/<invoice> is emailed to players and parents
-    // who have no CRM account at all — it was redirecting them to /login, so
-    // every "Pay Now" button in an invoice email led to a sign-in page they
-    // could never get past. It only ever looked fine to staff, who are
-    // already signed in. The route resolves the invoice with the service key
-    // and 307s to Stripe; it exposes nothing beyond the payment page.
-    request.nextUrl.pathname.startsWith('/pay/')
+    // Email unsubscribe and /pay/<invoice>. Both are emailed to players and
+    // parents who may have no CRM account at all, so a redirect to /login
+    // made every unsubscribe link and every "Pay Now" button a dead end. It
+    // only ever looked fine to staff, who are already signed in. /pay
+    // resolves the invoice with the service key and 307s to Stripe; it
+    // exposes nothing beyond the payment page.
+    isAuthNeutralRoute
 
   if (!user && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
@@ -70,7 +77,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Role-based route protection
-  if (user && !isApiRoute) {
+  if (user && !isApiRoute && !isAuthNeutralRoute) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
