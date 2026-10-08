@@ -98,6 +98,16 @@ function paginationFromArgs(args: Args, defaultOrder: { column: string; ascendin
   return { limit, orderBy: { column: orderColumn, ascending } }
 }
 
+/**
+ * Quote a value for use inside a PostgREST `or=(...)` expression.
+ *
+ * Half the US state names contain a space ("New York", "North Carolina"), and
+ * an unquoted space inside an or-expression is not parsed as part of the value.
+ */
+function quoteOrValue(s: string) {
+  return `"${s.replace(/"/g, '\\"')}"`
+}
+
 function ilikePattern(s: string) {
   // Wrap with %, escape user-supplied %/_ to literal so partial input doesn't
   // accidentally widen the match.
@@ -131,7 +141,7 @@ function tokenSearchFilters(search: string, columns: string[]): FilterMap {
  * The same state written three ways.
  *
  * "How many contacts are in California?" answered zero, while 3,977 rows hold
- * "CA", 513 hold "CALIGFORNIA" in caps and 214 "California". Scout searched one
+ * "CA", 513 hold "CALIFORNIA" in caps and 214 "California". Scout searched one
  * spelling and said none confidently, which is the worst possible answer.
  * Matching the code and the name together is what makes the question work.
  */
@@ -180,8 +190,14 @@ async function execQueryContacts(args: Args) {
   if (state) {
     filters.push({
       type: 'or',
+      // Exact per variant, case-insensitive — NOT a substring match. A state is
+      // a closed vocabulary, and `%CA%` swept in every North Carolina (166) and
+      // South Carolina (45) row plus "Casablanca-Settat", so asking for
+      // California answered 4,928 where the truth is 4,704, and 290 instead of
+      // 288 for the graduating-2027 cut. Over-counting confidently is the same
+      // failure as the zero this replaced.
       expr: stateVariants(state)
-        .map((v) => `state.ilike.${ilikePattern(v)}`)
+        .map((v) => `state.ilike.${quoteOrValue(v)}`)
         .join(','),
     })
   }
