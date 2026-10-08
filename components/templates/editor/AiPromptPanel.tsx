@@ -968,6 +968,42 @@ function EmptyThread({
 }
 
 // ---------------------------------------------------------------------------
+// Markdown emphasis in a chat reply
+//
+// The system prompt tells the model to use markdown in `reply` — bold subject
+// lines, "**Reference 1 — …**" headers for answer-mode suggestions. The thread
+// rendered that as plain text, so the reader saw the asterisks instead of the
+// emphasis they were standing in for.
+//
+// Deliberately React nodes rather than dangerouslySetInnerHTML: the string
+// comes from a model, and nothing here should be able to inject markup. Only
+// bold and italic, and only paired markers on one line, so "5 * 3" and
+// snake_case names are left alone — same conservative rule the canvas cleaner
+// in lib/templates/ai-schema.ts uses.
+// ---------------------------------------------------------------------------
+
+const EMPHASIS = /\*\*(?!\s)((?:[^*\n]|\*(?!\*))+?)(?<!\s)\*\*|(?<![\w*])[*_](?!\s)([^*_\n]+?)(?<!\s)[*_](?![\w*])/g
+
+function RichReply({ text }: { text: string }) {
+  const parts: React.ReactNode[] = []
+  let last = 0
+  // matchAll rather than exec: it works from a clone of the regex, so there is
+  // no shared lastIndex to reset between renders.
+  for (const match of text.matchAll(EMPHASIS)) {
+    const at = match.index ?? 0
+    if (at > last) parts.push(text.slice(last, at))
+    if (match[1] !== undefined) {
+      parts.push(<strong key={at} className="font-semibold">{match[1]}</strong>)
+    } else {
+      parts.push(<em key={at}>{match[2]}</em>)
+    }
+    last = at + match[0].length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return <>{parts}</>
+}
+
+// ---------------------------------------------------------------------------
 // Thread bubble
 // ---------------------------------------------------------------------------
 
@@ -1029,7 +1065,9 @@ function ThreadBubble({ message }: { message: ThreadMessage }) {
           ) : (
             <Icon className="mt-0.5 h-3 w-3 shrink-0 opacity-70" />
           )}
-          <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          <span className="whitespace-pre-wrap break-words">
+            <RichReply text={message.content} />
+          </span>
         </div>
       </div>
     </div>
