@@ -200,6 +200,27 @@ async function fetchFonts() {
       const res = await fetch(path)
       if (!res.ok) throw new Error(`font ${path}: ${res.status}`)
       const buf = new Uint8Array(await res.arrayBuffer())
+
+      // Check it really is a font before handing it to jsPDF.
+      //
+      // A redirect answers with 200 and an HTML body, which would otherwise be
+      // base64'd and registered as a "font" — producing either a corrupt PDF
+      // or a silent fallback with no clue why. That is not hypothetical: the
+      // middleware matcher did not exclude .ttf, so this fetch was answered
+      // with a 307 to /login in production while working perfectly in tests.
+      // TrueType starts 0x00010000, OpenType 'OTTO', and some tools 'true'.
+      const magic = String.fromCharCode(...buf.subarray(0, 4))
+      const isFont =
+        (buf[0] === 0x00 && buf[1] === 0x01 && buf[2] === 0x00 && buf[3] === 0x00) ||
+        magic === 'OTTO' ||
+        magic === 'true' ||
+        magic === 'ttcf'
+      if (!isFont) {
+        throw new Error(
+          `font ${path}: not a font (first bytes ${JSON.stringify(magic)}) — ` +
+            'probably an auth redirect answering with HTML',
+        )
+      }
       // Chunked so a 400KB font cannot blow the argument limit on
       // String.fromCharCode, which happens well under a megabyte.
       let binary = ''
