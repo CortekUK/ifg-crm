@@ -62,6 +62,15 @@ function latestAuthMethod(accessToken: string | undefined): string | null {
   }
 }
 
+/**
+ * Six characters was the only rule, with nothing else required — short enough
+ * to be guessed offline, on accounts that can read every player's record and
+ * take payments. Ten with no composition rules is the length-over-symbols
+ * guidance, and it is enforced here AND in the Supabase auth config, because
+ * this screen is not the only way a password can be set.
+ */
+const MIN_PASSWORD_LENGTH = 10
+
 export default function SetPasswordPage() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
@@ -125,8 +134,8 @@ export default function SetPasswordPage() {
     e.preventDefault()
     setError(null)
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
       return
     }
 
@@ -178,6 +187,22 @@ export default function SetPasswordPage() {
         setError(updateError.message)
         setIsLoading(false)
         return
+      }
+
+      // A password change must end the sessions it was changed because of.
+      //
+      // Nothing signed other devices out, so a browser that was already
+      // logged in stayed logged in after a reset — which makes the reset
+      // useless in the one case it matters most: someone else has the old
+      // password and an open session. `scope: 'others'` leaves THIS tab
+      // signed in (the user carries on to the dashboard) and revokes every
+      // other refresh token. Best-effort, like the bookkeeping below: the
+      // password itself is already changed, so a failure here must not strand
+      // the user on the form.
+      try {
+        await withTimeout(supabase.auth.signOut({ scope: 'others' }), 10000)
+      } catch (err) {
+        console.warn('signing other sessions out failed (continuing):', err)
       }
 
       // Stamp profiles.password_set_at — the truth source for "user really
@@ -331,7 +356,7 @@ export default function SetPasswordPage() {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     required
-                    minLength={6}
+                    minLength={MIN_PASSWORD_LENGTH}
                     className="pl-10 pr-10 h-11 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:ring-blue-500 focus-visible:border-blue-500/50"
                     disabled={isLoading}
                     value={password}
@@ -346,7 +371,7 @@ export default function SetPasswordPage() {
                     {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500">Must be at least 6 characters</p>
+                <p className="text-xs text-gray-500">Must be at least {MIN_PASSWORD_LENGTH} characters</p>
               </div>
 
               {/* Confirm Password Field */}
@@ -362,7 +387,7 @@ export default function SetPasswordPage() {
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     required
-                    minLength={6}
+                    minLength={MIN_PASSWORD_LENGTH}
                     className={`pl-10 pr-10 h-11 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 focus-visible:ring-blue-500 focus-visible:border-blue-500/50 ${
                       confirmPassword && password !== confirmPassword
                         ? 'border-red-500 focus-visible:ring-red-500'
