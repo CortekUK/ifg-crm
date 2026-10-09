@@ -557,14 +557,29 @@ async function execExecuteReadonlySql(args: Args) {
   const safeSql = validation.sql
 
   const admin = getAdmin()
-  // The custom RPC isn't in the generated types; cast to bypass the
-  // typed-RPC overload. Param shape is enforced server-side by the function
-  // signature anyway.
-  const rpc = admin.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>
-  const { data, error } = await rpc('scout_run_readonly_sql', { p_sql: safeSql })
+  // Called ON the client, not detached from it.
+  //
+  // This used to lift the method off into a variable —
+  // `const rpc = admin.rpc as ...; rpc(...)` — purely to dodge the typed-RPC
+  // overload. Doing that loses `this`, so the first thing the method touched
+  // inside supabase-js was undefined and it threw
+  // "Cannot read properties of undefined (reading 'rest')" before any query
+  // left the process.
+  //
+  // Scout never saw a database error, just a crash, so it fell back to its
+  // structured tools — which only sample rows — and answered with figures that
+  // looked plausible and were wrong: £52,906.81 outstanding against a real
+  // £53,674.85, and 40 California contacts against 288. The trailing-semicolon
+  // fix above was needed too, but THIS was what made every free-form question
+  // fail.
+  //
+  // The cast now covers the whole call expression, so the method stays
+  // attached to `admin`. Param shape is enforced by the function signature
+  // server-side anyway.
+  const { data, error } = (await admin.rpc(
+    'scout_run_readonly_sql' as never,
+    { p_sql: safeSql } as never,
+  )) as unknown as { data: unknown; error: { message: string } | null }
   if (error) return { error: error.message }
   // The RPC returns JSON (rows array). Trim if absurdly large.
   const rows = Array.isArray(data) ? (data as unknown[]).slice(0, 200) : data
