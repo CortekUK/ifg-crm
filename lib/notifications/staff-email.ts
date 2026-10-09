@@ -88,6 +88,58 @@ export async function ownerEmail(
 }
 
 /**
+ * Which recruiter a paid invoice belongs to.
+ *
+ * Both payment paths used to ask "who owns this player's newest active deal?",
+ * which is the wrong question. A player can have deals in more than one
+ * programme: QA paid a £1 invoice on Hamza QA 39's UK GAP deal, owned by Oli
+ * Kendrick, and the alert went to Nathan Bibby — who owns the same player's
+ * UNIVERSITY deal. The recruiter actually handling the payment was never told,
+ * and one who had nothing to do with it was.
+ *
+ * An invoice knows its own deal, so that is what decides it. The newest-deal
+ * lookup stays only as a fallback for an invoice raised against a contact with
+ * no deal attached.
+ *
+ * Shared by the Stripe webhook and the manual payment route deliberately —
+ * they had two copies of the same wrong lookup.
+ */
+export async function ownerForPaidInvoice(
+  supabase: AnyClient,
+  invoice: { deal_id?: string | null } | null,
+  contactId: string | null | undefined,
+): Promise<string | null> {
+  const ownerOf = async (dealId: string): Promise<string | null> => {
+    const { data } = await supabase
+      .from('deals')
+      .select('deal_owner_id, owner_id')
+      .eq('id', dealId)
+      .maybeSingle()
+    // deal_owner_id then owner_id — the precedence the automation engine uses
+    // to decide who an email is sent as.
+    return (data?.deal_owner_id as string | null) ?? (data?.owner_id as string | null) ?? null
+  }
+
+  if (invoice?.deal_id) {
+    const owner = await ownerOf(invoice.deal_id)
+    if (owner) return owner
+  }
+
+  if (!contactId) return null
+
+  const { data: newest } = await supabase
+    .from('deals')
+    .select('deal_owner_id, owner_id')
+    .eq('contact_id', contactId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return (newest?.deal_owner_id as string | null) ?? (newest?.owner_id as string | null) ?? null
+}
+
+/**
  * Who an event alert goes to: the recruiter who owns the player, or the admins
  * when nobody owns them.
  *

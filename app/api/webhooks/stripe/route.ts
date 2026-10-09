@@ -6,6 +6,7 @@ import {
   staffAlertEnabled,
   sendStaffAlert,
   alertRecipients,
+  ownerForPaidInvoice,
 } from '@/lib/notifications/staff-email'
 import {
   PAYMENT_PROGRAMMES,
@@ -176,7 +177,9 @@ export async function POST(request: NextRequest) {
       // Get invoice and contact details
       const { data: invoice } = await supabase
         .from('invoices')
-        .select('invoice_number, amount, currency, description')
+        // deal_id matters: it is what decides which recruiter is told about
+        // the payment. See ownerForPaidInvoice.
+        .select('invoice_number, amount, currency, description, deal_id')
         .eq('id', invoiceId)
         .single()
 
@@ -212,18 +215,8 @@ export async function POST(request: NextRequest) {
       // in normal running the admins collect a payment alert for every player
       // they do not handle. That is QA-51 Issue 1, and the same flood that
       // left the super admin's bell on 1,352 unread.
-      let payingDealOwnerId: string | null = null
-      if (contactId) {
-        const { data: ownedDeal } = await supabase
-          .from('deals')
-          .select('deal_owner_id')
-          .eq('contact_id', contactId)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        payingDealOwnerId = ownedDeal?.deal_owner_id ?? null
-      }
+      // The owner of THIS invoice's deal, not of the player's newest one.
+      const payingDealOwnerId = await ownerForPaidInvoice(supabase, invoice, contactId)
 
       const { data: notifyProfiles } = payingDealOwnerId
         ? await supabase

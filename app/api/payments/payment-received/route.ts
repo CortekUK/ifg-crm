@@ -18,7 +18,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/supabase/require-admin'
 import { applyPaymentToDeal } from '@/lib/payments/payment-received'
-import { staffAlertEnabled, sendStaffAlert, alertRecipients } from '@/lib/notifications/staff-email'
+import {
+  staffAlertEnabled,
+  sendStaffAlert,
+  alertRecipients,
+  ownerForPaidInvoice,
+} from '@/lib/notifications/staff-email'
 
 export async function POST(request: NextRequest) {
   const denied = await requireAdmin()
@@ -49,7 +54,9 @@ export async function POST(request: NextRequest) {
 
   const { data: invoice } = await supabase
     .from('invoices')
-    .select('invoice_number, currency, amount, contact_id')
+    // deal_id decides which recruiter is told about the payment — see
+    // ownerForPaidInvoice.
+    .select('invoice_number, currency, amount, contact_id, deal_id')
     .eq('id', invoiceId)
     .maybeSingle()
 
@@ -86,18 +93,8 @@ export async function POST(request: NextRequest) {
   // owns the player. Resolved once and used for both the bell and the email,
   // so a payment recorded by hand notifies the same people as one taken by
   // card (QA-51 Issue 1).
-  let payingDealOwnerId: string | null = null
-  if (resolvedContactId) {
-    const { data: ownedDeal } = await supabase
-      .from('deals')
-      .select('deal_owner_id')
-      .eq('contact_id', resolvedContactId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    payingDealOwnerId = ownedDeal?.deal_owner_id ?? null
-  }
+  // The owner of THIS invoice's deal, not of the player's newest one.
+  const payingDealOwnerId = await ownerForPaidInvoice(supabase, invoice, resolvedContactId)
 
   const { data: notifyProfiles } = payingDealOwnerId
     ? await supabase
