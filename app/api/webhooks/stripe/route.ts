@@ -326,49 +326,21 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Email to admins: payment received
-        if (adminUsers) {
-          for (const admin of adminUsers) {
-            try {
-              await resend.emails.send({
-                from: `IFG CRM <${fromEmail}>`,
-                to: [admin.email],
-                subject: `Payment Received - ${invoice.invoice_number}`,
-                html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <div style="background: #16a34a; color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-                      <h1 style="margin: 0; font-size: 24px;">Payment Received</h1>
-                    </div>
-                    <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-                      <p><strong>${contactName || 'A player'}</strong> has paid invoice <strong>${invoice.invoice_number}</strong>.</p>
-                      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-                        <tr>
-                          <td style="padding: 8px 0; color: #64748b;">Player</td>
-                          <td style="padding: 8px 0; text-align: right;">${contactName || 'Unknown'} (${contactEmail || '-'})</td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 8px 0; color: #64748b;">Invoice</td>
-                          <td style="padding: 8px 0; text-align: right;">${invoice.invoice_number}</td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 8px 0; color: #64748b;">Amount</td>
-                          <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #16a34a;">${formattedAmount}</td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 8px 0; color: #64748b;">Method</td>
-                          <td style="padding: 8px 0; text-align: right;">Stripe</td>
-                        </tr>
-                      </table>
-                      <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://ifg-crm.vercel.app'}/invoices" style="display: inline-block; background: #1e40af; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; margin-top: 8px;">View in CRM</a>
-                    </div>
-                  </div>
-                `,
-              })
-            } catch (emailErr) {
-              console.error(`Failed to send admin email to ${admin.email}:`, emailErr)
-            }
-          }
-        }
+        // The second admin email that used to live here has been removed.
+        //
+        // Every card payment sent each admin TWO alerts for the same money:
+        //   "Payment received — £2,000.00 from Hamza QA"   (sendStaffAlert, above)
+        //   "Payment Received - IFG-2026-00171"            (this block)
+        // Three recipients meant six emails for one payment.
+        //
+        // The one above is the one to keep. This block looped over the admins
+        // directly, so it also ignored the notification settings completely:
+        // turning "Payment received" off in Settings → Notifications silenced
+        // the first email and this one kept going out — which is the bug this
+        // ticket is actually about. sendStaffAlert checks
+        // staffAlertEnabled('paymentReceived'), deduplicates its recipient
+        // list, and includes the recruiter who owns the player as well as the
+        // admins, so nothing is lost by dropping this.
       }
 
       // ---- AUTO-MOVE DEAL TO "DEPOSIT PAID" ----
