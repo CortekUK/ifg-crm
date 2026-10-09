@@ -274,6 +274,48 @@ export function useBulkDeleteContacts() {
 
   return useMutation({
     mutationFn: async (contactIds: string[]) => {
+      // Refuse before trying, so the user gets a sentence instead of a
+      // foreign-key error. Deleting a contact used to CASCADE through their
+      // invoices and payments and destroy the lot — including money already
+      // received (QA-56). Migration 219 made the database refuse; this turns
+      // that refusal into something a person can act on.
+      const [{ data: paidFor }, { data: billed }] = await Promise.all([
+        supabase.from('payments').select('contact_id').in('contact_id', contactIds).limit(1000),
+        supabase.from('invoices').select('contact_id').in('contact_id', contactIds).limit(1000),
+      ])
+
+      const blocked = new Set<string>([
+        ...(paidFor ?? []).map((r) => r.contact_id as string),
+        ...(billed ?? []).map((r) => r.contact_id as string),
+      ])
+
+      if (blocked.size > 0) {
+        const many = blocked.size > 1
+        throw new Error(
+          `${blocked.size} of these contact${many ? 's' : ''} ${many ? 'have' : 'has'} invoices or payments, ` +
+            'which are financial records and are not deleted with the contact. ' +
+            'Delete or reassign those invoices and payments first.',
+        )
+      }
+
+      // Take away the portal logins first. profiles.contact_id is SET NULL,
+      // so without this the player (and any guardian) kept a working portal
+      // account pointing at a contact that no longer exists — invisible in
+      // the CRM, because the link that would have shown it is the one that
+      // was nulled (QA-56). Needs the service-role key, hence the route.
+      const revoke = await fetch('/api/contacts/revoke-portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactIds }),
+      })
+      if (!revoke.ok) {
+        const detail = await revoke.json().catch(() => ({}))
+        throw new Error(
+          detail?.error ||
+            'Could not remove the portal login for these contacts, so they have not been deleted.',
+        )
+      }
+
       const { error } = await supabase
         .from('contacts')
         .delete()

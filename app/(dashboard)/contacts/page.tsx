@@ -277,8 +277,18 @@ function ContactsPageContent() {
       toast({ title: 'Contacts deleted', description: `${selectedIds.size} contact(s) deleted.` })
       setSelectedIds(new Set())
       setBulkDeleteDialogOpen(false)
-    } catch {
-      toast({ title: 'Error', description: 'Failed to delete contacts.', variant: 'destructive' })
+    } catch (err) {
+      // Show the actual reason. A delete can be refused because the contact
+      // has invoices or payments (QA-56) — "Failed to delete contacts" gave
+      // no clue what to do about that, so the user just tried again.
+      toast({
+        title: 'Could not delete',
+        description:
+          err instanceof Error && err.message
+            ? err.message
+            : 'Failed to delete contacts.',
+        variant: 'destructive',
+      })
     }
   }, [selectedIds, bulkDelete])
 
