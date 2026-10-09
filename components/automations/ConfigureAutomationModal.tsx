@@ -1972,8 +1972,15 @@ export function ConfigureAutomationModal({
                       <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase">
                         Exit Goals
                       </h3>
+                      {/* Counts the goals actually rendered. Stage Reminder no
+                          longer offers Goal 3 (migration 202 — a single nudge
+                          must not move the player the moment it is sent), so
+                          the hard-coded "Three" was describing a third option
+                          that is not on screen. */}
                       <p className="text-sm text-muted-foreground">
-                        Three independent ways to end this automation early. Each outcome routes the deal to its own stage.
+                        {selectedTemplate?.type === 'stage_reminder' ? 'Two' : 'Three'} independent
+                        ways to end this automation early. Each outcome routes the deal to its own
+                        stage.
                       </p>
 
                       {/* Goal 1 — Reply received */}
