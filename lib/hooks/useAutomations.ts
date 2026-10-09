@@ -287,6 +287,14 @@ export function useToggleAutomation() {
       // the detail sheet displays its enrollments — invalidate everything
       // tied to this automation so the UI doesn't lag behind the DB.
       queryClient.invalidateQueries({ queryKey: ['automations'] })
+      // The SINGULAR key is what the detail sheet reads (useAutomation).
+      // ['automations'] does not cover it: React Query matches keys by prefix
+      // and 'automation' is a different first element, not a child of
+      // 'automations'. So the sheet kept showing "Automation is paused" with
+      // a Paused badge after it had been switched on, until the page was
+      // reloaded — staff reasonably concluded it hadn't worked and clicked
+      // again.
+      queryClient.invalidateQueries({ queryKey: ['automation', automationId] })
       queryClient.invalidateQueries({ queryKey: ['automation-enrollments', automationId] })
       queryClient.invalidateQueries({ queryKey: ['automation-stats', automationId] })
     },

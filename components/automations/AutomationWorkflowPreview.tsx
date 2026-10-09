@@ -15,6 +15,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import type { AutomationStep, Automation } from '@/lib/types/automations'
+import { labelForFormId } from '@/lib/forms/forms-config'
 
 interface AutomationWorkflowPreviewProps {
   automation: Automation
@@ -34,6 +35,15 @@ export function AutomationWorkflowPreview({
   const getTriggerDescription = () => {
     if (automation.automation_type === 'deal_creation') {
       return 'Contact submits form'
+    }
+    // Any OTHER form-triggered template — List Assignment (No Deal) today.
+    // This was only matched for deal_creation, so List Assignment showed
+    // "Unknown trigger" even though it was saved correctly as a form
+    // submission, which read as though it were misconfigured. Naming the form
+    // is the useful part: "Form submitted: Gap Year Programme".
+    if (automation.trigger_type === 'form_submission') {
+      const formId = automation.config?.form_id
+      return formId ? `Form submitted: ${labelForFormId(formId)}` : 'Contact submits form'
     }
     if (automation.trigger_type === 'enters_stage') {
       return `Deal enters "${automation.trigger_stage?.name || 'Unknown'}" stage`
@@ -306,7 +316,17 @@ export function AutomationWorkflowPreview({
       ))}
 
       {/* Exit Conditions */}
-      {(automation.stop_on_stage_ids?.length || automation.exit_on_reply || automation.config?.stop_on_payment) && (
+      {/* "Contact replies to email" is meaningless on a template that never
+          emails anybody. List Assignment (No Deal) just files the contact onto
+          lists and enrols nobody, so the condition could never fire — it only
+          made the setup look like it did more than it does. Judged on whether
+          the automation actually has email steps rather than on the template
+          name, so anything else email-free behaves the same. */}
+      {(() => {
+      const sendsEmail = sortedSteps.some((step) => step.step_type === 'send_email')
+      const showExitOnReply = !!automation.exit_on_reply && sendsEmail
+      return (
+      (automation.stop_on_stage_ids?.length || showExitOnReply || automation.config?.stop_on_payment) && (
         <div className="relative">
           <div className="flex items-start gap-4 pt-1 pb-4">
             <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900 text-green-600 shadow-sm">
@@ -319,7 +339,7 @@ export function AutomationWorkflowPreview({
                     Exit conditions
                   </p>
                   <div className="space-y-1">
-                    {automation.exit_on_reply && (
+                    {showExitOnReply && (
                       <p className="text-xs text-muted-foreground">
                         • Contact replies to email
                       </p>
@@ -346,7 +366,9 @@ export function AutomationWorkflowPreview({
             </div>
           </div>
         </div>
-      )}
+      )
+      )
+      })()}
 
       {/* Automation ends indicator */}
       <div className="flex items-center gap-4 pt-1 pl-1">

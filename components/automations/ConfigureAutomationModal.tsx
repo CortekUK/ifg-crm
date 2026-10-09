@@ -313,6 +313,26 @@ export function ConfigureAutomationModal({
     )
   }, [allAutomations, formData.trigger_stage_id, editingAutomation])
 
+  // The same question for a form-triggered automation: is another automation
+  // already listening to this form?
+  //
+  // Pointing List Assignment and Deal Creation at one form is legitimate and
+  // they cooperate correctly — QA confirmed the lists are added and the deal
+  // is not duplicated. But nothing said they were both there, so a configurer
+  // had no way to know what else fires on a submission, or to spot the case
+  // that is NOT fine: two automations of the same kind on one form.
+  const formClashes = useMemo(() => {
+    const formId = formData.config.form_id
+    if (!formId) return []
+    return allAutomations.filter(
+      (a) =>
+        a.trigger_type === 'form_submission' &&
+        (a.config as { form_id?: string } | null)?.form_id === formId &&
+        a.id !== editingAutomation?.id &&
+        a.is_active,
+    )
+  }, [allAutomations, formData.config.form_id, editingAutomation])
+
   // What Goal 1 is actually set to, with the default applied.
   //
   // Derived rather than written into state by an effect, so opening the modal
@@ -1013,6 +1033,20 @@ export function ConfigureAutomationModal({
                             )
                           })}
                         </div>
+
+                        {formClashes.length > 0 && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                            <AlertTriangle className="h-3.5 w-3.5 mt-[1px] shrink-0" />
+                            <span>
+                              {formClashes.length === 1
+                                ? `"${formClashes[0].name}" also runs on this form.`
+                                : `${formClashes.length} other automations also run on this form: ${formClashes
+                                    .map((a) => `"${a.name}"`)
+                                    .join(', ')}.`}{' '}
+                              Every submission will trigger all of them.
+                            </span>
+                          </p>
+                        )}
                       </div>
 
                     </div>
