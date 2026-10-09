@@ -300,11 +300,59 @@ async function execQueryInvoices(args: Args) {
   const minAmount = num(args.min_amount)
   if (minAmount !== undefined) filters.push({ type: 'gte', column: 'amount', value: minAmount })
 
-  return runQuery({
+  const result = await runQuery({
     view: 'v_scout_invoices',
     filters,
     ...paginationFromArgs(args, { column: 'created_at', ascending: false }),
   })
+
+  // The total, worked out in the database over EVERY matching invoice.
+  //
+  // This tool returns one page of rows, and Scout was adding the amounts up
+  // itself to answer "how much is outstanding" — off a page, so the answer was
+  // wrong by whatever fell outside it: £52,906.81 and then £54,957.56 against
+  // a real £53,674.85 (QA-36 Bug 1). Arithmetic over a sample is the one thing
+  // a language model should never be left to do, and it looks right either way,
+  // which is what makes it dangerous.
+  //
+  // Same filters, no limit, summed by Postgres. Scout is told in the tool
+  // description to quote this figure rather than add anything up.
+  const totals = await sumInvoiceAmounts(filters)
+  if (totals) return { ...(result as Record<string, unknown>), totals }
+  return result
+}
+
+/**
+ * COUNT and SUM over every invoice matching the given filters.
+ *
+ * Returns null on failure so the caller still returns its rows — a missing
+ * total is better than no answer.
+ */
+async function sumInvoiceAmounts(filters: FilterMap) {
+  try {
+    const admin = getAdmin()
+    let q = admin.from('v_scout_invoices').select('amount')
+    for (const f of filters) {
+      if (f.type === 'eq') q = q.eq(f.column, f.value)
+      else if (f.type === 'neq') q = q.neq(f.column, f.value)
+      else if (f.type === 'ilike') q = q.ilike(f.column, f.pattern)
+      else if (f.type === 'gte') q = q.gte(f.column, f.value)
+      else if (f.type === 'lte') q = q.lte(f.column, f.value)
+      else if (f.type === 'or') q = q.or(f.expr)
+      else if (f.type === 'is_null') q = f.isNull ? q.is(f.column, null) : q.not(f.column, 'is', null)
+    }
+    const { data, error } = await q
+    if (error || !data) return null
+    const rows = data as { amount: number | string | null }[]
+    const total = rows.reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
+    return {
+      matching_invoices: rows.length,
+      total_amount: Math.round(total * 100) / 100,
+      note: 'Counted and summed in the database over every matching invoice. Quote these figures directly; do not add up the rows above.',
+    }
+  } catch {
+    return null
+  }
 }
 
 async function execQueryAutomations(args: Args) {
