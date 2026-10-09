@@ -58,10 +58,14 @@ export default function PortalDashboardPage() {
       if (!playerContactId) return
 
       // Fetch invoices
+      // Drafts are excluded: staff leave an invoice as a draft while the
+      // amount is still being settled, and showing it here added money the
+      // office had not sent to the player's "Outstanding" (QA-58).
       const { data: invoices } = await supabase
         .from('invoices')
         .select('id, invoice_number, description, amount, currency, status, due_date')
         .eq('contact_id', playerContactId)
+        .neq('status', 'draft')
         .order('created_at', { ascending: false })
 
       const allInvoices = invoices || []

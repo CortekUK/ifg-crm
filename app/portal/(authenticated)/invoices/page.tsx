@@ -131,10 +131,12 @@ export default function PortalInvoicesPage() {
         })
       }
 
+      // Drafts withheld — see the dashboard query and QA-58.
       const { data } = await supabase
         .from('invoices')
         .select('id, invoice_number, description, amount, currency, status, type, due_date, paid_at, sent_at, payment_method, notes, created_at, deal:deals(pipeline:pipelines(name))')
         .eq('contact_id', playerContactId)
+        .neq('status', 'draft')
         .order('created_at', { ascending: false })
 
       setInvoices((data || []).map((inv) => {

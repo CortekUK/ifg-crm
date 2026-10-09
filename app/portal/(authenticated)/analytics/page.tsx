@@ -71,10 +71,13 @@ export default function PortalAnalyticsPage() {
       if (!playerContactId) return
 
       const [invoicesRes, paymentsRes] = await Promise.all([
+        // Drafts withheld, so the player's own figures agree with the
+        // dashboard and the Invoices page (QA-58).
         supabase
           .from('invoices')
           .select('id, amount, status, currency, due_date, created_at, type')
-          .eq('contact_id', playerContactId),
+          .eq('contact_id', playerContactId)
+          .neq('status', 'draft'),
         supabase
           .from('payments')
           .select('id, amount, payment_date, payment_method')
