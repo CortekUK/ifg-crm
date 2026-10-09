@@ -27,6 +27,10 @@ export type PortalStatusResponse = {
   guardian: GuardianStatus
 }
 
+// Portal state changes the moment staff invite, resend or remove access, and
+// the caller polls the same URL — so it must never be served from a cache.
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient()

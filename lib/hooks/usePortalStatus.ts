@@ -35,7 +35,14 @@ export function usePortalStatus(contactId: string | null) {
     queryKey: ['portal-status', contactId],
     enabled: !!contactId,
     queryFn: async () => {
-      const res = await fetch(`/api/portal/status?contact_id=${contactId}`)
+      // no-store matters here. The URL never changes for a given contact, so
+      // after inviting a guardian the browser was free to answer the refetch
+      // from its own HTTP cache — React Query invalidated correctly and still
+      // got the previous answer back, so the panel kept showing the old state
+      // until a reload (QA-57 Issue 4).
+      const res = await fetch(`/api/portal/status?contact_id=${contactId}`, {
+        cache: 'no-store',
+      })
       if (!res.ok) return empty
       return res.json()
     },
