@@ -295,8 +295,9 @@ export function useMoveDeal() {
         .select('current_stage_id')
         .eq('id', dealId)
         .single()
-      const oldStageId: string | null = deal?.current_stage_id ?? null
-
+      // oldStageId used to be captured for the activity row this hook wrote.
+      // The database writes that now (migration 242), so only the stage NAME
+      // is still needed, for the toast.
       let oldStage = oldStageName
       if (!oldStage) {
         if (deal?.current_stage_id) {
@@ -360,24 +361,17 @@ export function useMoveDeal() {
       // by erroring; report it rather than toasting "Deal moved".
       if (!moved?.length) throw new Error('You can only move deals that are assigned to you.')
 
-      // Log the activity with stage names
-      const { error: activityError } = await supabase
-        .from('deal_activities')
-        .insert({
-          deal_id: dealId,
-          activity_type: 'stage_changed',
-          description: oldStage && newStage
-            ? `Moved from ${oldStage} to ${newStage}`
-            : 'Deal moved to new stage',
-          old_value: { stage_id: oldStageId, stage_name: oldStage },
-          new_value: { stage_id: newStageId, stage_name: newStage },
-          performed_by_id: userId,
-        })
-
-      if (activityError) {
-        console.error('Failed to log activity:', activityError)
-        // Don't throw - the main operation succeeded
-      }
+      // The 'stage_changed' activity is NOT written here any more.
+      //
+      // The database writes it, for every stage move, in
+      // handle_deal_stage_change (migration 242). Two writers for one fact is
+      // what left a gap: this one only knew about moves the board made, so a
+      // move the user triggered and a trigger carried out — Mark Paid landing
+      // a card on Deposit Paid — was logged by neither. The database sees them
+      // all, and uses auth.uid() to keep the same "Moved from X to Y" wording
+      // and attribution for a move made here.
+      //
+      // Removing this insert is what stops a board drag being logged twice.
 
       return { dealId, newStageId, newStageName: newStage }
     },
