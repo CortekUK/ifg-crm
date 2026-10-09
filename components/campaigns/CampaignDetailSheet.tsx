@@ -506,8 +506,17 @@ export function CampaignDetailSheet({
                       {recipientsLoading ? (
                         <Skeleton className="h-[72px]" />
                       ) : statsWithRates && statsWithRates.total > 0 ? (
+                        /* Opened, Clicked and Unsubscribed were missing here.
+                           statsWithRates has always computed them, and the
+                           open/click rates too, but only Sent / Delivered /
+                           Bounced were ever rendered — so once the delivery
+                           webhook started working there was still nowhere on
+                           screen to see an open or a click, and staff had to
+                           read the Emails tab row by row (QA-40). Rates are
+                           out of DELIVERED, not sent, which is the honest
+                           denominator for an open rate. */
                         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
-                          <div className="grid grid-cols-3 text-center divide-x divide-slate-200 dark:divide-slate-700">
+                          <div className="grid grid-cols-3 gap-y-3 sm:grid-cols-6 text-center sm:divide-x divide-slate-200 dark:divide-slate-700">
                             <div className="px-2">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.total)}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
@@ -516,10 +525,26 @@ export function CampaignDetailSheet({
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.delivered)}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Delivered</p>
                             </button>
+                            <button onClick={() => { setSendStatusFilter('opened'); setActiveTab('emails') }} className="px-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.opened)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Opened{statsWithRates.delivered > 0 ? ` · ${statsWithRates.openRate.toFixed(0)}%` : ''}
+                              </p>
+                            </button>
+                            <button onClick={() => { setSendStatusFilter('clicked'); setActiveTab('emails') }} className="px-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.clicked)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Clicked{statsWithRates.delivered > 0 ? ` · ${statsWithRates.clickRate.toFixed(0)}%` : ''}
+                              </p>
+                            </button>
                             <button onClick={() => { setSendStatusFilter('bounced'); setActiveTab('emails') }} className="px-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.bounced)}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Bounced</p>
                             </button>
+                            <div className="px-2">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.unsubscribed)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Unsubscribed</p>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -539,6 +564,10 @@ export function CampaignDetailSheet({
                       {[
                         { key: null, label: 'All' },
                         { key: 'delivered', label: 'Delivered' },
+                        // getFilteredRecipients already handled these two; the
+                        // pills to reach them were never added.
+                        { key: 'opened', label: 'Opened' },
+                        { key: 'clicked', label: 'Clicked' },
                         { key: 'bounced', label: 'Bounced' },
                       ].map((f) => (
                         <button
