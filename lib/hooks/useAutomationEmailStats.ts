@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAll, fetchAllByIds } from '@/lib/reports/csv'
 
 export interface AutomationStepEmailStats {
   stepId: string
@@ -42,10 +43,14 @@ async function resolveEnrollmentIds(
   automationId: string,
   followDealChain: boolean,
 ): Promise<string[]> {
-  const { data: own } = await supabase
-    .from('automation_enrollments')
-    .select('id, deal_id')
-    .eq('automation_id', automationId)
+  // Paged: 1,193 enrollments exist today, and one automation alone holds 454.
+  // Truncating this list silently shrinks every figure computed from it (QA-61).
+  const own = await fetchAll<{ id: string; deal_id: string | null }>(() =>
+    supabase
+      .from('automation_enrollments')
+      .select('id, deal_id')
+      .eq('automation_id', automationId),
+  )
   if (!own || own.length === 0) return []
   if (!followDealChain) return own.map((e: { id: string }) => e.id)
   const dealIds = [
@@ -54,11 +59,11 @@ async function resolveEnrollmentIds(
     ),
   ]
   if (dealIds.length === 0) return own.map((e: { id: string }) => e.id)
-  const { data: chained } = await supabase
-    .from('automation_enrollments')
-    .select('id')
-    .in('deal_id', dealIds)
-  return chained?.map((e: { id: string }) => e.id) ?? own.map((e: { id: string }) => e.id)
+  const chained = await fetchAllByIds<{ id: string }>(
+    (ids) => supabase.from('automation_enrollments').select('id').in('deal_id', ids),
+    dealIds,
+  )
+  return chained.length ? chained.map((e) => e.id) : own.map((e: { id: string }) => e.id)
 }
 
 /**
@@ -95,13 +100,21 @@ export function useAutomationEmailStats(
         }
       }
 
-      const { data: logs, error: logsError } = await supabase
-        .from('automation_logs')
-        .select('id, step_id')
-        .in('enrollment_id', enrollmentIdList)
-        .eq('log_type', 'email_sent')
+      // The University Initial Contact map alone has 1,938 logs across its
+      // 454 enrollments, so this read was already returning 1000 of them and
+      // every per-step figure below was computed from a truncated set — sent,
+      // delivered, opened and clicked all under-reported, with no error to
+      // notice (QA-61).
+      const logs = await fetchAllByIds<{ id: string; step_id: string | null }>(
+        (ids) =>
+          supabase
+            .from('automation_logs')
+            .select('id, step_id')
+            .in('enrollment_id', ids)
+            .eq('log_type', 'email_sent'),
+        enrollmentIdList,
+      )
 
-      if (logsError) throw logsError
       if (!logs || logs.length === 0) {
         return {
           totalSent: 0, totalDelivered: 0, totalOpened: 0,
@@ -117,13 +130,25 @@ export function useAutomationEmailStats(
         if (l.step_id) logToStep.set(l.id, l.step_id)
       })
 
-      // Get all email_sends for these automation_log_ids
-      const { data: sends, error: sendsError } = await supabase
-        .from('email_sends')
-        .select('id, automation_log_id, status, delivered_at, opened_at, clicked_at, bounced_at')
-        .in('automation_log_id', logIds)
-
-      if (sendsError) throw sendsError
+      // Get all email_sends for these automation_log_ids. Batched for both
+      // reasons at once: 2,296 sends exist, and ~1,900 log ids in one `.in()`
+      // builds a URL the server rejects outright.
+      const sends = await fetchAllByIds<{
+        id: string
+        automation_log_id: string | null
+        status: string
+        delivered_at: string | null
+        opened_at: string | null
+        clicked_at: string | null
+        bounced_at: string | null
+      }>(
+        (ids) =>
+          supabase
+            .from('email_sends')
+            .select('id, automation_log_id, status, delivered_at, opened_at, clicked_at, bounced_at')
+            .in('automation_log_id', ids),
+        logIds,
+      )
 
       // Aggregate by step
       const byStep: Record<string, AutomationStepEmailStats> = {}
@@ -134,7 +159,7 @@ export function useAutomationEmailStats(
       let totalBounced = 0
       let totalFailed = 0
 
-      for (const send of (sends || [])) {
+      for (const send of sends) {
         const stepId = send.automation_log_id ? logToStep.get(send.automation_log_id) : undefined
         if (!stepId) continue
 
@@ -250,12 +275,17 @@ export function useAutomationEmailSends(
       const enrollmentIdList = await resolveEnrollmentIds(supabase, automationId, followDealChain)
       if (enrollmentIdList.length === 0) return []
 
-      // Get automation logs with step_id
-      const { data: logs } = await supabase
-        .from('automation_logs')
-        .select('id, step_id')
-        .in('enrollment_id', enrollmentIdList)
-        .eq('log_type', 'email_sent')
+      // Get automation logs with step_id. Paged and batched for the same
+      // reason as the stats query above (QA-61).
+      const logs = await fetchAllByIds<{ id: string; step_id: string | null }>(
+        (ids) =>
+          supabase
+            .from('automation_logs')
+            .select('id, step_id')
+            .in('enrollment_id', ids)
+            .eq('log_type', 'email_sent'),
+        enrollmentIdList,
+      )
 
       if (!logs || logs.length === 0) return []
 
@@ -265,36 +295,52 @@ export function useAutomationEmailSends(
         if (l.step_id) logToStep.set(l.id, l.step_id)
       })
 
-      // Get email sends
-      let query = supabase
-        .from('email_sends')
-        .select('id, recipient_email, recipient_contact_id, automation_log_id, status, sent_at, delivered_at, opened_at, clicked_at, bounced_at, open_count, click_count, error_message')
-        .in('automation_log_id', logIds)
-        .order('sent_at', { ascending: false })
+      // Get email sends. The filter is applied inside the builder because
+      // fetchAllByIds calls it once per batch of log ids.
+      const sends = await fetchAllByIds<{
+        id: string
+        recipient_email: string
+        recipient_contact_id: string | null
+        automation_log_id: string | null
+        status: string
+        sent_at: string | null
+        delivered_at: string | null
+        opened_at: string | null
+        clicked_at: string | null
+        bounced_at: string | null
+        open_count: number | null
+        click_count: number | null
+        error_message: string | null
+      }>((ids) => {
+        let query = supabase
+          .from('email_sends')
+          .select('id, recipient_email, recipient_contact_id, automation_log_id, status, sent_at, delivered_at, opened_at, clicked_at, bounced_at, open_count, click_count, error_message')
+          .in('automation_log_id', ids)
+          .order('sent_at', { ascending: false })
 
-      // Apply status filter for drill-down
-      if (statusFilter) {
-        switch (statusFilter) {
-          case 'delivered':
-            query = query.not('delivered_at', 'is', null)
-            break
-          case 'opened':
-            query = query.not('opened_at', 'is', null)
-            break
-          case 'clicked':
-            query = query.not('clicked_at', 'is', null)
-            break
-          case 'bounced':
-            query = query.eq('status', 'bounced')
-            break
-          case 'failed':
-            query = query.eq('status', 'failed')
-            break
+        // Apply status filter for drill-down
+        if (statusFilter) {
+          switch (statusFilter) {
+            case 'delivered':
+              query = query.not('delivered_at', 'is', null)
+              break
+            case 'opened':
+              query = query.not('opened_at', 'is', null)
+              break
+            case 'clicked':
+              query = query.not('clicked_at', 'is', null)
+              break
+            case 'bounced':
+              query = query.eq('status', 'bounced')
+              break
+            case 'failed':
+              query = query.eq('status', 'failed')
+              break
+          }
         }
-      }
+        return query
+      }, logIds)
 
-      const { data: sends, error } = await query
-      if (error) throw error
       if (!sends || sends.length === 0) return []
 
       // Fetch contact info
@@ -302,12 +348,17 @@ export function useAutomationEmailSends(
       const contactsMap = new Map<string, { id: string; first_name: string | null; last_name: string | null; email: string }>()
 
       if (contactIds.length > 0) {
-        const { data: contacts } = await supabase
-          .from('contacts')
-          .select('id, first_name, last_name, email')
-          .in('id', contactIds)
+        const contacts = await fetchAllByIds<{
+          id: string
+          first_name: string | null
+          last_name: string | null
+          email: string
+        }>(
+          (ids) => supabase.from('contacts').select('id, first_name, last_name, email').in('id', ids),
+          contactIds as string[],
+        )
 
-        contacts?.forEach((c) => contactsMap.set(c.id, c))
+        contacts.forEach((c) => contactsMap.set(c.id, c))
       }
 
       return sends.map((send) => ({

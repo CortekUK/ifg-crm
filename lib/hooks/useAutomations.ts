@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllByIds } from '@/lib/reports/csv'
 import type { Automation, AutomationLog, AutomationFilters, AutomationEnrollment, AutomationType, AutomationConfig, TriggerType } from '@/lib/types/automations'
 import { compileAutomationSteps, deriveRecurringMeta, type CompiledStep } from '@/lib/automations/compile'
 
@@ -66,27 +67,46 @@ export function useAutomations() {
         )
       )
 
-      const [enrollmentsResult, stagesResult, logsResult] = await Promise.all([
-        supabase
-          .from('automation_enrollments')
-          .select('automation_id, status, next_step_at')
-          .in('automation_id', automationIds),
+      // These two reads span EVERY automation at once, so they share one
+      // 1000-row budget rather than having one each — and both are already
+      // over it: 1,193 enrollments and 2,318 logs live today. Unpaged, the
+      // page kept the first 1000 and silently dropped the rest, so "total
+      // enrolled" and "in queue" under-reported on the busiest automations
+      // and "last run" could come from a truncated set. A plain 200 carrying
+      // 1000 rows looks identical to a complete answer (QA-61).
+      //
+      // fetchAllByIds for the id-list reads: past a few hundred ids the
+      // filter alone builds a URL the server rejects, which is a different
+      // failure from the row cap and needs the same batching.
+      const [enrollments, stagesResult, logs] = await Promise.all([
+        fetchAllByIds<{ automation_id: string; status: string; next_step_at: string | null }>(
+          (ids) =>
+            supabase
+              .from('automation_enrollments')
+              .select('automation_id, status, next_step_at')
+              .in('automation_id', ids),
+          automationIds,
+        ),
         triggerStageIds.length > 0
           ? supabase.from('pipeline_stages').select('id, name').in('id', triggerStageIds)
           : Promise.resolve({ data: [] as { id: string; name: string }[] }),
         allStepIds.length > 0
-          ? supabase
-              .from('automation_logs')
-              .select('step_id, sent_at')
-              .in('step_id', allStepIds)
-              .not('sent_at', 'is', null)
-              .order('sent_at', { ascending: false })
-          : Promise.resolve({ data: [] as { step_id: string; sent_at: string }[] }),
+          ? fetchAllByIds<{ step_id: string; sent_at: string }>(
+              (ids) =>
+                supabase
+                  .from('automation_logs')
+                  .select('step_id, sent_at')
+                  .in('step_id', ids)
+                  .not('sent_at', 'is', null)
+                  .order('sent_at', { ascending: false }),
+              allStepIds,
+            )
+          : Promise.resolve([] as { step_id: string; sent_at: string }[]),
       ])
 
       const totalEnrolledMap = new Map<string, number>()
       const inQueueMap = new Map<string, number>()
-      enrollmentsResult.data?.forEach((e) => {
+      enrollments.forEach((e) => {
         totalEnrolledMap.set(e.automation_id, (totalEnrolledMap.get(e.automation_id) || 0) + 1)
         if (e.status === 'active' && e.next_step_at) {
           inQueueMap.set(e.automation_id, (inQueueMap.get(e.automation_id) || 0) + 1)
@@ -94,7 +114,7 @@ export function useAutomations() {
       })
 
       const lastRunMap = new Map<string, string>()
-      logsResult.data?.forEach((log) => {
+      logs.forEach((log) => {
         const automationId = stepToAutomation.get(log.step_id)
         if (!automationId) return
         const existing = lastRunMap.get(automationId)

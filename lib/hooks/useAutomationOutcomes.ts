@@ -10,6 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAll, fetchAllByIds } from '@/lib/reports/csv'
 
 export interface AutomationReply {
   id: string
@@ -46,10 +47,13 @@ export function useAutomationReplies(
       // ALL enrollments for those deals (so replies driven by the
       // initial_contact automation that ran on the same deal surface
       // here too).
-      const { data: own } = await supabase
-        .from('automation_enrollments')
-        .select('id, deal_id')
-        .eq('automation_id', automationId)
+      // Every link in this chain outgrows 1000 rows: enrollments (1,193),
+      // automation_logs (2,318 — 1,938 on one automation) and email_sends
+      // (2,296). Unpaged, the Replies tab silently showed the replies that
+      // happened to survive truncation at each hop (QA-61).
+      const own = await fetchAll<{ id: string; deal_id: string | null }>(() =>
+        supabase.from('automation_enrollments').select('id, deal_id').eq('automation_id', automationId),
+      )
       if (!own || own.length === 0) return []
       let enrollmentIdList: string[] = own.map((e) => e.id)
       if (followDealChain) {
@@ -59,36 +63,53 @@ export function useAutomationReplies(
           ),
         ]
         if (dealIds.length > 0) {
-          const { data: chained } = await supabase
-            .from('automation_enrollments')
-            .select('id')
-            .in('deal_id', dealIds)
-          if (chained && chained.length > 0) enrollmentIdList = chained.map((e) => e.id)
+          const chained = await fetchAllByIds<{ id: string }>(
+            (ids) => supabase.from('automation_enrollments').select('id').in('deal_id', ids),
+            dealIds,
+          )
+          if (chained.length > 0) enrollmentIdList = chained.map((e) => e.id)
         }
       }
 
-      const { data: logs } = await supabase
-        .from('automation_logs')
-        .select('id')
-        .in('enrollment_id', enrollmentIdList)
-        .eq('log_type', 'email_sent')
+      const logs = await fetchAllByIds<{ id: string }>(
+        (ids) =>
+          supabase
+            .from('automation_logs')
+            .select('id')
+            .in('enrollment_id', ids)
+            .eq('log_type', 'email_sent'),
+        enrollmentIdList,
+      )
       if (!logs || logs.length === 0) return []
 
-      const { data: sends } = await supabase
-        .from('email_sends')
-        .select('id')
-        .in('automation_log_id', logs.map((l) => l.id))
+      const sends = await fetchAllByIds<{ id: string }>(
+        (ids) => supabase.from('email_sends').select('id').in('automation_log_id', ids),
+        logs.map((l) => l.id),
+      )
       if (!sends || sends.length === 0) return []
 
       const sendIds = sends.map((s) => s.id)
-      const { data: replies, error } = await supabase
-        .from('email_replies')
-        .select(
-          'id, from_email, from_name, subject, body_preview, ai_intent, received_at, email_send_id, contact_id',
-        )
-        .in('email_send_id', sendIds)
-        .order('received_at', { ascending: false })
-      if (error) throw error
+      const replies = await fetchAllByIds<{
+        id: string
+        from_email: string
+        from_name: string | null
+        subject: string | null
+        body_preview: string | null
+        ai_intent: string | null
+        received_at: string
+        email_send_id: string | null
+        contact_id: string | null
+      }>(
+        (ids) =>
+          supabase
+            .from('email_replies')
+            .select(
+              'id, from_email, from_name, subject, body_preview, ai_intent, received_at, email_send_id, contact_id',
+            )
+            .in('email_send_id', ids)
+            .order('received_at', { ascending: false }),
+        sendIds,
+      )
       if (!replies || replies.length === 0) return []
 
       const contactIds = [...new Set(replies.map((r) => r.contact_id).filter(Boolean))]
@@ -97,11 +118,16 @@ export function useAutomationReplies(
         { id: string; first_name: string | null; last_name: string | null; email: string }
       >()
       if (contactIds.length > 0) {
-        const { data: contacts } = await supabase
-          .from('contacts')
-          .select('id, first_name, last_name, email')
-          .in('id', contactIds as string[])
-        contacts?.forEach((c) => contactsMap.set(c.id, c))
+        const contacts = await fetchAllByIds<{
+          id: string
+          first_name: string | null
+          last_name: string | null
+          email: string
+        }>(
+          (ids) => supabase.from('contacts').select('id, first_name, last_name, email').in('id', ids),
+          contactIds as string[],
+        )
+        contacts.forEach((c) => contactsMap.set(c.id, c))
       }
 
       return replies.map((r) => ({
@@ -163,15 +189,23 @@ export function useAutomationExited(
       const stageById = new Map(stages.map((s) => [s.id, s]))
 
       // 2. Pull every enrollment for this automation with its deal joined.
-      const { data: enrollments, error } = await supabase
-        .from('automation_enrollments')
-        .select(
-          `id, deal_id, completed_at,
-           deal:deals(id, status, current_stage_id,
-             contact:contacts(first_name, last_name, email))`,
-        )
-        .eq('automation_id', automationId)
-      if (error) throw error
+      //    Paged — "every" meant the first 1000 before, so the Exited tab
+      //    under-counted on the busiest automations (QA-61).
+      const enrollments = await fetchAll<{
+        id: string
+        deal_id: string
+        completed_at: string | null
+        deal: unknown
+      }>(() =>
+        supabase
+          .from('automation_enrollments')
+          .select(
+            `id, deal_id, completed_at,
+             deal:deals(id, status, current_stage_id,
+               contact:contacts(first_name, last_name, email))`,
+          )
+          .eq('automation_id', automationId),
+      )
       if (!enrollments) return []
 
       // 3. Filter to deals whose current stage is past the initial stage.
