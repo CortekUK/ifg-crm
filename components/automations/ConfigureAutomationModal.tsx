@@ -295,6 +295,30 @@ export function ConfigureAutomationModal({
     [stages],
   )
 
+  /**
+   * Can a reply ACTUALLY move the card to the reply stage from here?
+   *
+   * Since the QA-30 fix a reply only ever moves a deal FORWARD, so a reply
+   * exit pointing at an earlier stage is silently impossible. Contact Response
+   * sits at position 3 and Follow Up at 5, which means every Follow Up
+   * automation was defaulted to a destination it could never reach: the
+   * editor warned "Pick Contact Response unless you mean this", the configurer
+   * picked it, and nothing happened. QA saw it live — the UNIVERSITY FOLLOW UP
+   * MAP has Contact Response set, two players replied on 5 Oct, and neither
+   * card moved.
+   *
+   * Decided on stage ORDER rather than on the template, so it stays right for
+   * any pipeline layout and any future template.
+   */
+  const replyStageReachable = useMemo(() => {
+    if (!replyStage) return false
+    const trigger = stages.find((st) => st.id === formData.trigger_stage_id)
+    // No trigger stage chosen yet: assume reachable so the field defaults the
+    // helpful way for the common case (a sequence early in the pipeline).
+    if (!trigger) return true
+    return replyStage.display_order > trigger.display_order
+  }, [replyStage, stages, formData.trigger_stage_id])
+
   // Other live automations already triggering on the chosen stage.
   //
   // Nothing used to say a word about this. Initial Contact is described as
@@ -342,9 +366,12 @@ export function ConfigureAutomationModal({
   // silently re-pointing a live sequence's destination on open would be worse
   // than the gap this closes. Explicitly choosing "Don't move the deal" stores
   // null, which is respected.
+  // ...and only when the reply stage is actually reachable. Defaulting a Follow
+  // Up automation to Contact Response wrote a destination that could never be
+  // applied, which reads on screen as "this is handled" (QA-19 Issue 1).
   const effectiveExitStageId =
     formData.config.exit_to_stage_id === undefined && !editingAutomation
-      ? replyStage?.id ?? null
+      ? (replyStageReachable ? replyStage?.id ?? null : null)
       : formData.config.exit_to_stage_id ?? null
 
   // Reset form when modal opens/closes
@@ -2058,7 +2085,26 @@ export function ConfigureAutomationModal({
                               ))}
                             </SelectContent>
                           </Select>
-                          {formData.config.exit_on_reply && !effectiveExitStageId ? (
+                          {/* Three different things to say here, and the old
+                              copy said the first one in all three cases —
+                              telling a Follow Up configurer to pick a stage a
+                              reply could never move the card to (QA-19). */}
+                          {!replyStageReachable ? (
+                            <p className="text-[11px] text-muted-foreground flex items-start gap-1">
+                              <AlertTriangle className="h-3 w-3 mt-[1px] shrink-0" />
+                              <span>
+                                This stage comes after{' '}
+                                <span className="font-medium">
+                                  {replyStage?.name ?? 'Contact Response'}
+                                </span>
+                                , and a reply only ever moves a deal forward — so a reply here
+                                stops the emails and leaves the card where it is. That is
+                                deliberate: the reply badge on the card is what tells the
+                                recruiter they wrote back. Only pick a stage if you want the
+                                reply to push them further along.
+                              </span>
+                            </p>
+                          ) : formData.config.exit_on_reply && !effectiveExitStageId ? (
                             <p className="text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1">
                               <AlertTriangle className="h-3 w-3 mt-[1px] shrink-0" />
                               <span>
@@ -2072,7 +2118,11 @@ export function ConfigureAutomationModal({
                             </p>
                           ) : (
                             <p className="text-[11px] text-muted-foreground">
-                              Typically <span className="font-medium">Contact Response</span>.
+                              Typically{' '}
+                              <span className="font-medium">
+                                {replyStage?.name ?? 'Contact Response'}
+                              </span>
+                              .
                             </p>
                           )}
                         </div>
