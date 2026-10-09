@@ -2421,7 +2421,9 @@ export function ConfigureAutomationModal({
                           written to their child. */}
                       {formData.config.notify_parent && (
                         <div className="space-y-2">
-                          <Label>Parent&apos;s email template</Label>
+                          <Label>
+                            Parent&apos;s email template <span className="text-red-500">*</span>
+                          </Label>
                           <TemplateSearchSelect
                             templates={templates}
                             value={formData.config.parent_template_id || ''}
@@ -2434,12 +2436,26 @@ export function ConfigureAutomationModal({
                             placeholder="Select the template written for the parent"
                             className="h-9"
                           />
+                          {/* The old wording said "leave blank and the parent
+                              gets the player's email re-addressed to them",
+                              describing behaviour that is now deliberately
+                              impossible — re-addressing the player's email WAS
+                              the bug (QA-20 Bug 1). Meanwhile Create Automation
+                              sat disabled with nothing on screen saying why. */}
                           <p className="text-xs text-muted-foreground">
-                            Use <code>{'{{parent_name}}'}</code> to greet the parent and{' '}
-                            <code>{'{{player_name}}'}</code> for their child. Leave blank and the
-                            parent gets the player&apos;s email re-addressed to them, which reads
-                            less well.
+                            Required when Notify parent is on. Use{' '}
+                            <code>{'{{parent_name}}'}</code> to greet the parent and{' '}
+                            <code>{'{{player_name}}'}</code> for their child.
                           </p>
+                          {!formData.config.parent_template_id && (
+                            <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                              <span>
+                                Choose a parent template, or turn Notify parent off — the parent
+                                must not be sent the email written to their child.
+                              </span>
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

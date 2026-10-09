@@ -83,8 +83,9 @@ export const MERGE_TAGS: MergeTagDefinition[] = [
     tag: '{{programme}}',
     label: 'Programme',
     category: 'deal',
-    description: "The programme the player applied for (their pipeline's name)",
-    example: 'UNIVERSITY 2027',
+    description:
+      'The programme the player applied for, named the way a player reads it — taken from their pipeline, but matching the name on their invoice rather than the board label',
+    example: 'University Programme 2027',
   },
   {
     tag: '{{deal_title}}',
@@ -278,12 +279,12 @@ export function previewMergeTags(template: string, overrides: MergeTagData = {})
     player_name: 'John Smith',
     player_first_name: 'John',
     // Deal
-    programme: 'UK GAP 2026',
+    programme: 'Gap Year Programme 2026',
     deal_title: 'John Smith',
     deal_value: 5000,
     deal_stage: 'Initial Contact',
     deal_pipeline: 'UK GAP 2026',
-    programme_name: 'UK GAP 2026',
+    programme_name: 'Gap Year Programme 2026',
     // Deal owner
     deal_owner_name: 'Nathan Recruiter',
     deal_owner_title: 'Senior Recruiter',

@@ -7,6 +7,7 @@ import Stripe from 'npm:stripe@14'
 import { corsHeaders } from '../_shared/cors.ts'
 import { sendSMS } from '../_shared/clicksend.ts'
 import type { StepType } from '../_shared/automation-constants.ts'
+import { programmeLabelFromPipeline } from '../_shared/automation-constants.ts'
 import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
@@ -1331,16 +1332,15 @@ async function processEmailStep(
       parent_email: contact.parent_email || null,
       // Deal fields
       deal_title: deal.title || '',
-      // The programme the player applied for, which is the pipeline they are
-      // in ("UNIVERSITY 2027", "UK GAP 2027", "SUMMER RESIDENCY 2027").
-      // Templates had no way to name it: the Application Received confirmation
-      // is meant to say what the application was FOR, and only the player's
-      // name, contact details, graduation year, position, parent details and
-      // owner details were available.
+      // The programme the player applied for, derived from the pipeline they
+      // are in — but rendered as the player should read it, not as the board
+      // labels it. Straight through, this produced "we have received your
+      // application for UNIVERSITY 2027" in block capitals; it now matches the
+      // name used on their invoice and on the website.
       programme: (() => {
         const p = (deal as { pipeline?: unknown }).pipeline
         const one = Array.isArray(p) ? p[0] : p
-        return (one as { name?: string } | null)?.name || null
+        return programmeLabelFromPipeline((one as { name?: string } | null)?.name)
       })(),
       interview_date: deal.interview_date ? formatMeetingDate(deal.interview_date) : null,
       // Meeting (Calendly) fields
