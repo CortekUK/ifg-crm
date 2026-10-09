@@ -108,9 +108,39 @@ export type SendPaymentLinkResult =
 
 /** Send the invoice to `recipientEmail`. Never throws — the caller decides
  *  whether a failure is fatal. */
+/**
+ * Build the Message-ID the CRM can recognise a reply to.
+ *
+ * Mirrors buildOutboundMessageId in supabase/functions/_shared/message-id.ts —
+ * duplicated rather than imported because that module is Deno (it reads
+ * Deno.env) and this one runs on Node. The format has to match exactly: the
+ * inbound handler pulls the UUID out of the reply's In-Reply-To header and
+ * looks it up in email_sends.tracking_id.
+ */
+export function buildInvoiceMessageId(trackingId: string): string {
+  const domain = (process.env.INBOUND_REPLY_DOMAIN ?? 'reply.local').trim().replace(/^@+/, '')
+  const replyDomain = domain.startsWith('reply.') ? domain : `reply.${domain}`
+  return `<${trackingId}@${replyDomain}>`
+}
+
 export async function sendPaymentLinkEmail(
   recipientEmail: string,
   input: PaymentLinkEmailInput,
+  /**
+   * Makes the email part of the conversation instead of a dead end.
+   *
+   * QA-28 new issue: a player who replied to "Invoice IFG-2026-00171 - £2,000
+   * Due" — to query the amount, or report a payment problem — was never
+   * captured, matched or shown on the deal. The invoice email went out with no
+   * reply-to and no recognisable Message-ID, so the reply landed in the admin@
+   * mailbox and the CRM never saw it. Every automation email already carries
+   * both, which is why replies to those arrive within seconds.
+   *
+   * `trackingId` must be the same value written to email_sends.tracking_id, and
+   * `replyTo` should be a mailbox that routes back through Resend inbound (the
+   * deal owner, as the automation path does).
+   */
+  tracking?: { trackingId: string; replyTo?: string | null },
 ): Promise<SendPaymentLinkResult> {
   const resendApiKey = process.env.RESEND_API_KEY
   if (!resendApiKey) return { ok: false, message: 'Email service not configured' }
@@ -122,8 +152,12 @@ export async function sendPaymentLinkEmail(
     const result = await new Resend(resendApiKey).emails.send({
       from: `IFG <${fromEmail}>`,
       to: [recipientEmail],
+      // camelCase here: the Node SDK takes `replyTo`, while the Deno build used
+      // in the edge functions takes `reply_to`.
+      replyTo: tracking?.replyTo ?? undefined,
       subject,
       html,
+      headers: tracking ? { 'Message-ID': buildInvoiceMessageId(tracking.trackingId) } : undefined,
     })
     if (result.error) {
       const message =

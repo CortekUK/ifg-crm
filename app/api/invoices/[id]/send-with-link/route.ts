@@ -127,7 +127,46 @@ export async function POST(
       payUrl: session.url!,
     }
 
-    const sendResult = await sendPaymentLinkEmail(recipientEmail, emailInput)
+    // One tracking id, generated BEFORE the send, used for both the outbound
+    // Message-ID and the email_sends row below. Generating it afterwards (as
+    // this did) meant the logged id matched nothing in the email that went
+    // out, so a reply could never be threaded back — QA-28's "replies to
+    // invoice emails never reach the CRM".
+    const trackingId = crypto.randomUUID()
+
+    // Reply-To: the deal owner, so the reply lands in a mailbox whose MX
+    // routes through Resend inbound. The invoice's own From (admin@…) does
+    // not, which is where QA's test reply went and died. Falls back to
+    // FROM_EMAIL when the deal has no owner, matching the automation path.
+    //
+    // Resolved by id rather than an embed. `deals` has TWO foreign keys to
+    // `profiles` (deal_owner_id and owner_id), and an unqualified
+    // `owner:profiles(...)` embed is refused outright with PGRST201 — the
+    // fault that emptied the whole Invoices list (QA-44). The precedence
+    // deal_owner_id -> owner_id is the one process-automations uses to decide
+    // who an email is sent as, so the Reply-To matches the sender staff expect.
+    let ownerEmail: string | null = null
+    if (invoice.deal_id) {
+      const { data: dealRow } = await supabase
+        .from('deals')
+        .select('deal_owner_id, owner_id')
+        .eq('id', invoice.deal_id)
+        .maybeSingle()
+      const ownerId = dealRow?.deal_owner_id || dealRow?.owner_id
+      if (ownerId) {
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', ownerId)
+          .maybeSingle()
+        ownerEmail = ownerProfile?.email ?? null
+      }
+    }
+
+    const sendResult = await sendPaymentLinkEmail(recipientEmail, emailInput, {
+      trackingId,
+      replyTo: ownerEmail ?? process.env.FROM_EMAIL ?? null,
+    })
 
     // KEEP the invoice as draft on failure so the user can retry. The Stripe
     // session is harmless — it just sits unused; we don't bill until somebody
@@ -199,7 +238,9 @@ export async function POST(
     try {
       const { subject } = buildPaymentLinkEmail(emailInput)
       const { error: logError } = await supabase.from('email_sends').insert({
-        tracking_id: crypto.randomUUID(),
+        // The SAME id that went out as the Message-ID above, so a reply's
+        // In-Reply-To resolves to this row.
+        tracking_id: trackingId,
         recipient_email: recipientEmail,
         recipient_contact_id: contact.id,
         subject,
