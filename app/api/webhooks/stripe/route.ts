@@ -5,7 +5,7 @@ import { Resend } from 'resend'
 import {
   staffAlertEnabled,
   sendStaffAlert,
-  ownerEmail,
+  alertRecipients,
 } from '@/lib/notifications/staff-email'
 import {
   PAYMENT_PROGRAMMES,
@@ -203,16 +203,46 @@ export async function POST(request: NextRequest) {
 
       // ---- IN-APP NOTIFICATIONS ----
 
-      // Notify admin users
-      const { data: adminUsers } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .in('role', ['admin', 'super_admin'])
-        .eq('is_active', true)
+      // Who needs to know about this payment: the recruiter who owns the
+      // player, or the admins when nobody owns them. One rule, used for both
+      // the bell and the email.
+      //
+      // Both used to go to EVERY admin and super admin, every time, with the
+      // owner added on top — so a single QA deposit notified three people, and
+      // in normal running the admins collect a payment alert for every player
+      // they do not handle. That is QA-51 Issue 1, and the same flood that
+      // left the super admin's bell on 1,352 unread.
+      let payingDealOwnerId: string | null = null
+      if (contactId) {
+        const { data: ownedDeal } = await supabase
+          .from('deals')
+          .select('deal_owner_id')
+          .eq('contact_id', contactId)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        payingDealOwnerId = ownedDeal?.deal_owner_id ?? null
+      }
 
-      if (adminUsers && invoice) {
-        const notifications = adminUsers.map((admin) => ({
-          user_id: admin.id,
+      const { data: notifyProfiles } = payingDealOwnerId
+        ? await supabase
+            .from('profiles')
+            .select('id, email')
+            .eq('id', payingDealOwnerId)
+            .eq('is_active', true)
+        : await supabase
+            .from('profiles')
+            .select('id, email')
+            .in('role', ['admin', 'super_admin'])
+            .eq('is_active', true)
+
+      // Kept for the invite fallback further down, which needs *an* admin id.
+      const adminUsers = notifyProfiles
+
+      if (notifyProfiles && notifyProfiles.length > 0 && invoice) {
+        const notifications = notifyProfiles.map((who) => ({
+          user_id: who.id,
           type: 'payment',
           title: 'Payment Received',
           message: `${contactName || 'A player'} paid ${formattedAmount} for invoice ${invoice.invoice_number}.`,
@@ -221,26 +251,8 @@ export async function POST(request: NextRequest) {
         await supabase.from('notifications').insert(notifications)
 
         // ---- EMAIL ALERT ----
-        // Money arriving is org-wide news, so this goes to the admins who
-        // already get the in-app notification, plus the recruiter who owns
-        // the player. sendStaffAlert deduplicates, so an admin who is also
-        // the deal owner gets one email rather than two.
         if (await staffAlertEnabled(supabase, 'paymentReceived')) {
-          const recipients = adminUsers.map((a) => a.email as string).filter(Boolean)
-
-          if (contactId) {
-            const { data: ownedDeal } = await supabase
-              .from('deals')
-              .select('deal_owner_id')
-              .eq('contact_id', contactId)
-              .eq('status', 'active')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-
-            const owner = await ownerEmail(supabase, ownedDeal?.deal_owner_id ?? null)
-            if (owner) recipients.push(owner)
-          }
+          const recipients = await alertRecipients(supabase, payingDealOwnerId)
 
           await sendStaffAlert({
             to: recipients,

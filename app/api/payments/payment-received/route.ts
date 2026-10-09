@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/supabase/require-admin'
 import { applyPaymentToDeal } from '@/lib/payments/payment-received'
-import { staffAlertEnabled, sendStaffAlert, ownerEmail } from '@/lib/notifications/staff-email'
+import { staffAlertEnabled, sendStaffAlert, alertRecipients } from '@/lib/notifications/staff-email'
 
 export async function POST(request: NextRequest) {
   const denied = await requireAdmin()
@@ -82,16 +82,39 @@ export async function POST(request: NextRequest) {
 
   const methodLabel = method.replace(/_/g, ' ')
 
-  const { data: adminUsers } = await supabase
-    .from('profiles')
-    .select('id, email')
-    .in('role', ['admin', 'super_admin'])
-    .eq('is_active', true)
+  // Same rule as the card-payment path: the owner, or the admins when nobody
+  // owns the player. Resolved once and used for both the bell and the email,
+  // so a payment recorded by hand notifies the same people as one taken by
+  // card (QA-51 Issue 1).
+  let payingDealOwnerId: string | null = null
+  if (resolvedContactId) {
+    const { data: ownedDeal } = await supabase
+      .from('deals')
+      .select('deal_owner_id')
+      .eq('contact_id', resolvedContactId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    payingDealOwnerId = ownedDeal?.deal_owner_id ?? null
+  }
 
-  if (adminUsers?.length) {
+  const { data: notifyProfiles } = payingDealOwnerId
+    ? await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('id', payingDealOwnerId)
+        .eq('is_active', true)
+    : await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('role', ['admin', 'super_admin'])
+        .eq('is_active', true)
+
+  if (notifyProfiles?.length) {
     await supabase.from('notifications').insert(
-      adminUsers.map((admin) => ({
-        user_id: admin.id,
+      notifyProfiles.map((who) => ({
+        user_id: who.id,
         type: 'payment',
         title: 'Payment Received',
         message: `${contactName || 'A player'} paid ${formattedAmount} for invoice ${invoice.invoice_number} by ${methodLabel}.`,
@@ -100,20 +123,12 @@ export async function POST(request: NextRequest) {
     )
 
     if (await staffAlertEnabled(supabase, 'paymentReceived')) {
-      const recipients = adminUsers.map((a) => a.email as string).filter(Boolean)
-
-      if (resolvedContactId) {
-        const { data: ownedDeal } = await supabase
-          .from('deals')
-          .select('deal_owner_id')
-          .eq('contact_id', resolvedContactId)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        const owner = await ownerEmail(supabase, ownedDeal?.deal_owner_id ?? null)
-        if (owner) recipients.push(owner)
-      }
+      // The owner, or the admins when nobody owns the player — the rule
+      // this alert is documented to follow (QA-51 Issue 1). It used to
+      // email every admin on top of the owner, so one QA deposit went to
+      // three people and in normal running the admins are copied on every
+      // payment for players they do not handle.
+      const recipients = await alertRecipients(supabase, payingDealOwnerId)
 
       await sendStaffAlert({
         to: recipients,

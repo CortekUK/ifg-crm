@@ -3,8 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   staffAlertEnabled,
   sendStaffAlert,
-  adminEmails,
-  ownerEmail,
+  alertRecipients,
 } from '@/lib/notifications/staff-email'
 
 /**
@@ -114,9 +113,10 @@ export async function POST(
             updated.title ||
             'A player'
 
-          const recipients = await adminEmails(supabase)
-          const owner = await ownerEmail(supabase, updated.deal_owner_id)
-          if (owner) recipients.push(owner)
+          // The owner, or the admins when nobody owns the player. Admins used
+          // to be added to EVERY deal-won alert on top of the owner, which is
+          // not the rule this alert is meant to follow (QA-51 Issue 1).
+          const recipients = await alertRecipients(supabase, updated.deal_owner_id)
 
           const value =
             typeof updated.value === 'number' && updated.value > 0

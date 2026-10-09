@@ -87,6 +87,30 @@ export async function ownerEmail(
   return data.email as string
 }
 
+/**
+ * Who an event alert goes to: the recruiter who owns the player, or the admins
+ * when nobody owns them.
+ *
+ * This is the rule QA-51 states, and New lead was the only alert following it.
+ * Payment received and Deal won went to every admin and super admin EVERY
+ * time, plus the owner — so one QA deposit emailed three people, and in normal
+ * running the admins are copied on every payment and every win for players
+ * they do not handle. The ticket's own Watch-for list calls that out: "alerts
+ * going to the super admin account for everything, which would drown real
+ * signal".
+ *
+ * Admins are the fallback, not an addition. An unowned player still needs
+ * somebody to see the money arrive, which is the case this covers.
+ */
+export async function alertRecipients(
+  supabase: AnyClient,
+  ownerId: string | null | undefined,
+): Promise<string[]> {
+  const owner = await ownerEmail(supabase, ownerId)
+  if (owner) return [owner]
+  return adminEmails(supabase)
+}
+
 function escapeHtml(value: string): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
