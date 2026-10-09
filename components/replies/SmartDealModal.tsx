@@ -40,7 +40,7 @@ import { usePipelines } from '@/lib/hooks/usePipelines'
 import { usePipelineAssignedUsers } from '@/lib/hooks/usePipelineAssignedUsers'
 import { useManualRoundRobin } from '@/lib/hooks/useManualRoundRobin'
 import { useCreateDeal } from '@/lib/hooks/useCreateDeal'
-import { resolveNewLeadStageId } from '@/lib/forms/lead-routing'
+import { resolveReplyLeadStageId } from '@/lib/forms/lead-routing'
 import { useDealValueForPipeline } from '@/lib/hooks/useDealValueForPipeline'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import type { EmailReply } from '@/lib/types/email'
@@ -509,10 +509,15 @@ export function SmartDealModal({
             continue
           }
 
-          // Where a new lead belongs — NOT the first stage by display_order,
-          // which is `Dormant` on all three pipelines. Smart Deal was filing
-          // every player who replied to a campaign straight into a dead end.
-          const newLeadStageId = await resolveNewLeadStageId(supabase, pipelineIdForDeal)
+          // Contact Response, not Initial Lead.
+          //
+          // Filing these in the new-lead stage fixed one problem and created
+          // another: Initial Lead is where the Initial Contact automation is
+          // attached, so a player who had just written in was enrolled in the
+          // cold 3-email outreach and sent the first-touch email six seconds
+          // after the deal was created. They have already replied — Contact
+          // Response is where the board puts anyone who has.
+          const newLeadStageId = await resolveReplyLeadStageId(supabase, pipelineIdForDeal)
 
           if (!newLeadStageId) {
             console.error('Could not resolve a new-lead stage for pipeline', pipelineIdForDeal)
@@ -549,7 +554,7 @@ export function SmartDealModal({
           const pipelineName = getPipelineName(pipelineIdForDeal)
 
           // Create the deal
-          await createDeal.mutateAsync({
+          const createdDeal = await createDeal.mutateAsync({
             contactId: item.contactId,
             pipelineId: pipelineIdForDeal,
             stageId: newLeadStageId,
@@ -565,10 +570,25 @@ export function SmartDealModal({
           // Move reply out of Matched tab by updating match_status.
           // Also persist the chosen pipeline_id so the All tab's
           // Pipeline column reflects what we actually used.
+          //
+          // Link the reply TO the deal it just created. Without this the reply
+          // was marked "deal created" with its deal_id still empty, so the new
+          // card gave no sign the player had asked a question and the reply did
+          // not show against the deal (QA-32 new issue 2). Setting deal_id also
+          // fires the badge trigger (migration 229), which stamps the reply's
+          // intent on the card — 'unknown' and autoresponders excluded.
+          // Email only: sms_messages has no deal_id column, and sending one
+          // would make PostgREST reject the whole update and break the SMS
+          // side of Smart Deal.
+          const newDealId = (createdDeal as { id?: string } | undefined)?.id ?? null
           const replyTable = type === 'email' ? 'email_replies' : 'sms_messages'
           await supabase
             .from(replyTable)
-            .update({ match_status: 'deal_created', pipeline_id: pipelineIdForDeal })
+            .update({
+              match_status: 'deal_created',
+              pipeline_id: pipelineIdForDeal,
+              ...(type === 'email' && newDealId ? { deal_id: newDealId } : {}),
+            })
             .eq('id', item.id)
 
           dealCount++

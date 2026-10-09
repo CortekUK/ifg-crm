@@ -345,3 +345,41 @@ export async function resolveNewLeadStageId(
   const workable = rows.find((s) => !DEAD_ENDS.has(s.stage_type ?? ''))
   return workable?.id ?? rows[0]?.id ?? null
 }
+
+/**
+ * Where a deal created FROM A REPLY belongs.
+ *
+ * QA-32 new issue 1: Smart Deal (correctly) stopped filing these in Dormant
+ * and started using the new-lead stage instead — which put them in Initial
+ * Lead, where the Initial Contact automation lives. So a player who had just
+ * written in ("what does it cost?") was enrolled in the cold 3-email outreach
+ * and sent the first-touch email six seconds later.
+ *
+ * Contact Response is where the board already puts anyone who replies, so a
+ * reply-born deal starts there: nothing enrols it in the chase, and the
+ * recruiter sees it in the column they work. Resolved by stage TYPE first,
+ * then by name, because renaming a stage in the UI does not change its type
+ * (the edit that broke the reply-move in QA-30). Falls back to the ordinary
+ * new-lead stage when a pipeline has no contact stage at all — a deal in the
+ * wrong column beats no deal.
+ */
+export async function resolveReplyLeadStageId(
+  supabase: SupabaseClient,
+  pipelineId: string,
+): Promise<string | null> {
+  const { data: stages } = await supabase
+    .from('pipeline_stages')
+    .select('id, name, stage_type')
+    .eq('pipeline_id', pipelineId)
+    .order('display_order', { ascending: true })
+
+  const rows = (stages ?? []) as { id: string; name: string | null; stage_type: string | null }[]
+
+  const byName = rows.find((s) => s.name?.trim().toLowerCase() === 'contact response')
+  if (byName) return byName.id
+
+  const byType = rows.find((s) => s.stage_type === 'contact')
+  if (byType) return byType.id
+
+  return resolveNewLeadStageId(supabase, pipelineId)
+}
