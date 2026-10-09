@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
           owner_id: assignedUserId,
           value: config.default_deal_value ?? 0,
           status: 'active',
-          stage_changed_at: new Date().toISOString(),
+          stage_entered_at: new Date().toISOString(),
         })
         .select()
         .single()

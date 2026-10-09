@@ -721,7 +721,7 @@ async function processQueue(
                 .from('deals')
                 .update({
                   current_stage_id: automationCfg.activated_stage_id,
-                  stage_changed_at: new Date().toISOString(),
+                  stage_entered_at: new Date().toISOString(),
                 })
                 .eq('id', enrollment.deal_id)
               await supabase.from('deal_activities').insert({
@@ -774,11 +774,19 @@ async function processQueue(
             // automation, move the deal there before stopping. Logged via
             // deal_activities so the stage move is auditable.
             if (automationCfg?.paid_stage_id) {
+              // stage_entered_at, NOT stage_changed_at. There is no
+              // stage_changed_at column on deals, and PostgREST rejects the
+              // WHOLE update with PGRST204 when a key does not exist — so the
+              // deal never moved, while the deal_activities row written just
+              // below still claimed it had. The same typo in the SQL trigger
+              // aborted the Stripe webhook outright (QA-08 / QA-23, migration
+              // 225). Nothing here checks the update's error, which is why it
+              // was silent.
               await supabase
                 .from('deals')
                 .update({
                   current_stage_id: automationCfg.paid_stage_id,
-                  stage_changed_at: new Date().toISOString(),
+                  stage_entered_at: new Date().toISOString(),
                 })
                 .eq('id', enrollment.deal_id)
               await supabase.from('deal_activities').insert({
@@ -1095,7 +1103,7 @@ async function processQueue(
                 .from('deals')
                 .update({
                   current_stage_id: automationCfg.unpaid_stage_id,
-                  stage_changed_at: new Date().toISOString(),
+                  stage_entered_at: new Date().toISOString(),
                 })
                 .eq('id', enrollment.deal_id)
               await supabase.from('deal_activities').insert({

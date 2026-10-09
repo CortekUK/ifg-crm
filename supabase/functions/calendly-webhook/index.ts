@@ -398,7 +398,7 @@ async function checkAndMoveDealToZoomStage(
       .from('deals')
       .update({
         current_stage_id: zoomStage.id,
-        stage_changed_at: new Date().toISOString(),
+        stage_entered_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('id', dealId)
