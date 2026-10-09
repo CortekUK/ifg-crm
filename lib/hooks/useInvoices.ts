@@ -9,13 +9,22 @@ export function useInvoices(filters?: InvoiceFilters) {
   return useQuery<Invoice[]>({
     queryKey: ['invoices', filters],
     queryFn: async () => {
+      // The profiles embed MUST name its foreign key. `invoices` has two
+      // links to `profiles` — `created_by_id` and, since migration 212 added
+      // the abandoned-checkout columns, `abandoned_handled_by`. With two
+      // candidates and no hint, PostgREST refuses the WHOLE query with
+      // PGRST201 rather than guessing, so the Invoices page showed "No
+      // invoices" to every staff member while the invoices sat there
+      // untouched — nobody could send, cancel or take payment from the list.
+      // Adding a second FK to a table is enough to break an existing
+      // unqualified embed, which is why this is spelled out.
       let query = supabase
         .from('invoices')
         .select(`
           *,
           contact:contacts(*),
           deal:deals(*, pipeline:pipelines(*)),
-          created_by:profiles(*)
+          created_by:profiles!invoices_created_by_id_fkey(*)
         `)
         .order('created_at', { ascending: false })
 
@@ -115,7 +124,7 @@ export function useInvoice(invoiceId: string | null) {
           *,
           contact:contacts(*),
           deal:deals(*, pipeline:pipelines(*)),
-          created_by:profiles(*)
+          created_by:profiles!invoices_created_by_id_fkey(*)
         `)
         .eq('id', invoiceId)
         .single()
