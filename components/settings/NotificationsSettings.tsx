@@ -191,8 +191,10 @@ export function NotificationsSettings() {
             </div>
           ))}
           <p className="border-t border-slate-200 pt-3 text-xs text-muted-foreground dark:border-slate-700">
-            The bell in the top bar is separate: it always shows every CRM event in real time,
-            whichever alerts you switch off here.
+            The bell in the top bar is separate: it shows CRM events in real time whichever
+            alerts you switch off here. Stage moves go to the recruiter who owns the player
+            (or the admins if nobody does), and anything older than 30 days stops counting
+            towards the unread badge — it is still listed.
           </p>
         </CardContent>
       </Card>
