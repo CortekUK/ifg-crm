@@ -248,6 +248,7 @@ async function checkReplies(
           .select(`
             id,
             status,
+            enrolled_at,
             automation:automations(exit_on_reply, config)
           `)
           .eq('id', log.enrollment_id)
@@ -258,6 +259,36 @@ async function checkReplies(
             .from('email_replies')
             .update({ processed: true, processed_at: new Date().toISOString() })
             .eq('id', reply.id)
+          continue
+        }
+
+        // A reply can only stop a sequence that was ALREADY RUNNING when it
+        // arrived.
+        //
+        // Without this, moving a deal backwards was pointless. Re-entering
+        // Initial Lead re-enrols the player, and this loop then matched a
+        // weeks-old unprocessed reply to that brand-new enrolment and stopped
+        // it within seconds — no first email ever went out, and the card
+        // jumped straight back to Contact Response. The recruiter had just
+        // been promised "any automation attached to Initial Lead will
+        // re-trigger from the start" by the confirmation dialog.
+        //
+        // stop_enrollments_on_reply_match (migration 206) already guards this
+        // on the database side; this loop is the other half of the same race
+        // and never got the check, which is why the symptom survived that fix.
+        const enrolledAt = enrollment.enrolled_at ? new Date(enrollment.enrolled_at as string) : null
+        const repliedAt = reply.received_at ? new Date(reply.received_at as string) : null
+        if (enrolledAt && repliedAt && enrolledAt > repliedAt) {
+          // Not this enrolment's reply. Mark it processed so it does not come
+          // back on the next run and stop the next restart too.
+          await supabase
+            .from('email_replies')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('id', reply.id)
+          console.log(
+            `Reply ${reply.id} predates enrollment ${enrollment.id} ` +
+              `(reply ${repliedAt.toISOString()}, enrolled ${enrolledAt.toISOString()}) — left running.`,
+          )
           continue
         }
 
