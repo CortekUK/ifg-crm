@@ -70,10 +70,20 @@ export async function GET(request: NextRequest) {
       playerState = playerProfile.password_set_at ? 'active' : 'invited'
     }
 
+    // The address the player's parent is reachable at RIGHT NOW. The guardian
+    // login is reported against this, not against whatever it was invited
+    // under — see below.
+    const { data: contactRow } = await supabase
+      .from('contacts')
+      .select('parent_email')
+      .eq('id', contactId)
+      .maybeSingle()
+    const currentParentEmail = (contactRow?.parent_email as string | null) ?? null
+
     // Guardian profile linked to this player contact.
     const { data: guardianProfile } = await supabase
       .from('profiles')
-      .select('id, email, created_at, password_set_at')
+      .select('id, email, created_at, password_set_at, is_active')
       .eq('guardian_for_contact_id', contactId)
       .eq('role', 'player')
       .maybeSingle()
@@ -85,7 +95,22 @@ export async function GET(request: NextRequest) {
       last_sign_in_at: null,
     }
 
-    if (guardianProfile) {
+    // A guardian row only describes the CURRENT parent. Once the parent email
+    // is changed on the contact, the old row is a revoked login (migration 223
+    // deactivates it) and tells us nothing about the new address.
+    //
+    // Reporting it anyway is what produced "PENDING · <new address> ·
+    // Invited": the panel showed the newly typed address beside the previous
+    // invite's status, so staff believed an invite had gone to a parent who
+    // had never been contacted. 'none' is the truth — nobody has been invited
+    // at this address yet.
+    const guardianMatchesCurrentParent =
+      !!guardianProfile &&
+      !!currentParentEmail &&
+      String(guardianProfile.email ?? '').trim().toLowerCase() ===
+        currentParentEmail.trim().toLowerCase()
+
+    if (guardianProfile && guardianMatchesCurrentParent && guardianProfile.is_active !== false) {
       const { data: gAuth } = await admin.auth.admin.getUserById(guardianProfile.id)
       const gAuthUser = gAuth?.user
       guardian = {
