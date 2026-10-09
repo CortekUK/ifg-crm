@@ -43,6 +43,7 @@ import {
 import { formatDateTime } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { Automation } from '@/lib/types/automations'
+import { labelForFormId } from '@/lib/forms/forms-config'
 
 interface AutomationsTableProps {
   automations: Automation[]
@@ -193,8 +194,30 @@ export function AutomationsTable({
   }
 
   const getTriggerLabel = (automation: Automation) => {
-    if (automation.automation_type === 'deal_creation') {
-      return 'Form submission'
+    // Form-triggered automations, named by the form they listen to.
+    //
+    // Only `deal_creation` was recognised here, and only as the bare words
+    // "Form submission". Everything else that triggers on a form — List
+    // Assignment is the one in use — fell through every branch to
+    // "No trigger set", so the Automations list said an automation had no
+    // trigger while the panel one click away correctly said
+    // "Form submitted: Gap Year Programme" (QA-17 Suggestion 1).
+    //
+    // labelForFormId is a pure lookup, so the form name costs no extra query.
+    if (
+      automation.automation_type === 'deal_creation' ||
+      automation.trigger_type === 'form_submission'
+    ) {
+      const formId = automation.config?.form_id
+      if (!formId) return 'Form submission'
+      return (
+        <>
+          Form submitted{' '}
+          <span className="font-medium text-gray-700 dark:text-gray-300">
+            {labelForFormId(formId)}
+          </span>
+        </>
+      )
     }
     if (automation.trigger_type === 'enters_stage') {
       return (
