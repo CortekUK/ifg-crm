@@ -70,9 +70,10 @@ export const SCOUT_TOOLS: ChatCompletionTool[] = [
           ),
           country: stringField('Filter by country (case-insensitive substring match).'),
           state: stringField(
-            'Filter by US state. Give EITHER the two-letter code or the full name — both spellings ' +
-              'are matched, so "CA" and "California" return the same contacts. Use this rather than ' +
-              'writing your own SQL for a state, because the column holds a mixture of both.',
+            'Filter by US state. Give EITHER the two-letter code or the full name — it is resolved ' +
+              'to the canonical state_code either way, so "CA" and "California" return the same ' +
+              '4,703 contacts. Prefer this over your own SQL: the raw `state` column holds "CA", ' +
+              '"CALIFORNIA" and "California" for one state, and filtering it directly is refused.',
           ),
           position: stringField('Filter by football position.'),
           source: stringField("Filter by acquisition source (e.g. 'website_form', 'manual')."),

@@ -98,16 +98,6 @@ function paginationFromArgs(args: Args, defaultOrder: { column: string; ascendin
   return { limit, orderBy: { column: orderColumn, ascending } }
 }
 
-/**
- * Quote a value for use inside a PostgREST `or=(...)` expression.
- *
- * Half the US state names contain a space ("New York", "North Carolina"), and
- * an unquoted space inside an or-expression is not parsed as part of the value.
- */
-function quoteOrValue(s: string) {
-  return `"${s.replace(/"/g, '\\"')}"`
-}
-
 function ilikePattern(s: string) {
   // Wrap with %, escape user-supplied %/_ to literal so partial input doesn't
   // accidentally widen the match.
@@ -188,18 +178,16 @@ async function execQueryContacts(args: Args) {
   }
   const state = str(args.state)
   if (state) {
-    filters.push({
-      type: 'or',
-      // Exact per variant, case-insensitive — NOT a substring match. A state is
-      // a closed vocabulary, and `%CA%` swept in every North Carolina (166) and
-      // South Carolina (45) row plus "Casablanca-Settat", so asking for
-      // California answered 4,928 where the truth is 4,704, and 290 instead of
-      // 288 for the graduating-2027 cut. Over-counting confidently is the same
-      // failure as the zero this replaced.
-      expr: stateVariants(state)
-        .map((v) => `state.ilike.${quoteOrValue(v)}`)
-        .join(','),
-    })
+    // One canonical column, so neither spelling nor substring can go wrong.
+    //
+    // This used to expand the input into every spelling and OR them together,
+    // which worked but had to be kept in step with the data by hand. The view
+    // now carries state_code (migration 243), derived from whichever way the
+    // row was stored — 3,980 "CA", 513 "CALIFORNIA" and 210 "California" all
+    // resolve to 'CA'. Equality on it is exact, so asking for California
+    // cannot sweep in North or South Carolina the way `%CA%` did.
+    const code = stateVariants(state)[0]
+    filters.push({ type: 'eq', column: 'state_code', value: code })
   }
   const country = str(args.country)
   if (country) filters.push({ type: 'ilike', column: 'country', pattern: ilikePattern(country) })
@@ -714,6 +702,37 @@ export function validateReadonlyScoutSql(sql: string): {
       return { ok: false, reason: `Forbidden keyword/pattern: ${pat}`, sql: trimmed }
     }
   }
+  // A filter on the raw `state` column is refused, with the fix in the message.
+  //
+  // Advice in the prompt was not enough: Scout was asked the same question four
+  // times and wrote a single-spelling state filter every time, answering 22,
+  // then 38, then 40, then 0, against a real 288 — because 285 California
+  // contacts are stored as "CA" and 3 as "California". A wrong number that
+  // looks right is the worst outcome this tool can produce, so the query is
+  // rejected rather than run, and the model is told which column to use. It
+  // retries and gets the right answer instead of a plausible wrong one.
+  //
+  // `\bstate\b` cannot match state_code, state_name, pipeline_state or
+  // time_state: `_` is a word character, so there is no word boundary between
+  // "state" and an adjoining underscore. Selecting `state` for display is
+  // still fine — only using it as a predicate is refused.
+  // No trailing \b after the symbol operators: `=` is not a word character, so
+  // `=\b` can never match when a space follows it — which let `state = 'CA'`
+  // straight through. Word operators keep their boundary so `index`/`internal`
+  // cannot be mistaken for `in`.
+  if (/\bstate\b\s*(=|!=|<>|~~\*?|(?:not\s+)?i?like\b|in\b)/i.test(trimmed)) {
+    return {
+      ok: false,
+      reason:
+        'Do not filter on the raw `state` column — it holds both "CA" and "California" ' +
+        'for the same state, so any single-spelling match is wrong. Use `state_code` ' +
+        "(2-letter, e.g. state_code = 'CA') or `state_name` " +
+        "(full, e.g. state_name = 'California') on v_scout_contacts. Both are canonical " +
+        'whichever way the row was stored.',
+      sql: trimmed,
+    }
+  }
+
   // Must reference at least one allowed view, must NOT reference any other table.
   const referenced = trimmed.match(/\b[a-z_][a-z0-9_]*\b/gi) ?? []
   const tableTokens = referenced.filter((t) => /^v_scout_/i.test(t))
