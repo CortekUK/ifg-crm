@@ -42,6 +42,33 @@ const DEFAULT_WAIT_DAYS = [3, 5, 7] as const
 // collapsing every email onto the date itself.
 const DEFAULT_DAYS_BEFORE = 30
 
+/**
+ * Pre-Departure's advertised schedule, in days before the date: 30, 14, 7.
+ *
+ * These are the offsets the template's own default_steps declare, and what its
+ * description promises. The gaps BETWEEN them (16 then 7) are what the
+ * compiler needs when the configurer has not typed explicit waits — the editor
+ * shows a single "Days Before" box and no wait fields, so for a stock
+ * Pre-Departure automation `wait_days` is empty.
+ *
+ * It used to fall back to DEFAULT_WAIT_DAYS[0], a generic 3, which compiled to
+ * 30 / 27 / 24 days before — three emails bunched into the same week instead of
+ * the run-up the template describes.
+ */
+const DEFAULT_DAYS_BEFORE_OFFSETS = [30, 14, 7] as const
+
+/** The gap to the next email when no explicit wait was configured. */
+function defaultOffsetGap(index: number): number {
+  const from = DEFAULT_DAYS_BEFORE_OFFSETS[index]
+  const to = DEFAULT_DAYS_BEFORE_OFFSETS[index + 1]
+  if (from === undefined || to === undefined) {
+    // Past the three the template defines, keep stepping by the last known gap
+    // rather than by zero, which would stack emails on one day.
+    return 7
+  }
+  return from - to
+}
+
 type ConfiguredEmail = NonNullable<AutomationConfig['emails']>[number]
 
 /**
@@ -325,7 +352,7 @@ function preDepartureSequence(
   const steps: CompiledStep[] = []
   let offset = daysBefore
   chosen.forEach((email, i) => {
-    if (i > 0) offset -= waitDays[i - 1] || DEFAULT_WAIT_DAYS[0]
+    if (i > 0) offset -= waitDays[i - 1] || defaultOffsetGap(i - 1)
     const templateId =
       email?.template_id || (i === 0 ? config?.single_template_id || null : null)
     steps.push(waitUntilBeforeDateStep(field, Math.max(0, offset), 'days'))

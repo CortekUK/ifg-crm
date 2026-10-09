@@ -929,6 +929,22 @@ export function ConfigureAutomationModal({
                           Response, and the no-reply fallback stage.
                         </div>
                       </>
+                    ) : selectedTemplate?.trigger_type === 'time_before_date' ? (
+                      // Pre-Departure is driven by a DATE on the deal, not by a
+                      // stage. The field was marked required and then ignored:
+                      // the daily date job enrols every deal in the pipeline
+                      // whose date falls in the window, whatever stage it is in.
+                      // So a configurer had to pick a stage that changed
+                      // nothing, and would reasonably expect it to scope the
+                      // automation (QA-27 Issue 2).
+                      <div className="space-y-2">
+                        <Label>Trigger</Label>
+                        <p className="text-sm text-muted-foreground bg-muted/50 rounded-md p-3">
+                          Fires on the date set on the deal, for every deal in this pipeline that
+                          has one. No stage selection needed — the date below is what decides who
+                          is enrolled and when.
+                        </p>
+                      </div>
                     ) : selectedTemplate?.trigger_type === 'invoice_created' ||
                        selectedTemplate?.trigger_type === 'invoice_overdue' ||
                        selectedTemplate?.trigger_type === 'payment_received' ? (
@@ -2662,6 +2678,9 @@ export function ConfigureAutomationModal({
                     selectedTemplate?.trigger_type !== 'invoice_created' &&
                     selectedTemplate?.trigger_type !== 'invoice_overdue' &&
                     selectedTemplate?.trigger_type !== 'payment_received' &&
+                    // Date-driven: there is no stage to pick, so requiring one
+                    // only blocked the save (QA-27 Issue 2).
+                    selectedTemplate?.trigger_type !== 'time_before_date' &&
                     !formData.trigger_stage_id) ||
                   (selectedTemplate?.type === 'meeting_scheduler' &&
                     !formData.config.schedule_email_template_id) ||

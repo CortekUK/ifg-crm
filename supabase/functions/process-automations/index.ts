@@ -937,7 +937,44 @@ async function processQueue(
             continue
           }
 
-          const nextStepAt = calculateNextStepTime(nextStep, dealFields, meetingEndTime)
+          // A late-joined run-up collapses onto its most recent email rather
+          // than firing every overdue one at once. Only date-anchored waits
+          // can be overdue in this way, so nothing else pays for the lookup.
+          let stepToRun = nextStep
+          if (nextStep.step_type === 'wait_until_before_date' && dealFields) {
+            const { data: remaining } = await supabase
+              .from('automation_steps')
+              .select('*')
+              .eq('automation_id', enrollment.automation_id)
+              .gt('step_order', currentStep.step_order)
+              .order('step_order', { ascending: true })
+
+            const { target, skipped } = collapsePassedDateWaits(
+              (remaining ?? [nextStep]) as AutomationStep[],
+              dealFields,
+            )
+            stepToRun = target
+
+            for (const missed of skipped) {
+              await logStepExecution(
+                supabase,
+                enrollment,
+                missed,
+                'skipped',
+                `Window passed: this email was due ${missed.delay_days ?? 0} days before the date, ` +
+                  'which is already behind us. Skipped so the player is not sent the whole run-up at once.',
+                enrolledAt,
+              )
+            }
+            if (skipped.length > 0) {
+              console.log(
+                `Enrollment ${enrollment.id}: skipped ${skipped.length} passed pre-departure window(s), ` +
+                  `running step_order ${stepToRun.step_order}`,
+              )
+            }
+          }
+
+          const nextStepAt = calculateNextStepTime(stepToRun, dealFields, meetingEndTime)
 
           // Update enrollment with next step. If nextStepAt is null
           // (wait_until_before_date with no field set), park the
@@ -946,7 +983,7 @@ async function processQueue(
           const { error: updateError } = await supabase
             .from('automation_enrollments')
             .update({
-              current_step_id: nextStep.id,
+              current_step_id: stepToRun.id,
               next_step_at: nextStepAt ? nextStepAt.toISOString() : null,
             })
             .eq('id', enrollment.id)
@@ -2834,6 +2871,53 @@ function anchorDateHasPassed(
   const target = new Date(raw)
   if (isNaN(target.getTime())) return false
   return target.getTime() <= Date.now()
+}
+
+/**
+ * When a run-up is joined late, send the email whose moment has just gone —
+ * not every email whose moment has gone.
+ *
+ * Pre-Departure compiles to three date-anchored waits (30, 14 and 7 days
+ * before the programme start) each followed by an email. Enrol a deal five
+ * days before departure and ALL THREE offsets resolve to a time in the past,
+ * so each one was immediately due and the player received the 30-day
+ * checklist, the 14-day travel details and the 7-day arrival instructions
+ * within minutes of each other — the opposite of what the template promises.
+ *
+ * anchorDateHasPassed() does not catch this: it asks whether the programme
+ * start itself has passed, and in this case it has not.
+ *
+ * The rule here: skip a passed wait only while the NEXT one has also passed,
+ * so the enrollment lands on the LAST passed wait. Five days out that is the
+ * 7-day step, and the player gets the arrival instructions and nothing else.
+ * Twenty days out only the 30-day window has gone, so the checklist is sent
+ * (late, but it is still the right email) and the 14- and 7-day emails run on
+ * schedule. Offsets shrink as the sequence advances, so the passed waits are
+ * always a prefix and "the last passed one" is unambiguous.
+ *
+ * Returns the step to advance to, plus the wait steps that were skipped so the
+ * run history can say what happened.
+ */
+function collapsePassedDateWaits(
+  steps: AutomationStep[],
+  dealFields?: Record<string, unknown> | null,
+): { target: AutomationStep; skipped: AutomationStep[] } {
+  const first = steps[0]
+  if (!first) return { target: first, skipped: [] }
+
+  const now = Date.now()
+  const passed: AutomationStep[] = []
+  for (const step of steps) {
+    if (step.step_type !== 'wait_until_before_date') continue
+    const at = calculateNextStepTime(step, dealFields)
+    if (at && at.getTime() <= now) passed.push(step)
+    else break
+  }
+
+  // Nothing overdue, or only the one we were already going to use.
+  if (passed.length <= 1) return { target: first, skipped: [] }
+
+  return { target: passed[passed.length - 1], skipped: passed.slice(0, -1) }
 }
 
 function calculateNextStepTime(
