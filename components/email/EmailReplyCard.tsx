@@ -18,13 +18,15 @@ import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import { cn } from '@/lib/utils'
 import type { EmailReply, EmailIntent } from '@/lib/types/email'
 
-// Five labels coloured for quick scanning. Unknown gets no badge — empty cell
+// Five labels coloured for quick scanning, plus 'unsubscribe' in orange so a
+// request to stop stands out from an ordinary no. Unknown gets no badge — empty cell
 // means "no signal" rather than dragging the eye to a useless pill.
 const intentConfig: Record<Exclude<EmailIntent, 'unknown'>, { label: string; className: string }> = {
   positive: { label: 'Positive', className: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' },
   negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
   neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
   question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  unsubscribe: { label: 'Unsubscribe', className: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300' },
 }
 
 interface EmailReplyCardProps {
@@ -109,11 +111,11 @@ export function EmailReplyCard({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[110px] sm:max-w-[160px]">
+            <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[76px] sm:max-w-[160px]">
               {displayName}
             </p>
             {reply.from_name && (
-              <p className="text-[11px] text-muted-foreground truncate max-w-[110px] sm:max-w-[160px]">
+              <p className="text-[11px] text-muted-foreground truncate max-w-[76px] sm:max-w-[160px]">
                 {reply.from_email}
               </p>
             )}
@@ -123,13 +125,22 @@ export function EmailReplyCard({
 
       {/* Subject & Preview */}
       <TableCell>
-        <p className={cn('text-sm font-medium truncate max-w-[200px] sm:max-w-[280px]', isSpam && 'line-through')}>
+        <p className={cn('text-sm font-medium truncate max-w-[104px] sm:max-w-[280px]', isSpam && 'line-through')}>
           {reply.subject || '(No subject)'}
         </p>
-        <p className={cn('text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-[280px]', isSpam && 'line-through')}>
+        <p className={cn('text-[11px] text-muted-foreground truncate max-w-[104px] sm:max-w-[280px]', isSpam && 'line-through')}>
           {cleanPreview || '(No content)'}
         </p>
-        {/* QA-33 bug 5: on a phone the intent and received columns were pushed
+        {/* QA-33 Issue 1: hiding the Intent/Campaign/Pipeline/Received columns
+            was not enough on its own — the row was still 534px wide inside a
+            341px screen, so the Subject column ran to the edge and pushed the
+            action menu (View reply / Mark as spam / Unmatch) out past 421px,
+            where it could only be reached by scrolling sideways. The two
+            columns that survive at phone width are now capped tightly enough
+            for the row to fit, so the menu is always reachable. The sm: caps
+            are unchanged, so nothing about the desktop layout moves.
+
+            QA-33 bug 5: on a phone the intent and received columns were pushed
             off-screen behind a sideways scroll. Those columns are hidden at
             small widths, so the same two facts ride along under the subject
             instead of being unreachable. */}
@@ -188,7 +199,18 @@ export function EmailReplyCard({
       </TableCell>
 
       {/* Actions — primary action stays inline, the rest live in a kebab menu */}
-      <TableCell onClick={(e) => e.stopPropagation()}>
+      {/* Pinned to the right edge rather than trimmed to fit.
+          Capping the other columns narrows the row but cannot guarantee it
+          fits: the cell carries a Match button as well as the menu, and the
+          budget at 375px is a few pixels either way. Sticky makes the
+          guarantee absolute — the menu stays on screen at any width, so
+          "View reply / Mark as spam / Unmatch" is always reachable even if
+          the rest of the row still scrolls. Also helps mid-size screens,
+          where the hidden-column breakpoints do not apply yet. */}
+      <TableCell
+        onClick={(e) => e.stopPropagation()}
+        className="sticky right-0 z-10 bg-background"
+      >
         <div className="flex items-center justify-end gap-1">
           {!isMatched && !isSpam && (
             <Button
@@ -196,9 +218,11 @@ export function EmailReplyCard({
               size="sm"
               onClick={() => onMatchClick(reply)}
               className="h-7 px-2 text-xs"
+              aria-label="Match reply to a contact"
             >
-              <UserPlus className="h-3.5 w-3.5 mr-1" />
-              Match
+              <UserPlus className="h-3.5 w-3.5 sm:mr-1" />
+              {/* Label drops on a phone; the icon and aria-label carry it. */}
+              <span className="hidden sm:inline">Match</span>
             </Button>
           )}
 
