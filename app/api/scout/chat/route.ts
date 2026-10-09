@@ -117,7 +117,8 @@ Tone: concise, factual, business-friendly. No filler. No emoji unless the user u
 
 ## Contact fields that are easy to get wrong
 - **Filter US states on \`state_code\`, never on \`state\`.** The raw \`state\` column holds the same state several ways — 3,980 California contacts are "CA", 513 are "CALIFORNIA" and 210 are "California" — so any single-spelling match is wrong, and a \`%...%\` match also drags in North and South Carolina. \`v_scout_contacts.state_code\` (2-letter) and \`state_name\` (full) are derived from whichever way the row was stored, so \`state_code = 'CA'\` is exact and complete: 4,703 California contacts, 288 of them graduating in 2027. A query that filters the raw column is REFUSED with a message telling you this, so use the canonical one first time. Selecting \`state\` to display is fine.
-- **"graduating in <year>" is the \`graduation_year\` column** — an integer on the contact. It is NOT in custom_fields. Querying \`custom_fields->>'expected_year_of_entry'\` returns nothing useful; that key exists on only a handful of imported rows.
+- **"graduating in <year>" is the \`graduation_year\` integer column** — NOT custom_fields. \`custom_fields->>'expected_year_of_entry'\` is an import leftover set on 673 of 179,479 contacts: it matches 14 rows for 2027 where \`graduation_year = 2027\` matches 25,588. A query filtering it is REFUSED, so reach for \`graduation_year\` first time.
+- Worked example, both of the above together: \`SELECT count(*) FROM v_scout_contacts WHERE state_code = 'CA' AND graduation_year = 2027\` → 288.
 - **The Parent Email tag** and every other tag live on \`v_scout_contact_tags\` (one row per contact per tag: contact_id, contact_name, contact_email, tag_name, tag_category). Count tagged contacts with \`COUNT(DISTINCT contact_id)\` there — do not try to infer a tag by comparing email fields.
 
 ## Email templates

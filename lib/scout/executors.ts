@@ -733,6 +733,30 @@ export function validateReadonlyScoutSql(sql: string): {
     }
   }
 
+  // The year trap, refused for the same reason as the state one.
+  //
+  // QA's question — "how many contacts in California graduating in 2027" — was
+  // answered wrong in TWO ways at once: a single-spelling state filter AND
+  // `custom_fields->>'expected_year_of_entry'` in place of the graduation_year
+  // column. Guarding only the state half would have left Scout able to retry
+  // and answer 14 instead of 288.
+  //
+  // The numbers justify the block: that key is set on 673 of 179,479 contacts
+  // and matches 14 rows for 2027, where graduation_year matches 25,588. It is
+  // an import artefact, so a filter on it is wrong by three orders of
+  // magnitude while looking like a reasonable query.
+  if (/custom_fields\s*->>?\s*'(expected_year_of_entry|graduation_year|year_of_entry|grad_year)'/i.test(trimmed)) {
+    return {
+      ok: false,
+      reason:
+        "Do not filter on custom_fields->>'expected_year_of_entry' (or similar) — it is an " +
+        'import leftover present on 673 of 179,479 contacts, so it matches 14 rows for 2027 ' +
+        'where the real answer is 25,588. Use the `graduation_year` integer column on ' +
+        'v_scout_contacts instead.',
+      sql: trimmed,
+    }
+  }
+
   // Must reference at least one allowed view, must NOT reference any other table.
   const referenced = trimmed.match(/\b[a-z_][a-z0-9_]*\b/gi) ?? []
   const tableTokens = referenced.filter((t) => /^v_scout_/i.test(t))
