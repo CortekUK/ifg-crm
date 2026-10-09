@@ -36,8 +36,26 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.text()
 
-    // Verify webhook signature using Svix (Resend's webhook provider)
-    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET
+    // Verify webhook signature using Svix (Resend's webhook provider).
+    //
+    // There are TWO Resend webhooks on this account, each with its own signing
+    // secret, and they were both being read from one variable:
+    //
+    //   email.delivered/opened/clicked/bounced -> here (Vercel)
+    //   email.received (inbound replies)       -> the resend-inbound edge function
+    //
+    // RESEND_WEBHOOK_SECRET holds the INBOUND one, so every delivery and open
+    // event was rejected with 401 "Invalid signature". Nothing in the CRM had
+    // ever been marked delivered, opened or clicked — not this month, not
+    // once — so every campaign report read 0% opens and 0% clicks and no
+    // campaign could be judged (QA-40 Bug 1). The handler itself was fine; it
+    // was never reached.
+    //
+    // Its own variable name, so the two cannot be confused again. The fallback
+    // keeps an environment that only sets the old name working rather than
+    // silently accepting unsigned payloads.
+    const webhookSecret =
+      process.env.RESEND_EVENTS_WEBHOOK_SECRET || process.env.RESEND_WEBHOOK_SECRET
     let event: ResendWebhookPayload
 
     if (webhookSecret) {
