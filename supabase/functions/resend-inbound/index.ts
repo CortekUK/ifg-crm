@@ -125,10 +125,17 @@ Deno.serve(async (req) => {
     // ============================================
     // 1. FIND THE CONTACT by email address
     // ============================================
+    // `ilike` with the address used verbatim treats `_` as "any single
+    // character" and `%` as "any run of characters". 5,404 contacts have an
+    // underscore in their email, so `john_smith@x.com` could match
+    // `johnQsmith@x.com` and attach a reply to the wrong player — or match two
+    // contacts and come in unmatched. Escaping the wildcards keeps the
+    // case-insensitivity (addresses are compared case-insensitively) while
+    // making the comparison exact.
     const { data: contact, error: contactError } = await supabase
       .from('contacts')
       .select('id, email, first_name, last_name')
-      .ilike('email', fromEmail)
+      .ilike('email', escapeLikeWildcards(fromEmail))
       .limit(1)
       .single()
 
@@ -279,6 +286,20 @@ Deno.serve(async (req) => {
     // outreach and the classifier returns nothing valid.
     const aiIntent = await classifyIntent(stripQuotedThread(replyText))
 
+    // An autoresponder is stored and shown like any other reply, but it must
+    // not act on the deal. The flag goes on the INSERT so the stop trigger
+    // sees it at the moment it decides (migration 229).
+    const isAutoReply = detectAutoReply(fetched.headers, event.data.subject)
+    if (isAutoReply) {
+      console.log(`Reply from ${fromEmail} looks like an autoresponder — deal left alone`)
+    }
+
+    // "Does this reply tell us anything about the player?" The one definition
+    // the database uses too (reply_carries_intent, migration 229). 'unknown'
+    // means the classifier could not decide, so it must not stamp a badge or
+    // move a card — QA-29 Bug 4 had an "unknown" reply doing both.
+    const carriesIntent = Boolean(aiIntent) && aiIntent !== 'unknown' && !isAutoReply
+
     // ============================================
     // 3. CREATE EMAIL REPLY RECORD (idempotent on message_id)
     // ============================================
@@ -328,6 +349,7 @@ Deno.serve(async (req) => {
         // from an unreadable one at the moment it decides whether to move the
         // deal. Patched again below for the re-match path.
         ai_intent: aiIntent || null,
+        is_auto_reply: isAutoReply,
         processed: false,  // Will be processed by check-replies or process-automations
       })
       .select('id')
@@ -373,7 +395,7 @@ Deno.serve(async (req) => {
       // Deals already past the Contact Response stage are left alone —
       // the kanban shouldn't roll a deal backwards just because a reply
       // landed.
-      if (contactId && replySourceMeta.pipelineId) {
+      if (carriesIntent && contactId && replySourceMeta.pipelineId) {
         const { data: deal } = await supabase
           .from('deals')
           .select('id, current_stage_id, pipeline_id')
@@ -755,10 +777,17 @@ const CLASSIFICATION_PROMPT = `You are classifying the intent of a reply to a bu
 
 Classify as exactly one of:
 - positive: Interested, wants to learn more, agrees to meeting/call, asks about opportunity details
-- negative: Not interested, asks to be removed, opt-out, do not contact, already employed/not looking
-- question: Asking a question that needs a human response (salary, role details, timeline) without clear positive/negative signal
-- neutral: Auto-reply, out of office, acknowledgment without clear intent, forwarded without comment
-- unknown: Cannot determine intent, too short/ambiguous, or in a language that cannot be classified
+- negative: Not interested, not a fit, cannot afford it, already committed elsewhere — but WITHOUT asking to be removed from the list
+- unsubscribe: Explicitly asks to stop being contacted — "stop emailing me", "remove me from your list", "unsubscribe", "do not contact me again". Prefer this over negative whenever a request to stop is present, because it takes the contact off email.
+- question: Asking a question that needs a human response (cost, dates, requirements, timeline) without clear positive/negative signal
+- neutral: Acknowledgment without clear intent, or forwarded without comment
+- unknown: Cannot determine intent, or too short/ambiguous to tell
+
+The reply may be in any language, including romanised Urdu/Hindi. Classify on
+MEANING, not on language — "mujhy chahyie" ("I want it") is positive, and
+"mujhy zarorat nahi" ("I don't need it") is negative. Only answer unknown when
+the meaning genuinely cannot be made out; a short reply that clearly expresses
+interest or refusal is not unknown. "My mom won't let me" is negative.
 
 Respond with ONLY the classification word, nothing else.`
 
@@ -777,6 +806,63 @@ const MAX_CLASSIFICATION_CHARS = 2000
  * survives. Falls back to the original text when no quote markers are
  * present.
  */
+/**
+ * Escape the LIKE/ILIKE wildcards so a value is matched literally.
+ *
+ * Only `%` and `_` are special, and an email address can legitimately contain
+ * both. PostgREST passes the pattern through to ILIKE verbatim.
+ */
+function escapeLikeWildcards(value: string): string {
+  return value.replace(/[%_\\]/g, (c) => `\\${c}`)
+}
+
+/**
+ * Is this an out-of-office autoresponder rather than the player writing back?
+ *
+ * QA-28 Bug 3: "Automatic reply: I'm on leave" is classified neutral, and a
+ * neutral reply counted as a real one — so a holiday autoresponder stopped the
+ * player's follow-up sequence for good and moved their card to Contact
+ * Response. The board then said they had responded when they had not.
+ *
+ * Headers first, because they are the part mail systems agree on:
+ *   - RFC 3834  Auto-Submitted: auto-replied | auto-generated
+ *   - Microsoft X-Auto-Response-Suppress, and the X-Autoreply / X-Autorespond
+ *     pair older autoresponders set
+ *   - Precedence: auto_reply | bulk | junk
+ * Subject lines are the fallback, for senders that set no header at all. Both
+ * the English forms and the ones Outlook localises are common enough to be
+ * worth matching, so the test is deliberately on the recognised prefixes
+ * rather than anything looser — "Re: automatic payment" must not match.
+ */
+const AUTO_REPLY_SUBJECT_PATTERNS: RegExp[] = [
+  /^\s*(re\s*:\s*)?(automatic reply|auto(matic)?[- ]?response|autoreply)\b/i,
+  /^\s*(re\s*:\s*)?out of (the )?office\b/i,
+  /^\s*(re\s*:\s*)?(i am|i'm) (currently )?(out of|away)\b/i,
+  /^\s*(re\s*:\s*)?(abwesenheitsnotiz|respuesta autom|r.ponse automatique|risposta automatica)/i,
+]
+
+function detectAutoReply(
+  headers: Record<string, string> | null | undefined,
+  subject: string | null | undefined,
+): boolean {
+  const h: Record<string, string> = {}
+  for (const [k, v] of Object.entries(headers ?? {})) {
+    if (typeof v === 'string') h[k.toLowerCase()] = v.toLowerCase()
+  }
+
+  const autoSubmitted = h['auto-submitted'] ?? ''
+  // "auto-submitted: no" is the explicit "a human sent this" value.
+  if (autoSubmitted && autoSubmitted.trim() !== 'no') return true
+  if (h['x-autoreply'] === 'yes' || h['x-autorespond'] || h['x-autoreply-domain']) return true
+  if (h['x-auto-response-suppress']) return true
+
+  const precedence = h['precedence'] ?? ''
+  if (['auto_reply', 'bulk', 'junk'].includes(precedence.trim())) return true
+
+  const subj = subject ?? ''
+  return AUTO_REPLY_SUBJECT_PATTERNS.some((re) => re.test(subj))
+}
+
 /** The first candidate with actual content — whitespace-only counts as absent. */
 function firstNonBlank(...candidates: (string | null | undefined)[]): string {
   for (const candidate of candidates) {
@@ -865,7 +951,7 @@ async function classifyIntent(text: string): Promise<string | null> {
     const result = await response.json()
     const intent = result.choices?.[0]?.message?.content?.trim().toLowerCase()
 
-    const validIntents = ['positive', 'negative', 'neutral', 'question', 'unknown']
+    const validIntents = ['positive', 'negative', 'neutral', 'question', 'unknown', 'unsubscribe']
     return validIntents.includes(intent) ? intent : null
   } catch (err) {
     console.error('Intent classification failed:', err)
@@ -889,9 +975,19 @@ async function fetchInboundBody(
   to: string[] | null
   /** The raw `From:` header, which is where the sender's display name lives. */
   from: string | null
+  /** All headers, lower-cased keys — read by detectAutoReply. */
+  headers: Record<string, string>
 }> {
   const apiKey = Deno.env.get('RESEND_API_KEY')
-  const empty = { text: null, html: null, inReplyTo: null, references: null, to: null, from: null }
+  const empty = {
+    text: null,
+    html: null,
+    inReplyTo: null,
+    references: null,
+    to: null,
+    from: null,
+    headers: {} as Record<string, string>,
+  }
   if (!apiKey || !emailId) return empty
 
   try {
@@ -944,6 +1040,7 @@ async function fetchInboundBody(
       // table). The From: header on the fetched message is where "Hamza
       // Shafique" <hamza@...> actually is.
       from: headers['from'] || null,
+      headers,
     }
   } catch (err) {
     console.error('Resend inbound fetch error:', err)

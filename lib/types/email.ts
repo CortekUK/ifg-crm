@@ -2,7 +2,16 @@ import type { Contact } from './contacts'
 import type { Campaign } from './campaigns'
 import type { Profile, Pipeline } from './pipelines'
 
-export type EmailIntent = 'positive' | 'negative' | 'neutral' | 'question' | 'unknown'
+// 'unsubscribe' is the one label that acts on its own: the contact is taken
+// off email by a trigger (migration 230). See QA-29 Bug 2 — "please stop
+// emailing" used to be filed as negative and nothing happened.
+export type EmailIntent =
+  | 'positive'
+  | 'negative'
+  | 'neutral'
+  | 'question'
+  | 'unsubscribe'
+  | 'unknown'
 export type EmailMatchStatus = 'auto_matched' | 'manually_matched' | 'unmatched' | 'spam' | 'deal_created'
 export type EmailFollowUpStatus = 'open' | 'in_progress' | 'completed'
 

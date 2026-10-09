@@ -49,6 +49,7 @@ const intentConfig: Record<Exclude<EmailIntent, 'unknown'>, { label: string; col
   negative: { label: 'Negative', color: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700' },
   neutral: { label: 'Neutral', color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600' },
   question: { label: 'Question', color: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700' },
+  unsubscribe: { label: 'Unsubscribe', color: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700' },
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -230,7 +231,7 @@ export function EmailDetailSheet({
                 <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                   Override intent
                 </div>
-                {(['positive', 'question', 'negative', 'neutral'] as const).map((opt) => {
+                {(['positive', 'question', 'negative', 'unsubscribe', 'neutral'] as const).map((opt) => {
                   const cfg = intentConfig[opt]
                   const isCurrent = intent === opt
                   return (

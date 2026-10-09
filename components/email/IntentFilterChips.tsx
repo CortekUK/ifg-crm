@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils'
 
-type IntentKey = 'all' | 'positive' | 'question' | 'negative' | 'neutral' | 'unknown'
+type IntentKey = 'all' | 'positive' | 'question' | 'negative' | 'unsubscribe' | 'neutral' | 'unknown'
 
 interface IntentFilterChipsProps {
   value: IntentKey
@@ -20,6 +20,9 @@ const chips: {
   { key: 'positive', label: 'Positive', active: 'bg-green-600 text-white border-green-600' },
   { key: 'question', label: 'Question', active: 'bg-purple-600 text-white border-purple-600' },
   { key: 'negative', label: 'Negative', active: 'bg-red-600 text-white border-red-600' },
+  // Its own chip, not folded into Negative: this is the one label that has
+  // already taken the contact off email, so staff need to find them.
+  { key: 'unsubscribe', label: 'Unsubscribe', active: 'bg-orange-600 text-white border-orange-600' },
   { key: 'neutral', label: 'Neutral', active: 'bg-slate-600 text-white border-slate-600' },
   { key: 'unknown', label: 'Unclassified', active: 'bg-slate-400 text-white border-slate-400' },
 ]

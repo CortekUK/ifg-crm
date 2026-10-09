@@ -170,6 +170,7 @@ export function useEmailReplyIntentCounts(
         positive: number
         question: number
         negative: number
+        unsubscribe: number
         neutral: number
         unknown: number
       }[])[0]
@@ -179,6 +180,7 @@ export function useEmailReplyIntentCounts(
         positive: Number(row?.positive ?? 0),
         question: Number(row?.question ?? 0),
         negative: Number(row?.negative ?? 0),
+        unsubscribe: Number(row?.unsubscribe ?? 0),
         neutral: Number(row?.neutral ?? 0),
         unknown: Number(row?.unknown ?? 0),
       }

@@ -11,8 +11,18 @@
  * against the real bodies, 12 of 12 now come in under the cap. This only
  * repairs the ones processed by the older build.
  *
- * Writes `intent` and nothing else. The triggers on email_replies fire on
- * INSERT and on contact_id, so nothing is emailed and no enrolment changes.
+ * Writes `ai_intent`, which is the column everything reads: the Replies list
+ * and its chip counts bucket on `r.ai_intent` (email_replies_in_view), and so
+ * does every card component. An earlier version of this script wrote `intent`
+ * instead — the deal-badge functions COALESCE the two, so the board would have
+ * updated while the Replies screen still showed every one of these as
+ * "Unclassified", which is exactly what QA is looking at.
+ *
+ * Writing ai_intent fires two triggers, both of them wanted here:
+ *   - the deal's intent badge is recomputed from its newest reply (migration 229)
+ *   - an 'unsubscribe' label takes the contact off email (migration 230)
+ * It does NOT stop or start any sequence: those triggers fire on INSERT and on
+ * contact_id only, so no email is sent and no enrolment changes.
  *
  * Usage: node scripts/backfill-reply-intents.mjs [--apply]
  * Without --apply it prints what it would label and writes nothing.
@@ -33,10 +43,17 @@ const CLASSIFICATION_PROMPT = `You are classifying the intent of a reply to a bu
 
 Classify as exactly one of:
 - positive: Interested, wants to learn more, agrees to meeting/call, asks about opportunity details
-- negative: Not interested, asks to be removed, opt-out, do not contact, already employed/not looking
+- negative: Not interested, not a fit, cannot afford it, already committed elsewhere — but WITHOUT asking to be removed from the list
+- unsubscribe: Explicitly asks to stop being contacted — "stop emailing me", "remove me from your list", "unsubscribe", "do not contact me again". Prefer this over negative whenever a request to stop is present, because it takes the contact off email.
 - question: Asking a question that needs an answer before deciding
-- neutral: Acknowledgement, out-of-office, or anything with no clear leaning
-- unknown: Cannot determine intent, too short/ambiguous, or in a language that cannot be classified
+- neutral: Acknowledgement, or anything with no clear leaning
+- unknown: Cannot determine intent, or too short/ambiguous to tell
+
+The reply may be in any language, including romanised Urdu/Hindi. Classify on
+MEANING, not on language — "mujhy chahyie" ("I want it") is positive, and
+"mujhy zarorat nahi" ("I don't need it") is negative. Only answer unknown when
+the meaning genuinely cannot be made out; a short reply that clearly expresses
+interest or refusal is not unknown. "My mom won't let me" is negative.
 
 Respond with ONLY the classification word, nothing else.`
 
@@ -104,13 +121,15 @@ async function classify(text) {
   if (!res.ok) return null
   const result = await res.json()
   const intent = result.choices?.[0]?.message?.content?.trim().toLowerCase()
-  return ['positive', 'negative', 'neutral', 'question', 'unknown'].includes(intent) ? intent : null
+  return ['positive', 'negative', 'neutral', 'question', 'unknown', 'unsubscribe'].includes(intent)
+    ? intent
+    : null
 }
 
 const rows = await sql(
   `select id, coalesce(subject,'(no subject)') as subject, body
      from email_replies
-    where intent is null and body is not null and btrim(body) <> ''
+    where ai_intent is null and body is not null and btrim(body) <> ''
     order by received_at desc;`,
 )
 
@@ -135,7 +154,7 @@ for (const row of rows) {
 
   console.log(`${intent.padEnd(9)} ${JSON.stringify(text.slice(0, 58))}`)
   if (APPLY) {
-    await sql(`update email_replies set intent = '${intent}' where id = '${row.id}';`)
+    await sql(`update email_replies set ai_intent = '${intent}' where id = '${row.id}';`)
   }
   labelled++
 }

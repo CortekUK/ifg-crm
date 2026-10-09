@@ -72,7 +72,7 @@ export default function RepliesPage() {
 
   // Email state — start on Matched tab when deep-linking from a stopped enrollment,
   // because reply-driven exits always come from already-matched replies.
-  const [emailIntentFilter, setEmailIntentFilter] = useState<'all' | 'positive' | 'question' | 'negative' | 'neutral' | 'unknown'>('all')
+  const [emailIntentFilter, setEmailIntentFilter] = useState<'all' | 'positive' | 'question' | 'negative' | 'unsubscribe' | 'neutral' | 'unknown'>('all')
   // Coarse filters: 'all' shows everything, 'none' shows replies with
   // no campaign/pipeline at all, otherwise a specific id is matched.
   const [emailSearch, setEmailSearch] = useState('')
@@ -152,7 +152,7 @@ export default function RepliesPage() {
     () => emailRepliesQuery.data?.pages?.flat() || [],
     [emailRepliesQuery.data],
   )
-  const { data: emailIntentCounts = { all: 0, positive: 0, question: 0, negative: 0, neutral: 0, unknown: 0 } } =
+  const { data: emailIntentCounts = { all: 0, positive: 0, question: 0, negative: 0, unsubscribe: 0, neutral: 0, unknown: 0 } } =
     useEmailReplyIntentCounts(emailTab, emailFiltersWithoutIntent)
   const { data: emailFilterOptions } = useEmailReplyFilterOptions(emailTab, contactIdParam)
   const campaignOptions = emailFilterOptions?.campaigns ?? []

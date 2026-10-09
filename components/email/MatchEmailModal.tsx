@@ -52,6 +52,7 @@ const intentConfig: Record<EmailIntent, { label: string; className: string }> = 
   negative: { label: 'Negative', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
   neutral: { label: 'Neutral', className: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
   question: { label: 'Question', className: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' },
+  unsubscribe: { label: 'Unsubscribe', className: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300' },
   unknown: { label: 'Unknown', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' },
 }
 

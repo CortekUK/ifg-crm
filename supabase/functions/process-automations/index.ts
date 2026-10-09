@@ -196,6 +196,13 @@ async function checkReplies(
         received_at
       `)
       .eq('processed', false)
+      // An out-of-office autoresponder is not the player answering, so it must
+      // not end their sequence. This is the third of the three paths that stop
+      // a sequence on reply — the other two are the trigger
+      // stop_enrollments_on_reply_match and the pending_reply_stops view, both
+      // given the same exclusion in migration 229. Miss one and the holiday
+      // autoresponder still stops the chase from here.
+      .eq('is_auto_reply', false)
       .limit(50)
 
     if (repliesError || !replies || replies.length === 0) {
