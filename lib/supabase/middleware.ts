@@ -111,8 +111,19 @@ export async function updateSession(request: NextRequest) {
 
     // Player-specific routing
     if (role === 'player') {
-      // Players can only access /portal/* routes
-      if (!pathname.startsWith('/portal') && !pathname.startsWith('/auth') && !pathname.startsWith('/set-password')) {
+      // Players can only access /portal/* routes — except the auth-neutral
+      // ones. isAuthNeutralRoute was being honoured for the signed-OUT case
+      // above and then undone here: a player with a portal session in the
+      // browser (the normal case, since these links are emailed to players)
+      // was redirected to /portal, so the unsubscribe never happened and they
+      // kept receiving the campaign. Logged out, the same link worked, which
+      // is why it looked fine. /pay had the same dead end.
+      if (
+        !isAuthNeutralRoute &&
+        !pathname.startsWith('/portal') &&
+        !pathname.startsWith('/auth') &&
+        !pathname.startsWith('/set-password')
+      ) {
         const url = request.nextUrl.clone()
         url.pathname = '/portal'
         return NextResponse.redirect(url)
