@@ -28,6 +28,40 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ])
 }
 
+/**
+ * How did this session come to exist? Read from the access token's `amr`
+ * claim (RFC 8176 "authentication methods references"), which GoTrue stamps
+ * with one entry per authentication step.
+ *
+ * This decides whether the user must type their current password, so it MUST
+ * come from the token and NOT from a query parameter. A `?recovery=1` flag
+ * would be trivially forged by anyone sitting at an unlocked browser, which
+ * is the exact account takeover the current-password check exists to stop.
+ * The token is signed, so its claims cannot be edited by the page.
+ *
+ * Returns the most recent method: 'password' for a normal sign-in,
+ * 'recovery' for a reset link, 'invite' / 'magiclink' / 'otp' for the others.
+ */
+function latestAuthMethod(accessToken: string | undefined): string | null {
+  if (!accessToken) return null
+  try {
+    const [, payload] = accessToken.split('.')
+    if (!payload) return null
+    // base64url → base64, then pad to a multiple of 4.
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+    const claims = JSON.parse(atob(padded)) as {
+      amr?: { method?: string; timestamp?: number }[]
+    }
+    const amr = claims.amr
+    if (!Array.isArray(amr) || amr.length === 0) return null
+    const newest = [...amr].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))[0]
+    return newest?.method ?? null
+  } catch {
+    return null
+  }
+}
+
 export default function SetPasswordPage() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
@@ -47,7 +81,8 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     const supabase = createCallbackClient()
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const user = session?.user
       if (!user) {
         router.replace('/login?error=invalid_link')
         return
@@ -65,7 +100,23 @@ export default function SetPasswordPage() {
         .eq('id', user.id)
         .maybeSingle()
 
-      setIsChangingExisting(Boolean(profile?.password_set_at))
+      // ...but NOT when the session came from an emailed one-time link.
+      //
+      // Requiring the old password after a reset link made "forgot password"
+      // impossible to complete: the one person who definitely cannot type
+      // their current password is the one who forgot it. Staff and players
+      // were both locked out — the portal uses this same screen.
+      //
+      // Clicking a link sent to the account's own inbox already proves
+      // control of that inbox, which is exactly what a password reset is
+      // meant to prove, so it stands in for the old password. A session that
+      // came from typing a password ('password') still has to re-prove it,
+      // which keeps the takeover fix intact for an unlocked browser.
+      const method = latestAuthMethod(session?.access_token)
+      const viaEmailLink =
+        method === 'recovery' || method === 'invite' || method === 'magiclink' || method === 'otp'
+
+      setIsChangingExisting(Boolean(profile?.password_set_at) && !viaEmailLink)
       setIsChecking(false)
     })
   }, [router])

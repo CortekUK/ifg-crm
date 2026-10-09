@@ -68,9 +68,35 @@ function CallbackHandler() {
       }
 
       // PKCE flow (password reset / magic link with code)
+      //
+      // Do NOT exchange blind. `createBrowserClient` leaves
+      // detectSessionInUrl at its default of true, so the client has ALREADY
+      // exchanged this `?code=` while it was being constructed — and that
+      // consumes the one-time PKCE verifier. The second exchange below then
+      // failed with "PKCE code verifier not found in storage", and a
+      // perfectly good reset link was sent to /login?error=invalid_link.
+      //
+      // The link really did sign the person in; they just never reached the
+      // set-password screen, so nobody who forgot their password could get
+      // back in — staff or player. Checking for the session the auto-detect
+      // just created is the whole fix.
       if (code) {
+        const { data: { session: alreadyExchanged } } = await supabase.auth.getSession()
+        if (alreadyExchanged) {
+          await redirectByRole()
+          return
+        }
+
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
+          // Auto-detection can land the session a tick after the check above.
+          // Re-read before calling the link dead, or we reintroduce the bug
+          // for anyone who loses that race.
+          const { data: { session: late } } = await supabase.auth.getSession()
+          if (late) {
+            await redirectByRole()
+            return
+          }
           console.error('PKCE exchange error:', error.message)
           router.replace('/login?error=invalid_link')
           return

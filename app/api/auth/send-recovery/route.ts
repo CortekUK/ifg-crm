@@ -68,8 +68,20 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Send the recovery email.
+    //
+    // Must land on /auth/callback, NOT /set-password directly. The reset link
+    // carries a one-time `?code=` that has to be exchanged for a session
+    // before anything can read who the user is. Pointing straight at
+    // /set-password skipped that step, so the page looked for a signed-in
+    // user, found none, and sent every player and guardian to the STAFF login
+    // with "This link is invalid or has expired" — no portal password reset
+    // worked at all.
+    //
+    // /auth/callback does the exchange and then redirects by role, sending
+    // players on to /set-password?redirect=/portal, which is where this was
+    // trying to get to. The staff reset has always gone through it.
     const { error } = await admin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/set-password`,
+      redirectTo: `${appUrl}/auth/callback`,
     })
 
     if (error) {
