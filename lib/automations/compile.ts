@@ -187,6 +187,22 @@ function waitUntilBeforeDateStep(
   }
 }
 
+// "Wait until the booked meeting is over." Resolved by the processor from the
+// deal's most recent scheduled calendly_event.end_time, falling back to the end
+// of the day on deals.interview_date so a deal with no Calendly booking still
+// reaches the end rather than parking forever.
+function waitUntilMeetingEndsStep(): CompiledStep {
+  return {
+    step_type: 'wait_until_meeting_ends',
+    delay_days: 0,
+    delay_hours: 0,
+    email_template_id: null,
+    sms_content: null,
+    target_stage_id: null,
+    conditions: null,
+  }
+}
+
 // Shared shape used by initial_contact and follow_up: 3 emails interleaved
 // with 2 waits, with optional final move_to_stage for follow_up.
 // Uses `||` (not `??`) for wait fallbacks to match the legacy behaviour
@@ -385,16 +401,35 @@ function meetingSchedulerSequence(
   // falling back to the end of the day on deals.interview_date — without that
   // fallback a player with no Calendly booking never reached the end and stayed
   // "active" in the automation indefinitely.
-  steps.push({
-    step_type: 'wait_until_meeting_ends',
-    delay_days: 0,
-    delay_hours: 0,
-    email_template_id: null,
-    sms_content: null,
-    target_stage_id: null,
-    conditions: null,
-  })
+  steps.push(waitUntilMeetingEndsStep())
   return steps
+}
+
+/**
+ * post_interview: wait for the interview to be over, THEN say thank you.
+ *
+ * It used to compile through variableEmailSequence, which starts with the
+ * email — so the thank-you went out the moment the card landed on Interview.
+ * QA timed it at four seconds: "Thank you again for taking the time to speak
+ * with me" arriving before the call had happened, because Interview is the
+ * stage a booking is made in, not the stage it is finished in.
+ *
+ * One wait_until_meeting_ends step in front of the first email fixes it. That
+ * step already exists for meeting_scheduler and resolves to the booked
+ * Calendly meeting's end time, or the end of the day on the deal's interview
+ * date when there is no booking. Any further emails keep their configured
+ * waits, measured from the first one as before.
+ *
+ * A deal with no interview date and no booking resolves to "now", so the
+ * thank-you still goes out rather than the enrollment parking indefinitely —
+ * the same compromise meeting_scheduler makes.
+ */
+function postInterviewSequence(
+  config: AutomationConfig | null | undefined,
+): CompiledStep[] {
+  const emails = variableEmailSequence(config)
+  if (emails.length === 0) return []
+  return [waitUntilMeetingEndsStep(), ...emails]
 }
 
 // stage_reminder: a single "deal has been parked in this stage for too
@@ -485,7 +520,7 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
   application_received: variableEmailSequence,
   interview_reminder: variableEmailSequence,
   meeting_scheduler: meetingSchedulerSequence,
-  post_interview: variableEmailSequence,
+  post_interview: postInterviewSequence,
   welcome_sequence: variableEmailSequence,
   payment_overdue: variableEmailSequence,
   pre_departure: preDepartureSequence,
