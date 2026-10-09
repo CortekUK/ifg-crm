@@ -2622,9 +2622,47 @@ async function sendInvoicePaymentLinkEmail(
 
   const playerName = `${contact.first_name} ${contact.last_name}`
 
+  // A reply to this invoice has to be able to find its way back.
+  //
+  // This email carried no Reply-To and no Message-ID, and was never written to
+  // email_sends — so a player answering "why is this £2,000?" reached the
+  // admin@ mailbox, which is not routed through Resend inbound, and the CRM
+  // never saw it (QA-28). The manual Send button on the Invoices page was
+  // given the tracked treatment first; on UK Gap and Summer Residency most
+  // invoices are raised HERE, by the automation, so that fix reached almost
+  // none of them.
+  //
+  // Same three pieces as every automation email:
+  //   * one trackingId, generated before the send
+  //   * Message-ID built from it, so the reply's In-Reply-To resolves to the
+  //     email_sends row
+  //   * Reply-To on the deal owner's mailbox, which does route inbound
+  const trackingId = crypto.randomUUID()
+
+  let ownerReplyTo: string | null = null
+  const { data: ownerRow } = await supabase
+    .from('deals')
+    .select('deal_owner_id, owner_id')
+    .eq('id', args.dealId)
+    .maybeSingle()
+  const ownerId =
+    (ownerRow as { deal_owner_id?: string | null; owner_id?: string | null } | null)?.deal_owner_id ||
+    (ownerRow as { owner_id?: string | null } | null)?.owner_id ||
+    null
+  if (ownerId) {
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', ownerId)
+      .maybeSingle()
+    ownerReplyTo = (ownerProfile as { email?: string | null } | null)?.email ?? null
+  }
+
   const sendResult = await resend.emails.send({
     from: `IFG <${fromEmail}>`,
     to: [recipientEmail],
+    reply_to: ownerReplyTo ?? fromEmail,
+    headers: { 'Message-ID': buildOutboundMessageId(trackingId) },
     subject: `Invoice ${args.invoiceNumber} - ${formattedAmount} Due`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2685,6 +2723,26 @@ async function sendInvoicePaymentLinkEmail(
         ? String((sendResult.error as { message: unknown }).message)
         : 'Resend send failed',
     )
+  }
+
+  // Record it in the CRM's email history, with the SAME tracking id that went
+  // out as the Message-ID. Two things depend on this row: a reply's
+  // In-Reply-To resolves against it, and staff can see from the CRM that the
+  // invoice was actually emailed. Best effort — the email has already gone, so
+  // a logging failure must not fail the step.
+  const { error: logError } = await supabase.from('email_sends').insert({
+    tracking_id: trackingId,
+    recipient_email: recipientEmail,
+    recipient_contact_id: contact.id,
+    subject: `Invoice ${args.invoiceNumber} - ${formattedAmount} Due`,
+    from_name: 'IFG',
+    from_email: fromEmail,
+    status: 'sent',
+    resend_message_id: sendResult.data?.id ?? null,
+    sent_at: new Date().toISOString(),
+  })
+  if (logError) {
+    console.error('Automation invoice email sent but not logged:', logError.message)
   }
 
   // Stamp the Stripe session id so reminders' {{invoice_payment_link}} can
