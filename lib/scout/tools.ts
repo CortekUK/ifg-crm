@@ -140,7 +140,11 @@ export const SCOUT_TOOLS: ChatCompletionTool[] = [
           contact_id: stringField('Filter to a specific contact UUID.'),
           deal_id: stringField('Filter to a specific deal UUID.'),
           pipeline_name: stringField('Filter to invoices on deals in a pipeline (name substring).'),
-          unpaid_only: booleanField('Only return invoices where paid_at IS NULL.'),
+          unpaid_only: booleanField(
+            'Only money somebody actually owes: unpaid, and neither cancelled nor still a draft. ' +
+              'Use this for "how much is outstanding" instead of writing your own SQL, so the ' +
+              'definition stays the same every time it is asked.',
+          ),
           overdue_only: booleanField('Only return invoices where days_overdue > 0.'),
           min_amount: numberField('Minimum invoice amount.'),
           ...paginationFields,
@@ -400,12 +404,14 @@ export const SCOUT_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'execute_readonly_sql',
       description:
-        "Escape hatch for questions the structured tools don't cover. Run a read-only SELECT against the v_scout_* views ONLY. Allowed views: v_scout_contacts, v_scout_deals, v_scout_invoices, v_scout_automations, v_scout_pipeline_state, v_scout_lists, v_scout_communications, v_scout_form_submissions, v_scout_calendar, v_scout_users, v_scout_metrics. Use joins, GROUP BY, window functions freely. Do NOT reference base tables, auth schema, or system catalogs. Limit results.",
+        "Escape hatch for questions the structured tools don't cover. Run a read-only SELECT against the v_scout_* views ONLY. Allowed views: v_scout_contacts, v_scout_contact_tags, v_scout_deals, v_scout_invoices, v_scout_automations, v_scout_pipeline_state, v_scout_lists, v_scout_communications, v_scout_form_submissions, v_scout_calendar, v_scout_users, v_scout_metrics. v_scout_contact_tags is one row per contact per tag (contact_id, contact_name, contact_email, tag_name, tag_category) — it is how you answer anything about a tag, such as the Parent Email tag. Use joins, GROUP BY, window functions freely. Do NOT reference base tables, auth schema, or system catalogs. Limit results. For a chart or a count over a lot of rows, aggregate in SQL (COUNT/SUM with GROUP BY) and return one row per bar — never list raw rows and count them yourself, because only the first 200 come back.",
       parameters: {
         type: 'object',
         properties: {
           sql: stringField(
-            'A single SELECT or WITH ... SELECT statement. Must reference only v_scout_* views. No INSERT/UPDATE/DELETE/DROP/ALTER/CREATE.',
+            'A single SELECT or WITH ... SELECT statement. Must reference only v_scout_* views. ' +
+              'No INSERT/UPDATE/DELETE/DROP/ALTER/CREATE. Write it as one expression with no ' +
+              'trailing semicolon and no trailing comment — it is run as a subquery.',
           ),
           reason: stringField(
             'One sentence explaining why the structured tools are not enough for this question.',

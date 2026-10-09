@@ -292,6 +292,9 @@ async function execQueryInvoices(args: Args) {
     // £23,366.70 of voided invoices into Scout's "outstanding" total and
     // reported 22 unpaid where there were 18.
     filters.push({ type: 'neq', column: 'status', value: 'cancelled' })
+    // Nor is a draft: it has never been sent, so nobody has been asked for it.
+    // Including drafts is why Scout answered 23 unpaid against a real 22.
+    filters.push({ type: 'neq', column: 'status', value: 'draft' })
   }
   if (bool(args.overdue_only)) filters.push({ type: 'gte', column: 'days_overdue', value: 1 })
   const minAmount = num(args.min_amount)
@@ -543,6 +546,15 @@ async function execExecuteReadonlySql(args: Args) {
   if (!sql) return { error: 'sql argument is required' }
   const validation = validateReadonlyScoutSql(sql)
   if (!validation.ok) return { error: validation.reason }
+  // Send the NORMALISED statement, not what the model typed. The RPC wraps the
+  // text in `SELECT ... FROM (<sql>) AS t`, so a trailing semicolon — which a
+  // model writes more often than not — became `FROM (SELECT ...;) AS t` and
+  // died with "syntax error at or near ;". The validator had been stripping the
+  // semicolon into a local variable all along and then throwing it away, so
+  // every question that needed this tool answered "I'm unable to retrieve that
+  // due to a technical issue": the outstanding invoice total, the Parent Email
+  // tag count, abandoned deposits, the 60-day contacts chart.
+  const safeSql = validation.sql
 
   const admin = getAdmin()
   // The custom RPC isn't in the generated types; cast to bypass the
@@ -552,7 +564,7 @@ async function execExecuteReadonlySql(args: Args) {
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: { message: string } | null }>
-  const { data, error } = await rpc('scout_run_readonly_sql', { p_sql: sql })
+  const { data, error } = await rpc('scout_run_readonly_sql', { p_sql: safeSql })
   if (error) return { error: error.message }
   // The RPC returns JSON (rows array). Trim if absurdly large.
   const rows = Array.isArray(data) ? (data as unknown[]).slice(0, 200) : data
@@ -594,29 +606,63 @@ const FORBIDDEN_KEYWORDS = [
   /\binformation_schema\b/i,
 ]
 
-export function validateReadonlyScoutSql(sql: string): { ok: boolean; reason: string } {
-  const trimmed = sql.trim().replace(/;\s*$/, '')
+/**
+ * Trailing punctuation a model adds out of habit, removed so the statement can
+ * be wrapped as a subquery.
+ *
+ * `scout_run_readonly_sql` builds `SELECT ... FROM (<sql>) AS t`. Two endings
+ * break that wrapper and both are things an LLM writes constantly:
+ *   - a closing semicolon  -> `FROM (SELECT ...;) AS t`
+ *   - a trailing -- comment -> the generated `) AS t` is commented out
+ * A `--` is only treated as a comment when the quotes before it on that line
+ * are balanced, so `WHERE note = 'a -- b'` is left alone.
+ */
+function stripTrailingSqlNoise(sql: string): string {
+  let out = sql.trim()
+  for (let i = 0; i < 10; i++) {
+    const before = out
+    const nl = out.lastIndexOf('\n')
+    const lastLine = out.slice(nl + 1)
+    const comment = lastLine.indexOf('--')
+    if (comment !== -1) {
+      const quotes = (lastLine.slice(0, comment).match(/'/g) ?? []).length
+      if (quotes % 2 === 0) out = (out.slice(0, nl + 1) + lastLine.slice(0, comment)).trim()
+    }
+    out = out.replace(/;+$/, '').trim()
+    if (out === before) break
+  }
+  return out
+}
+
+export function validateReadonlyScoutSql(sql: string): {
+  ok: boolean
+  reason: string
+  // The statement to actually run. Callers MUST send this and not the raw
+  // input — see the call site in execExecuteReadonlySql.
+  sql: string
+} {
+  const trimmed = stripTrailingSqlNoise(sql)
   const head = trimmed.slice(0, 200).toLowerCase()
   if (!head.startsWith('select') && !head.startsWith('with ')) {
-    return { ok: false, reason: 'SQL must start with SELECT or WITH ... SELECT.' }
+    return { ok: false, reason: 'SQL must start with SELECT or WITH ... SELECT.', sql: trimmed }
   }
   for (const pat of FORBIDDEN_KEYWORDS) {
     if (pat.test(trimmed)) {
-      return { ok: false, reason: `Forbidden keyword/pattern: ${pat}` }
+      return { ok: false, reason: `Forbidden keyword/pattern: ${pat}`, sql: trimmed }
     }
   }
   // Must reference at least one allowed view, must NOT reference any other table.
   const referenced = trimmed.match(/\b[a-z_][a-z0-9_]*\b/gi) ?? []
   const tableTokens = referenced.filter((t) => /^v_scout_/i.test(t))
   if (tableTokens.length === 0) {
-    return { ok: false, reason: 'Query must reference at least one v_scout_* view.' }
+    return { ok: false, reason: 'Query must reference at least one v_scout_* view.', sql: trimmed }
   }
   for (const t of tableTokens) {
     if (!ALLOWED_VIEWS.includes(t.toLowerCase())) {
-      return { ok: false, reason: `Disallowed view: ${t}` }
+      return { ok: false, reason: `Disallowed view: ${t}`, sql: trimmed }
     }
   }
-  return { ok: true, reason: '' }
+  return { ok: true, reason: '', sql: trimmed }
 }
 
 // ---------------------------------------------------------------------------
