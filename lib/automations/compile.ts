@@ -36,6 +36,12 @@ type Compiler = (config: AutomationConfig | null | undefined) => CompiledStep[]
 
 const DEFAULT_WAIT_DAYS = [3, 5, 7] as const
 
+// Pre-Departure's advertised first reminder: "30, 14 and 7 days before
+// programme start". Used when the configurer leaves "Days Before" empty, so
+// the compiled sequence matches what the template says it does rather than
+// collapsing every email onto the date itself.
+const DEFAULT_DAYS_BEFORE = 30
+
 type ConfiguredEmail = NonNullable<AutomationConfig['emails']>[number]
 
 /**
@@ -277,6 +283,57 @@ function variableEmailSequence(config: AutomationConfig | null | undefined): Com
   return steps
 }
 
+/**
+ * pre_departure: every email anchored to the deal's date, not to enrolment.
+ *
+ * The template promises "reminders at 30, 14 and 7 days before programme
+ * start". It used to compile through variableEmailSequence — plain `wait`
+ * steps measured from the moment of enrolment — which is a different thing
+ * and broke in two ways QA reported:
+ *
+ *   * "it is not really 30 / 14 / 7 days before". Enrol a day late and every
+ *     email shifts a day later; the "7 days to go" email could arrive after
+ *     the player had already travelled.
+ *   * changing the programme date after the sequence started did nothing to
+ *     the emails still to come, because a fixed wait has no idea what it was
+ *     counting towards.
+ *
+ * wait_until_before_date steps fix both, and the machinery already exists for
+ * meeting_scheduler: the processor resolves each one against the deal's date
+ * at scheduling time, and sweepBeforeDateWaits() RE-resolves them when that
+ * date moves. So editing a programme start date now drags the whole run-up
+ * with it.
+ *
+ * Per-email offsets are derived from the single "Days Before" setting minus
+ * the cumulative waits the configurer already enters between emails, so the
+ * existing editor keeps working unchanged: days_before 30 with waits of 16
+ * and 7 gives 30, 14 and 7 — exactly what the template advertises. An offset
+ * that would go negative is clamped to 0, meaning "on the day itself" rather
+ * than silently after it.
+ */
+function preDepartureSequence(
+  config: AutomationConfig | null | undefined,
+): CompiledStep[] {
+  const emails = emailsBySlot(config)
+  const field = config?.date_field || 'programme_start_date'
+  const daysBefore = config?.days_before ?? DEFAULT_DAYS_BEFORE
+  const waitDays = config?.wait_days ?? []
+
+  const chosen = emails.length > 0 ? emails : config?.single_template_id ? [null] : []
+  if (chosen.length === 0) return []
+
+  const steps: CompiledStep[] = []
+  let offset = daysBefore
+  chosen.forEach((email, i) => {
+    if (i > 0) offset -= waitDays[i - 1] || DEFAULT_WAIT_DAYS[0]
+    const templateId =
+      email?.template_id || (i === 0 ? config?.single_template_id || null : null)
+    steps.push(waitUntilBeforeDateStep(field, Math.max(0, offset), 'days'))
+    steps.push(emailStep(templateId))
+  })
+  return steps
+}
+
 // meeting_scheduler: send a "schedule your meeting" email immediately when
 // the trigger fires, then for each configured reminder (max 2) emit a
 // wait_until_before_date step + a send_email step. Reminders fire relative
@@ -404,7 +461,7 @@ export const AUTOMATION_STEP_COMPILERS: Record<AutomationType, Compiler> = {
   post_interview: variableEmailSequence,
   welcome_sequence: variableEmailSequence,
   payment_overdue: variableEmailSequence,
-  pre_departure: variableEmailSequence,
+  pre_departure: preDepartureSequence,
   stage_reminder: stageReminderSequence,
   custom: variableEmailSequence,
 }

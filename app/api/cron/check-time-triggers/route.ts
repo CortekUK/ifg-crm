@@ -158,14 +158,21 @@ export async function GET(request: NextRequest) {
       const todayDate = new Date().toISOString().slice(0, 10)
       let dealsQuery = supabase
         .from('deals')
-        .select('id')
+        .select(`id, ${dateField}`)
         .gte(dateField, todayDate)
         .lt(dateField, dayAfterDate)
       if (automation.pipeline_id) {
         dealsQuery = dealsQuery.eq('pipeline_id', automation.pipeline_id)
       }
 
-      const { data: deals, error: dealsError } = await dealsQuery
+      // supabase-js infers row types from a LITERAL select string and cannot
+      // parse one built from a variable, so the shape is asserted here — the
+      // columns are `id` plus whichever whitelisted date field this
+      // automation targets. Same arrangement as the bulk-import route.
+      const { data: deals, error: dealsError } = (await dealsQuery) as unknown as {
+        data: (Record<string, unknown> & { id: string })[] | null
+        error: { message: string } | null
+      }
       if (dealsError) {
         console.error(`check-time-triggers: deal scan failed for automation ${automation.id}`, dealsError)
         continue
@@ -173,6 +180,9 @@ export async function GET(request: NextRequest) {
       if (!deals || deals.length === 0) continue
 
       const dealIds = deals.map((d) => d.id)
+      const dateByDeal = new Map<string, string | null>(
+        deals.map((d) => [d.id, (d[dateField] as string | null) ?? null]),
+      )
 
       // Skip deals that are already actively enrolled in this automation.
       const { data: existing } = await supabase
@@ -185,37 +195,80 @@ export async function GET(request: NextRequest) {
       const targets = dealIds.filter((id) => !alreadyEnrolled.has(id))
       if (targets.length === 0) continue
 
-      // Get the first step so the enrollment knows where to start.
-      const { data: firstStep, error: stepError } = await supabase
+      // Every step, in order — not just the first.
+      //
+      // A Pre-Departure sequence is now anchored to the deal's date
+      // (wait_until_before_date steps), and the window above deliberately
+      // enrols deals whose date is closer than the first reminder. Starting
+      // everyone at step one would then fire the reminders whose moment had
+      // already gone: a programme 10 days away would send "30 days to go" and
+      // "14 days to go" within minutes of each other. QA asked for the
+      // opposite — send the reminders that are STILL AHEAD, and skip the ones
+      // the date has already overtaken.
+      const { data: steps, error: stepError } = await supabase
         .from('automation_steps')
-        .select('id, step_type, delay_days, delay_hours')
+        .select('id, step_type, delay_days, delay_hours, step_order')
         .eq('automation_id', automation.id)
         .order('step_order', { ascending: true })
-        .limit(1)
-        .maybeSingle()
 
-      if (stepError || !firstStep) {
+      if (stepError || !steps || steps.length === 0) {
         console.warn(`Automation ${automation.id} has no steps, skipping enrollment`)
         continue
       }
 
+      const firstStep = steps[0]
       const now = new Date()
-      let nextStepAt = now
-      if (firstStep.step_type === 'wait') {
-        const ms =
-          (firstStep.delay_days ?? 0) * 24 * 60 * 60 * 1000 +
-          (firstStep.delay_hours ?? 0) * 60 * 60 * 1000
-        nextStepAt = new Date(now.getTime() + ms)
+
+      // Where should THIS deal start, and when is that step due?
+      // Returns null when every reminder has already passed — nothing useful
+      // is left to send, so the deal is not enrolled at all.
+      const startFor = (dealId: string): { stepId: string; at: Date } | null => {
+        const rawDate = dateByDeal.get(dealId)
+
+        for (const step of steps) {
+          if (step.step_type !== 'wait_until_before_date') continue
+          if (!rawDate) return { stepId: step.id as string, at: now }
+          const target = new Date(rawDate)
+          if (isNaN(target.getTime())) return { stepId: step.id as string, at: now }
+          const offsetMs =
+            (step.delay_days ?? 0) * 24 * 60 * 60 * 1000 +
+            (step.delay_hours ?? 0) * 60 * 60 * 1000
+          const due = new Date(target.getTime() - offsetMs)
+          if (due.getTime() > now.getTime()) return { stepId: step.id as string, at: due }
+        }
+
+        // No date-relative steps at all: the legacy shape, where the sequence
+        // runs on fixed waits from enrolment. Unchanged.
+        if (!steps.some((st) => st.step_type === 'wait_until_before_date')) {
+          let at = now
+          if (firstStep.step_type === 'wait') {
+            const ms =
+              (firstStep.delay_days ?? 0) * 24 * 60 * 60 * 1000 +
+              (firstStep.delay_hours ?? 0) * 60 * 60 * 1000
+            at = new Date(now.getTime() + ms)
+          }
+          return { stepId: firstStep.id as string, at }
+        }
+
+        return null
       }
 
-      const rows = targets.map((dealId) => ({
-        automation_id: automation.id,
-        deal_id: dealId,
-        status: 'active',
-        current_step_id: firstStep.id,
-        next_step_at: nextStepAt.toISOString(),
-        enrolled_at: now.toISOString(),
-      }))
+      const rows = targets
+        .map((dealId) => {
+          const start = startFor(dealId)
+          if (!start) return null
+          return {
+            automation_id: automation.id,
+            deal_id: dealId,
+            status: 'active',
+            current_step_id: start.stepId,
+            next_step_at: start.at.toISOString(),
+            enrolled_at: now.toISOString(),
+          }
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+
+      if (rows.length === 0) continue
 
       const { error: insertError, count } = await supabase
         .from('automation_enrollments')

@@ -456,6 +456,13 @@ export function ConfigureAutomationModal({
     }
     if (selectedTemplate?.configurable.days_before_date) {
       config.date_field = config.date_field || 'programme_start_date'
+      // "Days Before" decides how far ahead of the date the first reminder
+      // goes, and every later one is derived from it. Left unsaved, the
+      // compiled sequence collapsed onto the date itself — so the template
+      // that promises "30, 14 and 7 days before" sent everything on the day.
+      // Same rule as the other controls above: what the form shows is what
+      // gets saved.
+      config.days_before = config.days_before ?? 30
     }
     if (config.dormant_reminder_enabled) {
       config.dormant_reminder_interval_days = config.dormant_reminder_interval_days ?? 14
