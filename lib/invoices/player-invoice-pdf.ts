@@ -94,6 +94,22 @@ export function pdfSafe(input: string | null | undefined): string {
 }
 
 /**
+ * With the embedded font in place, text goes through almost untouched.
+ *
+ * Only characters the font genuinely cannot draw become "?" — in practice
+ * non-Latin scripts. Accents, Polish letters, curly quotes and dashes all
+ * print as stored, which is what the ticket asks for. Control characters are
+ * dropped because they would corrupt the PDF content stream.
+ */
+export function pdfUnicode(input: string | null | undefined): string {
+  if (!input) return ''
+  return input
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+}
+
+/**
  * Dates are fixed to UK time, not the reader's.
  *
  * An invoice paid at 20:39 UK time on 7 October showed as 08/10/2026 to anyone
@@ -144,12 +160,94 @@ async function loadLogo(): Promise<string | null> {
   }
 }
 
+/**
+ * The font the invoice is drawn with.
+ *
+ * jsPDF's built-in Helvetica is single-byte, so every name outside its
+ * encoding was either folded to ASCII ("Fernández" printed as "Fernandez") or
+ * replaced with a question mark ("Łukasz Żółć" as "?ukasz Zo?c"). A player's
+ * name mangled on an official invoice is the thing a parent notices.
+ *
+ * Liberation Sans is embedded instead. Two reasons for that one specifically:
+ *   * it covers Latin-1, Latin Extended-A/B, Greek and Cyrillic, which is
+ *     every character QA listed — Polish Ł/Ż/ć included;
+ *   * it is metric-compatible with Helvetica, so the column positions and
+ *     wrap widths tuned in the previous round of this ticket do not move.
+ *
+ * Fetched from /public rather than bundled as base64, so the ~800KB of font
+ * never enters the JS bundle — it is requested once, only when somebody
+ * actually downloads an invoice, and cached by the browser after that.
+ *
+ * STILL NOT COVERED: Arabic, Urdu and CJK. Those need both a different font
+ * and right-to-left shaping, which jsPDF does not do; such names continue to
+ * fall back to pdfSafe below. Licence: SIL OFL 1.1, shipped at
+ * public/fonts/LICENSE-LiberationSans.txt.
+ */
+const FONT_FAMILY = 'LiberationSans'
+
+const FONT_FILES: { file: string; style: 'normal' | 'bold'; path: string }[] = [
+  { file: 'LiberationSans-Regular.ttf', style: 'normal', path: '/fonts/LiberationSans-Regular.ttf' },
+  { file: 'LiberationSans-Bold.ttf', style: 'bold', path: '/fonts/LiberationSans-Bold.ttf' },
+]
+
+/** Cached across downloads — the bytes do not change. */
+let fontCache: { file: string; style: 'normal' | 'bold'; base64: string }[] | null = null
+
+async function fetchFonts() {
+  if (fontCache) return fontCache
+  const loaded = await Promise.all(
+    FONT_FILES.map(async ({ file, style, path }) => {
+      const res = await fetch(path)
+      if (!res.ok) throw new Error(`font ${path}: ${res.status}`)
+      const buf = new Uint8Array(await res.arrayBuffer())
+      // Chunked so a 400KB font cannot blow the argument limit on
+      // String.fromCharCode, which happens well under a megabyte.
+      let binary = ''
+      const CHUNK = 0x8000
+      for (let i = 0; i < buf.length; i += CHUNK) {
+        binary += String.fromCharCode(...buf.subarray(i, i + CHUNK))
+      }
+      return { file, style, base64: btoa(binary) }
+    }),
+  )
+  fontCache = loaded
+  return loaded
+}
+
+/**
+ * Register the embedded font. Returns false if it could not be loaded, in
+ * which case the caller keeps Helvetica and the ASCII folding — a downloadable
+ * invoice with a folded accent beats no invoice at all.
+ */
+async function registerEmbeddedFont(doc: {
+  addFileToVFS: (f: string, d: string) => void
+  addFont: (f: string, n: string, s: string) => string
+}): Promise<boolean> {
+  try {
+    for (const { file, style, base64 } of await fetchFonts()) {
+      doc.addFileToVFS(file, base64)
+      doc.addFont(file, FONT_FAMILY, style)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function downloadPlayerInvoicePDF(
   invoice: PlayerInvoicePdfInput,
   billTo: PlayerInvoiceBillTo | null,
 ): Promise<void> {
   const { default: jsPDF } = await import('jspdf')
   const doc = new jsPDF()
+
+  // Embedded font first, because every setFont below names the family and
+  // every string goes through the matching sanitiser. If it cannot be fetched
+  // we fall back to Helvetica with ASCII folding, exactly as before.
+  const embedded = await registerEmbeddedFont(doc)
+  const family = embedded ? FONT_FAMILY : 'helvetica'
+  const txt = embedded ? pdfUnicode : pdfSafe
+
   const pageWidth = doc.internal.pageSize.getWidth()
   const left = 20
   const right = pageWidth - 20
@@ -163,13 +261,13 @@ export async function downloadPlayerInvoicePDF(
   } else {
     doc.setTextColor(...INK)
     doc.setFontSize(15)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(family, 'bold')
     doc.text('THE INTERNATIONAL FOOTBALL GROUP', left, 24)
   }
 
   doc.setTextColor(...INK)
   doc.setFontSize(26)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(family, 'bold')
   doc.text('INVOICE', right, 26, { align: 'right' })
 
   doc.setFillColor(...RED)
@@ -178,13 +276,13 @@ export async function downloadPlayerInvoicePDF(
   // ---- Invoice number and status ----
   doc.setTextColor(...INK)
   doc.setFontSize(13)
-  doc.setFont('helvetica', 'bold')
-  doc.text(pdfSafe(invoice.invoice_number), left, 48)
+  doc.setFont(family, 'bold')
+  doc.text(txt(invoice.invoice_number), left, 48)
 
   doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(family, 'normal')
   doc.setTextColor(...MUTED)
-  doc.text(`Status: ${pdfSafe(invoice.statusLabel)}`, right, 48, { align: 'right' })
+  doc.text(`Status: ${txt(invoice.statusLabel)}`, right, 48, { align: 'right' })
 
   // ---- BILL TO / FROM ----
   //
@@ -194,26 +292,26 @@ export async function downloadPlayerInvoicePDF(
   const colGap = contentWidth / 2
 
   doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(family, 'bold')
   doc.setTextColor(...MUTED)
   doc.text('BILL TO', left, y)
   doc.text('FROM', left + colGap, y)
   y += 6
 
   doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(family, 'bold')
   doc.setTextColor(...INK)
-  doc.text(pdfSafe(billTo?.name) || 'Player', left, y)
+  doc.text(txt(billTo?.name) || 'Player', left, y)
   doc.text('The International Football Group', left + colGap, y)
 
   let leftY = y + 5
   let rightY = y + 5
   doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(family, 'normal')
   doc.setTextColor(...MUTED)
 
   for (const line of billToLines(billTo)) {
-    for (const wrapped of doc.splitTextToSize(pdfSafe(line), colGap - 6) as string[]) {
+    for (const wrapped of doc.splitTextToSize(txt(line), colGap - 6) as string[]) {
       doc.text(wrapped, left, leftY)
       leftY += 4.6
     }
@@ -235,15 +333,15 @@ export async function downloadPlayerInvoicePDF(
     const labelWidth = 42
     doc.setTextColor(...MUTED)
     doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(family, 'normal')
     doc.text(label, left, y)
 
     doc.setTextColor(...INK)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(family, 'bold')
     // Right-aligned but wrapped: a long description used to be drawn as a
     // single right-aligned line, so it ran back over the label and off the
     // left edge of the page.
-    const lines = doc.splitTextToSize(pdfSafe(value) || '-', contentWidth - labelWidth) as string[]
+    const lines = doc.splitTextToSize(txt(value) || '-', contentWidth - labelWidth) as string[]
     for (const line of lines) {
       doc.text(line, right, y, { align: 'right' })
       y += 5.5
@@ -263,11 +361,11 @@ export async function downloadPlayerInvoicePDF(
     y += 4
     doc.setTextColor(...MUTED)
     doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(family, 'normal')
     doc.text('Notes', left, y)
     y += 6
     doc.setTextColor(...INK)
-    const lines = doc.splitTextToSize(pdfSafe(invoice.notes), contentWidth) as string[]
+    const lines = doc.splitTextToSize(txt(invoice.notes), contentWidth) as string[]
     doc.text(lines, left, y)
     y += lines.length * 5
   }
@@ -280,11 +378,11 @@ export async function downloadPlayerInvoicePDF(
 
   doc.setTextColor(...MUTED)
   doc.setFontSize(12)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(family, 'normal')
   doc.text('Total Amount', left, y)
   doc.setTextColor(...INK)
   doc.setFontSize(20)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(family, 'bold')
   doc.text(formatInvoiceMoney(invoice.amount, invoice.currency), right, y, { align: 'right' })
 
   // ---- HOW TO PAY ----
@@ -296,10 +394,10 @@ export async function downloadPlayerInvoicePDF(
     y += 14
     doc.setTextColor(...MUTED)
     doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(family, 'bold')
     doc.text('HOW TO PAY', left, y)
     y += 5.5
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(family, 'normal')
     doc.setTextColor(...INK)
     const payUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/pay/${invoice.id}`
     for (const line of doc.splitTextToSize(
@@ -324,7 +422,7 @@ export async function downloadPlayerInvoicePDF(
   doc.line(left, footerY - 10, right, footerY - 10)
   doc.setTextColor(...MUTED)
   doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(family, 'normal')
   doc.text(
     'The International Football Group | info@theinternationalfootballgroup.com',
     pageWidth / 2,
