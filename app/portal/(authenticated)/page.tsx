@@ -40,12 +40,23 @@ export default function PortalDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  // The login exists but is attached to no player. Deleting a contact nulls
+  // profiles.contact_id (ON DELETE SET NULL), so the account survives with
+  // nothing to load — QA-56 Issue 2, and the likely cause of the "loading
+  // skeletons that never fill in" this ticket was opened for.
+  const [unlinked, setUnlinked] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
     const fetchDashboard = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      // Every exit from here has to clear `loading`. It did not, so the two
+      // cases below left the dashboard showing skeletons for ever with no
+      // error and nothing in the console to explain it.
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -55,7 +66,11 @@ export default function PortalDashboardPage() {
 
       const playerContactId =
         profile?.contact_id ?? profile?.guardian_for_contact_id ?? null
-      if (!playerContactId) return
+      if (!playerContactId) {
+        setUnlinked(true)
+        setLoading(false)
+        return
+      }
 
       // Fetch invoices
       // Drafts are excluded: staff leave an invoice as a draft while the
@@ -123,6 +138,24 @@ export default function PortalDashboardPage() {
       default:
         return { label: 'Unpaid', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300' }
     }
+  }
+
+  if (unlinked) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="space-y-3 p-6 text-center">
+            <AlertTriangle className="mx-auto h-8 w-8 text-orange-500" />
+            <h2 className="text-lg font-semibold">This account isn&apos;t linked to a player</h2>
+            <p className="text-sm text-muted-foreground">
+              Your login works, but there is no player record attached to it, so there is
+              nothing to show. This usually means the record was removed. Please contact
+              the IFG team and they will put it right.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (loading) {
