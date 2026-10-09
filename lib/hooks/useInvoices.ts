@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Invoice, InvoiceFilters, CreateInvoiceInput, InvoiceStatus } from '@/lib/types/invoices'
 import { applyPaymentReceived } from '@/lib/payments/notify-payment-received'
+import { recordManualPaymentForInvoice } from '@/lib/payments/record-manual-payment'
 
 export function useInvoices(filters?: InvoiceFilters) {
   const supabase = createClient()
@@ -294,6 +295,10 @@ export function useUpdateInvoiceStatus() {
       // transfer kept being chased for the deposit they had already sent.
       // Needs the service-role key, hence the route.
       if (status === 'paid') {
+        // The money first, then the follow-on effects. Mark Paid used to do
+        // neither the payments row nor the method, so a paid invoice left no
+        // trace on the Payments page (QA-44 new issue 1).
+        await recordManualPaymentForInvoice(supabase, invoiceId)
         await applyPaymentReceived(invoiceId, 'manual')
       }
     },
@@ -386,9 +391,13 @@ export function useBulkUpdateInvoiceStatus() {
       if (error) throw error
 
       // Same reasoning as the single-invoice path above: a bulk Mark Paid is
-      // still a payment, and each deal has to move and stop being chased.
+      // still a payment, so the money is recorded and each deal has to move
+      // and stop being chased.
       if (status === 'paid') {
-        for (const id of invoiceIds) await applyPaymentReceived(id, 'manual')
+        for (const id of invoiceIds) {
+          await recordManualPaymentForInvoice(supabase, id)
+          await applyPaymentReceived(id, 'manual')
+        }
       }
     },
     onSuccess: () => {
