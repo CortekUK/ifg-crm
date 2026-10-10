@@ -355,7 +355,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       setImportResult(result)
       toast({
         title: 'Import complete',
-        description: `${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`,
+        description: `${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.duplicatesInFile} duplicate rows merged, ${result.errors.length} errors`,
       })
     } catch {
       toast({ title: 'Import failed', description: 'An unexpected error occurred.', variant: 'destructive' })
@@ -620,6 +620,50 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
                       <div className="text-sm text-muted-foreground">Errors</div>
                     </div>
                   </div>
+
+                  {/* The reconciliation line.
+                      Four figures that quietly came to less than the file was
+                      the one symptom of rows being dropped, and there was
+                      nothing on screen to check them against — so an operator
+                      had to count the file by hand to find out. Duplicate rows
+                      inside the file are the honest reason the sum can fall
+                      short of it, so they are named rather than hidden. */}
+                  {(() => {
+                    const accounted =
+                      importResult.created +
+                      importResult.updated +
+                      importResult.skipped +
+                      importResult.duplicatesInFile +
+                      importResult.errors.length
+                    const reconciles = accounted === importResult.total
+                    return (
+                      <div
+                        className={`border rounded-lg p-3 text-sm ${
+                          reconciles
+                            ? 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50'
+                            : 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30'
+                        }`}
+                      >
+                        <p className="font-medium text-foreground">
+                          {accounted} of {importResult.total} rows accounted for
+                          {reconciles ? '.' : ' — some rows are unexplained.'}
+                        </p>
+                        {importResult.duplicatesInFile > 0 && (
+                          <p className="text-muted-foreground mt-1">
+                            Includes {importResult.duplicatesInFile} duplicate row
+                            {importResult.duplicatesInFile !== 1 ? 's' : ''} in your file, merged
+                            into the contact of the same email address.
+                          </p>
+                        )}
+                        {!reconciles && (
+                          <p className="text-amber-800 dark:text-amber-400 mt-1">
+                            Re-running the same file is safe — existing contacts are updated, not
+                            duplicated.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {importResult.errors.length > 0 && (
                     <div className="border border-red-200 rounded-lg p-3 bg-red-50 max-h-40 overflow-y-auto">

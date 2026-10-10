@@ -385,6 +385,8 @@ export async function POST(request: NextRequest) {
     // so a repeated email in one chunk must collapse to a single record.
     const createdAtCol = findCreatedAtColumn(headers)
     const byEmail = new Map<string, { record: Record<string, unknown>; tags: TagRef[]; row: number }>()
+    /** Rows this chunk folded into an earlier row with the same email. */
+    let duplicatesInFile = 0
 
     rows.forEach((row, i) => {
       const rowNumber = rowOffset + i + 1
@@ -440,12 +442,21 @@ export async function POST(request: NextRequest) {
         tags.push({ name: PARENT_EMAIL_TAG, category: 'source' })
       }
 
+      // Two rows in this chunk carrying the same address are ONE contact, and
+      // the later row wins the merge. That collapse has to be counted, because
+      // created/updated/skipped are all derived from this map — i.e. from
+      // unique emails, not from rows read. Left uncounted, a file holding
+      // internal duplicates reported fewer rows than it contained, and the
+      // operator's one check that nothing was silently dropped
+      // (created + updated + skipped + errors = rows in the file) failed on a
+      // file where in fact nothing had been lost (QA-59).
+      if (byEmail.has(email)) duplicatesInFile++
       byEmail.set(email, { record, tags, row: rowNumber })
     })
 
     const emails = [...byEmail.keys()]
     if (emails.length === 0) {
-      return NextResponse.json({ created: 0, updated: 0, skipped: 0, errors })
+      return NextResponse.json({ created: 0, updated: 0, skipped: 0, duplicatesInFile, errors })
     }
 
     // 4. Read existing contacts so we can merge rather than clobber.
@@ -800,7 +811,7 @@ export async function POST(request: NextRequest) {
       if (pinnedErr) errors.push({ row: rowOffset, message: `Tag: ${pinnedErr.message}` })
     }
 
-    return NextResponse.json({ created, updated, skipped, errors })
+    return NextResponse.json({ created, updated, skipped, duplicatesInFile, errors })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
     return NextResponse.json({ error: message }, { status: 500 })

@@ -29,6 +29,16 @@ export interface ImportResult {
   created: number
   updated: number
   skipped: number
+  /**
+   * Rows that were folded into an earlier row carrying the same email.
+   *
+   * Counted separately so `created + updated + skipped + duplicatesInFile +
+   * errors` equals the row count of the file. Without it a file containing its
+   * own duplicates — which every historic IFG export does — reported fewer
+   * rows than it held, and the operator could not tell that from rows being
+   * silently dropped (QA-59).
+   */
+  duplicatesInFile: number
   errors: { row: number; message: string }[]
 }
 
@@ -97,6 +107,7 @@ export function useImportContacts() {
         created: 0,
         updated: 0,
         skipped: 0,
+        duplicatesInFile: 0,
         errors: [],
       }
 
@@ -146,6 +157,7 @@ export function useImportContacts() {
           result.created += data.created ?? 0
           result.updated += data.updated ?? 0
           result.skipped += data.skipped ?? 0
+          result.duplicatesInFile += data.duplicatesInFile ?? 0
           if (data.errors?.length) result.errors.push(...data.errors)
         }
 
