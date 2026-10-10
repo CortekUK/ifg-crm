@@ -118,9 +118,38 @@ export type SendPaymentLinkResult =
  * looks it up in email_sends.tracking_id.
  */
 export function buildInvoiceMessageId(trackingId: string): string {
-  const domain = (process.env.INBOUND_REPLY_DOMAIN ?? 'reply.local').trim().replace(/^@+/, '')
-  const replyDomain = domain.startsWith('reply.') ? domain : `reply.${domain}`
-  return `<${trackingId}@${replyDomain}>`
+  return `<${trackingId}@${replyDomain()}>`
+}
+
+/** `reply.<domain>`, however INBOUND_REPLY_DOMAIN happens to be written. */
+function replyDomain(): string {
+  const domain = (process.env.INBOUND_REPLY_DOMAIN ?? '').trim().replace(/^@+/, '')
+  if (!domain) return 'reply.local'
+  return domain.startsWith('reply.') ? domain : `reply.${domain}`
+}
+
+/**
+ * The tracked Reply-To, mirroring buildReplyToAddress in
+ * supabase/functions/_shared/message-id.ts (duplicated because that module is
+ * Deno and this one is Node).
+ *
+ * It MUST be this address and not a staff mailbox. Only
+ * reply.<domain> is pointed at Resend inbound, which feeds the CRM's reply
+ * handler; staff mail on the main domain goes to Outlook, so a reply sent there
+ * lands in a personal inbox and the CRM never sees it. That is exactly why
+ * replies to invoice emails went missing while replies to ordinary automation
+ * emails arrived in seconds (QA-28).
+ *
+ * Returns null when INBOUND_REPLY_DOMAIN is unset, so the caller can fall back
+ * to a real mailbox rather than send a tracked address that would bounce.
+ */
+export function buildInvoiceReplyTo(trackingId: string, displayName?: string | null): string | null {
+  const raw = (process.env.INBOUND_REPLY_DOMAIN ?? '').trim()
+  if (!raw) return null
+  const address = `replies+${trackingId}@${replyDomain()}`
+  const safeName = displayName?.replace(/[\r\n]+/g, ' ').trim()
+  if (!safeName) return address
+  return `"${safeName.replace(/(["\\])/g, '\\$1')}" <${address}>`
 }
 
 export async function sendPaymentLinkEmail(
@@ -140,7 +169,7 @@ export async function sendPaymentLinkEmail(
    * `replyTo` should be a mailbox that routes back through Resend inbound (the
    * deal owner, as the automation path does).
    */
-  tracking?: { trackingId: string; replyTo?: string | null },
+  tracking?: { trackingId: string; replyTo?: string | null; replyToName?: string | null },
 ): Promise<SendPaymentLinkResult> {
   const resendApiKey = process.env.RESEND_API_KEY
   if (!resendApiKey) return { ok: false, message: 'Email service not configured' }
@@ -154,7 +183,13 @@ export async function sendPaymentLinkEmail(
       to: [recipientEmail],
       // camelCase here: the Node SDK takes `replyTo`, while the Deno build used
       // in the edge functions takes `reply_to`.
-      replyTo: tracking?.replyTo ?? undefined,
+      //
+      // Tracked address first; the caller's value is only the fallback for an
+      // environment with no reply domain configured.
+      replyTo:
+        (tracking ? buildInvoiceReplyTo(tracking.trackingId, tracking.replyToName) : null) ??
+        tracking?.replyTo ??
+        undefined,
       subject,
       html,
       headers: tracking ? { 'Message-ID': buildInvoiceMessageId(tracking.trackingId) } : undefined,

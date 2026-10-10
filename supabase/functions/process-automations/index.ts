@@ -2639,7 +2639,8 @@ async function sendInvoicePaymentLinkEmail(
   //   * Reply-To on the deal owner's mailbox, which does route inbound
   const trackingId = crypto.randomUUID()
 
-  let ownerReplyTo: string | null = null
+  let ownerEmail: string | null = null
+  let ownerName: string | null = null
   const { data: ownerRow } = await supabase
     .from('deals')
     .select('deal_owner_id, owner_id')
@@ -2652,16 +2653,34 @@ async function sendInvoicePaymentLinkEmail(
   if (ownerId) {
     const { data: ownerProfile } = await supabase
       .from('profiles')
-      .select('email')
+      .select('email, full_name')
       .eq('id', ownerId)
       .maybeSingle()
-    ownerReplyTo = (ownerProfile as { email?: string | null } | null)?.email ?? null
+    ownerEmail = (ownerProfile as { email?: string | null } | null)?.email ?? null
+    ownerName = (ownerProfile as { full_name?: string | null } | null)?.full_name ?? null
   }
+
+  // The TRACKED address, not the recruiter's own mailbox.
+  //
+  // Setting it to the owner's inbox moved the problem rather than fixing it:
+  // staff mail on theinternationalfootballgroup.com is delivered to Outlook, so
+  // a player's reply landed in the recruiter's personal inbox and the CRM still
+  // never saw it. Only reply.theinternationalfootballgroup.com is pointed at
+  // Resend inbound, which is what feeds the reply handler — which is why
+  // replies to ordinary automation emails arrive within seconds and replies to
+  // invoices did not (QA-28).
+  //
+  // buildReplyToAddress encodes the trackingId in the local part, so the
+  // inbound handler resolves the reply straight back to this email_sends row.
+  // The owner's mailbox stays as the fallback for when INBOUND_REPLY_DOMAIN is
+  // unset (a local or preview environment), where a tracked address would
+  // bounce.
+  const trackedReplyTo = buildReplyToAddress(trackingId, `${ownerName ?? 'IFG'} at IFG`)
 
   const sendResult = await resend.emails.send({
     from: `IFG <${fromEmail}>`,
     to: [recipientEmail],
-    reply_to: ownerReplyTo ?? fromEmail,
+    reply_to: trackedReplyTo ?? ownerEmail ?? fromEmail,
     headers: { 'Message-ID': buildOutboundMessageId(trackingId) },
     subject: `Invoice ${args.invoiceNumber} - ${formattedAmount} Due`,
     html: `

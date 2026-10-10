@@ -146,6 +146,7 @@ export async function POST(
     // deal_owner_id -> owner_id is the one process-automations uses to decide
     // who an email is sent as, so the Reply-To matches the sender staff expect.
     let ownerEmail: string | null = null
+    let ownerName: string | null = null
     if (invoice.deal_id) {
       const { data: dealRow } = await supabase
         .from('deals')
@@ -156,15 +157,21 @@ export async function POST(
       if (ownerId) {
         const { data: ownerProfile } = await supabase
           .from('profiles')
-          .select('email')
+          .select('email, full_name')
           .eq('id', ownerId)
           .maybeSingle()
         ownerEmail = ownerProfile?.email ?? null
+        ownerName = ownerProfile?.full_name ?? null
       }
     }
 
+    // sendPaymentLinkEmail prefers the TRACKED reply address built from this
+    // trackingId; `replyTo` here is only the fallback for an environment with
+    // no reply domain set. The owner's own mailbox is not good enough on its
+    // own — it delivers to Outlook, so the CRM never sees the reply (QA-28).
     const sendResult = await sendPaymentLinkEmail(recipientEmail, emailInput, {
       trackingId,
+      replyToName: `${ownerName ?? 'IFG'} at IFG`,
       replyTo: ownerEmail ?? process.env.FROM_EMAIL ?? null,
     })
 
