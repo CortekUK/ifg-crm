@@ -507,13 +507,18 @@ export function useReorderDeal() {
         // Precision backstop. Rewrite the stage on the gaps the backfill used,
         // then drop the card at the end; the user can nudge it again and the
         // midpoints will have room.
-        const { data: rows } = await supabase
-          .from('deals')
-          .select('id, board_position, created_at')
-          .eq('current_stage_id', stageId)
-          .order('board_position', { ascending: true, nullsFirst: false })
-
-        const ordered = rows ?? []
+        // Paged: a rebalance that saw only the first 1000 cards in the stage
+        // would renumber those and leave the rest holding their old positions,
+        // interleaving the two sets — a worse state than the one it set out to
+        // fix (QA-61).
+        const ordered = await fetchAll<{ id: string; board_position: number | null; created_at: string }>(
+          () =>
+            supabase
+              .from('deals')
+              .select('id, board_position, created_at')
+              .eq('current_stage_id', stageId)
+              .order('board_position', { ascending: true, nullsFirst: false }),
+        )
         await Promise.all(
           ordered.map((row, i) =>
             supabase.from('deals').update({ board_position: (i + 1) * 1000 }).eq('id', row.id),

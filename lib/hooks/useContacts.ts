@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAll } from '@/lib/reports/csv'
 import type { Contact, ContactTag, UseContactsParams } from '@/lib/types/contacts'
 import {
   applyContactFilters,
@@ -23,10 +24,20 @@ async function attachTags(
 ): Promise<Contact[]> {
   if (contacts.length === 0) return contacts
 
-  const { data: tagData } = await supabase
-    .from('contact_tags')
-    .select('contact_id, tag:tags(id, name, color, category)')
-    .in('contact_id', contacts.map((c) => c.id))
+  // Paged: one row per contact-tag pair, so a page of contacts asks for
+  // several times its own length. 100 contacts carrying ten tags each is 1000
+  // rows — the exact point PostgREST stops, with a plain 200 and no warning —
+  // and the contacts past the cut would have rendered with no tags at all
+  // rather than with an error (QA-61).
+  const tagData = await fetchAll<{ contact_id: string; tag: ContactTag | null }>(() =>
+    supabase
+      .from('contact_tags')
+      .select('contact_id, tag:tags(id, name, color, category)')
+      .in(
+        'contact_id',
+        contacts.map((c) => c.id),
+      ),
+  )
 
   if (tagData) {
     const tagsByContact = new Map<string, ContactTag[]>()
@@ -112,10 +123,21 @@ export function useContacts(params?: UseContactsParams) {
       query = orderContacts(query, params?.sortBy, params?.sortOrder)
 
       // Apply pagination
+      //
+      // Without paging params this used to run as a bare `.select()` against
+      // 179,479 contacts. PostgREST caps that at 1000 rows and returns a plain
+      // 200, while `count: 'exact'` still reported the real total — so the
+      // caller got "1000 of 179,479" with nothing to say the rows had been cut.
+      // Today's only caller always pages, which is the sole reason this has
+      // never been seen; it is a trap for the next one (QA-61).
       if (params?.page && params?.pageSize) {
         const from = (params.page - 1) * params.pageSize
         const to = from + params.pageSize - 1
         query = query.range(from, to)
+      } else {
+        // No page asked for means "all of them", so read all of them.
+        const rows = await fetchAll<Contact>(() => query)
+        return { contacts: await attachTags(supabase, rows), total: rows.length }
       }
 
       const { data, error, count } = await query

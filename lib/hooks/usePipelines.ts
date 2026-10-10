@@ -353,14 +353,16 @@ export function usePipelineCampaigns(pipelineId: string | null) {
         }
       })
 
-      // Get deal counts created from Smart Process for this pipeline
-      const { data: deals } = await supabase
+      // Counted, not fetched. Reading the rows to take `.length` is the same
+      // mistake the pipeline counts had: past 1000 the number silently stops
+      // climbing, because the cap applies to rows and not to a count (QA-61).
+      const { count: smartProcessDeals } = await supabase
         .from('deals')
-        .select('id, source')
+        .select('id', { count: 'exact', head: true })
         .eq('pipeline_id', pipelineId)
         .eq('source', 'smart_process')
 
-      const dealCount = deals?.length || 0
+      const dealCount = smartProcessDeals ?? 0
 
       return campaigns.map(campaign => ({
         ...campaign,
