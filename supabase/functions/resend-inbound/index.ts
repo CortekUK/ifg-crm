@@ -704,10 +704,18 @@ async function notifyOwnerOfReply(
  * Walk back from email_send to figure out which campaign and/or pipeline this
  * reply belongs to, so the Replies list can render those columns.
  *
- * Two paths through the schema:
+ * Three paths through the schema:
  *   - Campaign blast:   email_send.campaign_id      → campaigns.pipeline_id
  *   - Automation drip:  email_send.automation_log_id → automation_logs.enrollment_id
  *                       → automation_enrollments.automation_id → automations.pipeline_id
+ *   - Invoice email:    email_send.invoice_id        → invoices.deal_id
+ *                       → deals.pipeline_id
+ *
+ * The invoice path exists because an invoice email is neither a campaign nor
+ * an automation. Once invoice emails got the tracked Reply-To, replies to them
+ * started arriving — but with both lookups returning null they were stored
+ * with a blank pipeline and no deal, so they never showed on the deal and
+ * could not move its stage. That is the failure QA-28 says to watch for.
  *
  * Returns nulls (not undefined) so the insert column list works regardless.
  */
@@ -719,7 +727,7 @@ async function deriveReplySourceMeta(
 
   const { data: send, error } = await supabase
     .from('email_sends')
-    .select('campaign_id, automation_log_id')
+    .select('campaign_id, automation_log_id, invoice_id')
     .eq('id', emailSendId)
     .single()
 
@@ -758,6 +766,25 @@ async function deriveReplySourceMeta(
       pipelineId: enrollment?.automation?.pipeline_id ?? null,
       dealId: (log as { deal_id?: string | null } | null)?.deal_id ?? null,
     }
+  }
+
+  // Invoice path — the invoice knows the deal, the deal knows the pipeline.
+  if (send.invoice_id) {
+    const { data: invoice } = await supabase
+      .from('invoices')
+      .select('deal_id, deal:deals(pipeline_id)')
+      .eq('id', send.invoice_id)
+      .single()
+
+    const dealId = (invoice as { deal_id?: string | null } | null)?.deal_id ?? null
+    const pipelineId =
+      (invoice as { deal?: { pipeline_id?: string | null } | null } | null)?.deal?.pipeline_id ??
+      null
+
+    // An invoice raised without a deal still has no pipeline — that is the
+    // invoice's own gap (QA-44 notes it loses its programme), not something to
+    // guess at here. The reply is still captured and matched to the player.
+    return { campaignId: null, pipelineId, dealId }
   }
 
   return { campaignId: null, pipelineId: null, dealId: null }

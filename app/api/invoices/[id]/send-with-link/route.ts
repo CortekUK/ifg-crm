@@ -250,6 +250,10 @@ export async function POST(
         tracking_id: trackingId,
         recipient_email: recipientEmail,
         recipient_contact_id: contact.id,
+        // How a reply to this email finds its deal and pipeline. An invoice
+        // email has no campaign and no automation log, so without this the
+        // reply arrived with both blank and never showed on the deal (QA-28).
+        invoice_id: invoice.id,
         subject,
         from_name: 'IFG',
         from_email: process.env.FROM_EMAIL || 'onboarding@resend.dev',
