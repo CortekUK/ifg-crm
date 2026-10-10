@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
       // Find any existing guardian profile for this player.
       const { data: existingGuardian } = await supabaseAdmin
         .from('profiles')
-        .select('id, email, password_set_at')
+        .select('id, email, password_set_at, is_active')
         .eq('guardian_for_contact_id', contact_id)
         .eq('role', 'player')
         .maybeSingle()
@@ -168,26 +168,47 @@ export async function POST(request: NextRequest) {
         // single source of truth — see migration 098.
         const guardianHasPassword = !!existingGuardian.password_set_at
 
-        if (guardianHasPassword && existingGuardian.email === contact.parent_email) {
+        // Emails are case-insensitive; compare them that way or a capital
+        // letter reads as "a different parent".
+        const sameAddress =
+          (existingGuardian.email ?? '').trim().toLowerCase() ===
+          (contact.parent_email ?? '').trim().toLowerCase()
+
+        // Deactivated by migration 223 when the parent email changed.
+        const guardianIsRevoked = existingGuardian.is_active === false
+
+        // The decision is "is this row about the CURRENT parent?", not "did
+        // that parent ever set a password".
+        //
+        // It used to be keyed on the password, and the combination of a
+        // PENDING old guardian plus a changed parent email fell through to
+        // "A guardian invitation is already pending" — so after changing the
+        // parent email, staff could not invite the new parent at all. The
+        // panel only offers Invite for the new address, never Resend, so
+        // there was no way round it (QA-57). Migration 223 deactivates the old
+        // login, which made it worse: a revoked row blocked the replacement
+        // while granting nobody access.
+        //
+        // A row for a different address, or a revoked one, is stale whatever
+        // its password state — remove it and invite fresh. Editing the parent
+        // email on the contact is the authorisation.
+        if (!sameAddress || guardianIsRevoked) {
+          await supabaseAdmin.auth.admin.deleteUser(existingGuardian.id)
+          await supabaseAdmin.from('profiles').delete().eq('id', existingGuardian.id)
+        } else if (guardianHasPassword) {
           return NextResponse.json(
             { error: 'Guardian already has an active portal account' },
             { status: 400 }
           )
-        }
-
-        if (guardianHasPassword && existingGuardian.email !== contact.parent_email) {
-          // Parent email was changed on the contact after activation. Treat as
-          // "remove the old one and invite fresh" — admin already authorized
-          // by editing the contact.
-          await supabaseAdmin.auth.admin.deleteUser(existingGuardian.id)
-          await supabaseAdmin.from('profiles').delete().eq('id', existingGuardian.id)
         } else if (!resend) {
+          // Same address, invited, not yet activated, and this is not a
+          // deliberate resend — say so rather than silently re-sending.
           return NextResponse.json(
             { error: 'A guardian invitation is already pending' },
             { status: 400 }
           )
         } else {
-          // Pending or half-set-up + resend: wipe the stale row and send fresh.
+          // Same address + resend: wipe the stale row and send fresh.
           await supabaseAdmin.auth.admin.deleteUser(existingGuardian.id)
           await supabaseAdmin.from('profiles').delete().eq('id', existingGuardian.id)
         }
