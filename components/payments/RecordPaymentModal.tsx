@@ -104,11 +104,22 @@ export function RecordPaymentModal({
     const loadInvoices = async () => {
       setLoadingInvoices(true)
       const supabase = createClient()
+      // The chaseable statuses, PLUS whichever invoice the caller preselected
+      // whatever its status.
+      //
+      // Mark Paid on the Invoices page is offered on any invoice that is not
+      // already paid or cancelled — a draft included — and it opens this form.
+      // Restricting the query to sent/overdue/viewed meant a draft was not in
+      // the list, so the amount never pre-filled and (the contact block being
+      // hidden when an invoice is preselected) staff could not even see which
+      // invoice they were paying. They had to type the figure from memory,
+      // which is the opposite of what QA-44 asked for.
+      const statuses = 'status.in.(sent,overdue,viewed)'
       const { data, error } = await supabase
         .from('invoices')
         .select('id, invoice_number, amount, description, status')
         .eq('contact_id', selectedContactId)
-        .in('status', ['sent', 'overdue', 'viewed'])
+        .or(preselectedInvoiceId ? `${statuses},id.eq.${preselectedInvoiceId}` : statuses)
         .order('created_at', { ascending: false })
 
       if (!error && data) {
@@ -118,7 +129,7 @@ export function RecordPaymentModal({
     }
 
     loadInvoices()
-  }, [selectedContactId])
+  }, [selectedContactId, preselectedInvoiceId])
 
   // Reset form when modal opens (with preselected values if provided)
   useEffect(() => {
@@ -217,6 +228,10 @@ export function RecordPaymentModal({
 
   const isSubmitting = createPayment.isPending
 
+  const preselectedInvoice = preselectedInvoiceId
+    ? invoices.find((i) => i.id === preselectedInvoiceId)
+    : undefined
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
@@ -225,7 +240,13 @@ export function RecordPaymentModal({
             Record Payment
           </SheetTitle>
           <SheetDescription>
-            Record a manual payment for a contact or invoice.
+            {/* Name the invoice when one was preselected. The Contact &
+                Invoice block below is hidden in that case, so without this the
+                sheet never said what was being paid — and Mark Paid opens it
+                straight from a list of invoices that all look alike. */}
+            {preselectedInvoiceId && preselectedInvoice
+              ? `Recording a payment against invoice ${preselectedInvoice.invoice_number} (${preselectedInvoice.status}).`
+              : 'Record a manual payment for a contact or invoice.'}
           </SheetDescription>
         </SheetHeader>
 
