@@ -56,6 +56,17 @@ export interface Detection {
   /** Rows with a usable gender, and with a usable graduation year. */
   genderRows: number
   yearRows: number
+  /**
+   * Of those, how many got the value from the NAME OF A CHOSEN LIST rather
+   * than from their own row.
+   *
+   * Surfaced because picking a list like "2027 MENS" quietly writes gender and
+   * year onto contacts whose own row said nothing — the panel claimed
+   * everything was "worked out per contact from their own row", which was only
+   * true for some of them (QA-60).
+   */
+  genderFromListName: number
+  yearFromListName: number
   totalRows: number
   /** Rows the server will reject for having no email — excluded from every count. */
   skippedRows: number
@@ -101,6 +112,8 @@ export function detectRouting(
   }
   let genderRows = 0
   let yearRows = 0
+  let genderFromListName = 0
+  let yearFromListName = 0
 
   let skipped = 0
 
@@ -122,12 +135,15 @@ export function detectRouting(
       if (implied) contact.country = implied
     }
 
-    const gender = (contact.gender as 'male' | 'female' | undefined) ?? fallback.gender ?? null
+    const ownGender = contact.gender as 'male' | 'female' | undefined
+    const gender = ownGender ?? fallback.gender ?? null
     const rawYear = contact.graduation_year as number | undefined
     const graduationYear = rawYear ?? fallback.graduationYear ?? null
 
     if (gender) genderRows++
     if (graduationYear) yearRows++
+    if (!ownGender && gender) genderFromListName++
+    if (!rawYear && graduationYear) yearFromListName++
 
     // Cohort lists — the only thing here that becomes list membership.
     for (const name of cohortListNames(gender, graduationYear)) tally(cohorts, name)
@@ -172,6 +188,8 @@ export function detectRouting(
     })).filter((g) => g.values.length > 0),
     genderRows,
     yearRows,
+    genderFromListName,
+    yearFromListName,
     totalRows: rows.length - skipped,
     skippedRows: skipped,
   }

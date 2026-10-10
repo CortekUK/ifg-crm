@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -85,26 +85,79 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   }, [importMutation])
 
   const handleClose = () => {
+    // Not while rows are still going up.
+    //
+    // Closing mid-import left it running with no progress and no summary: the
+    // remaining batches still went, and the operator had no way to see what
+    // landed. Blocking the close is the honest answer — the dialog IS the
+    // progress report (QA-59).
+    if (importMutation.isPending) {
+      toast({
+        title: 'Import in progress',
+        description: 'Please wait for the import to finish before closing this window.',
+      })
+      return
+    }
     reset()
     onClose()
   }
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (!f) return
+  // And the same for leaving the page entirely. The import runs in this tab,
+  // so navigating away or closing it stops it after the current batch, with
+  // everything already sent left imported and unreported (QA-59).
+  useEffect(() => {
+    if (!importMutation.isPending) return
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [importMutation.isPending])
 
+  /**
+   * One path for both the file picker and the drop zone, which had identical
+   * bodies and had to be kept in step by hand.
+   */
+  const loadFile = async (f: File) => {
     setFile(f)
-    const text = await f.text()
-    const parsed = parseCSV(text)
+    const parsed = parseCSV(await f.text())
 
     if (parsed.headers.length === 0 || parsed.rows.length === 0) {
       toast({ title: 'Invalid CSV', description: 'The file appears to be empty or invalid.', variant: 'destructive' })
       return
     }
 
+    // Say so when the file plainly isn't a spreadsheet.
+    //
+    // A PDF or image renamed .csv parsed into one nonsense column, took the
+    // operator to the mapping screen, and only failed two steps later with
+    // every row reading "Email is required" — never telling them the real
+    // problem was the file (QA-60). A single column that matches no known
+    // field is the signature: a genuine export has several columns, and at
+    // least one of them is recognisable.
+    const autoMapped = autoMapColumns(parsed.headers)
+    if (parsed.headers.length < 2 && Object.keys(autoMapped).length === 0) {
+      toast({
+        title: "This doesn't look like a CSV file",
+        description:
+          'No columns could be read from it. Export again as CSV from Excel or Google Sheets and try that file.',
+        variant: 'destructive',
+      })
+      setFile(null)
+      return
+    }
+
     setHeaders(parsed.headers)
     setRows(parsed.rows)
-    setMapping(autoMapColumns(parsed.headers))
+    setMapping(autoMapped)
+  }
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    await loadFile(f)
   }
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -114,19 +167,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       toast({ title: 'Invalid file', description: 'Please drop a .csv file.', variant: 'destructive' })
       return
     }
-
-    setFile(f)
-    const text = await f.text()
-    const parsed = parseCSV(text)
-
-    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-      toast({ title: 'Invalid CSV', description: 'The file appears to be empty or invalid.', variant: 'destructive' })
-      return
-    }
-
-    setHeaders(parsed.headers)
-    setRows(parsed.rows)
-    setMapping(autoMapColumns(parsed.headers))
+    await loadFile(f)
   }
 
   const handleMappingChange = (colIndex: number, fieldKey: string) => {
@@ -352,10 +393,16 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
           setImportProgress({ processed, total })
         },
       })
-      setImportResult(result)
+      // Reconcile against the FILE, not against what was sent: the rows held
+      // back as invalid are part of the operator's row count too (QA-59).
+      setImportResult({
+        ...result,
+        invalid: validationErrors.length,
+        total: prepared.rows.length,
+      })
       toast({
         title: 'Import complete',
-        description: `${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.duplicatesInFile} duplicate rows merged, ${result.errors.length} errors`,
+        description: `${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.duplicatesInFile} duplicate rows merged, ${validationErrors.length} invalid, ${result.errors.length} errors`,
       })
     } catch {
       toast({ title: 'Import failed', description: 'An unexpected error occurred.', variant: 'destructive' })
@@ -619,6 +666,15 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
                       <div className="text-2xl font-bold text-red-600">{importResult.errors.length}</div>
                       <div className="text-sm text-muted-foreground">Errors</div>
                     </div>
+                    {/* Held back by the screen before sending, so the server
+                        never saw them. Shown because they are part of the row
+                        count the operator is reconciling against. */}
+                    {importResult.invalid > 0 && (
+                      <div className="border rounded-lg p-3">
+                        <div className="text-2xl font-bold text-orange-600">{importResult.invalid}</div>
+                        <div className="text-sm text-muted-foreground">Invalid (not imported)</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* The reconciliation line.
@@ -634,6 +690,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
                       importResult.updated +
                       importResult.skipped +
                       importResult.duplicatesInFile +
+                      importResult.invalid +
                       importResult.errors.length
                     const reconciles = accounted === importResult.total
                     return (
@@ -653,6 +710,13 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
                             Includes {importResult.duplicatesInFile} duplicate row
                             {importResult.duplicatesInFile !== 1 ? 's' : ''} in your file, merged
                             into the contact of the same email address.
+                          </p>
+                        )}
+                        {importResult.invalid > 0 && (
+                          <p className="text-muted-foreground mt-1">
+                            Includes {importResult.invalid} row
+                            {importResult.invalid !== 1 ? 's' : ''} held back before sending — listed
+                            on the previous step with the reason.
                           </p>
                         )}
                         {!reconciles && (

@@ -206,6 +206,27 @@ export function ImportRoutingStep({
           <p className="mt-1 text-xs text-muted-foreground">
             Worked out per contact from their own row — nothing is created until you import.
           </p>
+          {/* Except where it wasn't.
+              Picking a whole-file list like "2027 MENS" fills gender and year
+              on the rows that left them blank, which is a real change to the
+              data made by a list choice. The panel said everything came from
+              the contact's own row, so those contacts were never called out
+              (QA-60). */}
+          {(() => {
+            const parts: string[] = []
+            if (detection.genderFromListName > 0) {
+              parts.push(`gender for ${detection.genderFromListName.toLocaleString()}`)
+            }
+            if (detection.yearFromListName > 0) {
+              parts.push(`graduation year for ${detection.yearFromListName.toLocaleString()}`)
+            }
+            if (parts.length === 0) return null
+            return (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-500">
+                Taken from the name of a list you picked, not from the row: {parts.join(' and ')}.
+              </p>
+            )
+          })()}
         </header>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
