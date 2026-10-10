@@ -9,6 +9,7 @@ import { InvoicesTable } from '@/components/invoices/InvoicesTable'
 import { CreateInvoiceModal } from '@/components/invoices/CreateInvoiceModal'
 import { CreatePaymentPlanModal } from '@/components/invoices/CreatePaymentPlanModal'
 import { InvoiceDetailSheet } from '@/components/invoices/InvoiceDetailSheet'
+import { RecordPaymentModal } from '@/components/payments/RecordPaymentModal'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +43,9 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single'; invoice: Invoice } | { type: 'bulk'; ids: string[] } | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Invoice | null>(null)
+  // Mark Paid opens the Record Payment form instead of flipping the status.
+  const [markPaidTarget, setMarkPaidTarget] = useState<Invoice | null>(null)
+  const [bulkMarkPaidIds, setBulkMarkPaidIds] = useState<string[] | null>(null)
 
   // Debounce search
   const debouncedFilters = {
@@ -103,12 +107,19 @@ export default function InvoicesPage() {
     }
   }
 
-  const handleMarkPaid = async (invoice: Invoice) => {
-    try {
-      await updateStatus.mutateAsync({ invoiceId: invoice.id, status: 'paid' })
-    } catch (error) {
-      console.error('Failed to mark invoice as paid:', error)
-    }
+  // Mark Paid asks how they paid, rather than guessing.
+  //
+  // It used to flip the invoice to paid in one click: no confirmation, no
+  // method, and — until the payments row was added — no record of the money at
+  // all. Even with the row, the method was always "Other", because nothing ever
+  // asked. QA flagged both: one click on a real invoice is easy to do by
+  // accident, and "Other" is not a usable answer for the finance figures.
+  //
+  // RecordPaymentModal already does exactly this job from the invoice sheet —
+  // amount pre-filled from the invoice, method required — so Mark Paid now
+  // opens it rather than duplicating a form.
+  const handleMarkPaid = (invoice: Invoice) => {
+    setMarkPaidTarget(invoice)
   }
 
   const handleDelete = (invoice: Invoice) => {
@@ -214,6 +225,16 @@ export default function InvoicesPage() {
       return
     }
 
+    // Asking the method for each of a hundred invoices is not workable, so the
+    // bulk action keeps recording them as a manual payment — but it confirms
+    // first, because marking real invoices paid in bulk is not undoable.
+    setBulkMarkPaidIds(unpaidIds)
+  }
+
+  const confirmBulkMarkPaid = async () => {
+    const unpaidIds = bulkMarkPaidIds
+    if (!unpaidIds) return
+    setBulkMarkPaidIds(null)
     try {
       await bulkUpdateStatus.mutateAsync({ invoiceIds: unpaidIds, status: 'paid' })
       setSelectedIds([])
@@ -297,6 +318,58 @@ export default function InvoicesPage() {
         isOpen={!!selectedInvoice}
         onClose={() => setSelectedInvoice(null)}
       />
+
+      {/* Mark Paid — the Record Payment form, so the method is recorded */}
+      {markPaidTarget && (
+        <RecordPaymentModal
+          isOpen={!!markPaidTarget}
+          onClose={() => setMarkPaidTarget(null)}
+          userId={userId ?? undefined}
+          preselectedContactId={markPaidTarget.contact_id}
+          preselectedInvoiceId={markPaidTarget.id}
+        />
+      )}
+
+      {/* Bulk Mark Paid confirmation */}
+      <AlertDialog
+        open={!!bulkMarkPaidIds}
+        onOpenChange={(open) => !open && setBulkMarkPaidIds(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Mark {bulkMarkPaidIds?.length ?? 0} invoice
+              {(bulkMarkPaidIds?.length ?? 0) === 1 ? '' : 's'} as paid?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                Each one is recorded as a manual payment, their deals move to the paid
+                stage, and any payment reminders stop.
+              </span>
+              <span className="block">
+                The method is recorded as &quot;Other&quot; because a bulk action cannot ask
+                how each player paid. To record the method, use Mark Paid on a single
+                invoice instead.
+              </span>
+              <span className="block font-medium text-amber-700 dark:text-amber-500">
+                This cannot be undone.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkUpdateStatus.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                confirmBulkMarkPaid()
+              }}
+              disabled={bulkUpdateStatus.isPending}
+            >
+              {bulkUpdateStatus.isPending ? 'Marking\u2026' : 'Mark them paid'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>

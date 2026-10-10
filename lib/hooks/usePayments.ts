@@ -106,6 +106,11 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
       queryClient.invalidateQueries({ queryKey: ['invoice-stats'] })
       queryClient.invalidateQueries({ queryKey: ['invoice-payments'] })
+      // The single-invoice query and the board, which the payment also
+      // changes: recording one left the Invoices row showing "Sent" until the
+      // page was reloaded, because only the list key was invalidated (QA-44).
+      queryClient.invalidateQueries({ queryKey: ['invoice'] })
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
     },
   })
 }

@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/supabase/require-admin'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { applyPaymentToDeal } from '@/lib/payments/payment-received'
 import {
   staffAlertEnabled,
@@ -63,6 +64,51 @@ export async function POST(request: NextRequest) {
   if (!invoice) return NextResponse.json({ error: 'Invoice not found.' }, { status: 404 })
 
   const result = await applyPaymentToDeal(supabase, invoiceId)
+
+  // Say who caused the move, and why.
+  //
+  // The deal is moved by a database rule, so the history entry it writes says
+  // "Moved to Deposit Paid automatically" with nobody against it — true, but
+  // unhelpful when a staff member's click is what started it (QA-44). This
+  // route runs with the service-role key but DOES know who called it, so it
+  // relabels that entry and signs it.
+  //
+  // Narrowly scoped: this deal, an unattributed stage_changed row, written in
+  // the last half minute. Anything outside that is left alone, and a failure
+  // here is ignored — the payment is already recorded.
+  try {
+    const actingClient = await createServerClient()
+    const {
+      data: { user: actor },
+    } = await actingClient.auth.getUser()
+
+    if (actor && result?.dealId) {
+      const { data: justWritten } = await supabase
+        .from('deal_activities')
+        .select('id, new_value')
+        .eq('deal_id', result.dealId)
+        .eq('activity_type', 'stage_changed')
+        .is('performed_by_id', null)
+        .gte('created_at', new Date(Date.now() - 30_000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      const row = justWritten?.[0]
+      if (row) {
+        const stageName =
+          (row.new_value as { stage_name?: string } | null)?.stage_name ?? 'the paid stage'
+        await supabase
+          .from('deal_activities')
+          .update({
+            performed_by_id: actor.id,
+            description: `Moved to ${stageName} after a payment was recorded`,
+          })
+          .eq('id', row.id)
+      }
+    }
+  } catch (err) {
+    console.warn('Payment applied; could not attribute the stage move:', err)
+  }
 
   // ---- TELL STAFF ----
   //
