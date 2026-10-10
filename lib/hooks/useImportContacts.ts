@@ -39,6 +39,17 @@ export interface ImportResult {
    * silently dropped (QA-59).
    */
   duplicatesInFile: number
+  /**
+   * Rows the screen rejected before sending — no usable email, or a sibling
+   * clash on a shared parent address.
+   *
+   * They never reach the server, so the server cannot count them. Without
+   * them the four figures were being reconciled against the rows SENT rather
+   * than the rows in the file, so a file with invalid rows always looked
+   * short (QA-59). Set by the import dialog, which is the only place that
+   * knows how many it held back.
+   */
+  invalid: number
   errors: { row: number; message: string }[]
 }
 
@@ -108,6 +119,7 @@ export function useImportContacts() {
         updated: 0,
         skipped: 0,
         duplicatesInFile: 0,
+        invalid: 0,
         errors: [],
       }
 
@@ -116,22 +128,47 @@ export function useImportContacts() {
       for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
         const chunk = rows.slice(i, i + CHUNK_SIZE)
 
-        const response = await fetch('/api/contacts/bulk-import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rows: chunk,
-            mapping,
-            headers,
-            skippedColumns,
-            listIds,
-            tagId,
-            routing,
-            duplicateStrategy,
-            dateOrder,
-            rowOffset: i,
-          }),
-        })
+        // The request itself can fail, not just come back unhappy.
+        //
+        // A dropped connection, a DNS blip or a closed laptop lid makes fetch
+        // REJECT rather than return a response. That rejection was uncaught, so
+        // it escaped the mutation: the import stopped dead on that batch, every
+        // later batch went unsent, and the operator saw "Import failed — An
+        // unexpected error occurred" with no created/updated/skipped/errors at
+        // all. The batches already sent stayed imported, which is precisely the
+        // silent partial import this ticket warns about (QA-59).
+        //
+        // Treated exactly like a rejected response: blame this batch's rows,
+        // and carry on with the next one.
+        let response: Response
+        try {
+          response = await fetch('/api/contacts/bulk-import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rows: chunk,
+              mapping,
+              headers,
+              skippedColumns,
+              listIds,
+              tagId,
+              routing,
+              duplicateStrategy,
+              dateOrder,
+              rowOffset: i,
+            }),
+          })
+        } catch (err) {
+          const message =
+            err instanceof Error
+              ? `Could not reach the server (${err.message})`
+              : 'Could not reach the server'
+          for (let r = 0; r < chunk.length; r++) {
+            result.errors.push({ row: i + r + 1, message })
+          }
+          onProgress?.(Math.min(i + CHUNK_SIZE, rows.length), rows.length)
+          continue
+        }
 
         if (!response.ok) {
           // Record the failure against this chunk and keep going — one bad
@@ -153,12 +190,25 @@ export function useImportContacts() {
             result.errors.push({ row: i + r + 1, message })
           }
         } else {
-          const data = (await response.json()) as Omit<ImportResult, 'total'>
-          result.created += data.created ?? 0
-          result.updated += data.updated ?? 0
-          result.skipped += data.skipped ?? 0
-          result.duplicatesInFile += data.duplicatesInFile ?? 0
-          if (data.errors?.length) result.errors.push(...data.errors)
+          // The body can still be lost in transit after a 200 — the same
+          // dropped connection, a few milliseconds later. The rows may well
+          // have landed, so say so rather than claiming they failed.
+          try {
+            const data = (await response.json()) as Omit<ImportResult, 'total'>
+            result.created += data.created ?? 0
+            result.updated += data.updated ?? 0
+            result.skipped += data.skipped ?? 0
+            result.duplicatesInFile += data.duplicatesInFile ?? 0
+            if (data.errors?.length) result.errors.push(...data.errors)
+          } catch {
+            for (let r = 0; r < chunk.length; r++) {
+              result.errors.push({
+                row: i + r + 1,
+                message:
+                  'The server accepted these rows but the reply was lost, so they are unconfirmed. Re-run the file to be sure.',
+              })
+            }
+          }
         }
 
         onProgress?.(Math.min(i + CHUNK_SIZE, rows.length), rows.length)
