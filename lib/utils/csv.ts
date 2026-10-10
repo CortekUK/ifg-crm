@@ -522,14 +522,42 @@ export function detectDateOrder(values: Iterable<string | undefined>): DateOrder
 }
 
 /**
+ * Does this day actually exist in that month?
+ *
+ * `day <= 31` is not the same question. 31 February and 29 February 2007 both
+ * passed a range check and produced a date string Postgres then refused
+ * ("date/time field value out of range"). date_of_birth is a real date column,
+ * so that error failed the INSERT — and the insert carries the whole 500-row
+ * batch, so one typo in one cell cost 500 contacts and showed the operator 500
+ * errors quoting a database message (QA-60).
+ *
+ * Leap years have to come out right: 29 February 2008 is a real date and must
+ * survive, which is why this round-trips through Date rather than using a table
+ * of month lengths.
+ */
+function isRealDate(year: number, month: number, day: number): boolean {
+  const probe = new Date(Date.UTC(year, month - 1, day))
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  )
+}
+
+/**
  * Parse a date string into YYYY-MM-DD.
  * Handles ISO, plus numeric dates in either order — `order` decides only the
  * genuinely ambiguous ones, since a component over 12 speaks for itself.
+ *
+ * Returns null for a date that does not exist, so the caller leaves the cell
+ * empty rather than handing the database a value it will reject.
  */
 function parseDateValue(value: string, order: DateOrder = 'DMY'): string | null {
   // Already in ISO format
   if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-    return value.slice(0, 10)
+    const iso = value.slice(0, 10)
+    const [y, m, d] = iso.split('-').map((p) => parseInt(p, 10))
+    return isRealDate(y, m, d) ? iso : null
   }
 
   const match = value.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
@@ -556,6 +584,7 @@ function parseDateValue(value: string, order: DateOrder = 'DMY'): string | null 
     }
 
     if (month < 1 || month > 12 || day < 1 || day > 31) return null
+    if (!isRealDate(parseInt(year, 10), month, day)) return null
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
@@ -597,14 +626,27 @@ export function buildCustomFields(
   const skippedIndexes = new Set(skippedColumns)
   const result: Record<string, string> = {}
 
-  for (let i = 0; i < headers.length; i++) {
+  // Past the end of the header row as well, because a row is allowed to carry
+  // more values than there are headings — Excel does it routinely. Those
+  // extras used to be read by nobody: the loop stopped at headers.length and
+  // the values went nowhere, with nothing said (QA-60).
+  const width = Math.max(headers.length, row.length)
+
+  for (let i = 0; i < width; i++) {
     if (mappedIndexes.has(i) || skippedIndexes.has(i)) continue
     const value = (row[i] || '').trim()
     if (!value) continue
-    const key = normalizeCustomFieldKey(headers[i])
-    if (key) {
-      result[key] = value
-    }
+
+    // A column with no heading normalised to an empty key and was thrown
+    // away. Number it instead, 1-based so it matches what a spreadsheet shows.
+    const base = normalizeCustomFieldKey(headers[i] ?? '') || `column_${i + 1}`
+
+    // Two unmapped columns can share a heading, and the second silently
+    // overwrote the first. Keep both, suffixed in the order they appear.
+    let key = base
+    for (let n = 2; key in result; n++) key = `${base}_${n}`
+
+    result[key] = value
   }
 
   return Object.keys(result).length > 0 ? result : null
