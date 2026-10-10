@@ -121,7 +121,23 @@ export function CampaignDetailSheet({
       opened: recipients.filter(r => !!r.opened_at || r.status === 'opened' || r.status === 'clicked').length,
       clicked: recipients.filter(r => !!r.clicked_at || r.status === 'clicked').length,
       bounced: recipients.filter(r => r.status === 'bounced').length,
-      unsubscribed: recipients.filter(r => r.status === 'complained').length,
+      // Two different things, counted separately.
+      //
+      // "Unsubscribed" used to count sends marked 'complained' — which is a
+      // SPAM COMPLAINT reported by the mail provider, not somebody clicking
+      // the unsubscribe link. Clicking the link only updates the contact, so a
+      // campaign that genuinely lost subscribers still reported 0 (QA-40).
+      //
+      // A real unsubscribe is counted from the contact: they are unsubscribed
+      // now AND it happened at or after this email went out, so an earlier
+      // opt-out is not blamed on this campaign.
+      unsubscribed: recipients.filter(r => {
+        const at = r.contact?.unsubscribed_at
+        if (!at) return false
+        const sentAt = r.sent_at ?? r.delivered_at
+        return !sentAt || new Date(at).getTime() >= new Date(sentAt).getTime()
+      }).length,
+      complained: recipients.filter(r => r.status === 'complained').length,
       failed: recipients.filter(r => r.status === 'failed').length,
       uniqueRecipients: new Set(recipients.map(r => r.recipient_contact_id).filter(Boolean)).size,
     }
@@ -516,7 +532,7 @@ export function CampaignDetailSheet({
                            out of DELIVERED, not sent, which is the honest
                            denominator for an open rate. */
                         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2 py-3">
-                          <div className="grid grid-cols-3 gap-y-3 sm:grid-cols-6 text-center sm:divide-x divide-slate-200 dark:divide-slate-700">
+                          <div className="grid grid-cols-3 gap-y-3 sm:grid-cols-4 xl:grid-cols-7 text-center sm:divide-x divide-slate-200 dark:divide-slate-700">
                             <div className="px-2">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.total)}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Sent</p>
@@ -544,6 +560,15 @@ export function CampaignDetailSheet({
                             <div className="px-2">
                               <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.unsubscribed)}</p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">Unsubscribed</p>
+                            </div>
+                            {/* Kept apart from Unsubscribed on purpose: a spam
+                                complaint is the provider telling us the player
+                                pressed "junk", which is a different and more
+                                serious signal than using the unsubscribe link.
+                                Counting them as one hid both. */}
+                            <div className="px-2">
+                              <p className="text-xl font-bold text-gray-900 dark:text-white">{formatNumber(statsWithRates.complained)}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Spam complaints</p>
                             </div>
                           </div>
                         </div>

@@ -507,7 +507,18 @@ export function useCampaignRecipients(campaignId: string | null, isSending?: boo
       // string — which breaks on URL length long before it breaks on the row
       // cap. An embed hands the join to the database and keeps the request a
       // fixed size however big the campaign is.
-      type EmbeddedContact = { id: string; first_name: string; last_name: string; email: string }
+      // unsubscribed_at comes along so the report can count REAL unsubscribes.
+      // The campaign's own email record is never updated when somebody clicks
+      // the unsubscribe link — only the contact is — so without this the
+      // Unsubscribed figure could only ever show spam complaints (QA-40).
+      type EmbeddedContact = {
+        id: string
+        first_name: string
+        last_name: string
+        email: string
+        unsubscribed_at: string | null
+        subscription_status: string | null
+      }
       type SendRow = {
         id: string
         status: string
@@ -525,7 +536,9 @@ export function useCampaignRecipients(campaignId: string | null, isSending?: boo
       const sends = await fetchAll<SendRow>(() =>
         supabase
           .from('email_sends')
-          .select('*, contact:contacts(id, first_name, last_name, email)')
+          .select(
+            '*, contact:contacts(id, first_name, last_name, email, unsubscribed_at, subscription_status)',
+          )
           .eq('campaign_id', campaignId)
           .order('sent_at', { ascending: false }),
       )
