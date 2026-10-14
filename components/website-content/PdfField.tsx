@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ export function PdfField({
   value,
   onChange,
   onUploaded,
+  onUploadingChange,
 }: {
   label: string
   hint?: string
@@ -27,6 +28,8 @@ export function PdfField({
   /** Fired with the original File right after a successful upload (e.g. to
    *  derive a cover image / page count from the PDF). */
   onUploaded?: (file: File) => void
+  /** Lets the surrounding dialog refuse to close while a long upload runs. */
+  onUploadingChange?: (uploading: boolean) => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -34,10 +37,21 @@ export function PdfField({
   // a hang, which is why people were closing the tab part-way through.
   const [percent, setPercent] = useState(0)
 
+  // Closing the tab mid-upload is the other way to lose it. The upload itself
+  // is resumable — picking the same file again continues where it stopped — but
+  // the browser should still ask before throwing minutes of it away.
+  useEffect(() => {
+    if (!uploading) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [uploading])
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
+    onUploadingChange?.(true)
     setPercent(0)
     try {
       const url = await uploadBrochurePdf(file, setPercent)
@@ -55,6 +69,7 @@ export function PdfField({
       })
     } finally {
       setUploading(false)
+      onUploadingChange?.(false)
       setPercent(0)
       if (fileRef.current) fileRef.current.value = ''
     }

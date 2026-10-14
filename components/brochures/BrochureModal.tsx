@@ -76,6 +76,9 @@ export function BrochureModal({
   const [draft, setDraft] = React.useState<Draft>(emptyDraft)
   // Track whether the user has hand-edited the slug so we stop auto-syncing it.
   const [slugTouched, setSlugTouched] = React.useState(false)
+  // A brochure upload runs for minutes. One click on the backdrop used to close
+  // this dialog and throw the whole upload away, so the dialog is held open.
+  const [uploading, setUploading] = React.useState(false)
 
   // Re-seed the form each time the dialog opens or the target changes.
   React.useEffect(() => {
@@ -174,6 +177,7 @@ export function BrochureModal({
       description="Self-hosted flipbook with gated lead capture into the CRM."
       onSubmit={handleSubmit}
       submitLabel={editing ? 'Save changes' : 'Create brochure'}
+      busy={uploading && { reason: 'Uploading — closing now would lose it' }}
       saving={save.isPending}
     >
       <FormSection title="Details">
@@ -219,6 +223,7 @@ export function BrochureModal({
           value={draft.pdf_url}
           onChange={(url) => set('pdf_url', url)}
           onUploaded={handleUploaded}
+          onUploadingChange={setUploading}
           hint="Pages are prepared automatically after saving — no need to wait here."
         />
 

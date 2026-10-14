@@ -49,6 +49,7 @@ export function ContentDialog({
   onSubmit,
   submitLabel,
   saving,
+  busy,
   children,
 }: {
   open: boolean
@@ -60,12 +61,24 @@ export function ContentDialog({
   onSubmit: () => void
   submitLabel: string
   saving?: boolean
+  /**
+   * Work is in flight that closing would throw away — a long upload, say.
+   * While set, a stray click outside and the Escape key are both ignored, and
+   * `reason` is shown so the dialog does not just feel stuck. Off by default,
+   * so every other modal behaves exactly as before.
+   */
+  busy?: { reason: string } | false
   children: React.ReactNode
 }) {
+  const locked = Boolean(busy)
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && !locked && onClose()}>
       <DialogContent
         showCloseButton={false}
+        // A mis-click outside must not discard minutes of uploading.
+        onPointerDownOutside={(e) => locked && e.preventDefault()}
+        onInteractOutside={(e) => locked && e.preventDefault()}
+        onEscapeKeyDown={(e) => locked && e.preventDefault()}
         // no subtitle → tell Radix there is deliberately no description (otherwise it warns)
         {...(description ? {} : { 'aria-describedby': undefined })}
         className="flex max-h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
@@ -83,7 +96,8 @@ export function ContentDialog({
           <button
             type="button"
             onClick={onClose}
-            className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            disabled={locked}
+            className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
             aria-label="Close"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -101,8 +115,14 @@ export function ContentDialog({
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 border-t border-border/70 bg-muted/30 px-6 py-3.5">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button type="submit" form="content-dialog-form" disabled={saving}>
+          {busy && (
+            <p className="mr-auto flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {busy.reason}
+            </p>
+          )}
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving || locked}>Cancel</Button>
+          <Button type="submit" form="content-dialog-form" disabled={saving || locked}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {submitLabel}
           </Button>
