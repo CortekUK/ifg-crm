@@ -32,7 +32,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard': 'DASHBOARD',
   '/contacts': 'CONTACTS',
   '/pipelines': 'PIPELINES',
-  '/replies': 'REPLIES',
+  '/outlook': 'OUTLOOK',
   '/sms-replies': 'REPLIES', // Redirect legacy route
   '/email-replies': 'REPLIES', // Redirect legacy route
   '/campaigns': 'CAMPAIGNS',

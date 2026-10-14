@@ -919,11 +919,11 @@ export function AutomationDetailSheet({
                               key={enrollment.id}
                               role={isReplyExit ? 'button' : undefined}
                               tabIndex={isReplyExit ? 0 : undefined}
-                              onClick={isReplyExit ? () => router.push(`/replies?contactId=${contact!.id}`) : undefined}
+                              onClick={isReplyExit ? () => router.push(`/outlook?contactId=${contact!.id}`) : undefined}
                               onKeyDown={isReplyExit ? (e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault()
-                                  router.push(`/replies?contactId=${contact!.id}`)
+                                  router.push(`/outlook?contactId=${contact!.id}`)
                                 }
                               } : undefined}
                               className={cn(
@@ -1000,16 +1000,16 @@ export function AutomationDetailSheet({
                             ? `${r.contact.first_name ?? ''} ${r.contact.last_name ?? ''}`.trim()
                             : r.from_name || r.from_email
                           const intent = r.ai_intent || 'unclassified'
-                          // Click → /replies?contactId=<id> deep link. The
+                          // Click → /outlook?contactId=<id> deep link. The
                           // replies page already auto-opens the most
                           // recent matched reply for that contact when the
                           // query param is present, so a row click lands
                           // the user directly on the message body.
                           const onRowClick = () => {
                             if (r.contact?.id) {
-                              router.push(`/replies?contactId=${r.contact.id}`)
+                              router.push(`/outlook?contactId=${r.contact.id}`)
                             } else {
-                              router.push('/replies')
+                              router.push('/outlook')
                             }
                           }
                           return (

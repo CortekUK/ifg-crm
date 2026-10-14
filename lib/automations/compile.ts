@@ -20,14 +20,12 @@ export interface CompiledStep {
     | 'wait'
     | 'wait_until_before_date'
     | 'wait_until_meeting_ends'
-    | 'send_sms'
     | 'move_to_stage'
     | 'create_deal'
     | 'create_invoice'
   delay_days: number
   delay_hours: number
   email_template_id: string | null
-  sms_content: string | null
   target_stage_id: string | null
   conditions: Record<string, unknown> | null
 }
@@ -112,7 +110,6 @@ function emailStep(templateId: string | null = null): CompiledStep {
     delay_days: 0,
     delay_hours: 0,
     email_template_id: templateId,
-    sms_content: null,
     target_stage_id: null,
     conditions: null,
   }
@@ -124,7 +121,6 @@ function waitStep(delayDays: number): CompiledStep {
     delay_days: delayDays,
     delay_hours: 0,
     email_template_id: null,
-    sms_content: null,
     target_stage_id: null,
     conditions: null,
   }
@@ -136,7 +132,6 @@ function createDealStep(): CompiledStep {
     delay_days: 0,
     delay_hours: 0,
     email_template_id: null,
-    sms_content: null,
     target_stage_id: null,
     conditions: null,
   }
@@ -148,7 +143,6 @@ function createInvoiceStep(): CompiledStep {
     delay_days: 0,
     delay_hours: 0,
     email_template_id: null,
-    sms_content: null,
     target_stage_id: null,
     conditions: null,
   }
@@ -160,7 +154,6 @@ function moveToStageStep(targetStageId: string): CompiledStep {
     delay_days: 0,
     delay_hours: 0,
     email_template_id: null,
-    sms_content: null,
     target_stage_id: targetStageId,
     conditions: null,
   }
@@ -181,7 +174,6 @@ function waitUntilBeforeDateStep(
     delay_days: beforeUnit === 'days' ? beforeValue : 0,
     delay_hours: beforeUnit === 'hours' ? beforeValue : 0,
     email_template_id: null,
-    sms_content: null,
     target_stage_id: null,
     conditions: { field },
   }
@@ -197,7 +189,6 @@ function waitUntilMeetingEndsStep(): CompiledStep {
     delay_days: 0,
     delay_hours: 0,
     email_template_id: null,
-    sms_content: null,
     target_stage_id: null,
     conditions: null,
   }

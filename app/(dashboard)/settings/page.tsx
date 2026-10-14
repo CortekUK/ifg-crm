@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 import { SettingsPageHeader } from '@/components/settings/SettingsPageHeader'
@@ -11,17 +12,34 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { ProfileSettings } from '@/components/settings/ProfileSettings'
 import { GeneralSettings } from '@/components/settings/GeneralSettings'
 import { CalendlySettings } from '@/components/settings/CalendlySettings'
+import { OutlookSettings } from '@/components/settings/OutlookSettings'
 import { NotificationsSettings } from '@/components/settings/NotificationsSettings'
 import { DataPrivacySettings } from '@/components/settings/DataPrivacySettings'
 import type { SettingsSection } from '@/lib/types/settings'
 
 // Sections a non-admin (recruiter) may manage — their own profile, their
-// Calendly connection, and their notification preferences. Everything else is
-// org/admin configuration.
-const RECRUITER_SECTIONS: SettingsSection[] = ['profile', 'calendly', 'notifications']
+// Calendly and Outlook connections, and their notification preferences.
+// Everything else is org/admin configuration. Outlook belongs here for the
+// same reason Calendly does: it is the recruiter's own account, and nobody
+// else can connect it for them.
+const RECRUITER_SECTIONS: SettingsSection[] = ['profile', 'calendly', 'outlook', 'notifications']
+
+const SECTION_IDS: SettingsSection[] = ['profile', 'general', 'calendly', 'outlook', 'notifications', 'data']
+
+function isSection(value: string | null): value is SettingsSection {
+  return !!value && (SECTION_IDS as string[]).includes(value)
+}
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('profile')
+  // The Microsoft OAuth callback is a browser redirect, not a fetch, so it
+  // hands the outcome back through the URL (/settings?section=outlook). Without
+  // honouring it the user lands on My Profile after connecting and has to go
+  // looking for the result of what they just did.
+  const searchParams = useSearchParams()
+  const requestedSection = searchParams.get('section')
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    isSection(requestedSection) ? requestedSection : 'profile',
+  )
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
@@ -42,6 +60,8 @@ export default function SettingsPage() {
         return <GeneralSettings />
       case 'calendly':
         return <CalendlySettings />
+      case 'outlook':
+        return <OutlookSettings />
       case 'notifications':
         return <NotificationsSettings />
       case 'data':

@@ -26,7 +26,6 @@ import {
   Loader2,
   Check,
   Mail,
-  Phone,
   Users,
   UserCheck,
   Info,
@@ -44,14 +43,11 @@ import { resolveReplyLeadStageId } from '@/lib/forms/lead-routing'
 import { useDealValueForPipeline } from '@/lib/hooks/useDealValueForPipeline'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import type { EmailReply } from '@/lib/types/email'
-import type { SMSMessage } from '@/lib/types/sms'
 
 interface SmartDealModalProps {
   isOpen: boolean
   onClose: () => void
-  type: 'email' | 'sms'
   replies?: EmailReply[]
-  messages?: SMSMessage[]
   userId: string
 }
 
@@ -74,9 +70,7 @@ interface DealItem {
 export function SmartDealModal({
   isOpen,
   onClose,
-  type,
   replies = [],
-  messages = [],
   userId,
 }: SmartDealModalProps) {
   const [isApplying, setIsApplying] = useState(false)
@@ -113,8 +107,7 @@ export function SmartDealModal({
   // for the previously-ineligible rows.
   const items = useMemo(() => {
     const out: DealItem[] = []
-    if (type === 'email') {
-      replies.forEach((r) => {
+    replies.forEach((r) => {
         if (!r.contact_id) return
         const contact = r.contact
         const firstName = contact?.first_name || ''
@@ -137,29 +130,8 @@ export function SmartDealModal({
           campaignName: r.campaign?.name || null,
         })
       })
-    } else {
-      messages.forEach((m) => {
-        if (!m.contact_id) return
-        const contact = m.contact
-        const firstName = contact?.first_name || ''
-        const lastName = contact?.last_name || ''
-        const name = `${firstName} ${lastName}`.trim() || m.phone_number
-        const initials = `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase() || '??'
-        out.push({
-          id: m.id,
-          contactId: m.contact_id,
-          contactName: name,
-          contactInitials: initials,
-          originalPipelineId: m.pipeline_id || '',
-          preview: m.content || '',
-          intent: m.ai_intent,
-          campaignId: m.campaign_id,
-          campaignName: null,
-        })
-      })
-    }
     return out
-  }, [type, replies, messages])
+  }, [replies])
 
   // Effective pipeline for a row: the user's override if they picked
   // one, otherwise whatever came from the reply. Items where this is
@@ -271,15 +243,9 @@ export function SmartDealModal({
       return
     }
     const seedItems: { id: string; intent: string | null }[] = []
-    if (type === 'email') {
-      replies.forEach((r) => {
-        if (r.contact_id && r.pipeline_id) seedItems.push({ id: r.id, intent: r.ai_intent })
-      })
-    } else {
-      messages.forEach((m) => {
-        if (m.contact_id && m.pipeline_id) seedItems.push({ id: m.id, intent: m.ai_intent })
-      })
-    }
+    replies.forEach((r) => {
+      if (r.contact_id && r.pipeline_id) seedItems.push({ id: r.id, intent: r.ai_intent })
+    })
     if (seedItems.length > 0) {
       // Pre-select positive + question only. Never pre-select
       // negative/unsubscribe (explicit "not interested") and avoid
@@ -500,9 +466,8 @@ export function SmartDealModal({
             // Also stamp pipeline_id so the All tab reflects the right
             // pipeline column even when the user assigned it manually
             // via the modal's per-row picker.
-            const replyTable = type === 'email' ? 'email_replies' : 'sms_messages'
             await supabase
-              .from(replyTable)
+              .from('email_replies')
               .update({ match_status: 'deal_created', pipeline_id: pipelineIdForDeal })
               .eq('id', item.id)
             skippedCount++
@@ -577,17 +542,13 @@ export function SmartDealModal({
           // not show against the deal (QA-32 new issue 2). Setting deal_id also
           // fires the badge trigger (migration 229), which stamps the reply's
           // intent on the card — 'unknown' and autoresponders excluded.
-          // Email only: sms_messages has no deal_id column, and sending one
-          // would make PostgREST reject the whole update and break the SMS
-          // side of Smart Deal.
           const newDealId = (createdDeal as { id?: string } | undefined)?.id ?? null
-          const replyTable = type === 'email' ? 'email_replies' : 'sms_messages'
           await supabase
-            .from(replyTable)
+            .from('email_replies')
             .update({
               match_status: 'deal_created',
               pipeline_id: pipelineIdForDeal,
-              ...(type === 'email' && newDealId ? { deal_id: newDealId } : {}),
+              ...(newDealId ? { deal_id: newDealId } : {}),
             })
             .eq('id', item.id)
 
@@ -599,13 +560,8 @@ export function SmartDealModal({
       }
 
       // Invalidate queries
-      if (type === 'email') {
-        queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-        queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['sms-messages'] })
-        queryClient.invalidateQueries({ queryKey: ['sms-message-counts'] })
-      }
+      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })
 
@@ -644,7 +600,7 @@ export function SmartDealModal({
                 Smart Deal
               </DialogTitle>
               <DialogDescription>
-                Create deals from matched {type === 'email' ? 'email replies' : 'SMS messages'}
+                Create deals from matched email replies
               </DialogDescription>
             </div>
           </div>
@@ -658,10 +614,10 @@ export function SmartDealModal({
           <div className="flex-1 flex flex-col items-center justify-center py-12 px-4">
             <Info className="h-10 w-10 text-slate-400 mb-4" />
             <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">
-              No matched {type === 'email' ? 'replies' : 'messages'}
+              No matched replies
             </p>
             <p className="text-sm text-muted-foreground text-center max-w-md">
-              Selected {type === 'email' ? 'replies' : 'messages'} must have a matched contact. Use Smart Match first to link them to contacts, then come back here to create deals.
+              Selected replies must have a matched contact. Use Smart Match first to link them to contacts, then come back here to create deals.
             </p>
           </div>
         ) : (
@@ -828,7 +784,7 @@ export function SmartDealModal({
                       </div>
                       {/* Row 2: reply preview */}
                       <p className="text-xs text-muted-foreground mt-1 pl-10 line-clamp-2">
-                        {type === 'email' ? <Mail className="inline h-3 w-3 text-blue-500 mr-1 -mt-0.5" /> : <Phone className="inline h-3 w-3 text-purple-500 mr-1 -mt-0.5" />}
+                        <Mail className="inline h-3 w-3 text-blue-500 mr-1 -mt-0.5" />
                         {item.preview}
                       </p>
                     </div>
@@ -846,7 +802,7 @@ export function SmartDealModal({
                       <div className="flex items-center gap-2">
                         <Info className="h-4 w-4 text-slate-400" />
                         <span className="text-xs font-medium text-muted-foreground">
-                          {ineligible.length} {type === 'email' ? 'replies' : 'messages'} need a pipeline
+                          {ineligible.length} replies need a pipeline
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

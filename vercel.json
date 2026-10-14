@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/check-time-triggers",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/outlook-sync",
+      "schedule": "0 * * * *"
     }
   ]
 }

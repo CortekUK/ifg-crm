@@ -53,8 +53,7 @@ export default function DashboardPage() {
 
   // Overdue invoices only belong in this total for someone who can act on one.
   const attention = data
-    ? data.attention.unmatched_sms +
-      data.attention.unmatched_email +
+    ? data.attention.unmatched_email +
       (isAdmin ? data.attention.overdue_invoices : 0) +
       data.deals.stalled
     : 0

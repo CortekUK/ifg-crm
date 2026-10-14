@@ -22,7 +22,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 /** Keys mirror the toggles in Settings → Notifications. */
 export type StaffNotificationKey =
   | 'newLead'
-  | 'smsReply'
   | 'emailReply'
   | 'paymentReceived'
   | 'dealWon'

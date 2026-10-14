@@ -11,7 +11,6 @@ export const STEP_TYPES = [
   'wait',
   'wait_until_before_date',
   'wait_until_meeting_ends',
-  'send_sms',
   'move_to_stage',
   'create_deal',
   'create_invoice',

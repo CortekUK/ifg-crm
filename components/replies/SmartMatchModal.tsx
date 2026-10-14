@@ -21,7 +21,6 @@ import {
   UserPlus,
   AlertCircle,
   Mail,
-  Phone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -29,7 +28,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/lib/hooks/use-toast'
 import {
   analyzeEmailReplies,
-  analyzeSMSMessages,
   getConfidenceLevel,
   newContactNameFor,
   type MatchSuggestion,
@@ -38,23 +36,18 @@ import { ContactPickerPopover } from '@/components/replies/ContactPickerPopover'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import type { Contact } from '@/lib/types/contacts'
 import type { EmailReply } from '@/lib/types/email'
-import type { SMSMessage } from '@/lib/types/sms'
 
 interface SmartMatchModalProps {
   isOpen: boolean
   onClose: () => void
-  type: 'email' | 'sms'
   replies?: EmailReply[]
-  messages?: SMSMessage[]
   userId: string
 }
 
 export function SmartMatchModal({
   isOpen,
   onClose,
-  type,
   replies = [],
-  messages = [],
   userId,
 }: SmartMatchModalProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -87,10 +80,7 @@ export function SmartMatchModal({
       // Scoring runs in the database now. It used to run here, over a
       // `.select('*')` on contacts that PostgREST capped at 1,000 rows — see
       // the note on analyzeEmailReplies.
-      const results: MatchSuggestion[] =
-        type === 'email'
-          ? await analyzeEmailReplies(supabase, replies)
-          : await analyzeSMSMessages(supabase, messages)
+      const results: MatchSuggestion[] = await analyzeEmailReplies(supabase, replies)
 
       setSuggestions(results)
       setOverrides(new Map())
@@ -183,7 +173,6 @@ export function SmartMatchModal({
 
           // Create new contact if no match
           if (!contactId) {
-            if (type === 'email') {
               // QA-31 bug 4: the SAME name the row previewed. This used to
               // build its own, saving the raw local part as the first name
               // with no surname, so `john.smith@…` became a contact called
@@ -225,96 +214,35 @@ export function SmartMatchModal({
                 contactId = newContact.id
                 createdCount++
               }
-            } else {
-              // SMS - create contact with phone
-              const phone = suggestion.replyIdentifier
-
-              // First check if contact with this phone already exists
-              const { data: existingContact } = await supabase
-                .from('contacts')
-                .select('id')
-                .eq('phone', phone)
-                .single()
-
-              if (existingContact) {
-                contactId = existingContact.id
-                matchedCount++
-              } else {
-                // Generate placeholder email from phone number
-                const cleanPhone = phone.replace(/\D/g, '')
-                const placeholderEmail = `sms.${cleanPhone}@placeholder.ifg`
-
-                const { data: newContact, error: contactError } = await supabase
-                  .from('contacts')
-                  .insert({
-                    first_name: 'Unknown',
-                    last_name: phone,
-                    email: placeholderEmail,
-                    phone: phone,
-                    source: 'sms_reply',
-                    sport: 'football',
-                    subscription_status: 'subscribed',
-                    email_subscribed: false,
-                    sms_subscribed: true,
-                  })
-                  .select('id')
-                  .single()
-
-                if (contactError) {
-                  console.error('Contact insert error:', JSON.stringify(contactError))
-                  throw contactError
-                }
-                contactId = newContact.id
-                createdCount++
-              }
-            }
           }
 
-          // Update the reply/message with the matched contact
+          // Update the reply with the matched contact
           const pipelineIdToSet = suggestion.campaignPipelineId
 
-          if (type === 'email') {
-            // First update the core fields
-            const { error: updateError } = await supabase
-              .from('email_replies')
-              .update({
-                contact_id: contactId,
-                match_status: 'manually_matched',
-                matched_by_id: userId,
-                matched_at: new Date().toISOString(),
-              })
-              .eq('id', suggestion.replyId)
+          const { error: updateError } = await supabase
+            .from('email_replies')
+            .update({
+              contact_id: contactId,
+              match_status: 'manually_matched',
+              matched_by_id: userId,
+              matched_at: new Date().toISOString(),
+            })
+            .eq('id', suggestion.replyId)
 
-            if (updateError) {
-              console.error('Email reply update error:', JSON.stringify(updateError))
-              throw updateError
-            }
+          if (updateError) {
+            console.error('Email reply update error:', JSON.stringify(updateError))
+            throw updateError
+          }
 
-            // Try to update pipeline_id separately (may fail if column doesn't exist yet)
-            if (pipelineIdToSet) {
-              try {
-                await supabase
-                  .from('email_replies')
-                  .update({ pipeline_id: pipelineIdToSet } as Record<string, unknown>)
-                  .eq('id', suggestion.replyId)
-              } catch (pipelineErr) {
-                console.warn('Could not set pipeline_id on email reply:', pipelineErr)
-              }
-            }
-          } else {
-            const { error: updateError } = await supabase
-              .from('sms_messages')
-              .update({
-                contact_id: contactId,
-                match_status: 'manually_matched',
-                matched_by_id: userId,
-                matched_at: new Date().toISOString(),
-              })
-              .eq('id', suggestion.replyId)
-
-            if (updateError) {
-              console.error('SMS message update error:', JSON.stringify(updateError))
-              throw updateError
+          // Try to update pipeline_id separately (may fail if the column is absent)
+          if (pipelineIdToSet) {
+            try {
+              await supabase
+                .from('email_replies')
+                .update({ pipeline_id: pipelineIdToSet } as Record<string, unknown>)
+                .eq('id', suggestion.replyId)
+            } catch (pipelineErr) {
+              console.warn('Could not set pipeline_id on email reply:', pipelineErr)
             }
           }
 
@@ -330,13 +258,8 @@ export function SmartMatchModal({
       }
 
       // Invalidate queries
-      if (type === 'email') {
-        queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-        queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['sms-messages'] })
-        queryClient.invalidateQueries({ queryKey: ['sms-message-counts'] })
-      }
+      queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['email-reply-counts'] })
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
 
       // Build result message
@@ -412,7 +335,7 @@ export function SmartMatchModal({
                 Smart Match
               </DialogTitle>
               <DialogDescription>
-                Match unmatched {type === 'email' ? 'email replies' : 'SMS messages'} to contacts
+                Match unmatched email replies to contacts
               </DialogDescription>
             </div>
           </div>
@@ -422,7 +345,7 @@ export function SmartMatchModal({
           <div className="flex-1 flex flex-col items-center justify-center py-12 px-4">
             <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-4" />
             <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">
-              Analysing {type === 'email' ? replies.length : messages.length} {type === 'email' ? 'replies' : 'messages'}...
+              Analysing {replies.length} replies...
             </p>
             <p className="text-sm text-muted-foreground">
               Finding the best contact matches
@@ -432,10 +355,10 @@ export function SmartMatchModal({
           <div className="flex-1 flex flex-col items-center justify-center py-12 px-4">
             <AlertCircle className="h-10 w-10 text-slate-400 mb-4" />
             <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">
-              No unmatched {type === 'email' ? 'replies' : 'messages'} to analyse
+              No unmatched replies to analyse
             </p>
             <p className="text-sm text-muted-foreground">
-              All {type === 'email' ? 'replies' : 'messages'} are already matched
+              All replies are already matched
             </p>
           </div>
         ) : (
@@ -502,11 +425,7 @@ export function SmartMatchModal({
                       {/* Reply Info */}
                       <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          {type === 'email' ? (
-                            <Mail className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                          ) : (
-                            <Phone className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-                          )}
+                          <Mail className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                           <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
                             {suggestion.replyName || suggestion.replyIdentifier}
                           </span>

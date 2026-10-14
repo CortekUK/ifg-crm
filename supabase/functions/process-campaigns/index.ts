@@ -1,10 +1,9 @@
-// Supabase Edge Function: Process Campaign Emails & SMS
-// This function handles sending campaign emails and SMS in batches
+// Supabase Edge Function: Process Campaign Emails
+// This function handles sending campaign emails in batches
 // Called by Vercel cron job every minute
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@2.0.0'
-import { sendSMS } from '../_shared/clicksend.ts'
 import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
@@ -20,7 +19,7 @@ const BATCH_SIZE = 50 // Process 50 emails per invocation
 interface Campaign {
   id: string
   name: string
-  type: 'email' | 'sms'
+  type: 'email'
   status: string
   subject: string | null
   body_html: string | null
@@ -30,7 +29,6 @@ interface Campaign {
   reply_to: string | null
   preview_text: string | null
   email_template_id: string | null
-  sms_content: string | null
   recipient_list_ids: string[] | null
   recipient_tag_ids: string[] | null
   recipient_stage_ids: string[] | null
@@ -45,8 +43,6 @@ interface ProcessingSummary {
   campaignsProcessed: number
   emailsSent: number
   emailsFailed: number
-  smsSent: number
-  smsFailed: number
   campaignsCompleted: string[]
   errors: string[]
 }
@@ -61,8 +57,6 @@ Deno.serve(async (req) => {
     campaignsProcessed: 0,
     emailsSent: 0,
     emailsFailed: 0,
-    smsSent: 0,
-    smsFailed: 0,
     campaignsCompleted: [],
     errors: [],
   }
@@ -189,7 +183,7 @@ async function processCampaign(
     .select(`
       id,
       contact_id,
-      contact:contacts(id, first_name, last_name, email, phone, sms_subscribed)
+      contact:contacts(id, first_name, last_name, email, phone)
     `)
     .eq('campaign_id', campaign.id)
     .eq('status', 'pending')
@@ -247,146 +241,6 @@ async function processCampaign(
       .eq('id', senderId)
       .maybeSingle()
     sender = data ?? null
-  }
-
-  // ============================================
-  // SMS CAMPAIGN BRANCH
-  // ============================================
-  if (campaign.type === 'sms') {
-    // Guard: reject campaigns with no SMS content
-    if (!campaign.sms_content) {
-      await supabase
-        .from('campaigns')
-        .update({
-          status: 'failed',
-          error_message: 'No SMS content — compose a message before sending.',
-          last_processed_at: new Date().toISOString(),
-        })
-        .eq('id', campaign.id)
-
-      summary.campaignsCompleted.push(campaign.id)
-      console.log(`Campaign ${campaign.id} failed: no SMS content`)
-      return
-    }
-
-    let successCount = 0
-    let failCount = 0
-
-    for (const recipient of pendingRecipients) {
-      const contact = Array.isArray(recipient.contact)
-        ? recipient.contact[0]
-        : recipient.contact
-
-      if (!contact?.phone) {
-        await supabase
-          .from('campaign_recipients')
-          .update({
-            status: 'failed',
-            error_message: 'No phone number',
-            sent_at: new Date().toISOString(),
-          })
-          .eq('id', recipient.id)
-        failCount++
-        continue
-      }
-
-      if (contact.sms_subscribed === false) {
-        await supabase
-          .from('campaign_recipients')
-          .update({
-            status: 'failed',
-            error_message: 'Contact not SMS subscribed',
-            sent_at: new Date().toISOString(),
-          })
-          .eq('id', recipient.id)
-        failCount++
-        continue
-      }
-
-      try {
-        // Replace merge tags in SMS content using the canonical engine
-        // (handles {{key|fallback}} and {{#if key}}...{{/if}} blocks).
-        const mergeData = buildCampaignMergeData(contact, sender)
-        const processedContent = replaceMergeTags(campaign.sms_content, mergeData)
-
-        // Send via ClickSend
-        const smsResult = await sendSMS({
-          to: contact.phone,
-          body: processedContent,
-          source: `campaign-${campaign.id}`,
-        })
-
-        if (smsResult.success) {
-          await supabase
-            .from('campaign_recipients')
-            .update({
-              status: 'sent',
-              sent_at: new Date().toISOString(),
-            })
-            .eq('id', recipient.id)
-
-          // Log to sms_sends table
-          await supabase.from('sms_sends').insert({
-            recipient_phone: contact.phone,
-            recipient_contact_id: contact.id,
-            campaign_id: campaign.id,
-            content: processedContent,
-            status: 'sent',
-            clicksend_message_id: smsResult.message_id,
-            segments: smsResult.segments || 1,
-            sent_at: new Date().toISOString(),
-          })
-
-          successCount++
-        } else {
-          const errorMsg = smsResult.error || 'SMS send failed'
-          console.error(`Failed to send SMS to ${contact.phone}: ${errorMsg}`)
-          await supabase
-            .from('campaign_recipients')
-            .update({
-              status: 'failed',
-              error_message: errorMsg,
-              sent_at: new Date().toISOString(),
-            })
-            .eq('id', recipient.id)
-
-          // Log failed send
-          await supabase.from('sms_sends').insert({
-            recipient_phone: contact.phone,
-            recipient_contact_id: contact.id,
-            campaign_id: campaign.id,
-            content: processedContent,
-            status: 'failed',
-            error_message: errorMsg,
-            sent_at: new Date().toISOString(),
-          })
-
-          failCount++
-        }
-      } catch (error) {
-        const errorMsg = error.message || 'Unknown error during SMS send'
-        console.error(`Exception sending SMS to recipient ${recipient.id}: ${errorMsg}`)
-        await supabase
-          .from('campaign_recipients')
-          .update({
-            status: 'failed',
-            error_message: errorMsg,
-            sent_at: new Date().toISOString(),
-          })
-          .eq('id', recipient.id)
-        failCount++
-      }
-
-      // Small delay between sends to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
-
-    // Update campaign progress
-    await updateCampaignProgress(supabase, campaign, successCount, failCount, summary)
-    summary.smsSent += successCount
-    summary.smsFailed += failCount
-    console.log(`SMS batch complete: ${successCount} sent, ${failCount} failed`)
-    return
   }
 
   // ============================================

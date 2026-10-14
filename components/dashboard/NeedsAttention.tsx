@@ -2,7 +2,7 @@
 
 // The one panel that says whether anything needs doing.
 //
-// It replaces four separate widgets — unmatched SMS, unmatched email, SMS
+// It replaces several separate widgets — unmatched email,
 // follow-ups, email follow-ups — which between them occupied half the
 // dashboard and, in this database, all showed zero. A queue with nothing in it
 // should take one line, not four cards.
@@ -44,10 +44,10 @@ export function NeedsAttention({
   }
 
   const a = data.attention
-  const unmatched = a.unmatched_sms + a.unmatched_email
+  const unmatched = a.unmatched_email
 
   const items: Item[] = ([
-    { label: 'replies we could not match to a contact', count: unmatched, href: '/replies', icon: MessageSquareWarning, severity: 'urgent' },
+    { label: 'replies we could not match to a contact', count: unmatched, href: '/outlook', icon: MessageSquareWarning, severity: 'urgent' },
     { label: 'invoices overdue', count: a.overdue_invoices, href: '/invoices', icon: Receipt, severity: 'urgent', adminOnly: true },
     { label: 'deals with no activity for a fortnight', count: data.deals.stalled, href: '/pipelines', icon: Timer, severity: 'urgent' },
     { label: 'brochures still waiting to be pre-rendered', count: a.brochures_unrendered, href: '/brochures', icon: BookOpen, severity: 'note', adminOnly: true },

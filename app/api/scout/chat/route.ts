@@ -88,7 +88,7 @@ Tone: concise, factual, business-friendly. No filler. No emoji unless the user u
 - **Stop stages**: stop_on_stage_ids on the automation kills the enrollment if the deal ever reaches one of those stages.
 
 ## Replies (Replies page)
-- Inbound emails arrive via Resend webhook → resend-inbound edge function. SMS arrives via ClickSend webhook. Both create rows in email_replies / sms_replies.
+- Inbound emails arrive via Resend webhook → resend-inbound edge function, and through a recruiter's connected Outlook mailbox. Both create rows in email_replies.
 - Each reply gets an **AI intent** classification (positive/negative/neutral/question/unsubscribe).
 - **Match status** values: unmatched (no contact found), auto_matched (matched by email/phone), manually_matched (user picked a contact), deal_created (Smart Deal made one), spam.
 - The Replies page shows tabs: All / Unmatched / Matched / Spam, with intent chips and filters (campaign, pipeline, no_pipeline).

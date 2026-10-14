@@ -83,8 +83,6 @@ export function AutomationWorkflowPreview({
         return <Mail className="h-4 w-4" />
       case 'wait':
         return <Clock className="h-4 w-4" />
-      case 'send_sms':
-        return <MessageSquare className="h-4 w-4" />
       case 'move_to_stage':
         return <ArrowRight className="h-4 w-4" />
       case 'create_deal':
@@ -104,8 +102,6 @@ export function AutomationWorkflowPreview({
         return 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400'
       case 'wait':
         return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-      case 'send_sms':
-        return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400'
       case 'move_to_stage':
         return 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400'
       case 'create_deal':
@@ -295,21 +291,6 @@ export function AutomationWorkflowPreview({
                 </Card>
               )}
 
-              {/* SMS Step */}
-              {step.step_type === 'send_sms' && (
-                <Card className="border-emerald-200 dark:border-emerald-800 shadow-sm bg-emerald-50/50 dark:bg-emerald-900/20">
-                  <CardContent className="p-3">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Send SMS
-                    </p>
-                    {step.sms_content && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                        {step.sms_content}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </div>
         </div>

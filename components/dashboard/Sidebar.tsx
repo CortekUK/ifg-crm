@@ -17,7 +17,6 @@ import {
   LayoutDashboard,
   Users,
   GitBranch,
-  MessageSquare,
   Mail,
   Send,
   FileText,
@@ -60,7 +59,7 @@ const navSections = [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/contacts', label: 'Contacts', icon: Users },
       { href: '/pipelines', label: 'Pipelines', icon: GitBranch },
-      { href: '/replies', label: 'Replies', icon: MessageSquare },
+      { href: '/outlook', label: 'Outlook', icon: Mail },
     ],
   },
   {

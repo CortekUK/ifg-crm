@@ -98,7 +98,7 @@ console.log('\n=== STEP 1: Delete all invoices ===')
 //   email_replies, player_invites, player_guardians, portal_users,
 //   calendly_events.
 //   SET NULL on profiles.contact_id, email_sends.recipient_contact_id,
-//   sms_messages.contact_id, form_submissions.contact_id.
+//   form_submissions.contact_id.
 // ---------------------------------------------------------------------------
 console.log('\n=== STEP 2: Delete all contacts except kept ===')
 {

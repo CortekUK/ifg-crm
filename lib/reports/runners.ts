@@ -814,9 +814,9 @@ const emailSends: Runner = async (ctx) => {
  * Replies received.
  *
  * Replaces the old "SMS / Email responses" report, which selected
- * `sms_messages.body` and `from_number` — neither column exists, so the
- * report threw every time it was run. `sms_messages` holds no rows and no
- * SMS is sent or received, so this covers email only.
+ * `sms_messages.body` and `from_number` — neither column existed, so the
+ * report threw every time it was run. SMS was removed entirely in migration
+ * 249 (IFG never used it), so this covers email only.
  */
 const emailReplies: Runner = async (ctx) => {
   const rows = await fetchAll<Record<string, unknown>>(() => {

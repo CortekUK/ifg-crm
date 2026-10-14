@@ -1,12 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Contact } from '@/lib/types/contacts'
 import type { EmailReply } from '@/lib/types/email'
-import type { SMSMessage } from '@/lib/types/sms'
 
 export interface MatchSuggestion {
   replyId: string
-  replyType: 'email' | 'sms'
-  replyIdentifier: string // email address or phone number
+  replyType: 'email'
+  replyIdentifier: string // email address
   replyName: string | null
   replyPreview: string
   suggestedContact: Contact | null
@@ -29,7 +28,7 @@ export interface MatchSuggestion {
  * "Abdiel": staff were shown "New contact" for players who plainly existed,
  * and the similar-name and similar-email tiers could never fire at all.
  *
- * The tiers now live in `suggest_contact_for_reply` / `suggest_contact_for_sms`
+ * The tiers now live in `suggest_contact_for_reply`
  * (migrations 207 and 208), where they can see every row and use the trigram
  * and phone-digit indexes. The thresholds and confidence bands are unchanged,
  * so a suggestion that was right before is still right — there are simply no
@@ -164,43 +163,6 @@ export async function analyzeEmailReplies(
   return attachContacts(supabase, partials)
 }
 
-/** Analyse inbound texts, asking the database for each suggestion. */
-export async function analyzeSMSMessages(
-  supabase: Client,
-  messages: SMSMessage[],
-): Promise<MatchSuggestion[]> {
-  const partials = await Promise.all(
-    messages.map(async (message) => {
-      const { data, error } = await supabase.rpc('suggest_contact_for_sms', {
-        p_phone: message.phone_number,
-      })
-      if (error) throw error
-
-      const top = ((data || []) as SuggestionRow[])[0] ?? null
-
-      return {
-        replyId: message.id,
-        replyType: 'sms' as const,
-        replyIdentifier: message.phone_number,
-        replyName: null,
-        replyPreview: message.content || '(No content)',
-        confidence: top?.confidence ?? 0,
-        matchReason: top?.match_reason ?? 'No match found',
-        campaignId: null,
-        campaignName: null,
-        campaignPipelineId: message.pipeline_id || null,
-        aiIntent: message.ai_intent || null,
-        contactId: top?.contact_id ?? null,
-      }
-    }),
-  )
-
-  return attachContacts(supabase, partials)
-}
-
-/**
- * Get confidence level category
- */
 export function getConfidenceLevel(confidence: number): 'high' | 'medium' | 'low' | 'none' {
   if (confidence >= 90) return 'high'
   if (confidence >= 70) return 'medium'

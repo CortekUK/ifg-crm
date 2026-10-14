@@ -2,6 +2,7 @@ export type SettingsSection =
   | 'profile'
   | 'general'
   | 'calendly'
+  | 'outlook'
   | 'notifications'
   | 'data'
 
@@ -16,16 +17,6 @@ export interface GeneralSettings {
 export interface IntegrationStatus {
   connected: boolean
   lastChecked: string | null
-}
-
-export interface ClickSendSettings {
-  apiUsername: string
-  apiKey: string
-  phoneNumberMappings: {
-    phoneNumber: string
-    pipelineId: string
-    pipelineName: string
-  }[]
 }
 
 export interface ResendSettings {
@@ -45,7 +36,6 @@ export interface XeroSettings {
 export interface NotificationSettings {
   emailNotifications: {
     newLead: boolean
-    smsReply: boolean
     emailReply: boolean
     paymentReceived: boolean
     dealWon: boolean

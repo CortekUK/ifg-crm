@@ -7,6 +7,7 @@ import {
   Shield,
   User,
   Calendar,
+  Mail,
 } from 'lucide-react'
 import type { SettingsSection } from '@/lib/types/settings'
 
@@ -24,6 +25,7 @@ export const navItems: SettingsNavItem[] = [
   { id: 'profile', label: 'My Profile', icon: User },
   { id: 'general', label: 'General', icon: Settings },
   { id: 'calendly', label: 'Calendly', icon: Calendar },
+  { id: 'outlook', label: 'Outlook', icon: Mail },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'data', label: 'Data & Privacy', icon: Shield },
 ]

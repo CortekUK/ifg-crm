@@ -8,7 +8,7 @@
 // /unauthorized.
 
 import Link from 'next/link'
-import { BookOpen, FileText, MessageSquare, Send, UserPlus } from 'lucide-react'
+import { BookOpen, FileText, Send, UserPlus, Mail } from 'lucide-react'
 
 export function QuickActions({
   onNewContact,
@@ -26,9 +26,9 @@ export function QuickActions({
         <UserPlus className="h-4 w-4" />
         New contact
       </button>
-      <Link href="/replies" className={cls}>
-        <MessageSquare className="h-4 w-4" />
-        Replies
+      <Link href="/outlook" className={cls}>
+        <Mail className="h-4 w-4" />
+        Outlook
       </Link>
       {isAdmin && (
         <>

@@ -40,9 +40,8 @@ const checks = [
     await one(`select count(*) from automation_enrollments where status='active';`)],
   ['email.sent_7d', d.email.sent_7d,
     await one(`select count(*) from email_sends where sent_at > now() - interval '7 days';`)],
-  ['attention.unmatched', d.attention.unmatched_sms + d.attention.unmatched_email,
-    await one(`select (select count(*) from sms_messages where match_status='unmatched' and direction='inbound')
-                    + (select count(*) from email_replies where match_status='unmatched');`)],
+  ['attention.unmatched', d.attention.unmatched_email,
+    await one(`select count(*) from email_replies where match_status='unmatched';`)],
   ['finance.outstanding', Number(d.finance.outstanding),
     await one(`select coalesce(sum(amount),0) from invoices where status in ('sent','overdue');`)],
   // The one that mattered most: this is counted over 105k contacts, not 1000.

@@ -39,7 +39,6 @@ export interface DashboardOverview {
   automation: { active: number; enrolled: number }
   email: { sent_7d: number; sent_today: number; opened_7d: number; failed_7d: number }
   attention: {
-    unmatched_sms: number
     unmatched_email: number
     overdue_invoices: number
     overdue_value: number

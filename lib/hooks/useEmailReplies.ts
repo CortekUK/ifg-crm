@@ -38,7 +38,7 @@ const REPLY_SELECT = `
   contact:contacts(*),
   campaign:campaigns(*, pipeline:pipelines(id, name, programme_id, programme:programmes(id, name))),
   pipeline:pipelines!email_replies_pipeline_id_fkey(id, name, programme_id, programme:programmes(id, name)),
-  matched_by:profiles(*),
+  matched_by:profiles!email_replies_matched_by_id_fkey(*),
   deal:deals(id, title, status, stage:pipeline_stages!deals_current_stage_id_fkey(id, name))
 `
 

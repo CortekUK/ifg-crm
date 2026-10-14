@@ -82,12 +82,21 @@ export function EmailReplyCard({
 
   const displayName = reply.from_name || reply.from_email
 
+  // Unread drives the weight of the row, the way every mail client does: an
+  // unread message is bold, a read one is not. Without it every row carried
+  // the same weight and nothing told you what you had already dealt with.
+  const isUnread = reply.read === false || reply.read === null || reply.read === undefined
+
   return (
     <TableRow
       className={cn(
-        'cursor-pointer',
+        'cursor-pointer bg-white dark:bg-slate-900',
+        // Hover and selection are set here, not only on the row's default
+        // class, so the sticky action cell below can inherit them.
+        'hover:bg-slate-50 dark:hover:bg-slate-800/70',
         isSpam && 'opacity-60',
-        selected && 'bg-blue-50/50 dark:bg-blue-900/20'
+        selected && 'bg-blue-50/50 dark:bg-blue-900/20',
+        isUnread && 'bg-blue-50/30 dark:bg-slate-800/40'
       )}
       onClick={() => onViewFull(reply)}
     >
@@ -111,24 +120,52 @@ export function EmailReplyCard({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[76px] sm:max-w-[160px]">
-              {displayName}
+            <p
+              className={cn(
+                'text-sm truncate max-w-[76px] sm:max-w-[160px] text-gray-900 dark:text-white',
+                isUnread ? 'font-semibold' : 'font-normal',
+              )}
+            >
+              {reply.from_name || reply.from_email}
             </p>
-            {reply.from_name && (
-              <p className="text-[11px] text-muted-foreground truncate max-w-[76px] sm:max-w-[160px]">
-                {reply.from_email}
-              </p>
-            )}
+            {/* The address always shows, even when there is no display name —
+                it is the one field that says exactly who wrote in, and it was
+                previously hidden on every reply that arrived without a name. */}
+            <p className="text-[11px] text-muted-foreground/80 truncate max-w-[76px] sm:max-w-[160px]">
+              {reply.from_email}
+            </p>
           </div>
         </div>
       </TableCell>
 
       {/* Subject & Preview */}
       <TableCell>
-        <p className={cn('text-sm font-medium truncate max-w-[104px] sm:max-w-[280px]', isSpam && 'line-through')}>
-          {reply.subject || '(No subject)'}
-        </p>
-        <p className={cn('text-[11px] text-muted-foreground truncate max-w-[104px] sm:max-w-[280px]', isSpam && 'line-through')}>
+        <div className="flex items-center gap-1.5 max-w-[104px] sm:max-w-[280px]">
+          {/* A dot for unread, as in any mail client — the fastest possible
+              read of "is there anything here I have not seen". */}
+          {isUnread && !isSpam && (
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" aria-label="Unread" />
+          )}
+          <p
+            className={cn(
+              'text-sm truncate text-gray-900 dark:text-white',
+              isUnread ? 'font-semibold' : 'font-normal',
+              isSpam && 'line-through',
+            )}
+          >
+            {reply.subject || '(No subject)'}
+          </p>
+        </div>
+        {/* The message body, deliberately lighter and smaller than the
+            subject above it. Before, both lines were near-identical in weight
+            and colour, so the subject and the message read as one blurred
+            block and you could not tell which was which at a glance. */}
+        <p
+          className={cn(
+            'text-[11px] text-muted-foreground/70 truncate max-w-[104px] sm:max-w-[280px] mt-0.5',
+            isSpam && 'line-through',
+          )}
+        >
           {cleanPreview || '(No content)'}
         </p>
         {/* QA-33 Issue 1: hiding the Intent/Campaign/Pipeline/Received columns
@@ -209,7 +246,9 @@ export function EmailReplyCard({
           where the hidden-column breakpoints do not apply yet. */}
       <TableCell
         onClick={(e) => e.stopPropagation()}
-        className="sticky right-0 z-10 bg-background"
+        // bg-inherit, so the sticky column takes the row's colour —
+        // including hover and selection — instead of the page background.
+        className="sticky right-0 z-10 bg-inherit"
       >
         <div className="flex items-center justify-end gap-1">
           {!isMatched && !isSpam && (

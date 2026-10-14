@@ -34,6 +34,8 @@ export interface EmailReply {
   follow_up_status: EmailFollowUpStatus
   received_at?: string
   created_at: string
+  /** Drives the unread emphasis in the list, the way a mail client does. */
+  read?: boolean | null
   // Joined data
   contact?: Contact | null
   campaign?: Campaign | null
