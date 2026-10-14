@@ -78,10 +78,15 @@ try {
 
   // Borrow the PDF from a real brochure — the point is to prove this works on
   // the actual files, which are 100MB+, not on a tidy sample.
+  // Needs a known page count to compare against, so only a brochure that has
+  // already rendered will do — a half-finished one would make the test's own
+  // expectations meaningless.
   const { data: source } = await admin
     .from('website_brochures')
     .select('title, pdf_url, page_count')
     .not('pdf_url', 'is', null)
+    .not('page_count', 'is', null)
+    .eq('render_status', 'ready')
     .order('page_count', { ascending: false })
     .limit(1)
     .single()

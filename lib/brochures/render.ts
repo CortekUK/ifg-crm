@@ -111,11 +111,22 @@ export async function renderBrochure(
   // Loaded here rather than at module scope: this file is imported by the cron
   // route, and pulling a WASM binary and libvips into memory on every cold
   // start of an unrelated route would be wasteful.
-  const [{ PDFiumLibrary }, sharpModule] = await Promise.all([
-    import('@hyzyla/pdfium'),
-    import('sharp'),
-  ])
-  const sharp = sharpModule.default
+  //
+  // Guarded, because these can fail outright rather than misbehave: sharp ships
+  // platform-specific binaries, and a deployment built without the right ones
+  // throws here. That happened, and because this sat outside the try below it
+  // escaped past fail() — leaving the brochure claimed, with no error on it and
+  // "Preparing" on screen indefinitely. Anything that can throw has to be able
+  // to write down why.
+  let PDFiumLibrary: typeof import('@hyzyla/pdfium').PDFiumLibrary
+  let sharp: typeof import('sharp').default
+  try {
+    const [pdfium, sharpModule] = await Promise.all([import('@hyzyla/pdfium'), import('sharp')])
+    PDFiumLibrary = pdfium.PDFiumLibrary
+    sharp = sharpModule.default
+  } catch (err) {
+    return fail(`The renderer could not start: ${err instanceof Error ? err.message : 'unknown error'}`)
+  }
 
   let pdf: Buffer
   try {
@@ -232,7 +243,30 @@ export async function renderPendingBrochures(supabase: Client): Promise<RenderOu
     const brochure = (data as BrochureToRender[] | null)?.[0]
     if (!brochure) break
 
-    done.push(await renderBrochure(supabase, brochure, deadline))
+    try {
+      done.push(await renderBrochure(supabase, brochure, deadline))
+    } catch (err) {
+      // renderBrochure records its own failures. Anything reaching here is a
+      // fault it could not anticipate, and letting it escape would leave the
+      // brochure claimed and silent — the state this whole change exists to
+      // remove. Write it down and carry on to the next one.
+      const message = err instanceof Error ? err.message : 'The renderer stopped unexpectedly.'
+      await supabase
+        .from('website_brochures')
+        .update({
+          render_status: brochure.render_attempts >= 3 ? 'failed' : 'pending',
+          render_error: message.slice(0, 500),
+        })
+        .eq('id', brochure.id)
+      done.push({
+        brochureId: brochure.id,
+        title: brochure.title,
+        status: 'failed',
+        pages: 0,
+        seconds: 0,
+        error: message,
+      })
+    }
   }
 
   return done
