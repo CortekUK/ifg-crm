@@ -30,16 +30,23 @@ export function PdfField({
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  // A brochure is 100-160MB and takes minutes. A spinner for that long reads as
+  // a hang, which is why people were closing the tab part-way through.
+  const [percent, setPercent] = useState(0)
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
+    setPercent(0)
     try {
-      const url = await uploadBrochurePdf(file)
+      const url = await uploadBrochurePdf(file, setPercent)
       onChange(url)
       onUploaded?.(file)
-      toast({ title: 'PDF uploaded', description: 'Saved to storage. Remember to save the brochure.' })
+      toast({
+        title: 'PDF uploaded',
+        description: 'Save the brochure and its pages will be prepared in the background.',
+      })
     } catch (err) {
       toast({
         title: 'Upload failed',
@@ -48,9 +55,12 @@ export function PdfField({
       })
     } finally {
       setUploading(false)
+      setPercent(0)
       if (fileRef.current) fileRef.current.value = ''
     }
   }
+
+  const uploadLabel = uploading ? (percent > 0 ? `Uploading ${percent}%` : 'Starting…') : 'Upload PDF'
 
   return (
     <div className="space-y-1.5">
@@ -77,7 +87,7 @@ export function PdfField({
             className="flex h-24 w-32 shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted/60 hover:text-foreground disabled:opacity-60"
           >
             {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
-            <span className="text-xs font-medium">{uploading ? 'Uploading…' : 'Add PDF'}</span>
+            <span className="text-xs font-medium">{uploading ? `${percent}%` : 'Add PDF'}</span>
           </button>
         )}
         <div className="min-w-0 flex-1 space-y-2">
@@ -90,7 +100,7 @@ export function PdfField({
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              {uploading ? 'Uploading…' : 'Upload PDF'}
+              {uploadLabel}
             </Button>
             {value && (
               <a
@@ -102,8 +112,22 @@ export function PdfField({
                 Open <ExternalLink className="h-3 w-3" />
               </a>
             )}
-            {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+            {hint && !uploading && <span className="text-xs text-muted-foreground">{hint}</span>}
           </div>
+          {uploading && (
+            <div className="space-y-1">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-[width] duration-300"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Large brochures take a few minutes. If the connection drops it picks up where it
+                left off.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

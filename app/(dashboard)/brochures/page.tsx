@@ -14,6 +14,7 @@ import {
   Megaphone,
   GitBranch,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -42,7 +43,6 @@ import { BrochureModal } from '@/components/brochures/BrochureModal'
 import { BrochureDetail, CountChip } from '@/components/brochures/BrochureDetail'
 import { BrochurePreviewModal } from '@/components/brochures/BrochurePreviewModal'
 import { brochurePublicUrl, copyToClipboard } from '@/components/brochures/shared'
-import { useAutoBrochureImages } from '@/lib/hooks/useAutoBrochureImages'
 
 export default function BrochuresPage() {
   const router = useRouter()
@@ -61,9 +61,13 @@ export default function BrochuresPage() {
   const [preview, setPreview] = React.useState<WebsiteBrochure | null>(null)
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
 
-  // Backfill fast-viewing images for any brochure that predates pre-rendering.
-  // Starts on its own; nobody has to know it needs doing.
-  const autoImages = useAutoBrochureImages(brochures, isAdmin)
+  // Page images are rendered by the server (cron: render-brochures), so this
+  // only reports what is happening. It used to run the render in this tab,
+  // which is why closing the page lost the work.
+  const rendering = brochures.filter(
+    (b) => b.render_status === 'pending' || b.render_status === 'rendering',
+  )
+  const renderFailed = brochures.filter((b) => b.render_status === 'failed')
 
   // Brochure management is admin-only (mirrors the sidebar link + Lists page).
   React.useEffect(() => {
@@ -84,6 +88,22 @@ export default function BrochuresPage() {
       toast({
         title: 'A PDF is required to publish',
         description: 'Edit the brochure and upload a PDF first.',
+        variant: 'destructive',
+      })
+      return
+    }
+    // Publishing mid-render would put a brochure on the website with no pages
+    // behind it — the viewer would have nothing to show until the cron caught up.
+    if (published && b.render_status !== 'ready') {
+      toast({
+        title:
+          b.render_status === 'failed'
+            ? 'This brochure could not be prepared'
+            : 'Its pages are still being prepared',
+        description:
+          b.render_status === 'failed'
+            ? b.render_error ?? 'Re-upload the PDF and try again.'
+            : 'It can be published as soon as that finishes — usually a minute or two.',
         variant: 'destructive',
       })
       return
@@ -137,20 +157,36 @@ export default function BrochuresPage() {
         </div>
       </div>
 
-      {/* Quiet progress for the automatic pre-render. Informational only —
-          there is nothing to click, and leaving the page just resumes it next
-          time. */}
-      {autoImages.brochureId && (
+      {/* Progress on the server-side render. Informational only: nothing here
+          needs this page open, and closing it changes nothing. */}
+      {rendering.length > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/40">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600 dark:text-blue-400" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-blue-900 dark:text-blue-200">
-              Speeding up “{autoImages.title}”
+              Preparing “{rendering[0].title}”
+              {rendering.length > 1 && ` and ${rendering.length - 1} more`}
             </p>
             <p className="truncate text-xs text-blue-700 dark:text-blue-300">
-              {autoImages.status}
-              {autoImages.pending > 0 && ` · ${autoImages.pending} more to go`}
-              {' · '}pre-rendering its pages so it opens instantly for visitors
+              {rendering[0].rendered_pages > 0
+                ? `${rendering[0].rendered_pages} of ${rendering[0].page_count ?? '?'} pages`
+                : 'Starting — this begins within a minute'}
+              {' · '}you can close this page, it carries on without it
+            </p>
+          </div>
+        </div>
+      )}
+
+      {renderFailed.length > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950/40">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-red-900 dark:text-red-200">
+              Could not prepare {renderFailed.length === 1 ? `“${renderFailed[0].title}”` : `${renderFailed.length} brochures`}
+            </p>
+            <p className="text-xs text-red-700 dark:text-red-300">
+              {renderFailed[0].render_error ?? 'The PDF could not be read.'}
+              {' · '}Re-upload the PDF to try again.
             </p>
           </div>
         </div>
@@ -238,12 +274,23 @@ export default function BrochuresPage() {
                       <Switch
                         checked={b.published}
                         onCheckedChange={(v) => handleToggle(b, v)}
+                        disabled={b.render_status !== 'ready' && !b.published}
                         aria-label="Toggle active"
                       />
                     )}
-                    <span className={b.published ? 'text-xs font-medium text-emerald-600 dark:text-emerald-400' : 'text-xs text-muted-foreground'}>
-                      {b.published ? 'Active' : 'Inactive'}
-                    </span>
+                    {b.render_status === 'pending' || b.render_status === 'rendering' ? (
+                      <span className="text-xs text-blue-600 dark:text-blue-400">
+                        {b.rendered_pages > 0 && b.page_count
+                          ? `Preparing ${b.rendered_pages}/${b.page_count}`
+                          : 'Preparing…'}
+                      </span>
+                    ) : b.render_status === 'failed' ? (
+                      <span className="text-xs font-medium text-red-600 dark:text-red-400">Needs re-upload</span>
+                    ) : (
+                      <span className={b.published ? 'text-xs font-medium text-emerald-600 dark:text-emerald-400' : 'text-xs text-muted-foreground'}>
+                        {b.published ? 'Active' : 'Inactive'}
+                      </span>
+                    )}
                   </label>
                   <div className="flex items-center gap-1">
                     <Button

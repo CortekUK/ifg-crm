@@ -26,6 +26,15 @@ export function useBrochures() {
       if (error) throw error
       return (data ?? []) as WebsiteBrochure[]
     },
+    // Page images are rendered by a cron, not by this tab. Poll while anything
+    // is in flight so the admin watches it finish instead of guessing, and stop
+    // the moment it is done so an idle Brochures tab is not querying forever.
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some(
+        (b) => b.render_status === 'pending' || b.render_status === 'rendering',
+      )
+        ? 5_000
+        : false,
   })
 }
 

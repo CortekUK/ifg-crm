@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { BookOpen, Loader2, ImageIcon } from 'lucide-react'
+import { BookOpen, ImageIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/select'
 import { ContentDialog, Field, FieldRow, FormSection, PublishControls } from '@/components/website-content/_form'
 import { PdfField } from '@/components/website-content/PdfField'
-import { generateBrochurePageImages } from '@/lib/website-content/brochure-images'
 import { useSaveBrochure, slugifyBrochure } from '@/lib/hooks/useWebsiteBrochures'
 import { toast } from '@/lib/hooks/use-toast'
 import { BROCHURE_PROGRAMS } from '@/lib/types/website-content'
@@ -77,15 +76,12 @@ export function BrochureModal({
   const [draft, setDraft] = React.useState<Draft>(emptyDraft)
   // Track whether the user has hand-edited the slug so we stop auto-syncing it.
   const [slugTouched, setSlugTouched] = React.useState(false)
-  const [generating, setGenerating] = React.useState(false)
-  const [genProgress, setGenProgress] = React.useState<string | null>(null)
 
   // Re-seed the form each time the dialog opens or the target changes.
   React.useEffect(() => {
     if (!open) return
     setDraft(editing ? fromBrochure(editing) : emptyDraft())
     setSlugTouched(!!editing)
-    setGenerating(false)
   }, [open, editing])
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
@@ -99,31 +95,16 @@ export function BrochureModal({
     }))
   }
 
-  async function handleUploaded(file: File) {
-    // Pre-render every page to a small image so the website loads images instead
-    // of the whole PDF (much faster to open). The cover is the first page. This
-    // runs once here in the admin's browser; visitors never render the PDF.
-    setGenerating(true)
-    setGenProgress(null)
-    try {
-      const { urls, pageCount } = await generateBrochurePageImages(file, setGenProgress)
-      setDraft((d) => ({
-        ...d,
-        page_images: urls,
-        cover_image: urls[0] ?? d.cover_image,
-        page_count: pageCount,
-      }))
-      toast({ title: 'Brochure processed', description: `${pageCount} page${pageCount === 1 ? '' : 's'} ready for fast viewing.` })
-    } catch (err) {
-      toast({
-        title: 'Could not process the PDF',
-        description: err instanceof Error ? err.message : 'You can still save; the viewer will fall back to the PDF.',
-        variant: 'destructive',
-      })
-    } finally {
-      setGenerating(false)
-      setGenProgress(null)
-    }
+  /**
+   * A new PDF invalidates whatever pages were there before.
+   *
+   * Rendering itself happens on the server now (cron: render-brochures). It
+   * used to run here, in this tab, which meant a 150MB brochure held the admin
+   * on this screen for minutes and lost everything if they navigated away.
+   * Clearing the images and letting `handleSubmit` queue it is the whole job.
+   */
+  function handleUploaded() {
+    setDraft((d) => ({ ...d, page_images: [], page_count: null, cover_image: '' }))
   }
 
   async function handleSubmit() {
@@ -132,10 +113,13 @@ export function BrochureModal({
       toast({ title: 'Title is required', variant: 'destructive' })
       return
     }
-    if (draft.published && !draft.pdf_url) {
+    // No PDF, no brochure — not just "no publishing". A row saved without one
+    // is how the Gap Year 2027 brochure came to exist with nothing behind it:
+    // the upload failed, the save went through anyway, and nothing said so.
+    if (!draft.pdf_url) {
       toast({
-        title: 'A PDF is required to publish',
-        description: 'Upload a PDF or turn off Published.',
+        title: 'A PDF is required',
+        description: 'Upload the brochure PDF before saving.',
         variant: 'destructive',
       })
       return
@@ -143,6 +127,9 @@ export function BrochureModal({
 
     const slug = (draft.slug.trim() || slugifyBrochure(title))
     const sortOrder = Number.parseInt(draft.sort_order, 10)
+    // Queue the renderer whenever the pages do not match the PDF on the row —
+    // a new upload, or an older brochure that never had images.
+    const needsRender = draft.page_images.length === 0
 
     try {
       await save.mutateAsync({
@@ -157,8 +144,16 @@ export function BrochureModal({
         program: draft.program,
         published: draft.published,
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+        ...(needsRender
+          ? { render_status: 'pending' as const, rendered_pages: 0, render_error: null, render_attempts: 0 }
+          : {}),
       })
-      toast({ title: editing ? 'Brochure updated' : 'Brochure created' })
+      toast({
+        title: editing ? 'Brochure updated' : 'Brochure created',
+        description: needsRender
+          ? 'Its pages are being prepared — you can close this and carry on.'
+          : undefined,
+      })
       onClose()
     } catch (err) {
       toast({
@@ -224,15 +219,13 @@ export function BrochureModal({
           value={draft.pdf_url}
           onChange={(url) => set('pdf_url', url)}
           onUploaded={handleUploaded}
-          hint="Pages are pre-rendered for fast viewing; the cover + page count are automatic."
+          hint="Pages are prepared automatically after saving — no need to wait here."
         />
 
-        {(generating || draft.cover_image) && (
+        {draft.pdf_url && (
           <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/30 p-3">
             <div className="flex h-20 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
-              {generating ? (
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              ) : draft.cover_image ? (
+              {draft.cover_image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={draft.cover_image} alt="Cover preview" className="h-full w-full object-cover" />
               ) : (
@@ -241,14 +234,12 @@ export function BrochureModal({
             </div>
             <div className="min-w-0 text-sm">
               <p className="font-medium text-foreground">
-                {generating ? 'Processing brochure…' : 'Ready for fast viewing'}
+                {draft.page_images.length > 0 ? 'Ready for fast viewing' : 'Pages prepared after saving'}
               </p>
               <p className="text-xs text-muted-foreground">
-                {generating
-                  ? genProgress ?? 'Rendering pages…'
-                  : draft.page_count
-                    ? `${draft.page_count} page${draft.page_count === 1 ? '' : 's'}${draft.page_images.length ? ' · fast images ready' : ''}`
-                    : 'Auto-generated from the first page.'}
+                {draft.page_images.length > 0
+                  ? `${draft.page_count ?? draft.page_images.length} page${(draft.page_count ?? draft.page_images.length) === 1 ? '' : 's'} · fast images ready`
+                  : 'Save the brochure and its pages are prepared in the background. You can close this window.'}
               </p>
             </div>
           </div>
@@ -283,11 +274,6 @@ export function BrochureModal({
           sortOrder={draft.sort_order}
           onSortOrderChange={(v) => set('sort_order', v)}
         />
-        {draft.published && !draft.pdf_url && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            A PDF is required before a brochure can be published.
-          </p>
-        )}
       </FormSection>
     </ContentDialog>
   )

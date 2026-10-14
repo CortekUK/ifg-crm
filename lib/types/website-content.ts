@@ -174,9 +174,18 @@ export interface WebsiteBrochure {
   views_count: number
   download_count: number
   page_images: string[]   // pre-rendered per-page image URLs (fast viewer path)
+  // Pre-rendering runs on the server (cron: render-brochures), so an admin can
+  // close the tab the moment the upload finishes. These report where it is up to.
+  render_status: BrochureRenderStatus
+  rendered_pages: number
+  render_error: string | null
+  /** Reset to 0 on a fresh upload; the renderer gives up after 3. */
+  render_attempts: number
   created_at: string
   updated_at: string
 }
+
+export type BrochureRenderStatus = 'pending' | 'rendering' | 'ready' | 'failed'
 export type WebsiteBrochureInput = Partial<Omit<WebsiteBrochure, 'created_at' | 'updated_at'>>
 
 // A brochure attached to a pipeline stage (send the brochure when a deal enters
