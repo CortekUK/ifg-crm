@@ -63,9 +63,8 @@ export function ContentDialog({
   saving?: boolean
   /**
    * Work is in flight that closing would throw away — a long upload, say.
-   * While set, a stray click outside and the Escape key are both ignored, and
-   * `reason` is shown so the dialog does not just feel stuck. Off by default,
-   * so every other modal behaves exactly as before.
+   * While set, Escape is ignored too and `reason` is shown, so the dialog does
+   * not just feel stuck. Off by default.
    */
   busy?: { reason: string } | false
   children: React.ReactNode
@@ -75,9 +74,11 @@ export function ContentDialog({
     <Dialog open={open} onOpenChange={(o) => !o && !locked && onClose()}>
       <DialogContent
         showCloseButton={false}
-        // A mis-click outside must not discard minutes of uploading.
-        onPointerDownOutside={(e) => locked && e.preventDefault()}
-        onInteractOutside={(e) => locked && e.preventDefault()}
+        // These are forms. A click on the backdrop is almost always a miss, and
+        // losing a half-filled form — or minutes of uploading — to one is not a
+        // reasonable outcome. Closing is deliberate: the X, Cancel, or Escape.
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => locked && e.preventDefault()}
         // no subtitle → tell Radix there is deliberately no description (otherwise it warns)
         {...(description ? {} : { 'aria-describedby': undefined })}
