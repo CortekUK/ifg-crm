@@ -50,6 +50,12 @@ try {
     compilerOptions: {
       outDir: path.join(OUT, 'build'), rootDir: ROOT, module: 'commonjs', target: 'es2022',
       moduleResolution: 'node', skipLibCheck: true, esModuleInterop: true,
+      // Explicit, not inherited: render.ts uses Buffer, and this standalone
+      // compile used to pick up node's types only by accident, through a
+      // dependency that no longer exists.
+      // typeRoots too: the tsconfig is written to a temp directory, so the
+      // default lookup beside it finds nothing.
+      types: ['node'], typeRoots: [path.join(ROOT, 'node_modules/@types')],
       baseUrl: ROOT, paths: { '@/*': ['./*'] },
     },
     files: [path.join(ROOT, 'lib/brochures/render.ts')],
@@ -166,9 +172,11 @@ try {
     const res = await fetch(url)
     const buf = Buffer.from(await res.arrayBuffer())
     sizes.push(buf.length)
-    check(`${url.split('/').pop().slice(0, 24)}… is a real WebP (${(buf.length / 1024).toFixed(0)}KB)`,
-      res.ok && buf.subarray(8, 12).toString() === 'WEBP',
-      res.ok ? 'not WebP data' : `HTTP ${res.status}`)
+    // JPEG files start FF D8 FF and end FF D9. Checking both ends catches a
+    // truncated upload, which a status code alone would not.
+    check(`${url.split('/').pop().slice(0, 24)}… is a complete JPEG (${(buf.length / 1024).toFixed(0)}KB)`,
+      res.ok && buf[0] === 0xff && buf[1] === 0xd8 && buf.at(-2) === 0xff && buf.at(-1) === 0xd9,
+      res.ok ? 'not a complete JPEG' : `HTTP ${res.status}`)
   }
   const avgKb = sizes.reduce((a, b) => a + b, 0) / sizes.length / 1024
   check(`a page averages ${avgKb.toFixed(0)}KB, far below the ${(size / source.page_count / 1048576).toFixed(1)}MB it is in the PDF`,

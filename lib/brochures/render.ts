@@ -26,8 +26,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  */
 const RENDER_SCALE = 2
 
-/** WebP quality. Above ~85 the file grows faster than the page looks better. */
-const WEBP_QUALITY = 82
+/**
+ * JPEG quality. At 72 a page is around 240KB — against 2.3MB for that same
+ * page inside the source PDF. Higher grows the file faster than it improves
+ * how the page looks on screen.
+ */
+const JPEG_QUALITY = 72
 
 /**
  * Stop rendering at this point and let the next cron run start the brochure
@@ -60,11 +64,11 @@ export interface RenderOutcome {
 
 /** Upload one page image with the service client and return its public URL. */
 async function uploadPageImage(supabase: Client, data: Buffer, index: number): Promise<string> {
-  const name = `${Date.now()}_${index}_${Math.random().toString(36).slice(2, 9)}.webp`
+  const name = `${Date.now()}_${index}_${Math.random().toString(36).slice(2, 9)}.jpg`
   const path = `brochures/pages/${name}`
   const { error } = await supabase.storage
     .from('uploads')
-    .upload(path, data, { contentType: 'image/webp', upsert: false })
+    .upload(path, data, { contentType: 'image/jpeg', upsert: false })
   if (error) throw new Error(`page ${index + 1}: ${error.message}`)
   return supabase.storage.from('uploads').getPublicUrl(path).data.publicUrl
 }
@@ -112,18 +116,18 @@ export async function renderBrochure(
   // route, and pulling a WASM binary and libvips into memory on every cold
   // start of an unrelated route would be wasteful.
   //
-  // Guarded, because these can fail outright rather than misbehave: sharp ships
-  // platform-specific binaries, and a deployment built without the right ones
-  // throws here. That happened, and because this sat outside the try below it
-  // escaped past fail() — leaving the brochure claimed, with no error on it and
-  // "Preparing" on screen indefinitely. Anything that can throw has to be able
-  // to write down why.
+  // Guarded, because these can fail outright rather than misbehave. This first
+  // shipped encoding with sharp, which worked locally and could not load at all
+  // on the deployment: it ships per-platform native binaries, and the ones built
+  // on a Mac are useless on Linux. jpeg-js is plain JavaScript and has nothing
+  // to go missing — a slightly larger file is a fair price for a renderer that
+  // runs everywhere. Encoding is not the slow part either way; rendering is.
   let PDFiumLibrary: typeof import('@hyzyla/pdfium').PDFiumLibrary
-  let sharp: typeof import('sharp').default
+  let encodeJpeg: typeof import('jpeg-js').encode
   try {
-    const [pdfium, sharpModule] = await Promise.all([import('@hyzyla/pdfium'), import('sharp')])
+    const [pdfium, jpeg] = await Promise.all([import('@hyzyla/pdfium'), import('jpeg-js')])
     PDFiumLibrary = pdfium.PDFiumLibrary
-    sharp = sharpModule.default
+    encodeJpeg = jpeg.encode
   } catch (err) {
     return fail(`The renderer could not start: ${err instanceof Error ? err.message : 'unknown error'}`)
   }
@@ -167,10 +171,11 @@ export async function renderBrochure(
       const page = document.getPage(i)
       const rendered = await page.render({
         scale: RENDER_SCALE,
+        // pdfium hands back raw RGBA; jpeg-js takes exactly that shape.
         render: ({ data, width, height }) =>
-          sharp(Buffer.from(data), { raw: { width, height, channels: 4 } })
-            .webp({ quality: WEBP_QUALITY })
-            .toBuffer(),
+          Promise.resolve(
+            encodeJpeg({ data: Buffer.from(data), width, height }, JPEG_QUALITY).data,
+          ),
       })
       urls.push(await uploadPageImage(supabase, Buffer.from(rendered.data), i))
 

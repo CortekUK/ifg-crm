@@ -1,12 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Keep these out of the server bundle. Both ship platform-specific native or
-  // WebAssembly files that the bundler cannot trace, so bundling them makes the
-  // brochure renderer fail at runtime with "Could not load the sharp module
-  // using the linux-x64 runtime" — which is exactly how it failed on Vercel
-  // while working locally.
-  serverExternalPackages: ['sharp', '@hyzyla/pdfium'],
+  // pdfium ships a WebAssembly binary the bundler cannot trace, so it has to be
+  // resolved from node_modules at runtime instead of being bundled into the
+  // brochure renderer's route.
+  serverExternalPackages: ['@hyzyla/pdfium'],
   images: {
     remotePatterns: [
       {
