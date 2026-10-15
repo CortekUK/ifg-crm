@@ -31,6 +31,8 @@ interface ComposeDealPromptProps {
   contactId: string
   contactName: string
   userId: string
+  /** Pre-selected when Compose already asked which pipeline this is about. */
+  initialPipelineId?: string
   onDone: () => void
 }
 
@@ -54,9 +56,10 @@ export function ComposeDealPrompt({
   contactId,
   contactName,
   userId,
+  initialPipelineId,
   onDone,
 }: ComposeDealPromptProps) {
-  const [pipelineId, setPipelineId] = useState<string>('')
+  const [pipelineId, setPipelineId] = useState<string>(initialPipelineId ?? '')
   const [isCreating, setIsCreating] = useState(false)
 
   const { data: pipelines = [] } = usePipelines()

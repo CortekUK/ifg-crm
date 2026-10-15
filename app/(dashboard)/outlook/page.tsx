@@ -93,7 +93,7 @@ export default function OutlookPage() {
   const debouncedSearch = useDebouncedValue(search, 300)
   const [openThread, setOpenThread] = useState<MailThread | null>(null)
   const [connectThread, setConnectThread] = useState<MailThread | null>(null)
-  const [dealContact, setDealContact] = useState<{ id: string; name: string } | null>(null)
+  const [dealContact, setDealContact] = useState<{ id: string; name: string; pipelineId?: string } | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
 
   useEffect(() => {
@@ -290,13 +290,18 @@ export default function OutlookPage() {
       )}
 
       {composeOpen && userId && (
-        <ComposeWindow fromEmail={userEmail} onClose={() => setComposeOpen(false)} />
+        <ComposeWindow
+          fromEmail={userEmail}
+          onClose={() => setComposeOpen(false)}
+          onDealOpportunity={setDealContact}
+        />
       )}
 
       {dealContact && userId && (
         <ComposeDealPrompt
           contactId={dealContact.id}
           contactName={dealContact.name}
+          initialPipelineId={dealContact.pipelineId}
           userId={userId}
           onDone={() => setDealContact(null)}
         />

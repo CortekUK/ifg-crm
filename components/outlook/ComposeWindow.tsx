@@ -21,6 +21,12 @@ import type { Contact } from '@/lib/types/contacts'
 interface ComposeWindowProps {
   fromEmail: string
   onClose: () => void
+  /**
+   * Fired after a successful send to someone who has no deal yet, carrying
+   * the pipeline chosen below. The prompt itself lives on the page, because
+   * this window closes the moment the message goes.
+   */
+  onDealOpportunity?: (opportunity: { id: string; name: string; pipelineId?: string }) => void
 }
 
 /** Highlights the typed text inside a suggestion, so it is obvious why it matched. */
@@ -45,7 +51,7 @@ function Highlight({ text, term }: { text: string; term: string }) {
  * record, and an address typed free-hand has nothing to attach to. A raw
  * address is refused with a message rather than silently accepted.
  */
-export function ComposeWindow({ fromEmail, onClose }: ComposeWindowProps) {
+export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: ComposeWindowProps) {
   const [minimised, setMinimised] = useState(false)
   const [maximised, setMaximised] = useState(false)
   const [recipients, setRecipients] = useState<Contact[]>([])
@@ -89,10 +95,17 @@ export function ComposeWindow({ fromEmail, onClose }: ComposeWindowProps) {
   const send = async () => {
     if (!recipients.length) return
     let sent = 0
+    // The first recipient who has no deal is the one we offer to open one for.
+    // Queueing a prompt per recipient would stack dialogs over each other.
+    let opportunity: { id: string; name: string } | null = null
+
     for (const r of recipients) {
       try {
-        await sendMail.mutateAsync({ to: r.email as string, subject, body })
+        const result = await sendMail.mutateAsync({ to: r.email as string, subject, body })
         sent++
+        if (!opportunity && result.contact && !result.contact.hasDeal) {
+          opportunity = { id: result.contact.id, name: result.contact.name }
+        }
       } catch (error) {
         toast({
           title: `Could not send to ${r.email}`,
@@ -104,6 +117,14 @@ export function ComposeWindow({ fromEmail, onClose }: ComposeWindowProps) {
     if (sent) {
       toast({ title: `Sent to ${sent} recipient${sent === 1 ? '' : 's'}` })
       onClose()
+      // Carries the pipeline chosen above, so Smart Deal opens with the
+      // answer already filled in rather than asking the same question twice.
+      if (opportunity) {
+        onDealOpportunity?.({
+          ...opportunity,
+          pipelineId: pipelineId === 'none' ? undefined : pipelineId,
+        })
+      }
     }
   }
 
