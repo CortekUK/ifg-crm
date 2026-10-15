@@ -376,6 +376,12 @@ backend = "postgres"
 [functions.resend-inbound]
 verify_jwt = false
 
+# SES inbound receiving. SNS posts here and cannot send an Authorization
+# header, so JWT verification must be off — the SNS signature is what
+# authenticates the request instead.
+[functions.ses-inbound]
+verify_jwt = false
+
 [functions.calendly-webhook]
 verify_jwt = false
 

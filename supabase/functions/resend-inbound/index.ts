@@ -1,11 +1,16 @@
 // Supabase Edge Function: Resend Inbound Reply Handler
-// Receives inbound email webhooks from Resend when contacts reply to automation emails
-// Creates email_replies records and triggers automation exit conditions
+//
+// LEGACY. Resend inbound is being replaced by SES receiving — see
+// ses-inbound/index.ts. This stays deployed until the Resend account is
+// cancelled, so that a reply still in flight to the old address is not lost.
+//
+// All it does now is turn Resend's payload into an InboundMessage. Everything
+// that happens to a reply lives in _shared/inbound-core.ts and is shared with
+// the SES path, so a fix lands in both.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Resend } from 'npm:resend@2.0.0'
 import { Webhook } from 'npm:svix@1.15.0'
-import { extractTrackingUuids, extractTrackingIdFromTo } from '../_shared/message-id.ts'
+import { firstNonBlank, handleInboundMessage, stripHtml } from '../_shared/inbound-core.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,29 +44,27 @@ interface ResendInboundEmail {
   }
 }
 
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
-  // Only accept POST requests
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ error: 'Method not allowed' }, 405)
   }
 
   try {
-    // Get webhook secret for verification
     const webhookSecret = Deno.env.get('RESEND_WEBHOOK_SECRET')
-    
-    // Get the raw body for signature verification
     const rawBody = await req.text()
     let event: ResendInboundEmail
 
-    // Verify webhook signature if secret is configured
     if (webhookSecret) {
       const svixId = req.headers.get('svix-id')
       const svixTimestamp = req.headers.get('svix-timestamp')
@@ -69,10 +72,7 @@ Deno.serve(async (req) => {
 
       if (!svixId || !svixTimestamp || !svixSignature) {
         console.error('Missing Svix headers')
-        return new Response(
-          JSON.stringify({ error: 'Missing webhook signature headers' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return json({ error: 'Missing webhook signature headers' }, 400)
       }
 
       try {
@@ -84,10 +84,7 @@ Deno.serve(async (req) => {
         }) as ResendInboundEmail
       } catch (err) {
         console.error('Webhook verification failed:', err)
-        return new Response(
-          JSON.stringify({ error: 'Invalid webhook signature' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return json({ error: 'Invalid webhook signature' }, 401)
       }
     } else {
       // No secret configured - parse body directly (development mode)
@@ -95,896 +92,57 @@ Deno.serve(async (req) => {
       event = JSON.parse(rawBody) as ResendInboundEmail
     }
 
-    // Only process inbound email events
     if (event.type !== 'email.received') {
       console.log(`Ignoring non-inbound event type: ${event.type}`)
-      return new Response(
-        JSON.stringify({ success: true, message: 'Event type not handled' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ success: true, message: 'Event type not handled' }, 200)
     }
 
     console.log(`Processing inbound email from: ${event.data.from}`)
 
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Parse the "from" field to extract email and name
-    const { email: fromEmail, name: webhookFromName } = parseEmailAddress(event.data.from)
-
-    if (!fromEmail) {
-      console.error('Could not parse from email address:', event.data.from)
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid from address' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // ============================================
-    // 1. FIND THE CONTACT by email address
-    // ============================================
-    // `ilike` with the address used verbatim treats `_` as "any single
-    // character" and `%` as "any run of characters". 5,404 contacts have an
-    // underscore in their email, so `john_smith@x.com` could match
-    // `johnQsmith@x.com` and attach a reply to the wrong player — or match two
-    // contacts and come in unmatched. Escaping the wildcards keeps the
-    // case-insensitivity (addresses are compared case-insensitively) while
-    // making the comparison exact.
-    const { data: contact, error: contactError } = await supabase
-      .from('contacts')
-      .select('id, email, first_name, last_name')
-      .ilike('email', escapeLikeWildcards(fromEmail))
-      .limit(1)
-      .single()
-
-    // `let`, because a reply that does not come from the player's own address
-    // can still be identified from the thread it answers — see step 2.6.
-    let contactId: string | null = contact?.id || null
-
-    if (contactError && contactError.code !== 'PGRST116') {
-      console.error('Error finding contact:', contactError)
-    }
-
-    // ============================================
-    // 2. FETCH FULL EMAIL BODY + HEADERS FROM RESEND API
-    // ============================================
-    // Resend's email.received webhook only carries metadata. We need the body
-    // (for display + AI classification) and the In-Reply-To / References
-    // headers (for thread stitching). Both come from /emails/receiving/{id}.
-    const fetched = await fetchInboundBody(event.data.email_id)
-    // Fall back to whatever the webhook payload itself carried. The API call
-    // above is the reliable source, but if it fails we previously stored an
-    // empty body — losing the reply text entirely for a message we know
-    // arrived. Anything is better than nothing here.
-    //
-    // `||` is not enough here. Some clients send a plain-text part that is a
-    // single newline rather than nothing at all — Outlook and Apple Mail do it
-    // on heavily formatted replies. "\n" is truthy, so the fallback to the HTML
-    // never ran and the reply was stored as one blank character while 600KB of
-    // real text sat in html_body. Staff saw an empty message and concluded the
-    // player had sent nothing. Treat whitespace-only as absent.
-    const replyHtml = fetched.html || event.data.html || ''
-    const replyText =
-      firstNonBlank(
-        fetched.text,
-        stripHtml(fetched.html || ''),
-        event.data.text,
-        stripHtml(event.data.html || ''),
-      ) ||
-      // A reply really can carry no text at all: players photograph a
-      // completed registration form and send the picture on its own. Two real
-      // replies are exactly this — a base64 JPEG in a <div> and nothing else.
-      // Stored as blank they read as "the player sent nothing", so staff never
-      // opened them and never saw the form. Say what arrived instead.
-      (/<img[\s>]/i.test(replyHtml) ? '[This reply contains an image and no text — open the full thread to view it]' : '')
-    const inReplyTo = fetched.inReplyTo || event.data.in_reply_to || null
-    const references = fetched.references || null
-    const inboundTo = fetched.to ?? (event.data.to as string[] | undefined) ?? null
-
-    // The sender's own name, e.g. "Hamza Shafique". Worth having for two
-    // reasons: Smart Match scores a similar-name suggestion off it, and a
-    // contact created from an unknown address is named from it instead of
-    // from the email's local part.
-    //
-    // The webhook payload only ever gave the bare address, so this was always
-    // null. The fetched From: header is the one that carries the name.
-    const fromName =
-      webhookFromName || parseEmailAddress(fetched.from || '').name || null
-
-    // ============================================
-    // 2.5 RESOLVE THE OUTBOUND EMAIL THIS REPLIES TO
-    // ============================================
-    // Primary path: VERP — extract the tracking_id from the To: address
-    // (replies+{tracking_id}@reply.<domain>) and look up email_sends directly.
-    // Falls through to In-Reply-To header matching if VERP isn't present.
-    const linkedEmailSendId = await resolveThreadEmailSendId(
-      supabase,
-      contactId,
-      inboundTo,
-      inReplyTo,
-      references
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Once we know the originating email_send, derive campaign_id and
-    // pipeline_id so the Replies list can show which programme the contact
-    // was contacted under. Done here (rather than in the trigger) so the
-    // values are present from the very first read of the row.
-    // ============================================
-    // 2.6 FALL BACK TO THE THREAD WHEN THE SENDER IS UNKNOWN
-    // ============================================
-    // The player is not always the person who replies. A parent answers from
-    // their own address, a school forwards from an alias, someone replies from
-    // a personal account rather than the one they applied with. Looking the
-    // contact up by sender address alone, every one of those arrived
-    // "unmatched": no badge on the player's card, no intent on the deal, and a
-    // human had to match it by hand — even though the CRM had already linked
-    // the reply to the exact email, deal and pipeline it answers.
-    //
-    // The reply-to address carries a tracking id unique to one send
-    // (replies+{tracking_id}@…), so the originating email_send identifies the
-    // player the message was sent to with no ambiguity. That is a stronger
-    // signal than the From: header, which anyone can reply from.
-    if (!contactId && linkedEmailSendId) {
-      const { data: originalSend } = await supabase
-        .from('email_sends')
-        .select('recipient_contact_id')
-        .eq('id', linkedEmailSendId)
-        .maybeSingle()
+    // Resend's email.received webhook only carries metadata. The body (for
+    // display + AI classification) and the In-Reply-To / References headers
+    // (for thread stitching) both come from /emails/receiving/{id}.
+    const fetched = await fetchInboundBody(event.data.email_id)
 
-      if (originalSend?.recipient_contact_id) {
-        contactId = originalSend.recipient_contact_id as string
-        console.log(
-          `Reply from ${fromEmail} matched to contact ${contactId} via the thread it answers ` +
-            '(the sender is not the player — parent, alias or forwarded address).',
-        )
-      }
-    }
-
-    // Use the canonical enum values the rest of the app expects. Previously
-    // this set 'matched' which isn't a valid match_status, so the row fell
-    // back to 'unmatched' and was only ever flipped to 'manually_matched' by
-    // a human. As a result no reply was ever marked auto_matched.
-    const matchStatus = contactId ? 'auto_matched' : 'unmatched'
-
-    const replySourceMeta = await deriveReplySourceMeta(supabase, linkedEmailSendId)
-    let linkedDealId = replySourceMeta.dealId
-    if (!linkedDealId && contactId && replySourceMeta.pipelineId) {
-      const { data: linkedDeal } = await supabase
-        .from('deals')
-        .select('id')
-        .eq('contact_id', contactId)
-        .eq('pipeline_id', replySourceMeta.pipelineId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      linkedDealId = linkedDeal?.id ?? null
-    }
-
-    // ============================================
-    // 2.7 CLASSIFY INTENT — BEFORE the row is written
-    // ============================================
-    // Order matters here, and it used to be the other way round.
-    //
-    // Inserting the reply fires stop_enrollments_on_reply_match, which stops
-    // the sequence and (through the enrolment-exit trigger) MOVES the deal.
-    // Classification then ran afterwards and patched ai_intent in. So at the
-    // only moment the decision to move was being made, the intent was always
-    // NULL — the deal was moved for every reply, including out-of-office
-    // auto-replies and anything the classifier could not read. Two real
-    // replies on 27 Sep and 2 Oct got no intent and their deals were moved to
-    // Contact Response anyway.
-    //
-    // Classifying first lets the insert carry the intent, so the trigger can
-    // tell a real reply from an unreadable one and leave the deal alone when
-    // it cannot.
-    //
-    // Stripping the quoted thread first matters: without it a one-word reply
-    // ("interested") is buried under hundreds of characters of our own
-    // outreach and the classifier returns nothing valid.
-    const aiIntent = await classifyIntent(stripQuotedThread(replyText))
-
-    // An autoresponder is stored and shown like any other reply, but it must
-    // not act on the deal. The flag goes on the INSERT so the stop trigger
-    // sees it at the moment it decides (migration 229).
-    const isAutoReply = detectAutoReply(fetched.headers, event.data.subject)
-    if (isAutoReply) {
-      console.log(`Reply from ${fromEmail} looks like an autoresponder — deal left alone`)
-    }
-
-    // "Does this reply tell us anything about the player?" The one definition
-    // the database uses too (reply_carries_intent, migration 229). 'unknown'
-    // means the classifier could not decide, so it must not stamp a badge or
-    // move a card — QA-29 Bug 4 had an "unknown" reply doing both.
-    const carriesIntent = Boolean(aiIntent) && aiIntent !== 'unknown' && !isAutoReply
-
-    // ============================================
-    // 3. CREATE EMAIL REPLY RECORD (idempotent on message_id)
-    // ============================================
-    // Resend retries failed webhook deliveries, and our fixes today caused a
-    // backlog of retries to land at once. We dedupe by RFC Message-Id (unique
-    // partial index, migration 084) so retries become no-ops.
-    const messageId = event.data.message_id || null
-    let replyRecord: { id: string } | null = null
-
-    if (messageId) {
-      // Short-circuit duplicates without touching the table — avoids needless
-      // load and lets us return 200 fast so Resend stops retrying.
-      const { data: existing } = await supabase
-        .from('email_replies')
-        .select('id')
-        .eq('message_id', messageId)
-        .maybeSingle()
-
-      if (existing) {
-        console.log(`Duplicate webhook for message_id ${messageId}, skipping (existing reply ${existing.id})`)
-        return new Response(
-          JSON.stringify({ success: true, deduped: true, reply_id: existing.id }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-    }
-
-    const { data: insertedReply, error: insertError } = await supabase
-      .from('email_replies')
-      .insert({
-        contact_id: contactId,
-        deal_id: linkedDealId,
-        email_send_id: linkedEmailSendId,
-        campaign_id: replySourceMeta.campaignId,
-        pipeline_id: replySourceMeta.pipelineId,
-        from_email: fromEmail,
-        from_name: fromName || null,
-        subject: event.data.subject || null,
-        body_preview: truncateText(replyText, 500),
-        body: replyText || null,
-        html_body: fetched.html || null,
-        message_id: messageId,
-        in_reply_to: inReplyTo,
-        received_at: event.created_at || new Date().toISOString(),
-        match_status: matchStatus,
-        // Carried on the INSERT so the stop trigger can tell a readable reply
-        // from an unreadable one at the moment it decides whether to move the
-        // deal. Patched again below for the re-match path.
-        ai_intent: aiIntent || null,
-        is_auto_reply: isAutoReply,
-        processed: false,  // Will be processed by check-replies or process-automations
-      })
-      .select('id')
-      .single()
-
-    if (insertError) {
-      // 23505 = unique_violation. Treat as a successful dedupe — concurrent
-      // retry won the race, our work is done.
-      if ((insertError as { code?: string }).code === '23505') {
-        console.log(`Race-condition duplicate for message_id ${messageId}, skipping`)
-        return new Response(
-          JSON.stringify({ success: true, deduped: true }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-      console.error('Error creating email reply record:', insertError)
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to create reply record' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    replyRecord = insertedReply
-    console.log(`Created email reply record: ${replyRecord.id}, contact: ${contactId}, match_status: ${matchStatus}`)
-
-    // ============================================
-    // 3.5 APPLY THE INTENT CLASSIFIED ABOVE
-    // ============================================
-    if (aiIntent) {
-      // Still written here as well as on the insert: the insert is skipped
-      // entirely for a duplicate message_id, and this path also runs when an
-      // existing row is being re-matched.
-      await supabase
-        .from('email_replies')
-        .update({ ai_intent: aiIntent })
-        .eq('id', replyRecord.id)
-      console.log(`Classified reply ${replyRecord.id} intent: ${aiIntent}`)
-
-      // Tag the deal with the reply's intent and auto-move it into the
-      // pipeline's "Contact Response" stage so the recruiter can triage
-      // the inbox at a glance. We only act when we have both a matched
-      // contact and a known pipeline (campaign or automation chain).
-      // Deals already past the Contact Response stage are left alone —
-      // the kanban shouldn't roll a deal backwards just because a reply
-      // landed.
-      if (carriesIntent && contactId && replySourceMeta.pipelineId) {
-        const { data: deal } = await supabase
-          .from('deals')
-          .select('id, current_stage_id, pipeline_id')
-          .eq('contact_id', contactId)
-          .eq('pipeline_id', replySourceMeta.pipelineId)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (deal) {
-          // Always tag the latest intent — overrides any previous reply.
-          await supabase
-            .from('deals')
-            .update({ intent: aiIntent })
-            .eq('id', deal.id)
-
-          // Find the Contact Response stage in this pipeline and check
-          // whether the deal should be moved.
-          const { data: stages } = await supabase
-            .from('pipeline_stages')
-            .select('id, name, stage_type, display_order')
-            .eq('pipeline_id', deal.pipeline_id)
-            .order('display_order', { ascending: true })
-
-          if (stages && stages.length > 0) {
-            // Exact name first, then the stage's TYPE.
-            //
-            // Matching on the literal string 'Contact Response' alone meant a
-            // pipeline whose stage was named anything else — "Responded",
-            // "Contact Made", or just a stray trailing space — never received
-            // a reply move at all. Nothing errored and nothing logged: the
-            // intent was written, the card stayed put, and the recruiter had
-            // no idea the player had written back.
-            //
-            // stage_type 'contact' is the durable answer. CreatePipelineModal
-            // stamps it on the Contact Response stage it creates, and renaming
-            // a stage in the UI does not change its type, so the fallback
-            // survives exactly the edit that broke the name match.
-            const responseStage =
-              stages.find((s) => s.name?.trim().toLowerCase() === 'contact response') ??
-              stages.find((s) => s.stage_type === 'contact')
-            const currentIdx = stages.findIndex((s) => s.id === deal.current_stage_id)
-            const responseIdx = responseStage
-              ? stages.findIndex((s) => s.id === responseStage.id)
-              : -1
-            if (responseStage && responseIdx >= 0 && currentIdx < responseIdx) {
-              await supabase
-                .from('deals')
-                .update({
-                  current_stage_id: responseStage.id,
-                  // Column is `stage_entered_at` on this schema — using
-                  // the wrong name made the whole UPDATE fail silently
-                  // (Postgres rejects unknown columns), which is why
-                  // intent was getting written but the deal never moved.
-                  stage_entered_at: new Date().toISOString(),
-                })
-                .eq('id', deal.id)
-              console.log(
-                `Moved deal ${deal.id} to Contact Response stage (intent: ${aiIntent})`,
-              )
-            }
-          }
-        }
-      }
-    }
-
-    // Exit-on-reply is now handled by the email_reply_match_stops_enrollments
-    // trigger (migration 083). The trigger fires on insert and on any later
-    // update of contact_id, so Smart Match and manual match get the same
-    // exit behaviour as auto-match without us having to call anything here.
-
-    // ============================================
-    // 4. ALERT THE DEAL OWNER BY EMAIL
-    // ============================================
-    // Replies land in the CRM, not in the recruiter's mailbox — the outbound
-    // Reply-To deliberately points at the tracking address so we can match a
-    // reply to the exact send. The cost is that nobody knows a reply arrived
-    // until they open the CRM. This closes that gap without the recruiter
-    // having to watch the app.
-    //
-    // Deliberately last, and never allowed to throw: the reply is already
-    // safely stored by this point, and a failed alert must not turn into a
-    // webhook error that makes Resend retry the whole delivery.
-    await notifyOwnerOfReply(supabase, {
-      replyId: replyRecord.id,
-      contactId,
-      contactName: contact ? `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() : null,
-      fromEmail,
-      fromName,
+    const outcome = await handleInboundMessage(supabase, {
+      // event.data.from is the bare address — no display name — so every
+      // reply was stored with from_name null (0 of 38 in the live table). The
+      // From: header on the fetched message is where "Hamza Shafique"
+      // <hamza@...> actually is.
+      from: fetched.from || event.data.from,
+      // The receiving response's `to` field carries the VERP-encoded address
+      // we set as Reply-To on the outbound — that's how the tracking_id is
+      // recovered.
+      to: fetched.to ?? (event.data.to as string[] | undefined) ?? null,
       subject: event.data.subject || null,
-      body: stripQuotedThread(replyText),
-      intent: aiIntent,
-      dealId: linkedDealId,
+      // The fetch is the reliable source, but if it fails the webhook payload
+      // is better than storing an empty body for a reply we know arrived.
+      text:
+        firstNonBlank(
+          fetched.text,
+          stripHtml(fetched.html || ''),
+          event.data.text,
+          stripHtml(event.data.html || ''),
+        ) || null,
+      html: fetched.html || event.data.html || null,
+      headers: fetched.headers,
+      inReplyTo: fetched.inReplyTo || event.data.in_reply_to || null,
+      references: fetched.references || null,
+      messageId: event.data.message_id || null,
+      receivedAt: event.created_at || new Date().toISOString(),
     })
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        reply_id: replyRecord.id,
-        contact_id: contactId,
-        match_status: matchStatus,
-        ai_intent: aiIntent || null,
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-
+    return json(outcome.body, outcome.status)
   } catch (error) {
     console.error('Inbound webhook processing error:', error)
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ error: error instanceof Error ? error.message : 'Internal server error' }, 500)
   }
 })
-
-/**
- * Email the deal owner that a lead has replied.
- *
- * Recipient resolution, most specific first:
- *   1. the deal's owner — the person actually working this player
- *   2. the contact's owner — for replies with no deal attached yet
- *   3. nobody — we do not fall back to emailing all staff, which would turn
- *      every reply into inbox noise for people it has nothing to do with
- *
- * Honours Settings -> Notifications -> "Email reply received". That toggle
- * has existed in the UI for a while but nothing ever read it; it is real now.
- *
- * Reply-To is set to the player, so hitting reply in the mail client goes
- * straight to them. NOTE: a reply sent that way is invisible to the CRM —
- * it never passes through the tracked address. That is the trade-off of a
- * notification rather than a synced mailbox.
- *
- * Never throws. Every failure path logs and returns.
- */
-async function notifyOwnerOfReply(
-  supabase: ReturnType<typeof createClient>,
-  reply: {
-    replyId: string
-    contactId: string | null
-    contactName: string | null
-    fromEmail: string
-    fromName: string | null
-    subject: string | null
-    body: string
-    intent: string | null
-    dealId: string | null
-  },
-): Promise<void> {
-  try {
-    const apiKey = Deno.env.get('RESEND_API_KEY')
-    if (!apiKey) {
-      console.warn('Reply alert skipped: RESEND_API_KEY not configured')
-      return
-    }
-
-    // Respect the notification preference. Missing/unreadable settings mean
-    // "on" — the alert is the safer default when someone is waiting on a lead.
-    const { data: settings } = await supabase
-      .from('crm_settings')
-      .select('value')
-      .eq('key', 'notifications')
-      .maybeSingle()
-
-    const enabled =
-      (settings?.value as { emailNotifications?: { emailReply?: boolean } } | null)
-        ?.emailNotifications?.emailReply
-    if (enabled === false) return
-
-    // --- who gets it ---
-    let ownerId: string | null = null
-
-    if (reply.dealId) {
-      const { data: deal } = await supabase
-        .from('deals')
-        .select('deal_owner_id')
-        .eq('id', reply.dealId)
-        .maybeSingle()
-      ownerId = (deal as { deal_owner_id?: string | null } | null)?.deal_owner_id ?? null
-    }
-
-    if (!ownerId && reply.contactId) {
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('owner_id')
-        .eq('id', reply.contactId)
-        .maybeSingle()
-      ownerId = (contact as { owner_id?: string | null } | null)?.owner_id ?? null
-    }
-
-    // Owner first; the admins when nobody owns the player.
-    //
-    // A reply from an unowned player used to email nobody at all — the
-    // function simply returned. A player writing in is the single most
-    // time-sensitive thing in the CRM, and the ones with no owner are exactly
-    // the ones nobody is watching, so silence there is the worst case. This
-    // mirrors the New lead alert, which already falls back to the admins.
-    const recipients: string[] = []
-
-    if (ownerId) {
-      const { data: owner } = await supabase
-        .from('profiles')
-        .select('email, is_active')
-        .eq('id', ownerId)
-        .maybeSingle()
-      const ownerEmail = (owner as { email?: string } | null)?.email
-      if (ownerEmail && (owner as { is_active?: boolean } | null)?.is_active !== false) {
-        recipients.push(ownerEmail)
-      }
-    }
-
-    if (recipients.length === 0) {
-      const { data: admins } = await supabase
-        .from('profiles')
-        .select('email')
-        .in('role', ['admin', 'super_admin'])
-        .eq('is_active', true)
-      for (const a of (admins ?? []) as { email?: string }[]) {
-        if (a.email) recipients.push(a.email)
-      }
-      if (recipients.length > 0) {
-        console.log(
-          `Reply ${reply.replyId}: no owner, alerting ${recipients.length} admin(s) instead`,
-        )
-      }
-    }
-
-    if (recipients.length === 0) {
-      console.log(`Reply ${reply.replyId}: nobody to alert, skipping email`)
-      return
-    }
-
-    // --- content ---
-    const appUrl = (Deno.env.get('NEXT_PUBLIC_APP_URL') || '').replace(/\/$/, '')
-    const fromEmailAddr = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
-    const who = reply.contactName || reply.fromName || reply.fromEmail
-    const intentLabel = reply.intent && reply.intent !== 'unknown' ? reply.intent : null
-
-    const escape = (t: string) =>
-      t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-    // Long replies are trimmed — this is a nudge to open the CRM, not a
-    // replacement for reading the thread there.
-    const excerpt = reply.body.length > 1200 ? `${reply.body.slice(0, 1200)}…` : reply.body
-    const bodyHtml = escape(excerpt).replace(/\n/g, '<br/>') || '<em>(no message content)</em>'
-
-    const intentChip = intentLabel
-      ? `<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:${
-          intentLabel === 'positive' ? '#dcfce7' : intentLabel === 'negative' ? '#fee2e2' : '#e5e7eb'
-        };color:${
-          intentLabel === 'positive' ? '#166534' : intentLabel === 'negative' ? '#991b1b' : '#374151'
-        };font-size:12px;font-weight:600;text-transform:capitalize;">${escape(intentLabel)}</span>`
-      : ''
-
-    const html = `
-<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;">
-  <div style="background:#0f172a;color:#ffffff;padding:18px 24px;border-radius:8px 8px 0 0;">
-    <p style="margin:0;font-size:16px;font-weight:bold;">New reply from ${escape(who)}</p>
-  </div>
-  <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;padding:24px;">
-    <p style="margin:0 0 4px 0;font-size:13px;color:#64748b;">
-      ${escape(reply.fromEmail)} ${intentChip}
-    </p>
-    ${reply.subject ? `<p style="margin:12px 0 0 0;font-size:14px;color:#0f172a;"><strong>${escape(reply.subject)}</strong></p>` : ''}
-    <div style="margin-top:14px;padding:14px 16px;background:#f8fafc;border-left:3px solid #cbd5e1;font-size:14px;line-height:1.6;color:#1f2937;">
-      ${bodyHtml}
-    </div>
-    ${
-      appUrl
-        ? `<p style="margin:22px 0 0 0;">
-             <a href="${appUrl}/email-replies" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;">Open in the CRM</a>
-           </p>`
-        : ''
-    }
-    <p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">
-      Replying to this email goes straight to ${escape(who)} — but a reply sent that way
-      is not recorded in the CRM. Reply from the CRM to keep the history complete.
-    </p>
-  </div>
-</div>`.trim()
-
-    const resend = new Resend(apiKey)
-    const { error } = await resend.emails.send({
-      from: `IFG CRM <${fromEmailAddr}>`,
-      to: recipients,
-      // Straight back to the player, not through the tracked address — this
-      // is an internal alert and must not be threaded as a lead reply.
-      reply_to: reply.fromEmail,
-      subject: `New reply from ${who}${intentLabel ? ` (${intentLabel})` : ''}`,
-      html,
-    })
-
-    if (error) {
-      console.error(`Reply alert to ${recipients.join(', ')} failed:`, error)
-      return
-    }
-    console.log(
-      `Reply alert sent to ${recipients.join(', ')} for reply ${reply.replyId}`,
-    )
-  } catch (err) {
-    console.error('Reply alert threw (reply itself is unaffected):', err)
-  }
-}
-
-/**
- * Walk back from email_send to figure out which campaign and/or pipeline this
- * reply belongs to, so the Replies list can render those columns.
- *
- * Three paths through the schema:
- *   - Campaign blast:   email_send.campaign_id      → campaigns.pipeline_id
- *   - Automation drip:  email_send.automation_log_id → automation_logs.enrollment_id
- *                       → automation_enrollments.automation_id → automations.pipeline_id
- *   - Invoice email:    email_send.invoice_id        → invoices.deal_id
- *                       → deals.pipeline_id
- *
- * The invoice path exists because an invoice email is neither a campaign nor
- * an automation. Once invoice emails got the tracked Reply-To, replies to them
- * started arriving — but with both lookups returning null they were stored
- * with a blank pipeline and no deal, so they never showed on the deal and
- * could not move its stage. That is the failure QA-28 says to watch for.
- *
- * Returns nulls (not undefined) so the insert column list works regardless.
- */
-async function deriveReplySourceMeta(
-  supabase: ReturnType<typeof createClient>,
-  emailSendId: string | null
-): Promise<{ campaignId: string | null; pipelineId: string | null; dealId: string | null }> {
-  if (!emailSendId) return { campaignId: null, pipelineId: null, dealId: null }
-
-  const { data: send, error } = await supabase
-    .from('email_sends')
-    .select('campaign_id, automation_log_id, invoice_id')
-    .eq('id', emailSendId)
-    .single()
-
-  if (error || !send) {
-    if (error) console.error('deriveReplySourceMeta: email_sends lookup failed:', error)
-    return { campaignId: null, pipelineId: null, dealId: null }
-  }
-
-  // Campaign path — the simpler of the two.
-  if (send.campaign_id) {
-    const { data: campaign } = await supabase
-      .from('campaigns')
-      .select('pipeline_id')
-      .eq('id', send.campaign_id)
-      .single()
-    return {
-      campaignId: send.campaign_id,
-      pipelineId: campaign?.pipeline_id ?? null,
-      dealId: null,
-    }
-  }
-
-  // Automation path — chase the chain to get the automation's pipeline.
-  if (send.automation_log_id) {
-    const { data: log } = await supabase
-      .from('automation_logs')
-      .select('deal_id, enrollment:automation_enrollments(automation:automations(pipeline_id))')
-      .eq('id', send.automation_log_id)
-      .single()
-
-    const enrollment = (log as unknown as {
-      enrollment?: { automation?: { pipeline_id?: string | null } | null } | null
-    } | null)?.enrollment
-    return {
-      campaignId: null,
-      pipelineId: enrollment?.automation?.pipeline_id ?? null,
-      dealId: (log as { deal_id?: string | null } | null)?.deal_id ?? null,
-    }
-  }
-
-  // Invoice path — the invoice knows the deal, the deal knows the pipeline.
-  if (send.invoice_id) {
-    const { data: invoice } = await supabase
-      .from('invoices')
-      .select('deal_id, deal:deals(pipeline_id)')
-      .eq('id', send.invoice_id)
-      .single()
-
-    const dealId = (invoice as { deal_id?: string | null } | null)?.deal_id ?? null
-    const pipelineId =
-      (invoice as { deal?: { pipeline_id?: string | null } | null } | null)?.deal?.pipeline_id ??
-      null
-
-    // An invoice raised without a deal still has no pipeline — that is the
-    // invoice's own gap (QA-44 notes it loses its programme), not something to
-    // guess at here. The reply is still captured and matched to the player.
-    return { campaignId: null, pipelineId, dealId }
-  }
-
-  return { campaignId: null, pipelineId: null, dealId: null }
-}
-
-/**
- * Classify the intent of a reply using OpenAI gpt-4o-mini.
- * Returns one of: positive | negative | neutral | question | unknown
- * Or null when classification was skipped or failed (caller stores NULL).
- *
- * Guardrails:
- *   - skip if body > 2000 chars (cost cap; long emails are usually quoted threads)
- *   - skip if body is empty
- *   - on API failure, return null silently (don't break the inbound pipeline)
- */
-const CLASSIFICATION_PROMPT = `You are classifying the intent of a reply to a business outreach/recruitment email.
-
-Classify as exactly one of:
-- positive: Interested, wants to learn more, agrees to meeting/call, asks about opportunity details
-- negative: Not interested, not a fit, cannot afford it, already committed elsewhere — but WITHOUT asking to be removed from the list
-- unsubscribe: Explicitly asks to stop being contacted — "stop emailing me", "remove me from your list", "unsubscribe", "do not contact me again". Prefer this over negative whenever a request to stop is present, because it takes the contact off email.
-- question: Asking a question that needs a human response (cost, dates, requirements, timeline) without clear positive/negative signal
-- neutral: Acknowledgment without clear intent, or forwarded without comment
-- unknown: Cannot determine intent, or too short/ambiguous to tell
-
-The reply may be in any language, including romanised Urdu/Hindi. Classify on
-MEANING, not on language — "mujhy chahyie" ("I want it") is positive, and
-"mujhy zarorat nahi" ("I don't need it") is negative. Only answer unknown when
-the meaning genuinely cannot be made out; a short reply that clearly expresses
-interest or refusal is not unknown. "My mom won't let me" is negative.
-
-Respond with ONLY the classification word, nothing else.`
-
-const MAX_CLASSIFICATION_CHARS = 2000
-
-/**
- * Strip the quoted-reply thread that mail clients append to a reply,
- * leaving just the new content the contact actually typed.
- *
- * Cuts at:
- *   - the first "On <date>, <name> wrote:" separator (Gmail / Apple Mail)
- *   - the first line that starts with ">" (the canonical quote prefix)
- *   - the first "-----Original Message-----" / "From: ..." block (Outlook)
- *
- * Always preserves the leading lines so a one-word reply ("interested")
- * survives. Falls back to the original text when no quote markers are
- * present.
- */
-/**
- * Escape the LIKE/ILIKE wildcards so a value is matched literally.
- *
- * Only `%` and `_` are special, and an email address can legitimately contain
- * both. PostgREST passes the pattern through to ILIKE verbatim.
- */
-function escapeLikeWildcards(value: string): string {
-  return value.replace(/[%_\\]/g, (c) => `\\${c}`)
-}
-
-/**
- * Is this an out-of-office autoresponder rather than the player writing back?
- *
- * QA-28 Bug 3: "Automatic reply: I'm on leave" is classified neutral, and a
- * neutral reply counted as a real one — so a holiday autoresponder stopped the
- * player's follow-up sequence for good and moved their card to Contact
- * Response. The board then said they had responded when they had not.
- *
- * Headers first, because they are the part mail systems agree on:
- *   - RFC 3834  Auto-Submitted: auto-replied | auto-generated
- *   - Microsoft X-Auto-Response-Suppress, and the X-Autoreply / X-Autorespond
- *     pair older autoresponders set
- *   - Precedence: auto_reply | bulk | junk
- * Subject lines are the fallback, for senders that set no header at all. Both
- * the English forms and the ones Outlook localises are common enough to be
- * worth matching, so the test is deliberately on the recognised prefixes
- * rather than anything looser — "Re: automatic payment" must not match.
- */
-const AUTO_REPLY_SUBJECT_PATTERNS: RegExp[] = [
-  /^\s*(re\s*:\s*)?(automatic reply|auto(matic)?[- ]?response|autoreply)\b/i,
-  /^\s*(re\s*:\s*)?out of (the )?office\b/i,
-  /^\s*(re\s*:\s*)?(i am|i'm) (currently )?(out of|away)\b/i,
-  /^\s*(re\s*:\s*)?(abwesenheitsnotiz|respuesta autom|r.ponse automatique|risposta automatica)/i,
-]
-
-function detectAutoReply(
-  headers: Record<string, string> | null | undefined,
-  subject: string | null | undefined,
-): boolean {
-  const h: Record<string, string> = {}
-  for (const [k, v] of Object.entries(headers ?? {})) {
-    if (typeof v === 'string') h[k.toLowerCase()] = v.toLowerCase()
-  }
-
-  const autoSubmitted = h['auto-submitted'] ?? ''
-  // "auto-submitted: no" is the explicit "a human sent this" value.
-  if (autoSubmitted && autoSubmitted.trim() !== 'no') return true
-  if (h['x-autoreply'] === 'yes' || h['x-autorespond'] || h['x-autoreply-domain']) return true
-  if (h['x-auto-response-suppress']) return true
-
-  const precedence = h['precedence'] ?? ''
-  if (['auto_reply', 'bulk', 'junk'].includes(precedence.trim())) return true
-
-  const subj = subject ?? ''
-  return AUTO_REPLY_SUBJECT_PATTERNS.some((re) => re.test(subj))
-}
-
-/** The first candidate with actual content — whitespace-only counts as absent. */
-function firstNonBlank(...candidates: (string | null | undefined)[]): string {
-  for (const candidate of candidates) {
-    if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate
-  }
-  return ''
-}
-
-function stripQuotedThread(text: string): string {
-  if (!text) return ''
-  const patterns: RegExp[] = [
-    // "On <date>, <name> wrote:" — Gmail, Apple Mail, Yahoo and Outlook all
-    // produce a variant of this, and the old anchored `^On .+ wrote:$` matched
-    // almost none of them in real mail:
-    //
-    //   Gmail wraps it   "On Fri, Aug 14, 2026 at 3:27 AM Nathan Bibby <n@x>\nwrote:"
-    //   Apple Mail inlines it, on the end of the reply text, with no newline
-    //   Yahoo indents it and pads it   "  On Mon, Oct 5, 2026 at 5:40 p.m., …"
-    //
-    // `.` never spans the wrap, and `^` never matched the indented or inline
-    // forms — so the quoted thread survived, the reply came in over the
-    // classification cap, and 11 of 37 real replies were never labelled at
-    // all. Hence: not anchored, and allowed to cross newlines.
-    //
-    // The {0,80}\d{4} is what keeps it honest. A four-digit year must appear
-    // on the same line as "On", so a player writing "On Monday I wrote:" is
-    // not mistaken for a quote header.
-    /\bOn\s[^\n]{0,80}\d{4}[\s\S]{0,200}?\bwrote:/i,
-    /^[ \t]*-{2,}\s*Original Message\s*-{2,}/im,
-    /^[ \t]*From:\s.+$/im,
-    /^[ \t]*>+/m,
-    /^[ \t]*Sent from my (iPhone|iPad|Android|Samsung)/im,
-    // Yahoo stamps this above the quoted thread.
-    /Yahoo Mail: Search, Organize, Conquer/i,
-    // Outlook's underscore rule and the plain long-dash divider.
-    /^[ \t]*_{10,}/m,
-    /^[ \t]*-{10,}[ \t]*$/m,
-  ]
-  let cutAt = text.length
-  for (const re of patterns) {
-    const m = re.exec(text)
-    if (m && typeof m.index === 'number' && m.index < cutAt) {
-      cutAt = m.index
-    }
-  }
-  const head = text.slice(0, cutAt).trim()
-  return head.length > 0 ? head : text.trim()
-}
-
-async function classifyIntent(text: string): Promise<string | null> {
-  const apiKey = Deno.env.get('OPENAI_API_KEY')
-  if (!apiKey || !text) return null
-
-  // Cost guardrail: long emails (typically quoted threads) eat tokens for no
-  // gain. The intent of a 5000-char message is in the first paragraph anyway;
-  // skip rather than send the whole thing.
-  if (text.length > MAX_CLASSIFICATION_CHARS) {
-    console.log(`Skipping intent classification (length ${text.length} > ${MAX_CLASSIFICATION_CHARS})`)
-    return null
-  }
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 5,
-        temperature: 0,
-        messages: [
-          { role: 'system', content: CLASSIFICATION_PROMPT },
-          { role: 'user', content: text },
-        ],
-      }),
-    })
-
-    if (!response.ok) {
-      const errBody = await response.text().catch(() => '')
-      console.error('OpenAI API error:', response.status, errBody.slice(0, 200))
-      return null
-    }
-
-    const result = await response.json()
-    const intent = result.choices?.[0]?.message?.content?.trim().toLowerCase()
-
-    const validIntents = ['positive', 'negative', 'neutral', 'question', 'unknown', 'unsubscribe']
-    return validIntents.includes(intent) ? intent : null
-  } catch (err) {
-    console.error('Intent classification failed:', err)
-    return null
-  }
-}
 
 /**
  * Fetch the full body + headers of an inbound email from Resend.
@@ -1075,130 +233,3 @@ async function fetchInboundBody(
   }
 }
 
-/**
- * Resolve which outbound email_send a reply is threading to.
- *
- * Strategy (in order of confidence):
- *   0. VERP Reply-To — the To: header on the inbound looks like
- *      `replies+{tracking_id}@reply.<domain>`. The local part's `+UUID`
- *      segment is exactly our `email_sends.tracking_id`. This is the
- *      bulletproof path: SES preserves Reply-To verbatim, so it always works.
- *   1. Custom Message-ID — local part of our `Message-ID` header. SES often
- *      rewrites this, but if it survives, the In-Reply-To references it.
- *   2. Resend's own internal email_id — stored as `resend_message_id`. Last
- *      resort, in case the SES-generated In-Reply-To happens to contain it.
- *
- * Returns null when nothing matches. The DB trigger then falls back to a
- * "most recent send to this contact" heuristic — see migration 086.
- */
-async function resolveThreadEmailSendId(
-  supabase: ReturnType<typeof createClient>,
-  contactId: string | null,
-  toAddress: string | string[] | null,
-  inReplyTo: string | null,
-  references: string | null
-): Promise<string | null> {
-  // Path 0: VERP — extract the tracking_id from the "To:" header. Works
-  // even when contactId is unknown, because the address itself identifies
-  // the originating send.
-  const verpTrackingId = extractTrackingIdFromTo(toAddress)
-  if (verpTrackingId) {
-    const { data, error } = await supabase
-      .from('email_sends')
-      .select('id')
-      .eq('tracking_id', verpTrackingId)
-      .maybeSingle()
-    if (data?.id) return data.id
-    if (error) console.error('Thread resolution by VERP tracking_id failed:', error)
-  }
-
-  if (!contactId) return null
-
-  const headerBlob = [inReplyTo ?? '', references ?? ''].join(' ')
-  const candidates = extractTrackingUuids(headerBlob)
-  if (candidates.length === 0) return null
-
-  // Path 1: tracking_id appearing inside In-Reply-To (custom Message-ID).
-  const byTracking = await supabase
-    .from('email_sends')
-    .select('id, sent_at')
-    .eq('recipient_contact_id', contactId)
-    .in('tracking_id', candidates)
-    .order('sent_at', { ascending: false })
-    .limit(1)
-
-  if (byTracking.data?.[0]?.id) {
-    return byTracking.data[0].id
-  }
-  if (byTracking.error) {
-    console.error('Thread resolution by tracking_id failed:', byTracking.error)
-  }
-
-  // Path 2: resend_message_id.
-  const byResendId = await supabase
-    .from('email_sends')
-    .select('id, sent_at')
-    .eq('recipient_contact_id', contactId)
-    .in('resend_message_id', candidates)
-    .order('sent_at', { ascending: false })
-    .limit(1)
-
-  if (byResendId.data?.[0]?.id) {
-    return byResendId.data[0].id
-  }
-  if (byResendId.error) {
-    console.error('Thread resolution by resend_message_id failed:', byResendId.error)
-  }
-
-  return null
-}
-
-/**
- * Parse an email address from "Name <email@example.com>" format.
- * For bare emails (no angle brackets) the whole string is the address —
- * the previous version's regex greedily split bare addresses like
- * gd.team.all@gmail.com into name="gd.team.al" + email="l@gmail.com".
- */
-function parseEmailAddress(from: string): { email: string | null; name: string | null } {
-  if (!from) return { email: null, name: null }
-  const trimmed = from.trim()
-
-  // "Name <email@example.com>" — only treat as name+email when angle brackets are present
-  if (trimmed.includes('<')) {
-    const match = trimmed.match(/^"?([^"<]*?)"?\s*<\s*([^<>\s]+@[^<>\s]+)\s*>\s*$/)
-    if (match) {
-      return {
-        name: match[1]?.trim() || null,
-        email: match[2]?.toLowerCase() || null,
-      }
-    }
-  }
-
-  // Bare email (no angle brackets) — the whole string is the address
-  if (trimmed.includes('@')) {
-    return { email: trimmed.toLowerCase(), name: null }
-  }
-
-  return { email: null, name: null }
-}
-
-/**
- * Strip HTML tags from a string
- */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-/**
- * Truncate text to a maximum length
- */
-function truncateText(text: string, maxLength: number): string {
-  if (!text) return ''
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength - 3) + '...'
-}
