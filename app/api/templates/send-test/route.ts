@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { Resend } from 'resend'
+import { formatSender, sendEmail, sesAvailable } from '@/lib/email/ses'
 import { renderBlocksToHTML } from '@/lib/templates/render-html'
 import { getBrandingSlots } from '@/lib/templates/branding-server'
 import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
@@ -78,9 +78,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = process.env.RESEND_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
+    if (!sesAvailable()) {
+      return NextResponse.json({ error: 'SES is not configured' }, { status: 500 })
     }
 
     // Pull the caller's real profile so owner-related merge tags
@@ -129,28 +128,28 @@ export async function POST(request: NextRequest) {
     const html = replaceMergeTags(rawHtml, data)
     const renderedSubject = replaceMergeTags(subject, data)
 
-    const resend = new Resend(apiKey)
-    const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
+    const fromEmail = process.env.FROM_EMAIL || 'admin@theinternationalfootballgroup.com'
 
-    const result = await resend.emails.send({
-      from: `IFG Test <${fromEmail}>`,
-      to: [user.email],
-      subject: `[TEST] ${renderedSubject}`,
-      html,
-    })
-
-    if (result.error) {
-      const message =
-        typeof result.error === 'object' && result.error !== null && 'message' in result.error
-          ? String((result.error as { message: unknown }).message)
-          : 'Email failed'
-      return NextResponse.json({ error: message }, { status: 502 })
+    let messageId: string
+    try {
+      const sent = await sendEmail({
+        from: formatSender(fromEmail, 'IFG Test'),
+        to: user.email,
+        subject: `[TEST] ${renderedSubject}`,
+        html,
+      })
+      messageId = sent.messageId
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Email failed' },
+        { status: 502 },
+      )
     }
 
     return NextResponse.json({
       success: true,
       sent_to: user.email,
-      resend_id: result.data?.id ?? null,
+      message_id: messageId,
     })
   } catch (error) {
     console.error('Send test email error:', error)

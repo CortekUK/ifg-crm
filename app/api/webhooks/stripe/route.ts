@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { formatSender, sendEmail, sesAvailable } from '@/lib/email/ses'
 import {
   staffAlertEnabled,
   sendStaffAlert,
@@ -284,17 +284,15 @@ export async function POST(request: NextRequest) {
 
       // ---- EMAIL NOTIFICATIONS ----
 
-      const resendApiKey = process.env.RESEND_API_KEY
-      if (resendApiKey && invoice) {
-        const resend = new Resend(resendApiKey)
-        const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
+      if (sesAvailable() && invoice) {
+        const fromEmail = process.env.FROM_EMAIL || 'admin@theinternationalfootballgroup.com'
 
         // Email to player: payment confirmation
         if (contactEmail) {
           try {
-            await resend.emails.send({
-              from: `IFG <${fromEmail}>`,
-              to: [contactEmail],
+            await sendEmail({
+              from: formatSender(fromEmail, 'IFG'),
+              to: contactEmail,
               subject: `Payment Confirmed - ${invoice.invoice_number}`,
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

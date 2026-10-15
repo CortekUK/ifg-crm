@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { formatSender, sendEmail, sesAvailable } from '@/lib/email/ses'
 
 export async function POST(request: NextRequest) {
   try {
     const { email, name, invoice_number, amount } = await request.json()
 
-    const resendApiKey = process.env.RESEND_API_KEY
-    if (!resendApiKey || !email) {
+    if (!sesAvailable() || !email) {
       return NextResponse.json({ error: 'Missing config' }, { status: 400 })
     }
 
-    const resend = new Resend(resendApiKey)
-    const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
+    const fromEmail = process.env.FROM_EMAIL || 'admin@theinternationalfootballgroup.com'
 
-    await resend.emails.send({
-      from: `IFG <${fromEmail}>`,
-      to: [email],
+    await sendEmail({
+      from: formatSender(fromEmail, 'IFG'),
+      to: email,
       subject: `Invoice ${invoice_number} - Cancelled`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

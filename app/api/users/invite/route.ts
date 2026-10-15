@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { formatSender, sendEmail, sesAvailable } from '@/lib/email/ses'
 import { VERIFIED_EMAIL_DOMAINS_LABEL, isVerifiedDomainEmail } from '@/lib/config/email-domain'
 
 /**
- * Email the new team member their password-setup link via Resend.
+ * Email the new team member their password-setup link through SES.
  *
  * The admin still gets the shareable link in the modal (single source of
  * truth, works even if email fails), but we also send it directly so the
@@ -19,10 +19,9 @@ async function sendInviteEmail(opts: {
   role: string
   inviteLink: string
 }): Promise<{ sent: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not configured' }
+  if (!sesAvailable()) return { sent: false, error: 'SES is not configured' }
 
-  const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
+  const fromEmail = process.env.FROM_EMAIL || 'admin@theinternationalfootballgroup.com'
   const roleLabel = opts.role === 'super_admin' ? 'Super Admin' : opts.role === 'admin' ? 'Admin' : 'Recruiter'
   const firstName = opts.fullName.trim().split(/\s+/)[0] || 'there'
 
@@ -49,22 +48,16 @@ async function sendInviteEmail(opts: {
   </div>`
 
   try {
-    const resend = new Resend(apiKey)
-    const result = await resend.emails.send({
-      from: `International Football Group <${fromEmail}>`,
-      to: [opts.to],
+    await sendEmail({
+      from: formatSender(fromEmail, 'International Football Group'),
+      to: opts.to,
       subject: 'Set up your IFG CRM account',
       html,
     })
-    if (result.error) {
-      const message =
-        typeof result.error === 'object' && result.error !== null && 'message' in result.error
-          ? String((result.error as { message: unknown }).message)
-          : 'Email failed'
-      return { sent: false, error: message }
-    }
     return { sent: true }
   } catch (err) {
+    // sendEmail throws on every failure, so one catch covers what used to
+    // need a thrown-error path AND a returned-error path.
     return { sent: false, error: err instanceof Error ? err.message : 'Email failed' }
   }
 }

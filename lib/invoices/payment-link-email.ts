@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import { formatSender, sendEmail, sesAvailable } from '@/lib/email/ses'
 
 /**
  * The "here is your invoice, pay here" email.
@@ -106,20 +106,13 @@ export type SendPaymentLinkResult =
   | { ok: true; id: string | null }
   | { ok: false; message: string }
 
-/** Send the invoice to `recipientEmail`. Never throws — the caller decides
- *  whether a failure is fatal. */
 /**
- * Build the Message-ID the CRM can recognise a reply to.
- *
- * Mirrors buildOutboundMessageId in supabase/functions/_shared/message-id.ts —
- * duplicated rather than imported because that module is Deno (it reads
- * Deno.env) and this one runs on Node. The format has to match exactly: the
- * inbound handler pulls the UUID out of the reply's In-Reply-To header and
- * looks it up in email_sends.tracking_id.
+ * buildInvoiceMessageId used to live here. It built
+ * <tracking_id@reply.domain> so a reply's In-Reply-To could be looked up in
+ * email_sends.tracking_id. SES assigns its own Message-ID and refuses ours, on
+ * both the structured and the raw APIs, so the header never reached the
+ * recipient and the function could only mislead whoever found it.
  */
-export function buildInvoiceMessageId(trackingId: string): string {
-  return `<${trackingId}@${replyDomain()}>`
-}
 
 /** `reply.<domain>`, however INBOUND_REPLY_DOMAIN happens to be written. */
 function replyDomain(): string {
@@ -166,42 +159,42 @@ export async function sendPaymentLinkEmail(
    * both, which is why replies to those arrive within seconds.
    *
    * `trackingId` must be the same value written to email_sends.tracking_id, and
-   * `replyTo` should be a mailbox that routes back through Resend inbound (the
-   * deal owner, as the automation path does).
+   * `replyTo` should be a mailbox somebody actually reads — the deal owner, as
+   * the automation path does.
+   *
+   * ON SES, THE MESSAGE-ID HALF OF THIS NO LONGER WORKS. SES assigns its own
+   * Message-ID and refuses ours, so a reply's In-Reply-To cannot carry the
+   * tracking id. Replies arrive in the deal owner's mailbox and are ingested
+   * by the Outlook integration instead, matched on sender address. Exact
+   * tracking returns with SES inbound receiving, when the sub-addressed
+   * Reply-To below can be used safely.
    */
   tracking?: { trackingId: string; replyTo?: string | null; replyToName?: string | null },
 ): Promise<SendPaymentLinkResult> {
-  const resendApiKey = process.env.RESEND_API_KEY
-  if (!resendApiKey) return { ok: false, message: 'Email service not configured' }
+  if (!sesAvailable()) return { ok: false, message: 'Email service not configured' }
 
   const { subject, html } = buildPaymentLinkEmail(input)
-  const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
+  const fromEmail = process.env.FROM_EMAIL || 'admin@theinternationalfootballgroup.com'
+
+  // The tracked sub-address is only safe once SES inbound receiving exists:
+  // reply.<domain> already has an MX pointed at SES, so until a receipt rule
+  // is in place a reply to it would hard bounce. The deal owner's mailbox is
+  // read by a human and ingested by the Outlook integration, which is why it
+  // is the one in use.
+  const replyTo =
+    (tracking ? buildInvoiceReplyTo(tracking.trackingId, tracking.replyToName) : null) ??
+    tracking?.replyTo ??
+    undefined
 
   try {
-    const result = await new Resend(resendApiKey).emails.send({
-      from: `IFG <${fromEmail}>`,
-      to: [recipientEmail],
-      // camelCase here: the Node SDK takes `replyTo`, while the Deno build used
-      // in the edge functions takes `reply_to`.
-      //
-      // Tracked address first; the caller's value is only the fallback for an
-      // environment with no reply domain configured.
-      replyTo:
-        (tracking ? buildInvoiceReplyTo(tracking.trackingId, tracking.replyToName) : null) ??
-        tracking?.replyTo ??
-        undefined,
+    const { messageId } = await sendEmail({
+      from: formatSender(fromEmail, 'IFG'),
+      to: recipientEmail,
+      replyTo,
       subject,
       html,
-      headers: tracking ? { 'Message-ID': buildInvoiceMessageId(tracking.trackingId) } : undefined,
     })
-    if (result.error) {
-      const message =
-        typeof result.error === 'object' && result.error !== null && 'message' in result.error
-          ? String((result.error as { message: unknown }).message)
-          : 'Email failed to send'
-      return { ok: false, message }
-    }
-    return { ok: true, id: result.data?.id ?? null }
+    return { ok: true, id: messageId }
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : 'Email failed to send' }
   }

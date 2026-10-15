@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import { formatSender, sendEmail, sesAvailable } from '@/lib/email/ses'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -189,16 +189,15 @@ export interface StaffAlert {
  */
 export async function sendStaffAlert(alert: StaffAlert): Promise<void> {
   try {
-    const apiKey = process.env.RESEND_API_KEY
-    if (!apiKey) {
-      console.warn('Staff alert skipped: RESEND_API_KEY not configured')
+    if (!sesAvailable()) {
+      console.warn('Staff alert skipped: SES is not configured')
       return
     }
 
     const recipients = [...new Set(alert.to.filter(Boolean))]
     if (recipients.length === 0) return
 
-    const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev'
+    const fromEmail = process.env.FROM_EMAIL || 'admin@theinternationalfootballgroup.com'
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
 
     const detailRows = (alert.details ?? [])
@@ -239,17 +238,20 @@ export async function sendStaffAlert(alert: StaffAlert): Promise<void> {
   </div>
 </div>`.trim()
 
-    const resend = new Resend(apiKey)
-
     await Promise.all(
       recipients.map(async (to) => {
-        const { error } = await resend.emails.send({
-          from: `IFG CRM <${fromEmail}>`,
-          to: [to],
-          subject: alert.subject,
-          html,
-        })
-        if (error) console.error(`Staff alert to ${to} failed:`, error)
+        try {
+          await sendEmail({
+            from: formatSender(fromEmail, 'IFG CRM'),
+            to,
+            subject: alert.subject,
+            html,
+          })
+        } catch (err) {
+          // One recipient failing must not stop the others, and an alert
+          // failing must never disturb the event that triggered it.
+          console.error(`Staff alert to ${to} failed:`, err)
+        }
       }),
     )
   } catch (err) {
