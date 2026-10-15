@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Link2, Loader2, Mail } from 'lucide-react'
+import { CornerDownLeft, Link2, Loader2, Mail } from 'lucide-react'
 import { senderLabel } from '@/lib/outlook/classify-sender'
 import type { MailThread } from '@/lib/hooks/useMailbox'
 
@@ -23,26 +23,26 @@ interface MailListProps {
   onLoadMore: () => void
 }
 
-/** Tag colours. Plain text on a tinted pill — the mockups' vocabulary. */
-const TAG_TONE: Record<string, string> = {
-  Player: 'bg-blue-500/15 text-blue-300',
-  Parent: 'bg-indigo-500/15 text-indigo-300',
-  'Secondary email': 'bg-amber-500/15 text-amber-300',
-  Internal: 'bg-slate-500/20 text-slate-300',
-  External: 'bg-teal-500/15 text-teal-300',
-  Unmatched: 'bg-amber-500/15 text-amber-300',
-  Positive: 'bg-green-500/15 text-green-300',
-  Question: 'bg-violet-500/15 text-violet-300',
-  Negative: 'bg-red-500/15 text-red-300',
-  Neutral: 'bg-slate-500/20 text-slate-300',
-}
+/**
+ * How a row is tagged.
+ *
+ * Rows used to carry up to four pills — category, intent, mailbox owner, plus
+ * the time — in a palette of six colours, which is how a list stops being
+ * scannable. At most ONE pill now survives, and only when it means a job:
+ * "Not linked". Everything else moved to quieter signals.
+ */
 
-function Tag({ children }: { children: string }) {
-  return (
-    <span className={cn('rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap', TAG_TONE[children] ?? 'bg-slate-500/20 text-slate-300')}>
-      {children}
-    </span>
-  )
+/**
+ * Intent, as a dot rather than a word.
+ *
+ * The classifier's answer is a hint, not a headline. A coloured dot before
+ * the sender reads at a glance and costs no horizontal room; the word is in
+ * the title attribute for anyone who wants it.
+ */
+const INTENT_DOT: Record<string, { tone: string; label: string }> = {
+  positive: { tone: 'bg-green-400', label: 'Positive reply' },
+  question: { tone: 'bg-violet-400', label: 'They asked something' },
+  negative: { tone: 'bg-red-400', label: 'Negative reply' },
 }
 
 /**
@@ -106,9 +106,9 @@ export function MailList({
         const unread = thread.unread_count > 0
         const { text, count } = participantLine(thread)
         const categoryTag = senderLabel(thread.category)
-        const intentTag = thread.latest_intent
-          ? thread.latest_intent[0].toUpperCase() + thread.latest_intent.slice(1)
-          : null
+        const intent = thread.latest_intent ? INTENT_DOT[thread.latest_intent] : null
+        // A thread whose newest message came in is one you owe an answer.
+        const awaitingReply = thread.last_message_direction === 'inbound'
         const initials =
           (thread.counterparty_name || thread.counterparty_email || '?')
             .split(/[\s@.]/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '?'
@@ -127,7 +127,17 @@ export function MailList({
                 unread ? 'bg-slate-900/50 hover:bg-slate-800/60' : 'hover:bg-slate-900/40',
               )}
             >
-              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', unread ? 'bg-blue-400' : 'bg-transparent')} />
+              {/* One dot, two jobs: unread is blue, and the classifier's
+                  read on the message tints it instead when there is one.
+                  Previously that was a second coloured pill competing with
+                  the category pill for the same glance. */}
+              <span
+                title={intent ? intent.label : unread ? 'Unread' : ''}
+                className={cn(
+                  'h-1.5 w-1.5 shrink-0 rounded-full',
+                  intent ? intent.tone : unread ? 'bg-blue-400' : 'bg-transparent',
+                )}
+              />
 
               <Avatar className="h-7 w-7 shrink-0">
                 <AvatarFallback className="bg-slate-700 text-[10px] text-slate-200">{initials}</AvatarFallback>
@@ -152,10 +162,24 @@ export function MailList({
               </div>
 
               <div className="flex shrink-0 items-center gap-1.5">
-                {categoryTag && <Tag>{categoryTag}</Tag>}
-                {intentTag && TAG_TONE[intentTag] && <Tag>{intentTag}</Tag>}
+                {/* An arrow, not a pill: it says "they spoke last, you owe a
+                    reply" in four pixels instead of a word. */}
+                {awaitingReply && (
+                  <CornerDownLeft
+                    className="h-3.5 w-3.5 text-slate-500"
+                    aria-label="Waiting on your reply"
+                  />
+                )}
+                {categoryTag && (
+                  <span className="whitespace-nowrap rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-300">
+                    {categoryTag}
+                  </span>
+                )}
+                {/* Only while more than one mailbox is actually in view —
+                    the same name repeated down every row of your own mailbox
+                    was pure noise. */}
                 {showMailboxOwner && thread.mailbox_owner_name && (
-                  <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[11px] text-slate-400 whitespace-nowrap">
+                  <span className="whitespace-nowrap text-[11px] text-slate-500">
                     {thread.mailbox_owner_name}
                   </span>
                 )}

@@ -2,7 +2,7 @@
 
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { MailFolder, SenderKind } from '@/lib/outlook/classify-sender'
+import { FOLDER_CATEGORIES, HIDDEN_CATEGORIES, type MailFolder, type SenderKind } from '@/lib/outlook/classify-sender'
 
 /**
  * Data for the Outlook mailbox screen.
@@ -41,20 +41,47 @@ export interface MailThread {
 
 const PAGE_SIZE = 50
 
+/**
+ * What each folder holds.
+ *
+ * Every folder hides the categories in HIDDEN_CATEGORIES — currently internal
+ * mail between colleagues, which this screen is not for.
+ */
 const FOLDER_FILTER: Record<MailFolder, (q: ReturnType<typeof baseQuery>) => ReturnType<typeof baseQuery>> = {
-  // Inbox is everything that arrived, whatever it turned out to be — the one
-  // folder that does not filter by category, matching how a mail client works.
+  // Everything that arrived, whatever it turned out to be, the way an inbox
+  // works. The only filtering is the hidden categories.
   inbox: (q) => q,
-  unmatched: (q) => q.eq('category', 'unknown'),
-  matched: (q) => q.in('category', ['player', 'parent', 'secondary']),
-  internal: (q) => q.eq('category', 'internal'),
-  external: (q) => q.eq('category', 'external'),
-  // Sent is threads whose newest message we sent.
+  // The last message came in and nobody has answered it. This is the folder
+  // that answers "what do I owe a reply to".
+  waiting: (q) => q.eq('last_message_direction', 'inbound'),
+  unmatched: (q) => q.in('category', FOLDER_CATEGORIES.unmatched),
+  matched: (q) => q.in('category', FOLDER_CATEGORIES.matched),
+  // Threads whose newest message we sent.
   sent: (q) => q.eq('last_message_direction', 'outbound'),
 }
 
+/**
+ * Which number the rail badge shows, per folder.
+ *
+ * 'unread' is the mail-client meaning and renders blue. 'all' is a queue of
+ * work and renders amber — every row in it needs a person, read or not. The
+ * two were previously one rule (unread, everywhere) while the folder header
+ * showed the total, so the same folder read 30 in one place and 33 in the
+ * other with nothing saying why.
+ */
+export const FOLDER_BADGE: Record<MailFolder, 'unread' | 'all' | 'none'> = {
+  inbox: 'unread',
+  waiting: 'all',
+  unmatched: 'all',
+  matched: 'unread',
+  sent: 'none',
+}
+
 function baseQuery() {
-  return createClient().from('email_threads').select('*', { count: 'exact' })
+  return createClient()
+    .from('email_threads')
+    .select('*', { count: 'exact' })
+    .not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`)
 }
 
 /** Narrow a query to the mailboxes the selector is pointing at. */
@@ -140,7 +167,14 @@ export function useMailThreads(params: {
   })
 }
 
-/** Counts for the left rail, computed in the database, not from a page. */
+/**
+ * The number beside each folder, and the folder's own totals.
+ *
+ * Both are computed in the database. The rail badge follows FOLDER_BADGE —
+ * unread where unread is the useful number, the whole queue where every row
+ * needs a person — and the header states both figures in words, so no folder
+ * can show two numbers again without saying which is which.
+ */
 export function useFolderCounts(params: {
   scope: MailboxScope
   myUserId: string
@@ -152,44 +186,34 @@ export function useFolderCounts(params: {
     queryKey: ['mail-folder-counts', scope, myUserId, recruiterIds.join(',')],
     enabled: !!myUserId,
     queryFn: async () => {
-      const folders: MailFolder[] = ['inbox', 'unmatched', 'matched', 'sent', 'internal', 'external']
-      const out: Record<string, number> = {}
+      const folders: MailFolder[] = ['inbox', 'waiting', 'unmatched', 'matched', 'sent']
+      const out: Record<string, { total: number; unread: number; badge: number }> = {}
 
       await Promise.all(
         folders.map(async (folder) => {
-          let q = createClient().from('email_threads').select('id', { count: 'exact', head: true })
-          q = FOLDER_FILTER[folder](q as never) as never
-          q = applyScope(q as never, scope, myUserId, recruiterIds) as never
-          // The rail badges count UNREAD, the way a mail client does — a count
-          // of everything would never go down and would stop meaning anything.
-          const { count } = await q.gt('unread_count', 0)
-          out[folder] = count ?? 0
+          const scoped = () => {
+            let q = createClient()
+              .from('email_threads')
+              .select('id', { count: 'exact', head: true })
+              .not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`)
+            q = FOLDER_FILTER[folder](q as never) as never
+            return applyScope(q as never, scope, myUserId, recruiterIds) as never as ReturnType<typeof baseQuery>
+          }
+
+          const [{ count: total }, { count: unread }] = await Promise.all([
+            scoped(),
+            scoped().gt('unread_count', 0),
+          ])
+
+          const badge = FOLDER_BADGE[folder]
+          out[folder] = {
+            total: total ?? 0,
+            unread: unread ?? 0,
+            badge: badge === 'all' ? total ?? 0 : badge === 'unread' ? unread ?? 0 : 0,
+          }
         }),
       )
       return out
-    },
-  })
-}
-
-/** The three figures under the folders. */
-export function useTodaySummary(params: { scope: MailboxScope; myUserId: string; recruiterIds: string[] }) {
-  const { scope, myUserId, recruiterIds } = params
-  return useQuery({
-    queryKey: ['mail-today', scope, myUserId, recruiterIds.join(',')],
-    enabled: !!myUserId,
-    queryFn: async () => {
-      const since = new Date(); since.setHours(0, 0, 0, 0)
-      let q = createClient().from('email_replies')
-        .select('ai_intent', { count: 'exact' })
-        .gte('received_at', since.toISOString())
-      q = applyScope(q as never, scope, myUserId, recruiterIds) as never
-      const { data, count } = await q
-      const rows = (data ?? []) as { ai_intent: string | null }[]
-      return {
-        received: count ?? 0,
-        positive: rows.filter((r) => r.ai_intent === 'positive').length,
-        negative: rows.filter((r) => r.ai_intent === 'negative').length,
-      }
     },
   })
 }

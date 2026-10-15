@@ -59,25 +59,49 @@ export function threadCategory(kinds: SenderKind[]): SenderKind {
   return 'unknown'
 }
 
-/** Folders in the left rail, and what each one holds. */
-export type MailFolder = 'inbox' | 'unmatched' | 'matched' | 'sent' | 'internal' | 'external'
+/**
+ * Folders in the left rail.
+ *
+ * Five, not the original six-plus-Internal. The mailbox is for conversations
+ * with contacts and with people who might become one; mail between colleagues
+ * is not what anyone opens this screen for, and the Internal folder held zero
+ * threads from the day it shipped. External was the same.
+ *
+ * `waiting` is the one that earns its place: the last message came in and
+ * nobody has answered it. "Where do I see replies I owe someone" was the
+ * question this screen could not answer.
+ */
+export type MailFolder = 'inbox' | 'waiting' | 'unmatched' | 'matched' | 'sent'
 
-export const FOLDER_CATEGORIES: Record<Exclude<MailFolder, 'inbox' | 'sent'>, SenderKind[]> = {
+/**
+ * Sender kinds kept OUT of the mailbox entirely.
+ *
+ * A display filter, not a deletion: internal mail is still ingested, still in
+ * email_replies, and still fires every trigger that hangs off that table. One
+ * line to put it back if the decision changes.
+ */
+export const HIDDEN_CATEGORIES: SenderKind[] = ['internal']
+
+export const FOLDER_CATEGORIES: Record<'unmatched' | 'matched', SenderKind[]> = {
+  // 'external' is deliberately absent. Marking a sender external is how you
+  // say "this is not a contact, stop asking" — putting it back in the queue
+  // it was just dismissed from would make the button pointless. Those threads
+  // stay in the Inbox, out of the way.
   unmatched: ['unknown'],
   matched: ['player', 'parent', 'secondary'],
-  internal: ['internal'],
-  external: ['external'],
 }
 
-/** The tag shown on a list row, in the words the screen uses. */
+/**
+ * The tag shown on a list row — and only where it says something.
+ *
+ * Rows carried up to four pills, which is how a list stops being scannable.
+ * A known contact is already evident from their name, so Player, Parent and
+ * Secondary email earn nothing; what matters is whether a row still needs
+ * somebody to link it. Everything else returns null and renders nothing.
+ */
 export function senderLabel(kind: SenderKind): string | null {
   switch (kind) {
-    case 'player': return 'Player'
-    case 'parent': return 'Parent'
-    case 'secondary': return 'Secondary email'
-    case 'internal': return 'Internal'
-    case 'external': return 'External'
-    case 'unknown': return 'Unmatched'
+    case 'unknown': return 'Not linked'
     default: return null
   }
 }
