@@ -81,7 +81,14 @@ export function useSyncOutlook() {
 export function useSendOutlookMail() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { to: string; subject: string; body: string }) => {
+    mutationFn: async (input: {
+      to: string
+      subject: string
+      body: string
+      /** Rendered server-side through the same branding campaigns use. */
+      templateId?: string | null
+      brochureId?: string | null
+    }) => {
       const res = await fetch('/api/outlook/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,6 +99,8 @@ export function useSendOutlookMail() {
       return data as {
         success: true
         conversationId: string | null
+        usedTemplate: string | null
+        usedBrochure: string | null
         contact: { id: string; name: string; hasDeal: boolean } | null
       }
     },

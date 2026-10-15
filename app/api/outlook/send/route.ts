@@ -6,8 +6,7 @@ import { OutlookReconnectRequired } from '@/lib/outlook/graph'
 import { escapeLikeWildcards } from '@/lib/email/classify'
 import { tidyNameFromEmail } from '@/lib/utils/smartMatch'
 import { getBrandingSlots } from '@/lib/templates/branding-server'
-import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
-import { brandedDocument, composeMergeData, textToParagraphs } from '@/lib/outlook/compose-html'
+import { buildComposedEmail } from '@/lib/outlook/compose-html'
 
 export const runtime = 'nodejs'
 
@@ -36,7 +35,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not permitted' }, { status: 403 })
   }
 
-  let body: { to?: string; subject?: string; body?: string; cc?: string[]; html?: boolean }
+  let body: {
+    to?: string
+    subject?: string
+    body?: string
+    cc?: string[]
+    templateId?: string | null
+    brochureId?: string | null
+  }
   try {
     body = await request.json()
   } catch {
@@ -50,8 +56,14 @@ export async function POST(request: NextRequest) {
   if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
     return NextResponse.json({ error: 'A valid recipient email address is required.' }, { status: 400 })
   }
-  if (!subject) return NextResponse.json({ error: 'A subject is required.' }, { status: 400 })
-  if (!content?.trim()) return NextResponse.json({ error: 'The message is empty.' }, { status: 400 })
+  // A template carries its own subject and its own body, so neither has to
+  // come from the sender when one is chosen.
+  if (!subject && !body.templateId) {
+    return NextResponse.json({ error: 'A subject is required.' }, { status: 400 })
+  }
+  if (!content?.trim() && !body.templateId && !body.brochureId) {
+    return NextResponse.json({ error: 'The message is empty.' }, { status: 400 })
+  }
 
   const service = getServiceClient()
   if (!service) return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
@@ -106,21 +118,26 @@ export async function POST(request: NextRequest) {
 
     const contactId = (contact as { id: string } | null)?.id ?? null
 
-    // Through the same branding every campaign and template test uses. The
-    // body may already be HTML — that is the template path — or plain text
-    // from the compose box, which becomes paragraphs.
-    const [slots, mergeData] = await Promise.all([
-      getBrandingSlots(),
-      composeMergeData(service, user.id, contactId, request.nextUrl.origin),
-    ])
-    const inner = body.html ? content : textToParagraphs(content)
-    const html = brandedDocument(inner, slots, mergeData)
-    const renderedSubject = replaceMergeTags(subject, mergeData)
+    // Through the same branding and the same block renderer every campaign
+    // uses, so a message sent from the mailbox is indistinguishable from one
+    // sent from a campaign.
+    const composed = await buildComposedEmail(service, {
+      senderUserId: user.id,
+      contactId,
+      origin: request.nextUrl.origin,
+      subject: subject ?? '',
+      slots: await getBrandingSlots(),
+      parts: { note: content, templateId: body.templateId, brochureId: body.brochureId },
+    })
+
+    if (!composed.subject.trim()) {
+      return NextResponse.json({ error: 'A subject is required.' }, { status: 400 })
+    }
 
     const result = await sendNewMessage(service, user.id, {
       to,
-      subject: renderedSubject,
-      body: html,
+      subject: composed.subject,
+      body: composed.html,
       cc: body.cc,
     })
 
@@ -139,6 +156,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       conversationId: result.conversationId,
+      usedTemplate: composed.usedTemplate,
+      usedBrochure: composed.usedBrochure,
       contact: contact
         ? {
             id: (contact as { id: string }).id,

@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Loader2, Maximize2, Minus, Paperclip, Send, UserPlus, X } from 'lucide-react'
+import { BookOpen, FileText, Loader2, Maximize2, Minus, Send, UserPlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/hooks/use-toast'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
@@ -16,6 +16,9 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { usePipelines } from '@/lib/hooks/usePipelines'
 import { useContactDealSummary } from '@/lib/hooks/useContactDealSummary'
 import { useSendOutlookMail } from '@/lib/hooks/useOutlook'
+import {
+  AttachedChip, BrochurePicker, TemplatePicker, type Picked,
+} from '@/components/outlook/ComposeAttach'
 import type { Contact } from '@/lib/types/contacts'
 
 interface ComposeWindowProps {
@@ -90,6 +93,9 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [pipelineId, setPipelineId] = useState('none')
+  const [template, setTemplate] = useState<Picked | null>(null)
+  const [brochure, setBrochure] = useState<Picked | null>(null)
+  const [picker, setPicker] = useState<'template' | 'brochure' | null>(null)
   const [highlighted, setHighlighted] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -151,7 +157,13 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
 
     for (const r of recipients) {
       try {
-        const result = await sendMail.mutateAsync({ to: r.email, subject, body })
+        const result = await sendMail.mutateAsync({
+          to: r.email,
+          subject,
+          body,
+          templateId: template?.id ?? null,
+          brochureId: brochure?.id ?? null,
+        })
         sent++
         if (!opportunity && result.contact && !result.contact.hasDeal) {
           opportunity = { id: result.contact.id, name: result.contact.name }
@@ -331,9 +343,22 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
         <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Hi there,"
+          placeholder={template ? 'Add a personal note above the template (optional)' : 'Hi there,'}
           className="min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3 text-slate-100 focus-visible:ring-0"
         />
+
+        {/* What is going out besides what was typed. Shown above the toolbar
+            so it is still in view at the moment Send is pressed. */}
+        {(template || brochure) && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-800 px-4 py-2">
+            {template && (
+              <AttachedChip icon={FileText} label={template.name} onRemove={() => setTemplate(null)} />
+            )}
+            {brochure && (
+              <AttachedChip icon={BookOpen} label={brochure.name} onRemove={() => setBrochure(null)} />
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-3 border-t border-slate-800 px-4 py-2 text-sm">
           <span className="shrink-0 text-slate-500">Pipeline</span>
@@ -349,15 +374,61 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
           <span className="text-xs text-slate-500">Optional · used by Smart Deal</span>
         </div>
 
-        <div className="flex items-center gap-3 border-t border-slate-800 px-4 py-3">
+        <div className="relative flex items-center gap-2 border-t border-slate-800 px-4 py-3">
+          {picker === 'template' && (
+            <TemplatePicker
+              onClose={() => setPicker(null)}
+              onPick={(picked, templateSubject) => {
+                setTemplate(picked)
+                // The template's own subject fills an empty box; it never
+                // overwrites a subject somebody has already written.
+                if (!subject.trim() && templateSubject) setSubject(templateSubject)
+                setPicker(null)
+              }}
+            />
+          )}
+          {picker === 'brochure' && (
+            <BrochurePicker
+              onClose={() => setPicker(null)}
+              onPick={(picked) => { setBrochure(picked); setPicker(null) }}
+            />
+          )}
+
           {/* The send route refuses an empty subject, so stopping here is
-              clearer than one failed toast per recipient. */}
-          <Button onClick={send} disabled={!recipients.length || !subject.trim() || sendMail.isPending}>
+              clearer than one failed toast per recipient. A template brings
+              its own subject, so it lifts that requirement. */}
+          <Button
+            onClick={send}
+            disabled={!recipients.length || (!subject.trim() && !template) || sendMail.isPending}
+          >
             {sendMail.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
             Send
           </Button>
-          <Paperclip className="h-4 w-4 text-slate-500" />
-          <span className="text-xs text-slate-500">Also saved to your Outlook Sent Items</span>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-slate-400 hover:text-slate-100"
+            onClick={() => setPicker((p) => (p === 'template' ? null : 'template'))}
+          >
+            <FileText className="mr-1.5 h-4 w-4" />
+            Template
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-slate-400 hover:text-slate-100"
+            onClick={() => setPicker((p) => (p === 'brochure' ? null : 'brochure'))}
+          >
+            <BookOpen className="mr-1.5 h-4 w-4" />
+            Brochure
+          </Button>
+
+          <span className="ml-auto text-xs text-slate-500">
+            Branded · saved to your Outlook Sent Items
+          </span>
         </div>
       </div>
     </div>
