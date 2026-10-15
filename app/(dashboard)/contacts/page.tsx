@@ -22,6 +22,7 @@ import { useAddContactsToList, useLists } from '@/lib/hooks/useLists'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/lib/hooks/use-toast'
+import { errorMessage } from '@/lib/utils/error-message'
 import type { Contact } from '@/lib/types/contacts'
 import { ErrorState } from '@/components/ui/error-state'
 import { Button } from '@/components/ui/button'
@@ -281,12 +282,14 @@ function ContactsPageContent() {
       // Show the actual reason. A delete can be refused because the contact
       // has invoices or payments (QA-56) — "Failed to delete contacts" gave
       // no clue what to do about that, so the user just tried again.
+      //
+      // `err instanceof Error` was the wrong guard and silently defeated the
+      // whole intent: Supabase throws a PostgrestError, which is a plain
+      // object, so the check was false for exactly the database errors this
+      // was written to surface and every one of them printed the fallback.
       toast({
         title: 'Could not delete',
-        description:
-          err instanceof Error && err.message
-            ? err.message
-            : 'Failed to delete contacts.',
+        description: errorMessage(err, 'Failed to delete contacts.'),
         variant: 'destructive',
       })
     }
