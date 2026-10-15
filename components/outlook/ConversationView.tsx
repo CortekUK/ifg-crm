@@ -98,7 +98,23 @@ function Message({
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4">
-      <div className="flex items-start justify-between gap-3">
+      {/* The header collapses the message again. onToggle used to be wired
+          only to the collapsed row, so a message could be opened and then
+          never closed — there was no control for it anywhere. */}
+      <div
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded
+        aria-label="Collapse this message"
+        className="flex cursor-pointer items-start justify-between gap-3 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-slate-600"
+      >
         <div className="flex min-w-0 items-start gap-3">
           <Avatar className="h-8 w-8 shrink-0">
             <AvatarFallback className="bg-slate-700 text-[11px] text-slate-200">{initials}</AvatarFallback>
@@ -114,14 +130,20 @@ function Message({
             {/* "to…" expands to the full envelope. Collapsed by default so the
                 message itself stays the thing you read first. */}
             <button
-              onClick={() => setShowDetails((v) => !v)}
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowDetails((v) => !v)
+              }}
               className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300"
             >
               to {message.toEmail ? message.toEmail.split('@')[0] : 'recipients'}
               <ChevronDown className={cn('h-3 w-3 transition-transform', showDetails && 'rotate-180')} />
             </button>
             {showDetails && (
-              <dl className="mt-2 space-y-0.5 rounded-lg bg-slate-950/60 p-2.5 text-xs text-slate-400">
+              <dl
+                onClick={(e) => e.stopPropagation()}
+                className="mt-2 space-y-0.5 rounded-lg bg-slate-950/60 p-2.5 text-xs text-slate-400"
+              >
                 <div><dt className="inline text-slate-500">from: </dt><dd className="inline">{message.fromEmail}</dd></div>
                 <div><dt className="inline text-slate-500">to: </dt><dd className="inline">{message.toEmail ?? '—'}</dd></div>
                 {message.cc.length > 0 && (
@@ -132,7 +154,10 @@ function Message({
             )}
           </div>
         </div>
-        <span className="shrink-0 text-[11px] text-slate-500">{when(message.at)}</span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="text-[11px] text-slate-500">{when(message.at)}</span>
+          <ChevronDown className="h-3.5 w-3.5 rotate-180 text-slate-600" />
+        </div>
       </div>
 
       <MessageBody html={message.html} text={message.body} />

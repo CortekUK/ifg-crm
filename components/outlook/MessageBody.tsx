@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 
@@ -73,35 +73,52 @@ function buildSrcDoc(html: string, hideQuoted: boolean): string {
   body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:14px; color:#1f2937; word-wrap:break-word; }
   img { max-width:100%; height:auto; }
   table { max-width:100%; }
+  /* flow-root so the wrapper contains its children's margins — its height is
+     what the frame is sized to, and a collapsed margin would under-measure. */
+  #__body { display:flow-root; }
   ${hideQuoted ? QUOTE_HIDING_CSS : ''}
 </style>
-</head><body>${html}</body></html>`
+</head><body><div id="__body">${html}</div></body></html>`
 }
 
 function HtmlBody({ html }: { html: string }) {
   const frameRef = useRef<HTMLIFrameElement>(null)
+  const observerRef = useRef<ResizeObserver | null>(null)
   const [height, setHeight] = useState(120)
   const [showQuoted, setShowQuoted] = useState(false)
   const quoted = hasQuotedHtml(html)
 
-  // Measure on load AND keep measuring: a branded email is mostly images, and
-  // they arrive after load, each one changing the height. Measuring once left
-  // the frame cut off halfway down the header.
+  // Measured off the WRAPPER, not the document.
+  //
+  // documentElement.scrollHeight is the obvious thing to read and it is wrong
+  // here: the document always fills the frame, so once the frame has been
+  // made tall the measurement can never come back smaller. Hiding the quoted
+  // thread again left a one-line reply sitting in a half-screen of white,
+  // because the height only ever ratcheted up.
+  //
+  // The wrapper div is sized by its content and knows nothing about the frame,
+  // so it shrinks as well as grows.
   const measure = useCallback(() => {
-    const doc = frameRef.current?.contentDocument
-    if (!doc?.documentElement) return
-    setHeight(Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0) + 2)
+    const content = frameRef.current?.contentDocument?.getElementById('__body')
+    if (!content) return
+    setHeight(Math.ceil(content.getBoundingClientRect().height) + 2)
   }, [])
 
+  // Keep measuring after load: a branded email is mostly images and they
+  // arrive afterwards, each one changing the height.
   const onLoad = useCallback(() => {
     measure()
-    const doc = frameRef.current?.contentDocument
-    if (!doc?.body) return
-    const observer = new ResizeObserver(measure)
-    observer.observe(doc.body)
-    // Cleared when the frame reloads or unmounts; the document goes with it.
-    frameRef.current?.addEventListener('beforeunload', () => observer.disconnect())
+    observerRef.current?.disconnect()
+    const content = frameRef.current?.contentDocument?.getElementById('__body')
+    if (!content) return
+    observerRef.current = new ResizeObserver(measure)
+    observerRef.current.observe(content)
   }, [measure])
+
+  // Toggling the quote swaps srcDoc, which reloads the frame and throws away
+  // the document the observer was watching. onLoad rebinds it; this is the
+  // unmount case.
+  useEffect(() => () => observerRef.current?.disconnect(), [])
 
   return (
     <div className="mt-3">
