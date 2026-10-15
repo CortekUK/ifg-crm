@@ -187,10 +187,15 @@ export async function POST(request: NextRequest) {
   const findSend = async () => {
     const { data } = await supabase
       .from('email_sends')
-      .select('id, status, recipient_contact_id')
+      .select('id, status, recipient_contact_id, campaign_id')
       .eq('resend_message_id', messageId)
       .maybeSingle()
-    return data as { id: string; status: string; recipient_contact_id: string | null } | null
+    return data as {
+      id: string
+      status: string
+      recipient_contact_id: string | null
+      campaign_id: string | null
+    } | null
   }
 
   let row = await findSend()
@@ -289,12 +294,68 @@ export async function POST(request: NextRequest) {
       break
     }
 
+    case 'Open':
+      // Best-effort by nature: a reader whose client blocks remote images
+      // never registers one. Under-counts, never over-counts.
+      await setStatus('opened', { opened_at: new Date().toISOString() })
+      break
+
+    case 'Click':
+      // A click implies an open, and SES does not guarantee the Open event
+      // arrives first — a client that blocks images but follows the link
+      // produces a Click with no Open at all. Both stamps are set so the
+      // open rate is not quietly understated by exactly the people who
+      // engaged most.
+      await setStatus('clicked', {
+        clicked_at: new Date().toISOString(),
+        opened_at: new Date().toISOString(),
+      })
+      break
+
     case 'Reject':
       await setStatus('failed', { error_message: 'Rejected by SES before sending' })
       break
 
     default:
       break
+  }
+
+  // ── Roll the per-send facts up onto the campaign ──────────────────────────
+  // campaigns.delivered_count / open_count / click_count / bounce_count are
+  // what the campaigns list and the reports read. Only the old Resend webhook
+  // ever maintained them, and that endpoint is dead — so after the move to SES
+  // they were frozen at zero and a campaign that delivered perfectly still
+  // read "0/17 Delivered" in the list.
+  //
+  // Recounted from email_sends rather than incremented. An increment is wrong
+  // the moment a webhook is retried, and SNS retries by design; counting the
+  // rows is idempotent and self-heals a count that has already drifted.
+  if (row?.campaign_id && ['Delivery', 'Open', 'Click', 'Bounce', 'Complaint'].includes(type)) {
+    try {
+      const forCampaign = () =>
+        supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('campaign_id', row.campaign_id as string)
+
+      const [delivered, opened, clicked, bounced] = await Promise.all([
+        forCampaign().not('delivered_at', 'is', null),
+        forCampaign().not('opened_at', 'is', null),
+        forCampaign().not('clicked_at', 'is', null),
+        forCampaign().eq('status', 'bounced'),
+      ])
+
+      await supabase
+        .from('campaigns')
+        .update({
+          delivered_count: delivered.count || 0,
+          open_count: opened.count || 0,
+          click_count: clicked.count || 0,
+          bounce_count: bounced.count || 0,
+        })
+        .eq('id', row.campaign_id)
+    } catch (err) {
+      // Never fail the webhook over a counter — the per-send row is already
+      // correct and the next event recounts from scratch anyway.
+      console.error('ses-events: campaign rollup failed', err)
+    }
   }
 
   return NextResponse.json({ received: true, type, matched: !!row })
