@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
   BookOpen,
@@ -346,6 +347,13 @@ export function BrochureDetail({
   onClose: () => void
 }) {
   const brochureId = brochure?.id ?? null
+  const router = useRouter()
+
+  // A name in Views is a person we already hold a record for — the brochure is
+  // gated, so there is no such thing as an anonymous reader here. Opening that
+  // record was a trip through Contacts and a search for a name you were
+  // already looking at.
+  const openContact = (contactId: string) => router.push(`/contacts?id=${contactId}`)
 
   const [previewOpen, setPreviewOpen] = React.useState(false)
   const audienceQuery = useBrochureAudience(brochureId)
@@ -476,7 +484,7 @@ export function BrochureDetail({
               <SectionCard
                 icon={Users}
                 title="Views"
-                description="Everyone who has opened this brochure, and how often."
+                description="Everyone who has opened this brochure, and how often. Click a row to open their contact."
               >
                 {audienceQuery.isLoading ? (
                   <Skeleton className="h-24 w-full rounded-lg" />
@@ -499,9 +507,27 @@ export function BrochureDetail({
                       </thead>
                       <tbody>
                         {audience.map((m) => (
-                          <tr key={m.contact_id} className="border-t border-border/70">
+                          <tr
+                            key={m.contact_id}
+                            onClick={() => openContact(m.contact_id)}
+                            // Keyboard too. A row is not a link as far as the
+                            // browser is concerned, so without this the whole
+                            // table is unreachable without a mouse.
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                openContact(m.contact_id)
+                              }
+                            }}
+                            tabIndex={0}
+                            role="link"
+                            aria-label={`Open the contact for ${[m.first_name, m.last_name].filter(Boolean).join(' ') || m.email || 'this person'}`}
+                            className="group cursor-pointer border-t border-border/70 outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60"
+                          >
                             <td className="px-3 py-2 text-foreground">
-                              {[m.first_name, m.last_name].filter(Boolean).join(' ') || '—'}
+                              <span className="group-hover:underline">
+                                {[m.first_name, m.last_name].filter(Boolean).join(' ') || '—'}
+                              </span>
                             </td>
                             <td className="px-3 py-2 text-muted-foreground">{m.email || '—'}</td>
                             <td className="px-3 py-2 text-center">
