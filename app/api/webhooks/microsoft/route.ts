@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { getServiceClient, findBySubscriptionId } from '@/lib/outlook/credentials'
 import { fetchMessage } from '@/lib/outlook/sync'
 import { ingestMessage } from '@/lib/outlook/ingest'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// The response goes out in milliseconds; this is the budget for the work that
+// carries on afterwards. One message means a Graph fetch and an OpenAI call,
+// and Graph batches notifications, so the default would cut a busy batch off
+// part-way.
+export const maxDuration = 60
 
 /**
  * Microsoft Graph change notifications: new mail in a connected mailbox.
@@ -64,41 +69,52 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 202 })
   }
 
-  const notifications = payload.value ?? []
-
-  for (const notification of notifications) {
+  // Everything cheap happens before the acknowledgement; everything that
+  // talks to Graph, OpenAI or the database happens after it.
+  const wanted = (payload.value ?? []).filter((notification) => {
     // clientState is the only thing proving this came from our subscription
     // and not from anyone who guessed the URL. A mismatch is dropped silently.
     if (expectedClientState && notification.clientState !== expectedClientState) {
       console.warn('outlook webhook: clientState mismatch, ignoring notification')
-      continue
+      return false
     }
+    return !!notification.subscriptionId && !!notification.resourceData?.id
+  })
 
-    const subscriptionId = notification.subscriptionId
-    const messageId = notification.resourceData?.id
-    if (!subscriptionId || !messageId) continue
+  // after() runs once the response has been sent, with the function kept
+  // alive until it finishes. Doing this work inline was the whole problem:
+  // fetching the message and classifying its intent takes seconds, Graph
+  // expects an answer in about three, and a notification endpoint that keeps
+  // Graph waiting gets retried and eventually unsubscribed.
+  if (wanted.length) {
+    after(async () => {
+      for (const notification of wanted) {
+        try {
+          const found = await findBySubscriptionId(supabase, notification.subscriptionId!)
+          if (!found?.credentials.mailbox_email) continue
 
-    try {
-      const found = await findBySubscriptionId(supabase, subscriptionId)
-      if (!found?.credentials.mailbox_email) continue
+          const message = await fetchMessage(
+            supabase,
+            found.credentials,
+            notification.resourceData!.id!,
+          )
+          if (!message) continue
 
-      const message = await fetchMessage(supabase, found.credentials, messageId)
-      if (!message) continue
-
-      await ingestMessage(
-        supabase,
-        {
-          userId: found.credentials.user_id,
-          mailboxEmail: found.credentials.mailbox_email,
-        },
-        message,
-      )
-    } catch (err) {
-      // Never surface an error to Graph: repeated failures make it delete the
-      // subscription, which is a far worse outcome than one missed message
-      // that the sweep will collect anyway.
-      console.error('outlook webhook: failed to process notification', err)
-    }
+          await ingestMessage(
+            supabase,
+            {
+              userId: found.credentials.user_id,
+              mailboxEmail: found.credentials.mailbox_email,
+            },
+            message,
+          )
+        } catch (err) {
+          // Nothing to report to Graph — it has already been thanked. A message
+          // lost here is collected by the delta sweep within the hour.
+          console.error('outlook webhook: failed to process notification', err)
+        }
+      }
+    })
   }
 
   return new NextResponse(null, { status: 202 })
