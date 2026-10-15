@@ -446,7 +446,7 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
           <span className="text-xs text-slate-500">Optional · used by Smart Deal</span>
         </div>
 
-        <div className="relative flex items-center gap-2 border-t border-slate-800 px-4 py-3">
+        <div className="relative flex flex-wrap items-center gap-2 border-t border-slate-800 px-4 py-3">
           {picker === 'template' && (
             <TemplatePicker
               onClose={() => setPicker(null)}
@@ -534,9 +534,6 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
             Invoice
           </Button>
 
-          <span className="ml-auto text-xs text-slate-500">
-            Branded · saved to your Outlook Sent Items
-          </span>
         </div>
       </div>
     </div>
