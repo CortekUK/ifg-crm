@@ -176,13 +176,28 @@ export async function POST(request: NextRequest) {
 
   // The column is still called resend_message_id — it holds whichever provider
   // sent the message, and renaming it is a migration for another day.
-  const { data: send } = await supabase
-    .from('email_sends')
-    .select('id, status, recipient_contact_id')
-    .eq('resend_message_id', messageId)
-    .maybeSingle()
+  //
+  // Looked up twice, because the event can beat the row. Every send path gets
+  // a message id back from SES and only THEN writes email_sends; SES can
+  // deliver and publish inside a second, and SNS arrives just as fast. A
+  // Delivery event for a fast recipient was arriving before the row existed
+  // and being dropped — observed against SES's own mailbox simulator, where
+  // bounces and complaints landed and the instant delivery did not. One short
+  // retry closes the window without making SNS wait.
+  const findSend = async () => {
+    const { data } = await supabase
+      .from('email_sends')
+      .select('id, status, recipient_contact_id')
+      .eq('resend_message_id', messageId)
+      .maybeSingle()
+    return data as { id: string; status: string; recipient_contact_id: string | null } | null
+  }
 
-  const row = send as { id: string; status: string; recipient_contact_id: string | null } | null
+  let row = await findSend()
+  if (!row) {
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    row = await findSend()
+  }
 
   // Terminal states are never walked back. A Delivery notification arriving
   // after a Complaint must not erase the complaint.
