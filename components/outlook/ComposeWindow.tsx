@@ -103,7 +103,7 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
   const inputRef = useRef<HTMLInputElement>(null)
 
   const debounced = useDebouncedValue(term, 200)
-  const { data: found = [] } = useSearchContacts(debounced)
+  const { data: found = [], isFetching: searching } = useSearchContacts(debounced)
   const { data: pipelines = [] } = usePipelines()
   const sendMail = useSendOutlookMail()
 
@@ -120,12 +120,20 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
   const typed = term.trim().toLowerCase()
   const looksLikeEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typed)
   const alreadyAdded = recipients.some((r) => r.email.toLowerCase() === typed)
-  // Offer the typed address only when the search has not already turned up the
-  // contact who owns it — picking the contact is always the better answer.
-  const offerTyped =
-    looksLikeEmail &&
-    !alreadyAdded &&
-    !found.some((c) => (c.email as string | null)?.toLowerCase() === typed)
+
+  // Has the search actually answered the question for THIS text yet?
+  //
+  // The debounce means `found` lags the box by 200ms and belongs to whatever
+  // was typed before. Judging "not in Contacts" on that told people a real
+  // contact was a stranger, for a moment, before flipping — which reads as
+  // the CRM not knowing its own contacts.
+  const searchAnswered = debounced.trim().toLowerCase() === typed && !searching
+  const knownContact = found.some((c) => (c.email as string | null)?.toLowerCase() === typed)
+
+  // Offer the typed address only once the search has answered and turned up
+  // nobody who owns it — picking the contact is always the better answer.
+  const offerTyped = looksLikeEmail && !alreadyAdded && searchAnswered && !knownContact
+  const checkingTyped = looksLikeEmail && !alreadyAdded && !searchAnswered
 
   const add = (recipient: Recipient) => {
     setRecipients((prev) => [...prev, recipient])
@@ -380,7 +388,15 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
                   </div>
                 </button>
               )}
-              {!options.length && !offerTyped && (
+              {/* Said while the lookup is still running, instead of guessing
+                  that an address we have not checked yet is a stranger. */}
+              {checkingTyped && (
+                <p className="flex items-center gap-2 px-3 py-2 text-xs text-slate-500">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Checking Contacts for {typed}…
+                </p>
+              )}
+              {!options.length && !offerTyped && !checkingTyped && (
                 <p className="px-3 py-2 text-xs text-slate-500">
                   {looksLikeEmail && alreadyAdded ? 'Already added.' : 'No contact found.'}
                 </p>

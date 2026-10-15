@@ -21,6 +21,7 @@ import {
 import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePipelines } from '@/lib/hooks/usePipelines'
+import { useThreadContact } from '@/lib/hooks/useMailbox'
 import { useCreateDeal } from '@/lib/hooks/useCreateDeal'
 import { useDealValueForPipeline } from '@/lib/hooks/useDealValueForPipeline'
 import { resolveReplyLeadStageId } from '@/lib/forms/lead-routing'
@@ -63,6 +64,12 @@ export function ComposeDealPrompt({
   const [isCreating, setIsCreating] = useState(false)
 
   const { data: pipelines = [] } = usePipelines()
+  // What they are already in. Offering a pipeline that already holds a deal
+  // for this person is how you end up with the same player twice in one
+  // pipeline and two recruiters working them.
+  const { data: contactDetail } = useThreadContact(contactId)
+  const existing = contactDetail?.deals ?? []
+  const existingPipelines = new Set(existing.map((d) => d.pipeline).filter(Boolean) as string[])
   const createDeal = useCreateDeal()
   const dealValueForPipeline = useDealValueForPipeline()
 
@@ -113,25 +120,46 @@ export function ComposeDealPrompt({
     <AlertDialog open onOpenChange={(open) => !open && onDone()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Create a deal for {contactName}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {existing.length > 0 ? `Add ${contactName} to another pipeline?` : `Create a deal for ${contactName}?`}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            Your message was sent. {contactName} is in the CRM but has no deal yet — choose a
-            pipeline to open one, or skip and do it later.
+            {existing.length > 0
+              ? `${contactName} is already in a pipeline. Choose another one to open a second deal, or close this.`
+              : `${contactName} is in the CRM but has no deal yet — choose a pipeline to open one, or skip and do it later.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-2">
+          {existing.length > 0 && (
+            <div className="rounded-md border bg-muted/40 p-2.5 text-sm">
+              <p className="font-medium">Already in a pipeline</p>
+              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                {existing.map((d) => (
+                  <li key={d.id}>
+                    {d.pipeline ?? 'Pipeline'}
+                    {d.stage ? ` · ${d.stage}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <Label htmlFor="compose-deal-pipeline">Pipeline</Label>
           <Select value={pipelineId} onValueChange={setPipelineId}>
             <SelectTrigger id="compose-deal-pipeline">
               <SelectValue placeholder="Choose a pipeline" />
             </SelectTrigger>
             <SelectContent>
-              {pipelines.map((pipeline) => (
-                <SelectItem key={pipeline.id} value={pipeline.id}>
-                  {pipeline.name}
-                </SelectItem>
-              ))}
+              {pipelines.map((pipeline) => {
+                const already = existingPipelines.has(pipeline.name)
+                return (
+                  <SelectItem key={pipeline.id} value={pipeline.id} disabled={already}>
+                    {pipeline.name}
+                    {already ? ' — already in this one' : ''}
+                  </SelectItem>
+                )
+              })}
             </SelectContent>
           </Select>
         </div>

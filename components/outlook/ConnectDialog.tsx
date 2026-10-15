@@ -21,6 +21,8 @@ export interface ConnectResult {
   /** The category the thread now belongs to. */
   category: 'player' | 'secondary' | 'external'
   contactName?: string
+  /** Whether the contact is already in a pipeline. */
+  hasDeal?: boolean
 }
 
 interface ConnectDialogProps {
@@ -166,6 +168,7 @@ export function ConnectDialog({ thread, onClose, onConnected }: ConnectDialogPro
         contactId: data.contactId ?? null,
         category: data.category,
         contactName: data.contactName,
+        hasDeal: data.hasDeal,
       })
     } catch (error) {
       toast({

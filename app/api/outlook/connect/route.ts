@@ -129,6 +129,14 @@ export async function POST(request: NextRequest) {
 
   const name = `${(contact as { first_name: string | null }).first_name ?? ''} ${(contact as { last_name: string | null }).last_name ?? ''}`.trim()
 
+  // Linking a stranger to a contact is the moment they become a lead, and
+  // putting a lead in a pipeline is the next thing anyone does. The screen
+  // can only offer that if it knows whether they are already in one.
+  const { count: dealCount } = await service
+    .from('deals')
+    .select('id', { count: 'exact', head: true })
+    .eq('contact_id', body.contactId)
+
   return NextResponse.json({
     success: true,
     contactName: name,
@@ -140,5 +148,6 @@ export async function POST(request: NextRequest) {
     category: body.saveAsSecondary ? 'secondary' : 'player',
     messagesConnected: (updated ?? []).length,
     savedAsSecondary: !!body.saveAsSecondary,
+    hasDeal: (dealCount ?? 0) > 0,
   })
 }

@@ -328,9 +328,24 @@ export function ConversationView({
                   <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> View contact
                 </Link>
               </Button>
-              <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => onSmartDeal(thread)}>
-                <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Smart Deal
-              </Button>
+              {/* "Smart Deal" meant nothing to anyone outside this codebase,
+                  and it read the same whether the contact was in no pipeline
+                  at all or already in two. The label now says which it is,
+                  and only the first case gets the loud green button. */}
+              {contact.deals?.length ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-700"
+                  onClick={() => onSmartDeal(thread)}
+                >
+                  <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Add to a pipeline
+                </Button>
+              ) : (
+                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => onSmartDeal(thread)}>
+                  <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Create deal
+                </Button>
+              )}
             </div>
           </div>
         )}

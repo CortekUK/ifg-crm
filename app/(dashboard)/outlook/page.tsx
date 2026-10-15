@@ -43,8 +43,8 @@ const INTENTS: { id: string; label: string; on: string }[] = [
 
 /** Who the conversation is with. CRM contacts by default — see MailAudience. */
 const AUDIENCES: { id: MailAudience; label: string; hint: string }[] = [
-  { id: 'crm', label: 'CRM contacts', hint: 'Players, parents and their other addresses' },
-  { id: 'unmatched', label: 'Outside the CRM', hint: 'Addresses not linked to a contact' },
+  { id: 'crm', label: 'Matched', hint: 'Players, parents and their other addresses' },
+  { id: 'unmatched', label: 'Mismatched', hint: 'Addresses not linked to a contact' },
   { id: 'all', label: 'Everything', hint: 'Both' },
 ]
 
@@ -56,13 +56,13 @@ const FOLDER_COPY: Record<MailFolder, { title: string; blurb: string; empty: str
     hint: 'Once a mailbox is connected, every email that arrives in Outlook appears here automatically.',
   },
   waiting: {
-    title: 'Waiting on you',
+    title: 'Replies',
     blurb: 'They wrote last and nobody has answered. Clear this and you owe nobody a reply.',
-    empty: 'Nothing waiting.',
+    empty: 'Nothing waiting for a reply.',
     hint: 'Every conversation has had an answer.',
   },
   unmatched: {
-    title: 'Not linked',
+    title: 'Mismatched',
     blurb: "Addresses we couldn't match to a contact. Link each one so the history sits on the right player.",
     empty: 'Nothing to link.',
     hint: 'Every email received so far was matched to a contact automatically.',
@@ -164,6 +164,16 @@ export default function OutlookPage() {
         is_crm_related: result.category !== 'external',
       }
     })
+
+    // Linking a stranger to a contact is the moment they become a lead. If
+    // they are not in a pipeline yet, that is the next thing anyone does —
+    // and until now nothing offered it, so the step was simply forgotten.
+    if (result.contactId && !result.hasDeal && result.category !== 'external') {
+      setDealContact({
+        id: result.contactId,
+        name: result.contactName || result.email,
+      })
+    }
 
     for (const key of [
       'mail-threads',          // the list this row sits in

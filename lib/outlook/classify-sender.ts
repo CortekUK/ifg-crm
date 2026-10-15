@@ -123,7 +123,7 @@ export const FOLDER_CATEGORIES: Record<'unmatched' | 'matched', SenderKind[]> = 
  */
 export function senderLabel(kind: SenderKind): string | null {
   switch (kind) {
-    case 'unknown': return 'Not linked'
+    case 'unknown': return 'Mismatched'
     default: return null
   }
 }

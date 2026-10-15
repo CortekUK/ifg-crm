@@ -38,8 +38,8 @@ const FOLDERS: {
   tone: 'unread' | 'work'
 }[] = [
   { id: 'inbox', label: 'Inbox', icon: Inbox, tone: 'unread' },
-  { id: 'waiting', label: 'Waiting on you', icon: Reply, tone: 'work' },
-  { id: 'unmatched', label: 'Not linked', icon: Link2Off, tone: 'work' },
+  { id: 'waiting', label: 'Replies', icon: Reply, tone: 'work' },
+  { id: 'unmatched', label: 'Mismatched', icon: Link2Off, tone: 'work' },
   { id: 'matched', label: 'Contacts', icon: Users, tone: 'unread' },
   { id: 'sent', label: 'Sent', icon: Send, tone: 'unread' },
 ]
