@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { graphFetch } from './graph'
 import { getCredentials } from './credentials'
 import { ingestMessage } from './ingest'
-import { MESSAGE_SELECT, type GraphMessage } from './types'
+import { addressOf, MESSAGE_SELECT, type GraphMessage } from './types'
 
 /**
  * Sending from a connected mailbox.
@@ -23,6 +23,24 @@ function htmlBody(content: string) {
 }
 
 /**
+ * How to recognise the message we just sent, once it reaches Sent Items.
+ *
+ * Subject alone is not enough, which is what this used to use. A recruiter
+ * emailing nine players about the same programme produces nine messages with
+ * identical subjects, and the newest-five scan would mirror whichever landed
+ * first — attaching one player's message to another player's thread.
+ */
+interface SentMatch {
+  /** When we asked Graph to send. Anything older is a different message. */
+  since: number
+  subject?: string
+  /** Exact, for replies: Graph puts the reply in the original conversation. */
+  conversationId?: string
+  /** Lowercased recipient address, for new messages. */
+  recipient?: string
+}
+
+/**
  * Wait for a message to appear in Sent Items and return it.
  *
  * Graph's sendMail and reply actions answer 202 Accepted with NO body — they
@@ -37,7 +55,7 @@ function htmlBody(content: string) {
 async function findSentMessage(
   supabase: SupabaseClient,
   userId: string,
-  subject: string,
+  match: SentMatch,
   attempts = 4,
 ): Promise<GraphMessage | null> {
   for (let i = 0; i < attempts; i++) {
@@ -46,10 +64,24 @@ async function findSentMessage(
       const page = await graphFetch<{ value?: GraphMessage[] }>(
         supabase,
         userId,
-        `/me/mailFolders('sentitems')/messages?$top=5&$orderby=sentDateTime desc&$select=${MESSAGE_SELECT}`,
+        `/me/mailFolders('sentitems')/messages?$top=10&$orderby=sentDateTime desc&$select=${MESSAGE_SELECT}`,
       )
-      const match = (page.value ?? []).find((m) => (m.subject ?? '') === subject)
-      if (match) return match
+      const found = (page.value ?? []).find((m) => {
+        // A minute of slack: Graph's clock is not ours, and a message stamped
+        // a few seconds before our call is still ours.
+        const sentAt = m.sentDateTime ? new Date(m.sentDateTime).getTime() : 0
+        if (sentAt && sentAt < match.since - 60_000) return false
+        if (match.conversationId && m.conversationId !== match.conversationId) return false
+        if (
+          match.recipient &&
+          !(m.toRecipients ?? []).some((r) => addressOf(r) === match.recipient)
+        ) {
+          return false
+        }
+        if (match.subject && (m.subject ?? '') !== match.subject) return false
+        return true
+      })
+      if (found) return found
     } catch {
       // Transient — keep trying until the attempts run out.
     }
@@ -61,9 +93,9 @@ async function mirrorSentMessage(
   supabase: SupabaseClient,
   userId: string,
   mailboxEmail: string,
-  subject: string,
+  match: SentMatch,
 ): Promise<SendResult> {
-  const sent = await findSentMessage(supabase, userId, subject)
+  const sent = await findSentMessage(supabase, userId, match)
   if (!sent) return { graphMessageId: null, internetMessageId: null, conversationId: null }
 
   // Reuse the ingest path rather than writing email_sends here, so a message
@@ -88,6 +120,7 @@ export async function sendNewMessage(
   const credentials = await getCredentials(supabase, userId)
   if (!credentials?.mailbox_email) throw new Error('No Outlook mailbox is connected.')
 
+  const since = Date.now()
   await graphFetch(supabase, userId, '/me/sendMail', {
     method: 'POST',
     body: JSON.stringify({
@@ -104,7 +137,11 @@ export async function sendNewMessage(
     }),
   })
 
-  return mirrorSentMessage(supabase, userId, credentials.mailbox_email, input.subject)
+  return mirrorSentMessage(supabase, userId, credentials.mailbox_email, {
+    since,
+    subject: input.subject,
+    recipient: input.to.trim().toLowerCase(),
+  })
 }
 
 /**
@@ -128,29 +165,30 @@ export async function replyToMessage(
   const credentials = await getCredentials(supabase, userId)
   if (!credentials?.mailbox_email) throw new Error('No Outlook mailbox is connected.')
 
-  // Read the original first: we need its subject to find our reply in Sent
-  // Items afterwards, and failing here (message deleted, wrong mailbox) gives
-  // a clear error instead of a silent no-op.
+  // Read the original first: we need its conversation to find our own reply in
+  // Sent Items afterwards, and failing here (message deleted, wrong mailbox)
+  // gives a clear error instead of a silent no-op.
   const original = await graphFetch<GraphMessage>(
     supabase,
     userId,
     `/me/messages/${input.graphMessageId}?$select=id,subject,conversationId`,
   )
 
+  const since = Date.now()
   const action = input.replyAll ? 'replyAll' : 'reply'
   await graphFetch(supabase, userId, `/me/messages/${input.graphMessageId}/${action}`, {
     method: 'POST',
     body: JSON.stringify({ comment: input.body }),
   })
 
-  const subject = original.subject ?? ''
-  const replySubject = subject.toLowerCase().startsWith('re:') ? subject : `RE: ${subject}`
-
-  // Graph may title the reply either way depending on the original, so try the
-  // prefixed form and fall back to the original subject.
-  const result = await mirrorSentMessage(supabase, userId, credentials.mailbox_email, replySubject)
-  if (result.graphMessageId) return result
-  return mirrorSentMessage(supabase, userId, credentials.mailbox_email, subject)
+  // Matched on the conversation, not the subject. Graph decides for itself
+  // whether to prefix "RE:", so this used to guess the subject twice — and the
+  // second guess, the bare original subject, could match the message being
+  // replied TO rather than the reply.
+  return mirrorSentMessage(supabase, userId, credentials.mailbox_email, {
+    since,
+    conversationId: original.conversationId ?? undefined,
+  })
 }
 
 /**
