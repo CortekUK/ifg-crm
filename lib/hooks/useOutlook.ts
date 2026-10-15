@@ -1,7 +1,6 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
 
 export interface OutlookConnectionStatus {
   configured: boolean
@@ -16,23 +15,18 @@ export interface OutlookConnectionStatus {
   notificationsActive?: boolean
 }
 
-export interface EmailThread {
-  id: string
-  conversation_id: string
-  subject: string | null
-  last_message_at: string | null
-  last_message_preview: string | null
-  last_message_from: string | null
-  last_message_direction: 'inbound' | 'outbound' | null
-  unread_count: number
-  message_count: number
-  contact_id: string | null
-  deal_id: string | null
-  pipeline_id: string | null
-  counterparty_email: string | null
-  counterparty_name: string | null
-  is_crm_related: boolean
-  mailbox_user_id: string | null
+/**
+ * The mailbox queries to refresh after mail has moved.
+ *
+ * These used to invalidate 'outlook-threads', a key belonging to an earlier
+ * version of this screen. Nothing has written to it since the mailbox was
+ * rebuilt on useMailbox, so sending a reply refreshed nothing and the message
+ * only appeared after a manual reload.
+ */
+const MAILBOX_KEYS = ['mail-threads', 'mail-folder-counts', 'mail-thread-messages', 'mail-today']
+
+function refreshMailbox(queryClient: ReturnType<typeof useQueryClient>) {
+  for (const key of MAILBOX_KEYS) queryClient.invalidateQueries({ queryKey: [key] })
 }
 
 export function useOutlookStatus() {
@@ -62,7 +56,7 @@ export function useDisconnectOutlook() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outlook-status'] })
-      queryClient.invalidateQueries({ queryKey: ['outlook-threads'] })
+      refreshMailbox(queryClient)
     },
   })
 }
@@ -77,9 +71,9 @@ export function useSyncOutlook() {
       return data as { inserted: number; duplicates: number; errors: string[] }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['outlook-threads'] })
       queryClient.invalidateQueries({ queryKey: ['outlook-status'] })
       queryClient.invalidateQueries({ queryKey: ['email-replies'] })
+      refreshMailbox(queryClient)
     },
   })
 }
@@ -102,7 +96,7 @@ export function useSendOutlookMail() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['outlook-threads'] })
+      refreshMailbox(queryClient)
     },
   })
 }
@@ -121,133 +115,8 @@ export function useReplyToThread() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['outlook-threads'] })
       queryClient.invalidateQueries({ queryKey: ['email-replies'] })
-    },
-  })
-}
-
-const PAGE_SIZE = 50
-
-/**
- * Conversation list.
- *
- * Paged with .range() rather than fetched whole. PostgREST silently caps an
- * unbounded select at 1,000 rows with no error — the trap that has already
- * cost this project exports, tag filtering and reports, and which the spec
- * flags again for exactly this screen.
- */
-export function useOutlookThreads(params: {
-  scope: 'mine' | 'everyone'
-  filter: 'all' | 'matched' | 'unmatched'
-  search?: string
-  page?: number
-}) {
-  const { scope, filter, search = '', page = 0 } = params
-
-  return useQuery({
-    queryKey: ['outlook-threads', scope, filter, search, page],
-    queryFn: async () => {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return { threads: [] as EmailThread[], total: 0 }
-
-      let query = supabase
-        .from('email_threads')
-        .select('*', { count: 'exact' })
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
-
-      // 'mine' is an explicit filter on top of RLS, not a substitute for it.
-      // RLS already stops a recruiter seeing anyone else's mail; this is the
-      // super admin's mine/everyone toggle.
-      if (scope === 'mine') query = query.eq('mailbox_user_id', user.id)
-      if (filter === 'matched') query = query.eq('is_crm_related', true)
-      if (filter === 'unmatched') query = query.eq('is_crm_related', false)
-
-      if (search.trim()) {
-        const term = `%${search.trim().replace(/[%_\\]/g, (c) => `\\${c}`)}%`
-        query = query.or(
-          `subject.ilike.${term},counterparty_email.ilike.${term},counterparty_name.ilike.${term},last_message_preview.ilike.${term}`,
-        )
-      }
-
-      const { data, error, count } = await query
-      if (error) throw error
-      return { threads: (data ?? []) as EmailThread[], total: count ?? 0 }
-    },
-  })
-}
-
-/** Every message in one conversation, oldest first, both directions. */
-export function useThreadMessages(conversationId: string | null) {
-  return useQuery({
-    queryKey: ['outlook-thread-messages', conversationId],
-    enabled: !!conversationId,
-    queryFn: async () => {
-      if (!conversationId) return []
-      const supabase = createClient()
-
-      const [{ data: replies }, { data: sends }] = await Promise.all([
-        supabase
-          .from('email_replies')
-          .select('id, from_email, from_name, subject, body, html_body, received_at, created_at, graph_message_id, read, ai_intent, match_status')
-          .eq('conversation_id', conversationId)
-          .order('received_at', { ascending: true })
-          .limit(200),
-        supabase
-          .from('email_sends')
-          .select('id, recipient_email, subject, body_text, body_html, sent_at, from_email')
-          .eq('conversation_id', conversationId)
-          .order('sent_at', { ascending: true })
-          .limit(200),
-      ])
-
-      type Message = {
-        id: string
-        direction: 'inbound' | 'outbound'
-        address: string | null
-        name: string | null
-        subject: string | null
-        body: string | null
-        html: string | null
-        at: string | null
-        graphMessageId: string | null
-        intent: string | null
-      }
-
-      const inbound: Message[] = (replies ?? []).map((r) => ({
-        id: r.id as string,
-        direction: 'inbound',
-        address: r.from_email as string | null,
-        name: r.from_name as string | null,
-        subject: r.subject as string | null,
-        body: r.body as string | null,
-        html: r.html_body as string | null,
-        at: (r.received_at ?? r.created_at) as string | null,
-        graphMessageId: r.graph_message_id as string | null,
-        intent: (r.ai_intent ?? null) as string | null,
-      }))
-
-      const outbound: Message[] = (sends ?? []).map((s) => ({
-        id: s.id as string,
-        direction: 'outbound',
-        address: s.recipient_email as string | null,
-        name: null,
-        subject: s.subject as string | null,
-        body: s.body_text as string | null,
-        html: s.body_html as string | null,
-        at: s.sent_at as string | null,
-        graphMessageId: null,
-        intent: null,
-      }))
-
-      // Oldest to newest, the way a mail client shows a conversation.
-      return [...inbound, ...outbound].sort(
-        (a, b) => new Date(a.at ?? 0).getTime() - new Date(b.at ?? 0).getTime(),
-      )
+      refreshMailbox(queryClient)
     },
   })
 }

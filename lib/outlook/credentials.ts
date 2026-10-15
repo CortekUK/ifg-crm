@@ -78,19 +78,6 @@ export async function getConnectedMailboxes(
   return (data as OutlookCredentials[]) ?? []
 }
 
-/** Find which CRM user owns a mailbox address. Used when attributing mail. */
-export async function findUserByMailbox(
-  supabase: SupabaseClient,
-  mailboxEmail: string,
-): Promise<string | null> {
-  const { data } = await supabase
-    .from('outlook_credentials')
-    .select('user_id')
-    .ilike('mailbox_email', mailboxEmail)
-    .maybeSingle()
-  return (data as { user_id: string } | null)?.user_id ?? null
-}
-
 /** Find the mailbox a change notification belongs to, by subscription id. */
 export async function findBySubscriptionId(
   supabase: SupabaseClient,
