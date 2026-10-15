@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getServiceClient } from '@/lib/outlook/credentials'
+import { escapeLikeWildcards } from '@/lib/email/classify'
 
 export const runtime = 'nodejs'
 
@@ -44,6 +45,12 @@ export async function POST(request: NextRequest) {
   const email = body.email?.trim().toLowerCase()
   if (!email) return NextResponse.json({ error: 'No address given.' }, { status: 400 })
 
+  // ilike treats _ and % as wildcards, and underscores are ordinary in email
+  // addresses. Unescaped, connecting john_smith@gmail.com also re-attributes
+  // mail from johnXsmith@gmail.com — onto a player they have nothing to do
+  // with. Same helper the send route already uses.
+  const pattern = escapeLikeWildcards(email)
+
   const service = getServiceClient()
   if (!service) return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
 
@@ -53,10 +60,10 @@ export async function POST(request: NextRequest) {
   if (body.markExternal) {
     await service.from('email_replies')
       .update({ sender_kind: 'external' })
-      .ilike('from_email', email)
+      .ilike('from_email', pattern)
     await service.from('email_threads')
       .update({ category: 'external' })
-      .ilike('counterparty_email', email)
+      .ilike('counterparty_email', pattern)
     // The caller needs the new state to update the screen without a reload.
     return NextResponse.json({
       success: true, markedExternal: true, email, category: 'external', contactId: null,
@@ -104,7 +111,7 @@ export async function POST(request: NextRequest) {
       matched_at: new Date().toISOString(),
       sender_kind: body.saveAsSecondary ? 'secondary' : 'player',
     })
-    .ilike('from_email', email)
+    .ilike('from_email', pattern)
     .select('id')
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
       is_crm_related: true,
       category: body.saveAsSecondary ? 'secondary' : 'player',
     })
-    .ilike('counterparty_email', email)
+    .ilike('counterparty_email', pattern)
 
   const name = `${(contact as { first_name: string | null }).first_name ?? ''} ${(contact as { last_name: string | null }).last_name ?? ''}`.trim()
 
