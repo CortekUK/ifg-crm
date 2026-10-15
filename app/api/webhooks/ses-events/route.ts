@@ -190,10 +190,28 @@ export async function POST(request: NextRequest) {
     sent: 0, delivered: 1, opened: 2, clicked: 3, bounced: 99, complained: 99, failed: 99,
   }
 
+  /**
+   * Move the row forward, never backward — enforced in the UPDATE itself.
+   *
+   * Reading the status and then writing it is a race, and SES exercises it:
+   * a complaint and a delivery for the same message arrive at the same moment,
+   * both read "sent", and whichever writes last wins. Observed in testing —
+   * a complained message ended up marked delivered, with the complaint's own
+   * error_message still on it.
+   *
+   * `in('status', ...)` makes the guard part of the statement, so the second
+   * writer matches no rows instead of overwriting the first.
+   */
   const setStatus = async (status: string, patch: Record<string, unknown> = {}) => {
     if (!row) return
-    if ((RANK[row.status] ?? 0) >= (RANK[status] ?? 0)) return
-    await supabase.from('email_sends').update({ status, ...patch }).eq('id', row.id)
+    const incoming = RANK[status] ?? 0
+    const overtakeable = Object.keys(RANK).filter((s) => (RANK[s] ?? 0) < incoming)
+    if (!overtakeable.length) return
+    await supabase
+      .from('email_sends')
+      .update({ status, ...patch })
+      .eq('id', row.id)
+      .in('status', overtakeable)
   }
 
   switch (type) {
