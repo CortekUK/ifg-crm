@@ -17,6 +17,8 @@ import {
 } from '@/lib/hooks/useMailbox'
 import type { MailFolder } from '@/lib/outlook/classify-sender'
 import { OutlookBanner } from '@/components/outlook/OutlookBanner'
+import { useOutlookStatus } from '@/lib/hooks/useOutlook'
+import { toast } from '@/lib/hooks/use-toast'
 import { MailRail } from '@/components/outlook/MailRail'
 import { MailList } from '@/components/outlook/MailList'
 import { MailboxSelector } from '@/components/outlook/MailboxSelector'
@@ -102,6 +104,13 @@ export default function OutlookPage() {
       setUserEmail(data.user?.email ?? '')
     })
   }, [])
+
+  // The address mail actually goes out from. NOT the CRM login: Compose
+  // showed superadmin@theinternationalfootballgroup.com while every message
+  // left from the connected mailbox, so the window named a sender it had
+  // never sent from.
+  const { data: outlook } = useOutlookStatus()
+  const mailboxEmail = outlook?.connected ? outlook.mailboxEmail ?? '' : ''
 
   const { data: owners = [] } = useMailboxOwners(!!isAdmin)
   const recruiterIds = useMemo(() => owners.filter((o) => o.role === 'recruiter').map((o) => o.id), [owners])
@@ -214,7 +223,19 @@ export default function OutlookPage() {
           onFolderChange={(f) => { setFolder(f); setOpenThread(null) }}
           counts={counts}
           today={today}
-          onCompose={() => setComposeOpen(true)}
+          onCompose={() => {
+            // Without a mailbox there is nothing to send from, and the send
+            // would fail after the message was written. Say so first.
+            if (!mailboxEmail) {
+              toast({
+                title: 'No mailbox connected',
+                description: 'Connect Outlook in Settings before sending from the CRM.',
+                variant: 'destructive',
+              })
+              return
+            }
+            setComposeOpen(true)
+          }}
         />
 
         <main className="m-3 ml-0 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/20">
@@ -230,7 +251,7 @@ export default function OutlookPage() {
               onSmartDeal={(t) =>
                 t.contact_id && setDealContact({ id: t.contact_id, name: t.counterparty_name || t.counterparty_email || 'this contact' })
               }
-              currentUserEmail={userEmail}
+              currentUserEmail={mailboxEmail}
               currentUserId={userId}
             />
           ) : (
@@ -289,9 +310,9 @@ export default function OutlookPage() {
         />
       )}
 
-      {composeOpen && userId && (
+      {composeOpen && mailboxEmail && (
         <ComposeWindow
-          fromEmail={userEmail}
+          fromEmail={mailboxEmail}
           onClose={() => setComposeOpen(false)}
           onDealOpportunity={setDealContact}
         />

@@ -50,13 +50,21 @@ function when(iso: string | null): string {
 
 /** One message. Collapsed messages are a single clickable line, as in Gmail. */
 function Message({
-  message, expanded, onToggle, currentUserEmail,
-}: { message: MailMessage; expanded: boolean; onToggle: () => void; currentUserEmail: string }) {
+  message, expanded, onToggle, currentUserEmail, senderLabel,
+}: {
+  message: MailMessage
+  expanded: boolean
+  onToggle: () => void
+  /** The connected mailbox's address — what outbound mail is actually from. */
+  currentUserEmail: string
+  /** What to call the mailbox owner: "You", or their name to an admin. */
+  senderLabel: string
+}) {
   const [showDetails, setShowDetails] = useState(false)
   const isMe = message.direction === 'outbound' ||
-    (message.fromEmail ?? '').toLowerCase() === currentUserEmail.toLowerCase()
-  const tag = isMe ? { label: 'You', tone: 'bg-slate-500/20 text-slate-300' } : SENDER_TAG[message.senderKind]
-  const name = isMe ? 'You' : message.fromName || message.fromEmail || 'Unknown'
+    (!!currentUserEmail && (message.fromEmail ?? '').toLowerCase() === currentUserEmail.toLowerCase())
+  const tag = isMe ? { label: senderLabel, tone: 'bg-slate-500/20 text-slate-300' } : SENDER_TAG[message.senderKind]
+  const name = isMe ? senderLabel : message.fromName || message.fromEmail || 'Unknown'
   const initials = (name || '?').split(/[\s@.]/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 
   if (!expanded) {
@@ -129,6 +137,9 @@ export function ConversationView({
   const setRead = useSetThreadRead()
   const sendReply = useReplyToThread()
   const isMyMailbox = !!currentUserId && thread.mailbox_user_id === currentUserId
+  // "You" only when it is your mailbox. An admin reading a recruiter's thread
+  // was shown the recruiter's own messages as if they had written them.
+  const senderLabel = isMyMailbox ? 'You' : thread.mailbox_owner_name || 'Mailbox owner'
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showEarlier, setShowEarlier] = useState(false)
@@ -353,6 +364,7 @@ export function ConversationView({
                   return next
                 })}
                 currentUserEmail={currentUserEmail}
+                senderLabel={senderLabel}
               />
             ))}
           </div>
@@ -381,7 +393,7 @@ export function ConversationView({
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-slate-500">
-                from {thread.mailbox_owner_name ?? 'your mailbox'}
+                from {currentUserEmail || thread.mailbox_owner_name || 'your mailbox'}
                 {replyAll && ' · replying to everyone on the thread'}
               </p>
               <Textarea
