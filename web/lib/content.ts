@@ -213,7 +213,9 @@ function mapBrochure(r: BrochureRow): Brochure {
 
 export async function getBrochures(): Promise<Brochure[]> {
   const rows = await rest<BrochureRow>(
-    "website_brochures?select=*&published=eq.true&order=sort_order.asc,created_at.asc",
+    // Same tie-break as getBrochure, so the grid does not list a superseded
+    // brochure above the current one.
+    "website_brochures?select=*&published=eq.true&order=sort_order.asc,created_at.desc",
   );
   if (!rows) return [];
   return rows.map(mapBrochure).filter((b) => b.pdfUrl);
@@ -229,9 +231,22 @@ export async function getBrochureBySlug(slug: string): Promise<Brochure | null> 
 }
 
 // By programme association — kept so the programme pages can link "their" brochure.
+//
+// Newest first on a tie, which is the whole ballgame. This ordered on
+// sort_order alone and took one row, written when the table was believed to
+// hold one brochure per programme — it has no unique constraint on `program`,
+// so it never did. The day a 2027 Summer brochure was uploaded and published
+// alongside the existing one, both sat at sort_order 0 and Postgres was free
+// to return either; it returned the one from August. The programme page
+// advertised last season's brochure with nothing anywhere reporting a problem.
+//
+// created_at.desc makes the pick deterministic AND makes it the obvious one:
+// upload a new brochure for a programme and that page starts using it. The
+// superseded brochure stays published and reachable at /b/<slug>, so links
+// already sent out in campaigns keep working.
 export async function getBrochure(program: string): Promise<Brochure | null> {
   const rows = await rest<BrochureRow>(
-    `website_brochures?select=*&published=eq.true&program=eq.${encodeURIComponent(program)}&order=sort_order.asc&limit=1`,
+    `website_brochures?select=*&published=eq.true&program=eq.${encodeURIComponent(program)}&order=sort_order.asc,created_at.desc&limit=1`,
   );
   const b = rows?.[0] ? mapBrochure(rows[0]) : null;
   return b && b.pdfUrl ? b : null;

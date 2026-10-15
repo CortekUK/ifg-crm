@@ -149,9 +149,14 @@ export interface WebsiteSquad {
 }
 export type WebsiteSquadInput = Partial<Omit<WebsiteSquad, 'created_at' | 'updated_at'>>
 
-// ── Brochures (migration 154) — self-hosted flipbooks, one per programme ──────
+// ── Brochures (migration 154) — self-hosted flipbooks ────────────────────────
 // `program` is the stable key used by lead capture (label → list/tag) and by the
-// website viewer route; it is UNIQUE in the table.
+// website viewer route.
+//
+// It is NOT unique, whatever this comment used to claim — only `slug` is. A
+// programme can hold several brochures (this season's and last season's), and
+// the programme page on the website serves the newest published one. Nothing
+// stops you publishing two; the brochures page reports which one is live.
 export type BrochureProgram = 'summer' | 'university' | 'gap-year'
 
 export const BROCHURE_PROGRAMS: { key: BrochureProgram; label: string }[] = [

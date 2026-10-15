@@ -38,7 +38,7 @@ import {
   useToggleBrochurePublished,
   useDeleteBrochure,
 } from '@/lib/hooks/useWebsiteBrochures'
-import type { WebsiteBrochure } from '@/lib/types/website-content'
+import { BROCHURE_PROGRAMS, type WebsiteBrochure } from '@/lib/types/website-content'
 import { BrochureModal } from '@/components/brochures/BrochureModal'
 import { BrochureDetail, CountChip } from '@/components/brochures/BrochureDetail'
 import { BrochurePreviewModal } from '@/components/brochures/BrochurePreviewModal'
@@ -68,6 +68,31 @@ export default function BrochuresPage() {
     (b) => b.render_status === 'pending' || b.render_status === 'rendering',
   )
   const renderFailed = brochures.filter((b) => b.render_status === 'failed')
+
+  // Which brochure each programme page on the website is actually serving.
+  //
+  // getBrochure() in web/lib/content.ts takes the published brochure with the
+  // lowest sort_order and, on a tie, the newest. Nothing stops two brochures
+  // being Active for the same programme — `program` has no unique constraint —
+  // so publishing a new one silently retires the old one from that page.
+  //
+  // That was invisible from this screen, and it cost us: the 2027 Summer
+  // brochure was uploaded and switched Active while the Summer Residency page
+  // carried on advertising the one from August. Both said "Active" here and
+  // neither said which was on the website. This is that missing sentence.
+  const liveByProgram = React.useMemo(() => {
+    const best = new Map<string, WebsiteBrochure>()
+    for (const b of brochures) {
+      if (!b.published || !b.program || !b.pdf_url) continue
+      const current = best.get(b.program)
+      const wins =
+        !current ||
+        b.sort_order < current.sort_order ||
+        (b.sort_order === current.sort_order && b.created_at > current.created_at)
+      if (wins) best.set(b.program, b)
+    }
+    return best
+  }, [brochures])
 
   // Brochure management is admin-only (mirrors the sidebar link + Lists page).
   React.useEffect(() => {
@@ -262,6 +287,10 @@ export default function BrochuresPage() {
                       <CountChip icon={Megaphone} count={stats?.campaign_ids.length ?? 0} label="campaigns" />
                       <CountChip icon={GitBranch} count={stats?.pipelines.length ?? 0} label="pipelines" />
                     </div>
+                    {/* What the website is doing with it. Only shown for a
+                        published brochure attached to a programme — for
+                        anything else there is no programme page to be on. */}
+                    {b.published && b.program && programNote(b, liveByProgram)}
                   </div>
                 </button>
 
@@ -389,5 +418,38 @@ export default function BrochuresPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+/**
+ * One line saying what the website is doing with this brochure.
+ *
+ * "Active" on its own was never the whole truth. It means published, which is
+ * a prerequisite for being on a programme page but not the same thing: when
+ * two brochures are Active for one programme, the page shows the newer and
+ * the older is still Active and still reachable at its own /b/<slug> link.
+ * Both rows said "Active" and the screen gave no way to tell them apart.
+ */
+function programNote(
+  brochure: WebsiteBrochure,
+  liveByProgram: Map<string, WebsiteBrochure>,
+) {
+  const label =
+    BROCHURE_PROGRAMS.find((p) => p.key === brochure.program)?.label ?? brochure.program
+  const live = liveByProgram.get(brochure.program as string)
+
+  if (live?.id === brochure.id) {
+    return (
+      <p className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+        On the {label} page
+      </p>
+    )
+  }
+
+  return (
+    <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
+      Not on the {label} page — it shows &ldquo;{live?.title}&rdquo;. Still live at /b/
+      {brochure.slug}.
+    </p>
   )
 }
