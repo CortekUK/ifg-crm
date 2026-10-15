@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/render-brochures",
       "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/outlook-sync",
+      "schedule": "0 * * * *"
     }
   ],
   "functions": {
