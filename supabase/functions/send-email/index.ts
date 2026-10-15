@@ -1,11 +1,11 @@
-// Supabase Edge Function: Send Email via Resend
-// This function handles sending emails through the Resend API
+// Supabase Edge Function: Send Email via Amazon SES
+// This function handles sending a single email through SES
 // Supports merge tag replacement for personalisation
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Resend } from 'npm:resend@2.0.0'
+import { sendEmail, sesAvailable, SesError } from '../_shared/ses.ts'
 import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
-import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
+import { buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
 
@@ -71,9 +71,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get Resend API key from environment
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    if (!resendApiKey) {
+    // SES credentials come from the function's environment
+    if (!sesAvailable()) {
       console.error('RESEND_API_KEY not configured')
       return new Response(
         JSON.stringify({ success: false, error: 'Email service not configured' }),
@@ -147,39 +146,46 @@ Deno.serve(async (req) => {
       processedBody = replaceMergeTags(brandedBody, mergeData)
     }
 
-    // Initialize Resend client
-    const resend = new Resend(resendApiKey)
-
-    // Generate the tracking_id up-front so we can encode it in BOTH the
-    // Reply-To (VERP) and Message-ID. The Reply-To path is the one that
-    // works reliably — SES rewrites custom Message-IDs, but it preserves the
-    // local part of Reply-To, so contact replies land at
-    // replies+{tracking_id}@reply.<domain> which the inbound webhook parses
-    // to find the originating email_sends row.
+    // The tracking_id is still generated up-front and still written to
+    // email_sends, but it can no longer ride in the Message-ID: SES assigns
+    // its own and refuses ours. The sub-addressed Reply-To below is the
+    // replacement, and it is only non-null once INBOUND_REPLY_DOMAIN is set —
+    // which must wait for SES inbound receiving, because reply.<domain>
+    // already has an MX pointed at SES and a reply would otherwise bounce.
+    // Until then this falls through to the deal owner's own mailbox, where a
+    // human reads it and the Outlook integration ingests it.
     const trackingId = body.tracking_id || crypto.randomUUID()
-    const messageIdHeader = buildOutboundMessageId(trackingId)
     const trackingReplyTo = buildReplyToAddress(trackingId, `${fromName} at IFG`)
 
-    // Send email via Resend
+    // Send the email
     // Native Unsubscribe button in Gmail / Outlook (RFC 8058), where we know
     // which contact this is going to.
     const listUnsubHeaders = await unsubscribeHeaders(body.contact_id)
 
-    const { data, error: resendError } = await resend.emails.send({
-      from: `${fromName} <${body.from_email}>`,
-      to: [body.to],
-      reply_to: trackingReplyTo ?? replyTo,
-      subject: processedSubject,
-      html: processedBody,
-      headers: {
-        'Message-ID': messageIdHeader,
-        ...(listUnsubHeaders ?? {}),
-      },
-    })
+    // sendEmail throws; the surrounding code was written against Resend's
+    // {data, error} shape, so the throw is turned back into that shape here
+    // rather than restructuring several hundred lines of logging around it.
+    let data: { id: string } | null = null
+    let resendError: { message: string } | null = null
+    try {
+      const sent = await sendEmail({
+        from: `${fromName} <${body.from_email}>`,
+        to: body.to,
+        replyTo: trackingReplyTo ?? replyTo,
+        subject: processedSubject,
+        html: processedBody,
+        headers: { ...(listUnsubHeaders ?? {}) },
+      })
+      data = { id: sent.messageId }
+    } catch (err) {
+      resendError = {
+        message: err instanceof SesError ? `${err.code ?? err.status}: ${err.message}` :
+          err instanceof Error ? err.message : 'Send failed',
+      }
+    }
 
     if (resendError) {
-      console.error('Full Resend error:', JSON.stringify(resendError))
-      console.error('Resend error:', resendError)
+      console.error('SES send failed:', JSON.stringify(resendError))
       
       // Log failed send to database if we have tracking info
       if (body.tracking_id || body.contact_id || body.campaign_id) {

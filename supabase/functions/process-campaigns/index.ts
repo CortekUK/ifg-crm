@@ -3,8 +3,8 @@
 // Called by Vercel cron job every minute
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Resend } from 'npm:resend@2.0.0'
-import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
+import { sendEmail, sesAvailable, SesError } from '../_shared/ses.ts'
+import { buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
 import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
@@ -289,10 +289,10 @@ async function processCampaign(
   const brandingSlots = await fetchBrandingSlots(supabase)
   emailBody = applyBranding(emailBody, brandingSlots)
 
-  // From email — always use FROM_EMAIL env var or Resend test domain
+  // From email — always use the FROM_EMAIL env var
   // Campaign's from_email is stored for display/record but actual sending
   // must use a verified domain. Set FROM_EMAIL env var once a domain is verified.
-  const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
+  const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'admin@theinternationalfootballgroup.com'
   const fromEmail = FROM_EMAIL
   const fromName = campaign.from_name || 'IFG Team'
   const replyTo = campaign.reply_to || campaign.from_email || fromEmail
@@ -539,9 +539,8 @@ async function sendEmail(
   }
 ): Promise<{ success: boolean; message_id?: string; error?: string }> {
   try {
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    if (!resendApiKey) {
-      return { success: false, error: 'RESEND_API_KEY not configured' }
+    if (!sesAvailable()) {
+      return { success: false, error: 'SES is not configured' }
     }
 
     console.log(`Sending email to ${params.to} for campaign ${params.campaign_id}`)
@@ -563,11 +562,13 @@ async function sendEmail(
     const processedSubject = replaceMergeTags(params.subject, mergeData)
     const processedBody = replaceMergeTags(params.html_body, mergeData)
 
-    // Generate trackingId up-front so we can use it as the local part of
-    // both the Reply-To (VERP) and the Message-ID we set on the outbound.
-    // The contact's reply lands at replies+{tracking_id}@reply.<domain>, so
-    // the inbound webhook recovers it from the To: header — no Message-ID
-    // guessing needed even if SES rewrites our custom header.
+    // trackingId is the local part of the sub-addressed Reply-To, and still
+    // what email_sends is keyed on. It can no longer ride in the Message-ID:
+    // SES assigns its own and refuses ours. buildReplyToAddress returns null
+    // until INBOUND_REPLY_DOMAIN is set, which must wait for SES inbound
+    // receiving — reply.<domain> already has an MX pointed at SES, so a reply
+    // to it would bounce with no receipt rule behind it. Until then this falls
+    // through to params.reply_to, the deal owner's own mailbox.
     const trackingId = crypto.randomUUID()
     const trackingReplyTo = buildReplyToAddress(trackingId, `${params.from_name} at IFG`)
 
@@ -576,26 +577,24 @@ async function sendEmail(
     // filtered, and a reader who can't find an opt-out reports spam instead.
     const listUnsubHeaders = await unsubscribeHeaders(params.contact_id)
 
-    // Send via Resend directly
-    const resend = new Resend(resendApiKey)
-    const { data, error: resendError } = await resend.emails.send({
-      from: `${params.from_name} <${params.from_email}>`,
-      to: [params.to],
-      reply_to: trackingReplyTo ?? params.reply_to,
-      subject: processedSubject,
-      html: processedBody,
-      headers: {
-        'Message-ID': buildOutboundMessageId(trackingId),
-        ...(listUnsubHeaders ?? {}),
-      },
-    })
-
-    if (resendError) {
-      console.error('Resend error:', JSON.stringify(resendError))
-      return { success: false, error: resendError.message }
+    let messageId: string | null = null
+    try {
+      const sent = await sendEmail({
+        from: `${params.from_name} <${params.from_email}>`,
+        to: params.to,
+        replyTo: trackingReplyTo ?? params.reply_to,
+        subject: processedSubject,
+        html: processedBody,
+        headers: { ...(listUnsubHeaders ?? {}) },
+      })
+      messageId = sent.messageId
+    } catch (err) {
+      const message = err instanceof SesError
+        ? `${err.code ?? err.status}: ${err.message}`
+        : err instanceof Error ? err.message : 'Send failed'
+      console.error('SES send failed:', message)
+      return { success: false, error: message }
     }
-
-    const messageId = data?.id || null
 
     // Log to email_sends table
     await supabase.from('email_sends').insert({

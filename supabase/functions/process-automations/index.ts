@@ -2,13 +2,13 @@
 // This function handles automation triggers, processes the queue, and checks exit conditions
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Resend } from 'npm:resend@2.0.0'
+import { sendEmail, sesAvailable, SesError } from '../_shared/ses.ts'
 import Stripe from 'npm:stripe@14'
 import { corsHeaders } from '../_shared/cors.ts'
 import type { StepType } from '../_shared/automation-constants.ts'
 import { programmeLabelFromPipeline } from '../_shared/automation-constants.ts'
 import { greetingName, replaceMergeTags } from '../_shared/merge-tags.ts'
-import { buildOutboundMessageId, buildReplyToAddress } from '../_shared/message-id.ts'
+import { buildReplyToAddress } from '../_shared/message-id.ts'
 import { fetchBrandingSlots, applyBranding, getBrandingLinks } from '../_shared/branding.ts'
 import { unsubscribeUrl, unsubscribeHeaders } from '../_shared/unsubscribe.ts'
 
@@ -1178,7 +1178,7 @@ async function processQueue(
 }
 
 /**
- * Process an email step - send email via Resend
+ * Process an email step - send email via SES
  */
 async function processEmailStep(
   supabase: ReturnType<typeof createClient>,
@@ -1505,7 +1505,7 @@ async function processEmailStep(
     // so max@theinternationalfootballgroup.com etc. all work without per-user
     // setup once the domain is verified. Falls back to the global FROM_EMAIL
     // if the deal has no owner (or owner profile has no email).
-    const fromEmail = owner?.email || Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
+    const fromEmail = owner?.email || Deno.env.get('FROM_EMAIL') || 'admin@theinternationalfootballgroup.com'
 
     // Reserve the log slot BEFORE calling Resend. The partial unique index on
     // automation_logs_dedup_active makes this insert the authoritative lock:
@@ -1525,20 +1525,18 @@ async function processEmailStep(
     const trackingReplyTo = buildReplyToAddress(trackingId, `${fromName} at IFG`)
     const replyTo: string | undefined = trackingReplyTo ?? owner?.email ?? undefined
 
-    // Get Resend API key and send email directly
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    if (!resendApiKey) {
-      summary.errors.push('RESEND_API_KEY not configured')
+    // SES must be configured before anything is logged as sent
+    if (!sesAvailable()) {
+      summary.errors.push('SES is not configured')
       await supabase
         .from('automation_logs')
-        .update({ status: 'failed', error_message: 'RESEND_API_KEY not configured' })
+        .update({ status: 'failed', error_message: 'SES is not configured' })
         .eq('id', logEntryId)
       return
     }
 
-    const resend = new Resend(resendApiKey)
 
-    // Send email via Resend API directly. We set our own Message-ID header
+    // Send the email. We used to set our own Message-ID header
     // (using trackingId as the local part) so a contact's reply lands with
     // an In-Reply-To value we can directly look up in email_sends — no
     // UUID-fishing in headers, no fallback heuristics needed.
@@ -1548,17 +1546,27 @@ async function processEmailStep(
     // senders without it get filtered.
     const listUnsubHeaders = await unsubscribeHeaders(contact.id)
 
-    const { data: emailData, error: resendError } = await resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
-      to: [contact.email],
-      reply_to: replyTo,
-      subject: subject,
-      html: htmlBody,
-      headers: {
-        'Message-ID': buildOutboundMessageId(trackingId),
-        ...(listUnsubHeaders ?? {}),
-      },
-    })
+    // SES assigns its own Message-ID and refuses ours, so the tracking id no
+    // longer rides in that header. The {data, error} shape is kept because the
+    // logging below was written against it.
+    let emailData: { id: string } | null = null
+    let resendError: { message: string } | null = null
+    try {
+      const sent = await sendEmail({
+        from: `${fromName} <${fromEmail}>`,
+        to: contact.email,
+        replyTo,
+        subject: subject,
+        html: htmlBody,
+        headers: { ...(listUnsubHeaders ?? {}) },
+      })
+      emailData = { id: sent.messageId }
+    } catch (err) {
+      resendError = {
+        message: err instanceof SesError ? `${err.code ?? err.status}: ${err.message}` :
+          err instanceof Error ? err.message : 'Send failed',
+      }
+    }
 
     if (resendError) {
       console.error('Full Resend error:', JSON.stringify(resendError))
@@ -1720,16 +1728,20 @@ async function processEmailStep(
         }
 
         const parentTrackingId = crypto.randomUUID()
-        const { data: parentEmailData, error: parentSendError } = await resend.emails.send({
-          from: `${fromName} <${fromEmail}>`,
-          to: [contact.parent_email],
-          reply_to: replyTo,
-          subject: parentSubject,
-          html: parentHtml,
-          headers: {
-            'Message-ID': buildOutboundMessageId(parentTrackingId),
-          },
-        })
+        let parentEmailData: { id: string } | null = null
+        let parentSendError: { message: string } | null = null
+        try {
+          const sentParent = await sendEmail({
+            from: `${fromName} <${fromEmail}>`,
+            to: contact.parent_email,
+            replyTo,
+            subject: parentSubject,
+            html: parentHtml,
+          })
+          parentEmailData = { id: sentParent.messageId }
+        } catch (err) {
+          parentSendError = { message: err instanceof Error ? err.message : 'Send failed' }
+        }
 
         if (parentSendError) {
           console.warn(`notify_parent: copy to ${contact.parent_email} failed:`, parentSendError.message)
@@ -2373,12 +2385,11 @@ async function sendInvoicePaymentLinkEmail(
   }
 
   const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
-  const resendKey = Deno.env.get('RESEND_API_KEY')
+
   if (!stripeKey) throw new Error('STRIPE_SECRET_KEY not configured')
-  if (!resendKey) throw new Error('RESEND_API_KEY not configured')
+  if (!sesAvailable()) throw new Error('SES is not configured')
 
   const stripe = new Stripe(stripeKey, { apiVersion: '2024-06-20' })
-  const resend = new Resend(resendKey)
   const appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') || 'https://ifg-crm.vercel.app'
   const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
   const currency = ((invoice as { currency?: string } | null)?.currency || 'GBP').toUpperCase()
@@ -2478,11 +2489,12 @@ async function sendInvoicePaymentLinkEmail(
   // bounce.
   const trackedReplyTo = buildReplyToAddress(trackingId, `${ownerName ?? 'IFG'} at IFG`)
 
-  const sendResult = await resend.emails.send({
+  // Throws on failure, which is what the caller wants here — the invoice must
+  // not be recorded as sent if the email did not leave.
+  const sentInvoice = await sendEmail({
     from: `IFG <${fromEmail}>`,
-    to: [recipientEmail],
-    reply_to: trackedReplyTo ?? ownerEmail ?? fromEmail,
-    headers: { 'Message-ID': buildOutboundMessageId(trackingId) },
+    to: recipientEmail,
+    replyTo: trackedReplyTo ?? ownerEmail ?? fromEmail,
     subject: `Invoice ${args.invoiceNumber} - ${formattedAmount} Due`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2537,14 +2549,6 @@ async function sendInvoicePaymentLinkEmail(
     `,
   })
 
-  if (sendResult.error) {
-    throw new Error(
-      typeof sendResult.error === 'object' && sendResult.error !== null && 'message' in sendResult.error
-        ? String((sendResult.error as { message: unknown }).message)
-        : 'Resend send failed',
-    )
-  }
-
   // Record it in the CRM's email history, with the SAME tracking id that went
   // out as the Message-ID. Two things depend on this row: a reply's
   // In-Reply-To resolves against it, and staff can see from the CRM that the
@@ -2562,7 +2566,7 @@ async function sendInvoicePaymentLinkEmail(
     from_name: 'IFG',
     from_email: fromEmail,
     status: 'sent',
-    resend_message_id: sendResult.data?.id ?? null,
+    resend_message_id: sentInvoice.messageId,
     sent_at: new Date().toISOString(),
   })
   if (logError) {
