@@ -133,6 +133,7 @@ export function ConversationView({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showEarlier, setShowEarlier] = useState(false)
   const [replyOpen, setReplyOpen] = useState(false)
+  const [replyAll, setReplyAll] = useState(false)
   const [replyBody, setReplyBody] = useState('')
 
   // Esc returns to the list — the shortcut anyone who uses mail expects.
@@ -169,9 +170,9 @@ export function ConversationView({
   const handleReply = async () => {
     if (!latestInbound || !replyBody.trim()) return
     try {
-      await sendReply.mutateAsync({ replyId: latestInbound.id, body: replyBody })
-      setReplyBody(''); setReplyOpen(false)
-      toast({ title: 'Reply sent' })
+      await sendReply.mutateAsync({ replyId: latestInbound.id, body: replyBody, replyAll })
+      setReplyBody(''); setReplyOpen(false); setReplyAll(false)
+      toast({ title: replyAll ? 'Reply sent to everyone on the thread' : 'Reply sent' })
     } catch (error) {
       toast({
         title: 'Could not send the reply',
@@ -361,13 +362,13 @@ export function ConversationView({
         <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-3">
           {!replyOpen ? (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="border-slate-700" onClick={() => setReplyOpen(true)} disabled={!latestInbound}>
+              <Button variant="outline" size="sm" className="border-slate-700" onClick={() => { setReplyAll(false); setReplyOpen(true) }} disabled={!latestInbound}>
                 <Reply className="mr-1.5 h-3.5 w-3.5" /> Reply
               </Button>
               {/* Reply all only when there is more than one other person on the
                   thread — otherwise it does exactly what Reply does. */}
               {otherPeople.size > 1 && (
-                <Button variant="outline" size="sm" className="border-slate-700" onClick={() => setReplyOpen(true)}>
+                <Button variant="outline" size="sm" className="border-slate-700" onClick={() => { setReplyAll(true); setReplyOpen(true) }} disabled={!latestInbound}>
                   <CornerUpLeft className="mr-1.5 h-3.5 w-3.5" /> Reply all
                 </Button>
               )}
@@ -381,6 +382,7 @@ export function ConversationView({
             <div className="space-y-2">
               <p className="text-xs text-slate-500">
                 from {thread.mailbox_owner_name ?? 'your mailbox'}
+                {replyAll && ' · replying to everyone on the thread'}
               </p>
               <Textarea
                 rows={5}
@@ -393,7 +395,7 @@ export function ConversationView({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500">Sends through Outlook · threads stay in sync</span>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => { setReplyOpen(false); setReplyBody('') }}>Cancel</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setReplyOpen(false); setReplyAll(false); setReplyBody('') }}>Cancel</Button>
                   <Button size="sm" onClick={handleReply} disabled={!replyBody.trim() || sendReply.isPending}>
                     {sendReply.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
                     Send
