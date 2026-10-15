@@ -159,11 +159,88 @@ function brochureBlock(b: {
   }
 }
 
+/**
+ * An invoice to pay, as a summary and a button.
+ *
+ * Built here rather than in the route so the payment sits inside the same
+ * branded document as everything else — a Stripe link pasted under a signature
+ * looks like the kind of thing people are told not to click.
+ */
+function paymentBlocks(payment: {
+  payUrl: string
+  invoiceNumber: string
+  description: string | null
+  amount: number
+  currency: string | null
+  dueDate: string | null
+}): EditorBlock[] {
+  const amount = new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: (payment.currency || 'GBP').toUpperCase(),
+    minimumFractionDigits: 0,
+  }).format(payment.amount)
+
+  const due = payment.dueDate
+    ? new Date(payment.dueDate).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null
+
+  const lines = [
+    `<strong>Invoice ${escapeHtml(payment.invoiceNumber)}</strong>`,
+    payment.description ? escapeHtml(payment.description) : null,
+    `Amount due: <strong>${amount}</strong>`,
+    due ? `Due by ${escapeHtml(due)}` : null,
+  ].filter(Boolean)
+
+  return [
+    {
+      id: 'compose-invoice-summary',
+      type: 'text',
+      content: {
+        html: `<p style="margin: 0 0 8px 0;">${lines.join('<br />')}</p>`,
+        alignment: 'left',
+        fontSize: 'normal',
+        paddingTop: 16,
+        paddingBottom: 4,
+      },
+    },
+    {
+      id: 'compose-invoice-button',
+      type: 'button',
+      content: {
+        text: `Pay ${amount} securely`,
+        url: payment.payUrl,
+        variant: 'solid',
+        customColour: false,
+        backgroundColor: '',
+        textColor: '',
+        borderRadius: 6,
+        width: 'auto',
+        alignment: 'left',
+        paddingTop: 4,
+        paddingBottom: 16,
+      },
+    },
+  ]
+}
+
 export interface ComposeParts {
   /** Whatever was typed in the box. Optional when a template is chosen. */
   note?: string | null
   templateId?: string | null
   brochureId?: string | null
+  /** A Stripe link already minted by the route — see lib/invoices/payment-link. */
+  payment?: {
+    payUrl: string
+    invoiceNumber: string
+    description: string | null
+    amount: number
+    currency: string | null
+    dueDate: string | null
+  } | null
 }
 
 export interface ComposedEmail {
@@ -172,6 +249,7 @@ export interface ComposedEmail {
   /** For the UI: what actually went into the message. */
   usedTemplate: string | null
   usedBrochure: string | null
+  usedInvoice: string | null
 }
 
 /**
@@ -250,6 +328,9 @@ export async function buildComposedEmail(
   const b = brochure as Parameters<typeof brochureBlock>[0] | null
   if (b?.slug) blocks.push(brochureBlock(b))
 
+  // Last, under everything else: the ask comes after the reason for it.
+  if (parts.payment) blocks.push(...paymentBlocks(parts.payment))
+
   // A template that owns its own masthead keeps it — `use_global_branding:
   // false` is how a designed email says the global band fights its layout.
   const globalBranding = t ? t.use_global_branding !== false : true
@@ -263,9 +344,16 @@ export async function buildComposedEmail(
 
   return {
     html,
-    // The template's own subject wins only when the sender left theirs empty.
-    subject: replaceMergeTags(opts.subject?.trim() || t?.subject || '', data),
+    // The template's own subject wins only when the sender left theirs empty,
+    // and an invoice names itself if neither did.
+    subject: replaceMergeTags(
+      opts.subject?.trim() ||
+        t?.subject ||
+        (parts.payment ? `Invoice ${parts.payment.invoiceNumber}` : ''),
+      data,
+    ),
     usedTemplate: t?.name ?? null,
     usedBrochure: b?.title ?? null,
+    usedInvoice: parts.payment?.invoiceNumber ?? null,
   }
 }

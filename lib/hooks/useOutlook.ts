@@ -90,6 +90,8 @@ export function useSendOutlookMail() {
       brochureId?: string | null
       /** contentBytes is base64; the route enforces the size ceiling. */
       attachments?: { name: string; contentType: string; contentBytes: string }[]
+      /** The route mints the Stripe link and marks the invoice sent. */
+      invoiceId?: string | null
     }) => {
       const res = await fetch('/api/outlook/send', {
         method: 'POST',
@@ -103,6 +105,7 @@ export function useSendOutlookMail() {
         conversationId: string | null
         usedTemplate: string | null
         usedBrochure: string | null
+        usedInvoice: string | null
         contact: { id: string; name: string; hasDeal: boolean } | null
       }
     },

@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { BookOpen, FileText, Loader2, Search, X } from 'lucide-react'
+import { BookOpen, CreditCard, FileText, Loader2, Search, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { createClient as createSupabase } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useTemplates } from '@/lib/hooks/useTemplates'
 import { useBrochures } from '@/lib/hooks/useWebsiteBrochures'
@@ -196,4 +198,98 @@ export function AttachedChip({
   )
 }
 
-export { BookOpen, FileText }
+export { BookOpen, CreditCard, FileText }
+
+/**
+ * Unpaid invoices for the person being written to.
+ *
+ * Scoped to that contact on purpose: an invoice belongs to somebody, and a
+ * list of every invoice in the business is a list of ways to email the wrong
+ * parent a demand for money.
+ */
+export function InvoicePicker({
+  contactId,
+  onPick,
+  onClose,
+}: {
+  contactId: string | null
+  onPick: (picked: Picked) => void
+  onClose: () => void
+}) {
+  const { data: invoices = [], isLoading } = useQuery({
+    queryKey: ['compose-invoices', contactId],
+    enabled: !!contactId,
+    queryFn: async () => {
+      const { data, error } = await createSupabase()
+        .from('invoices')
+        .select('id, invoice_number, description, amount, currency, status, due_date')
+        .eq('contact_id', contactId)
+        .not('status', 'in', '(paid,cancelled)')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as {
+        id: string
+        invoice_number: string
+        description: string | null
+        amount: number
+        currency: string | null
+        status: string
+        due_date: string | null
+      }[]
+    },
+  })
+
+  const money = (amount: number, currency: string | null) =>
+    new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: (currency || 'GBP').toUpperCase(),
+      minimumFractionDigits: 0,
+    }).format(amount)
+
+  return (
+    <Panel title="Attach an invoice to pay" onClose={onClose}>
+      {!contactId ? (
+        <p className="px-3 py-4 text-xs text-slate-500">
+          Choose who you are writing to first — invoices belong to a contact.
+        </p>
+      ) : isLoading ? (
+        <p className="flex items-center gap-2 px-3 py-4 text-xs text-slate-500">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading invoices…
+        </p>
+      ) : invoices.length === 0 ? (
+        <p className="px-3 py-4 text-xs text-slate-500">
+          Nothing outstanding for this contact.
+        </p>
+      ) : (
+        <>
+          {invoices.map((inv) => (
+            <button
+              key={inv.id}
+              onClick={() => onPick({ id: inv.id, name: `${inv.invoice_number} · ${money(inv.amount, inv.currency)}` })}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-800"
+            >
+              <CreditCard className="h-4 w-4 shrink-0 text-slate-500" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-slate-100">
+                  {inv.invoice_number} · {money(inv.amount, inv.currency)}
+                </p>
+                <p className="truncate text-[11px] text-slate-500">
+                  {inv.description || 'No description'}
+                  {inv.due_date ? ` · due ${new Date(inv.due_date).toLocaleDateString('en-GB')}` : ''}
+                </p>
+              </div>
+              {inv.status === 'overdue' && (
+                <span className="shrink-0 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-300">
+                  Overdue
+                </span>
+              )}
+            </button>
+          ))}
+          <p className="border-t border-slate-800 px-3 py-2 text-[11px] text-slate-500">
+            A Pay button is added to the message. Paying marks the invoice paid and moves the deal.
+          </p>
+        </>
+      )}
+    </Panel>
+  )
+}

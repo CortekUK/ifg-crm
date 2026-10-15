@@ -7,6 +7,9 @@ import { escapeLikeWildcards } from '@/lib/email/classify'
 import { tidyNameFromEmail } from '@/lib/utils/smartMatch'
 import { getBrandingSlots } from '@/lib/templates/branding-server'
 import { buildComposedEmail } from '@/lib/outlook/compose-html'
+import {
+  createInvoicePaymentLink, markInvoiceSent, InvoicePaymentError,
+} from '@/lib/invoices/payment-link'
 
 export const runtime = 'nodejs'
 
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
     templateId?: string | null
     brochureId?: string | null
     attachments?: { name?: string; contentType?: string; contentBytes?: string }[]
+    invoiceId?: string | null
   }
   try {
     body = await request.json()
@@ -62,7 +66,7 @@ export async function POST(request: NextRequest) {
   if (!subject && !body.templateId) {
     return NextResponse.json({ error: 'A subject is required.' }, { status: 400 })
   }
-  if (!content?.trim() && !body.templateId && !body.brochureId && !body.attachments?.length) {
+  if (!content?.trim() && !body.templateId && !body.brochureId && !body.attachments?.length && !body.invoiceId) {
     return NextResponse.json({ error: 'The message is empty.' }, { status: 400 })
   }
 
@@ -147,6 +151,14 @@ export async function POST(request: NextRequest) {
 
     const contactId = (contact as { id: string } | null)?.id ?? null
 
+    // Minted before the message is built, so a Stripe failure stops the send
+    // rather than producing an email with a dead Pay button. The session is
+    // harmless if the send then fails — it simply expires unused, and the
+    // invoice is only marked sent once the mail has actually gone.
+    const payment = body.invoiceId
+      ? await createInvoicePaymentLink(service, body.invoiceId)
+      : null
+
     // Through the same branding and the same block renderer every campaign
     // uses, so a message sent from the mailbox is indistinguishable from one
     // sent from a campaign.
@@ -156,7 +168,19 @@ export async function POST(request: NextRequest) {
       origin: request.nextUrl.origin,
       subject: subject ?? '',
       slots: await getBrandingSlots(),
-      parts: { note: content, templateId: body.templateId, brochureId: body.brochureId },
+      parts: {
+        note: content,
+        templateId: body.templateId,
+        brochureId: body.brochureId,
+        payment: payment && {
+          payUrl: payment.payUrl,
+          invoiceNumber: payment.invoiceNumber,
+          description: payment.description,
+          amount: payment.amount,
+          currency: payment.currency,
+          dueDate: payment.dueDate,
+        },
+      },
     })
 
     if (!composed.subject.trim()) {
@@ -170,6 +194,10 @@ export async function POST(request: NextRequest) {
       cc: body.cc,
       attachments,
     })
+
+    // Only now: the mail has gone. Flipping the invoice before the send would
+    // mark it sent on an email that failed.
+    if (payment) await markInvoiceSent(service, payment)
 
     let hasDeal = false
     if (contact) {
@@ -188,6 +216,7 @@ export async function POST(request: NextRequest) {
       conversationId: result.conversationId,
       usedTemplate: composed.usedTemplate,
       usedBrochure: composed.usedBrochure,
+      usedInvoice: composed.usedInvoice,
       contact: contact
         ? {
             id: (contact as { id: string }).id,
@@ -197,6 +226,9 @@ export async function POST(request: NextRequest) {
         : null,
     })
   } catch (err) {
+    if (err instanceof InvoicePaymentError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
     if (err instanceof OutlookReconnectRequired) {
       return NextResponse.json(
         { error: 'Your Outlook connection needs reconnecting.', reconnect: true },

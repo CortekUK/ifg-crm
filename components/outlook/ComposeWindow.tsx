@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { BookOpen, FileText, Loader2, Maximize2, Minus, Paperclip, Send, UserPlus, X } from 'lucide-react'
+import { BookOpen, CreditCard, FileText, Loader2, Maximize2, Minus, Paperclip, Send, UserPlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/hooks/use-toast'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
@@ -17,7 +17,7 @@ import { usePipelines } from '@/lib/hooks/usePipelines'
 import { useContactDealSummary } from '@/lib/hooks/useContactDealSummary'
 import { useSendOutlookMail } from '@/lib/hooks/useOutlook'
 import {
-  AttachedChip, BrochurePicker, TemplatePicker, type Picked,
+  AttachedChip, BrochurePicker, InvoicePicker, TemplatePicker, type Picked,
 } from '@/components/outlook/ComposeAttach'
 import type { Contact } from '@/lib/types/contacts'
 
@@ -95,7 +95,8 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
   const [pipelineId, setPipelineId] = useState('none')
   const [template, setTemplate] = useState<Picked | null>(null)
   const [brochure, setBrochure] = useState<Picked | null>(null)
-  const [picker, setPicker] = useState<'template' | 'brochure' | null>(null)
+  const [invoice, setInvoice] = useState<Picked | null>(null)
+  const [picker, setPicker] = useState<'template' | 'brochure' | 'invoice' | null>(null)
   const [files, setFiles] = useState<{ name: string; type: string; size: number; bytes: string }[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const [highlighted, setHighlighted] = useState(0)
@@ -209,6 +210,10 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
           body,
           templateId: template?.id ?? null,
           brochureId: brochure?.id ?? null,
+          // An invoice belongs to one person, so it goes to the first
+          // recipient only — nine people must not each get a Pay button for
+          // the same invoice.
+          invoiceId: r === recipients[0] ? invoice?.id ?? null : null,
           attachments: files.map((f) => ({
             name: f.name,
             contentType: f.type,
@@ -400,13 +405,16 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
 
         {/* What is going out besides what was typed. Shown above the toolbar
             so it is still in view at the moment Send is pressed. */}
-        {(template || brochure || files.length > 0) && (
+        {(template || brochure || invoice || files.length > 0) && (
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-800 px-4 py-2">
             {template && (
               <AttachedChip icon={FileText} label={template.name} onRemove={() => setTemplate(null)} />
             )}
             {brochure && (
               <AttachedChip icon={BookOpen} label={brochure.name} onRemove={() => setBrochure(null)} />
+            )}
+            {invoice && (
+              <AttachedChip icon={CreditCard} label={invoice.name} onRemove={() => setInvoice(null)} />
             )}
             {files.map((f, i) => (
               <AttachedChip
@@ -457,13 +465,20 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
               onPick={(picked) => { setBrochure(picked); setPicker(null) }}
             />
           )}
+          {picker === 'invoice' && (
+            <InvoicePicker
+              contactId={recipients[0]?.isNew ? null : recipients[0]?.id ?? null}
+              onClose={() => setPicker(null)}
+              onPick={(picked) => { setInvoice(picked); setPicker(null) }}
+            />
+          )}
 
           {/* The send route refuses an empty subject, so stopping here is
               clearer than one failed toast per recipient. A template brings
               its own subject, so it lifts that requirement. */}
           <Button
             onClick={send}
-            disabled={!recipients.length || (!subject.trim() && !template) || sendMail.isPending}
+            disabled={!recipients.length || (!subject.trim() && !template && !invoice) || sendMail.isPending}
           >
             {sendMail.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
             Send
@@ -507,6 +522,16 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
           >
             <Paperclip className="mr-1.5 h-4 w-4" />
             Attach
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-slate-400 hover:text-slate-100"
+            onClick={() => setPicker((p) => (p === 'invoice' ? null : 'invoice'))}
+          >
+            <CreditCard className="mr-1.5 h-4 w-4" />
+            Invoice
           </Button>
 
           <span className="ml-auto text-xs text-slate-500">
