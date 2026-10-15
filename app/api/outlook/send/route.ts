@@ -5,6 +5,9 @@ import { sendNewMessage } from '@/lib/outlook/send'
 import { OutlookReconnectRequired } from '@/lib/outlook/graph'
 import { escapeLikeWildcards } from '@/lib/email/classify'
 import { tidyNameFromEmail } from '@/lib/utils/smartMatch'
+import { getBrandingSlots } from '@/lib/templates/branding-server'
+import { replaceMergeTags } from '@/lib/utils/merge-tags-core'
+import { brandedDocument, composeMergeData, textToParagraphs } from '@/lib/outlook/compose-html'
 
 export const runtime = 'nodejs'
 
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not permitted' }, { status: 403 })
   }
 
-  let body: { to?: string; subject?: string; body?: string; cc?: string[] }
+  let body: { to?: string; subject?: string; body?: string; cc?: string[]; html?: boolean }
   try {
     body = await request.json()
   } catch {
@@ -54,16 +57,10 @@ export async function POST(request: NextRequest) {
   if (!service) return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
 
   try {
-    const result = await sendNewMessage(service, user.id, {
-      to,
-      subject,
-      body: content,
-      cc: body.cc,
-    })
-
-    // Look the recipient up so the UI can offer Smart Deal. Read through the
-    // service client: the answer is about whether a deal EXISTS, and must not
-    // vary with what this user happens to be allowed to see.
+    // The recipient is resolved BEFORE the message is built, not after. The
+    // branded signature and the unsubscribe link are personalised from this
+    // contact, and you cannot personalise an email with somebody you look up
+    // once it has already gone.
     let { data: contact } = await service
       .from('contacts')
       .select('id, first_name, last_name')
@@ -98,14 +95,34 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       if (createError) {
-        // The mail has already gone. Report the send as the success it is and
-        // let the screen carry on without the deal prompt, rather than failing
-        // the whole call over a contact row.
+        // Not fatal, and deliberately so: the message is still worth sending.
+        // It goes out with the merge tags falling back to their defaults and
+        // no unsubscribe link, rather than not going at all.
         console.error('outlook send: could not create contact for', to, createError.message)
       } else {
         contact = created
       }
     }
+
+    const contactId = (contact as { id: string } | null)?.id ?? null
+
+    // Through the same branding every campaign and template test uses. The
+    // body may already be HTML — that is the template path — or plain text
+    // from the compose box, which becomes paragraphs.
+    const [slots, mergeData] = await Promise.all([
+      getBrandingSlots(),
+      composeMergeData(service, user.id, contactId, request.nextUrl.origin),
+    ])
+    const inner = body.html ? content : textToParagraphs(content)
+    const html = brandedDocument(inner, slots, mergeData)
+    const renderedSubject = replaceMergeTags(subject, mergeData)
+
+    const result = await sendNewMessage(service, user.id, {
+      to,
+      subject: renderedSubject,
+      body: html,
+      cc: body.cc,
+    })
 
     let hasDeal = false
     if (contact) {

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getServiceClient } from '@/lib/outlook/credentials'
 import { replyToMessage } from '@/lib/outlook/send'
 import { OutlookReconnectRequired } from '@/lib/outlook/graph'
+import { getBrandingSlots } from '@/lib/templates/branding-server'
+import { brandedReplyFragment, composeMergeData, textToParagraphs } from '@/lib/outlook/compose-html'
 
 export const runtime = 'nodejs'
 
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const { data: reply } = await service
     .from('email_replies')
-    .select('id, graph_message_id, mailbox_user_id, source')
+    .select('id, graph_message_id, mailbox_user_id, source, contact_id')
     .eq('id', body.replyId)
     .maybeSingle()
 
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
     graph_message_id: string | null
     mailbox_user_id: string | null
     source: string
+    contact_id: string | null
   }
 
   // Ownership is checked here, server-side, and not inferred from RLS: this
@@ -66,9 +69,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // A fragment, not a document: Graph builds the reply itself and puts the
+    // quoted history underneath, so a full <html> document would nest one
+    // inside another. Signature and legal strip, no masthead — a masthead
+    // repeated on every message of a back-and-forth is what makes a real
+    // conversation look automated.
+    const [slots, mergeData] = await Promise.all([
+      getBrandingSlots(),
+      composeMergeData(service, user.id, row.contact_id, request.nextUrl.origin),
+    ])
+    const html = brandedReplyFragment(textToParagraphs(body.body), slots, mergeData)
+
     const result = await replyToMessage(service, user.id, {
       graphMessageId: row.graph_message_id,
-      body: body.body,
+      body: html,
       replyAll: body.replyAll,
     })
 
