@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Loader2, Maximize2, Minus, Paperclip, Send, X } from 'lucide-react'
+import { Loader2, Maximize2, Minus, Paperclip, Send, UserPlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/hooks/use-toast'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
@@ -46,15 +46,46 @@ function Highlight({ text, term }: { text: string; term: string }) {
 /**
  * Compose, as a Gmail window in the corner.
  *
- * The To field takes CONTACTS ONLY. That is a deliberate restriction, not an
- * omission: every message sent from here is meant to end up on somebody's
- * record, and an address typed free-hand has nothing to attach to. A raw
- * address is refused with a message rather than silently accepted.
+ * The To field prefers contacts and suggests them as you type, but it does
+ * take an address nobody has met yet — cold outreach is most of what a
+ * recruiter does, and the send route creates the contact at the moment the
+ * message goes, so nothing lands on nobody's record. Refusing the address
+ * outright, as this used to, blocked the case the feature was built for.
  */
+
+/** Someone in the To field: an existing contact, or an address typed in. */
+interface Recipient {
+  id: string
+  email: string
+  name: string
+  /** True until the send route creates the contact row. */
+  isNew: boolean
+}
+
+function recipientFromContact(contact: Contact): Recipient {
+  return {
+    id: contact.id,
+    email: contact.email as string,
+    name: `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || (contact.email as string),
+    isNew: false,
+  }
+}
+
+function initialsOf(recipient: Recipient): string {
+  return (
+    recipient.name
+      .split(/[\s@.]/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join('') || '?'
+  )
+}
+
 export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: ComposeWindowProps) {
   const [minimised, setMinimised] = useState(false)
   const [maximised, setMaximised] = useState(false)
-  const [recipients, setRecipients] = useState<Contact[]>([])
+  const [recipients, setRecipients] = useState<Recipient[]>([])
   const [term, setTerm] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -68,26 +99,45 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
   const sendMail = useSendOutlookMail()
 
   const options = useMemo(() => {
-    const chosen = new Set(recipients.map((r) => r.id))
-    return found.filter((c) => !!c.email && !chosen.has(c.id)).slice(0, 6)
+    // Matched on address, not id: a typed address and the contact who owns it
+    // are the same person, and would otherwise both sit in the field.
+    const chosen = new Set(recipients.map((r) => r.email.toLowerCase()))
+    return found
+      .filter((c) => !!c.email && !chosen.has((c.email as string).toLowerCase()))
+      .slice(0, 6)
   }, [found, recipients])
   const { data: summaries = {} } = useContactDealSummary(options.map((o) => o.id))
 
-  const looksLikeEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(term.trim())
-  const noContactForTyped = looksLikeEmail && options.length === 0
+  const typed = term.trim().toLowerCase()
+  const looksLikeEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typed)
+  const alreadyAdded = recipients.some((r) => r.email.toLowerCase() === typed)
+  // Offer the typed address only when the search has not already turned up the
+  // contact who owns it — picking the contact is always the better answer.
+  const offerTyped =
+    looksLikeEmail &&
+    !alreadyAdded &&
+    !found.some((c) => (c.email as string | null)?.toLowerCase() === typed)
 
-  const add = (contact: Contact) => {
-    setRecipients((prev) => [...prev, contact])
+  const add = (recipient: Recipient) => {
+    setRecipients((prev) => [...prev, recipient])
     setTerm('')
     setHighlighted(0)
     inputRef.current?.focus()
   }
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, options.length - 1)) }
+    // The typed address sits below the suggestions, so it is one row further
+    // than options.length would suggest.
+    const lastRow = options.length - 1 + (offerTyped ? 1 : 0)
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, lastRow)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)) }
-    else if (e.key === 'Enter' && options[highlighted]) { e.preventDefault(); add(options[highlighted]) }
-    else if (e.key === 'Backspace' && !term && recipients.length) {
+    else if (e.key === 'Enter' && options[highlighted]) {
+      e.preventDefault()
+      add(recipientFromContact(options[highlighted]))
+    } else if (e.key === 'Enter' && offerTyped) {
+      e.preventDefault()
+      add({ id: `new:${typed}`, email: typed, name: typed, isNew: true })
+    } else if (e.key === 'Backspace' && !term && recipients.length) {
       setRecipients((prev) => prev.slice(0, -1))
     }
   }
@@ -101,7 +151,7 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
 
     for (const r of recipients) {
       try {
-        const result = await sendMail.mutateAsync({ to: r.email as string, subject, body })
+        const result = await sendMail.mutateAsync({ to: r.email, subject, body })
         sent++
         if (!opportunity && result.contact && !result.contact.hasDeal) {
           opportunity = { id: result.contact.id, name: result.contact.name }
@@ -169,13 +219,22 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
             <span className="mt-1.5 w-16 shrink-0 text-sm text-slate-500">To</span>
             <div className="flex min-h-[32px] flex-1 flex-wrap items-center gap-1.5">
               {recipients.map((r) => (
-                <span key={r.id} className="flex items-center gap-1.5 rounded-full bg-slate-800 py-0.5 pl-1 pr-2 text-sm">
+                <span
+                  key={r.id}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2 text-sm',
+                    r.isNew ? 'bg-amber-500/15 ring-1 ring-amber-500/30' : 'bg-slate-800',
+                  )}
+                >
                   <Avatar className="h-5 w-5">
-                    <AvatarFallback className="bg-blue-600 text-[9px] text-white">
-                      {`${r.first_name?.[0] ?? ''}${r.last_name?.[0] ?? ''}`.toUpperCase() || '?'}
+                    <AvatarFallback className={cn('text-[9px] text-white', r.isNew ? 'bg-amber-600' : 'bg-blue-600')}>
+                      {initialsOf(r)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-slate-200">{`${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || r.email}</span>
+                  <span className="text-slate-200">{r.name}</span>
+                  {/* Said on the chip, not just once in the dropdown — by the
+                      time you press Send the dropdown is long gone. */}
+                  {r.isNew && <span className="text-[10px] text-amber-300">new contact</span>}
                   <button
                     onClick={() => setRecipients((prev) => prev.filter((x) => x.id !== r.id))}
                     className="text-slate-500 hover:text-slate-200"
@@ -190,7 +249,7 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
                 value={term}
                 onChange={(e) => { setTerm(e.target.value); setHighlighted(0) }}
                 onKeyDown={onKeyDown}
-                placeholder={recipients.length ? '' : 'Search contacts by name or email'}
+                placeholder={recipients.length ? '' : 'Search contacts, or type an email address'}
                 className="min-w-[180px] flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
               />
             </div>
@@ -204,7 +263,7 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
                   <button
                     key={c.id}
                     onMouseEnter={() => setHighlighted(i)}
-                    onClick={() => add(c)}
+                    onClick={() => add(recipientFromContact(c))}
                     className={cn('flex w-full items-center gap-2.5 px-3 py-2 text-left', i === highlighted && 'bg-slate-800')}
                   >
                     <Avatar className="h-7 w-7 shrink-0">
@@ -228,15 +287,35 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
                 )
               })}
 
-              {/* Refused, with the reason. Silently accepting it would send a
-                  message that lands on nobody's record. */}
-              {noContactForTyped && (
-                <p className="px-3 py-2 text-xs text-amber-300">
-                  {term.trim()} isn&apos;t in Contacts. You can only email people saved in the CRM.
-                </p>
+              {/* Accepted, with what it will do said plainly. The send route
+                  creates the contact as the message goes, so the reply has
+                  something to match against when it comes back. */}
+              {offerTyped && (
+                <button
+                  onMouseEnter={() => setHighlighted(options.length)}
+                  onClick={() => add({ id: `new:${typed}`, email: typed, name: typed, isNew: true })}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 px-3 py-2 text-left',
+                    highlighted >= options.length && 'bg-slate-800',
+                  )}
+                >
+                  <Avatar className="h-7 w-7 shrink-0">
+                    <AvatarFallback className="bg-amber-600 text-[10px] text-white">
+                      <UserPlus className="h-3.5 w-3.5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-slate-100">{typed}</p>
+                    <p className="truncate text-[11px] text-amber-300">
+                      Not in Contacts — will be added when you send
+                    </p>
+                  </div>
+                </button>
               )}
-              {!options.length && !noContactForTyped && (
-                <p className="px-3 py-2 text-xs text-slate-500">No contact found.</p>
+              {!options.length && !offerTyped && (
+                <p className="px-3 py-2 text-xs text-slate-500">
+                  {looksLikeEmail && alreadyAdded ? 'Already added.' : 'No contact found.'}
+                </p>
               )}
             </div>
           )}
@@ -271,7 +350,9 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
         </div>
 
         <div className="flex items-center gap-3 border-t border-slate-800 px-4 py-3">
-          <Button onClick={send} disabled={!recipients.length || sendMail.isPending}>
+          {/* The send route refuses an empty subject, so stopping here is
+              clearer than one failed toast per recipient. */}
+          <Button onClick={send} disabled={!recipients.length || !subject.trim() || sendMail.isPending}>
             {sendMail.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
             Send
           </Button>
