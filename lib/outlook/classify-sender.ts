@@ -82,6 +82,28 @@ export type MailFolder = 'inbox' | 'waiting' | 'unmatched' | 'matched' | 'sent'
  */
 export const HIDDEN_CATEGORIES: SenderKind[] = ['internal']
 
+/**
+ * Who a conversation is with, as a filter across the mixed folders.
+ *
+ * The Inbox is everything that arrived, which means GoDaddy security alerts
+ * and booking confirmations sit between a parent's reply and a player's
+ * question. "CRM contacts" is the default because that is what this mailbox
+ * is for; the other two are there for the times you are looking for the
+ * booking confirmation on purpose.
+ */
+export type MailAudience = 'crm' | 'unmatched' | 'all'
+
+export const AUDIENCE_CATEGORIES: Record<Exclude<MailAudience, 'all'>, SenderKind[]> = {
+  crm: ['player', 'parent', 'secondary'],
+  unmatched: ['unknown', 'external'],
+}
+
+/** Folders that already answer the question, so the filter would be noise. */
+export const AUDIENCE_FIXED: Partial<Record<MailFolder, MailAudience>> = {
+  unmatched: 'unmatched',
+  matched: 'crm',
+}
+
 export const FOLDER_CATEGORIES: Record<'unmatched' | 'matched', SenderKind[]> = {
   // 'external' is deliberately absent. Marking a sender external is how you
   // say "this is not a contact, stop asking" — putting it back in the queue

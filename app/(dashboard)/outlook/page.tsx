@@ -15,7 +15,7 @@ import {
   useMailThreads, useFolderCounts, useMailboxOwners,
   type MailThread, type MailboxScope,
 } from '@/lib/hooks/useMailbox'
-import type { MailFolder } from '@/lib/outlook/classify-sender'
+import { AUDIENCE_FIXED, type MailAudience, type MailFolder } from '@/lib/outlook/classify-sender'
 import { OutlookBanner } from '@/components/outlook/OutlookBanner'
 import { useOutlookStatus } from '@/lib/hooks/useOutlook'
 import { toast } from '@/lib/hooks/use-toast'
@@ -28,12 +28,24 @@ import { usePrefetchSuggestions } from '@/lib/hooks/useSuggestions'
 import { ComposeWindow } from '@/components/outlook/ComposeWindow'
 import { ComposeDealPrompt } from '@/components/outlook/ComposeDealPrompt'
 
-const INTENTS = [
-  { id: 'all', label: 'All intents' },
-  { id: 'positive', label: 'Positive' },
-  { id: 'question', label: 'Question' },
-  { id: 'negative', label: 'Negative' },
-  { id: 'neutral', label: 'Neutral' },
+/**
+ * The intent filters, each carrying the colour its rows are tagged with, so
+ * the chip you press and the label you then see are the same colour. They were
+ * all the same blue, which made the filter and the rows look unrelated.
+ */
+const INTENTS: { id: string; label: string; on: string }[] = [
+  { id: 'all', label: 'All intents', on: 'bg-blue-600 text-white' },
+  { id: 'positive', label: 'Positive', on: 'bg-green-500/25 text-green-200 ring-1 ring-green-500/40' },
+  { id: 'question', label: 'Question', on: 'bg-violet-500/25 text-violet-200 ring-1 ring-violet-500/40' },
+  { id: 'negative', label: 'Negative', on: 'bg-red-500/25 text-red-200 ring-1 ring-red-500/40' },
+  { id: 'neutral', label: 'Neutral', on: 'bg-slate-500/30 text-slate-200 ring-1 ring-slate-400/40' },
+]
+
+/** Who the conversation is with. CRM contacts by default — see MailAudience. */
+const AUDIENCES: { id: MailAudience; label: string; hint: string }[] = [
+  { id: 'crm', label: 'CRM contacts', hint: 'Players, parents and their other addresses' },
+  { id: 'unmatched', label: 'Outside the CRM', hint: 'Addresses not linked to a contact' },
+  { id: 'all', label: 'Everything', hint: 'Both' },
 ]
 
 const FOLDER_COPY: Record<MailFolder, { title: string; blurb: string; empty: string; hint: string }> = {
@@ -85,6 +97,9 @@ export default function OutlookPage() {
   const scope: MailboxScope = isAdmin ? adminScope : 'mine'
   const setScope = setAdminScope
   const [intent, setIntent] = useState('all')
+  // CRM contacts by default: the Inbox is for conversations with people, not
+  // for GoDaddy security alerts sitting between a parent and a player.
+  const [audience, setAudience] = useState<MailAudience>('crm')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
   const [openThread, setOpenThread] = useState<MailThread | null>(null)
@@ -109,8 +124,8 @@ export default function OutlookPage() {
   const { data: owners = [] } = useMailboxOwners(!!isAdmin)
   const recruiterIds = useMemo(() => owners.filter((o) => o.role === 'recruiter').map((o) => o.id), [owners])
 
-  const threadsQuery = useMailThreads({ folder, scope, myUserId: userId, recruiterIds, intent, search: debouncedSearch })
-  const { data: counts = {} } = useFolderCounts({ scope, myUserId: userId, recruiterIds })
+  const threadsQuery = useMailThreads({ folder, scope, myUserId: userId, recruiterIds, intent, search: debouncedSearch, audience })
+  const { data: counts = {} } = useFolderCounts({ scope, myUserId: userId, recruiterIds, audience })
 
   const threads = useMemo(
     () => threadsQuery.data?.pages.flatMap((p) => p.threads) ?? [],
@@ -271,7 +286,32 @@ export default function OutlookPage() {
                 </div>
                 <p className="mt-0.5 text-sm text-slate-500">{copy.blurb}</p>
 
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {/* Hidden where the folder already answers it — filtering
+                      Contacts down to "outside the CRM" is always empty. */}
+                  {!AUDIENCE_FIXED[folder] && (
+                    <>
+                      <div className="flex rounded-full border border-slate-700 p-0.5">
+                        {AUDIENCES.map((a) => (
+                          <button
+                            key={a.id}
+                            onClick={() => setAudience(a.id)}
+                            title={a.hint}
+                            className={cn(
+                              'rounded-full px-3 py-1 text-xs transition-colors',
+                              audience === a.id
+                                ? 'bg-slate-700 font-medium text-white'
+                                : 'text-slate-400 hover:text-slate-200',
+                            )}
+                          >
+                            {a.label}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="mx-1 h-5 w-px bg-slate-800" />
+                    </>
+                  )}
+
                   {INTENTS.map((i) => (
                     <button
                       key={i.id}
@@ -279,7 +319,7 @@ export default function OutlookPage() {
                       className={cn(
                         'rounded-full px-3 py-1 text-xs transition-colors',
                         intent === i.id
-                          ? 'bg-blue-600 font-medium text-white'
+                          ? `font-medium ${i.on}`
                           : 'border border-slate-700 text-slate-400 hover:bg-slate-800',
                       )}
                     >

@@ -33,16 +33,34 @@ interface MailListProps {
  */
 
 /**
- * Intent, as a dot rather than a word.
+ * Intent, in the same colours as the filter chips above the list.
  *
- * The classifier's answer is a hint, not a headline. A coloured dot before
- * the sender reads at a glance and costs no horizontal room; the word is in
- * the title attribute for anyone who wants it.
+ * A dot alone could not say which of four answers it was, and never showed
+ * Neutral at all — so the Neutral filter existed with nothing visibly neutral
+ * to find. A short word in the classifier's colour reads at a glance and is
+ * still only one tag.
  */
-const INTENT_DOT: Record<string, { tone: string; label: string }> = {
-  positive: { tone: 'bg-green-400', label: 'Positive reply' },
-  question: { tone: 'bg-violet-400', label: 'They asked something' },
-  negative: { tone: 'bg-red-400', label: 'Negative reply' },
+const INTENT: Record<string, { tone: string; label: string; title: string }> = {
+  positive: {
+    tone: 'bg-green-500/15 text-green-300',
+    label: 'Positive',
+    title: 'Reads as a positive reply',
+  },
+  question: {
+    tone: 'bg-violet-500/15 text-violet-300',
+    label: 'Question',
+    title: 'They asked something',
+  },
+  negative: {
+    tone: 'bg-red-500/15 text-red-300',
+    label: 'Negative',
+    title: 'Reads as a negative reply',
+  },
+  neutral: {
+    tone: 'bg-slate-500/20 text-slate-300',
+    label: 'Neutral',
+    title: 'No strong signal either way',
+  },
 }
 
 /**
@@ -65,15 +83,23 @@ function participantLine(thread: MailThread): { text: string; count: number | nu
   }
 }
 
-function timeLabel(iso: string | null): string {
-  if (!iso) return ''
+/**
+ * Date AND time, always. A weekday on its own ("Tue") cannot be compared with
+ * anything — two replies on the same Tuesday are indistinguishable, and which
+ * came first is exactly what you want to know when catching up.
+ */
+function timeLabel(iso: string | null): { top: string; bottom: string } {
+  if (!iso) return { top: '', bottom: '' }
   const d = new Date(iso)
   const now = new Date()
-  const sameDay = d.toDateString() === now.toDateString()
-  if (sameDay) return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  const days = (now.getTime() - d.getTime()) / 86_400_000
-  if (days < 7) return d.toLocaleDateString('en-GB', { weekday: 'short' })
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === now.toDateString()) return { top: 'Today', bottom: time }
+  const sameYear = d.getFullYear() === now.getFullYear()
+  return {
+    top: d.toLocaleDateString('en-GB',
+      sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: '2-digit' }),
+    bottom: time,
+  }
 }
 
 export function MailList({
@@ -106,7 +132,8 @@ export function MailList({
         const unread = thread.unread_count > 0
         const { text, count } = participantLine(thread)
         const categoryTag = senderLabel(thread.category)
-        const intent = thread.latest_intent ? INTENT_DOT[thread.latest_intent] : null
+        const intent = thread.latest_intent ? INTENT[thread.latest_intent] : null
+        const when = timeLabel(thread.last_message_at)
         // A thread whose newest message came in is one you owe an answer.
         const awaitingReply = thread.last_message_direction === 'inbound'
         const initials =
@@ -127,16 +154,11 @@ export function MailList({
                 unread ? 'bg-slate-900/50 hover:bg-slate-800/60' : 'hover:bg-slate-900/40',
               )}
             >
-              {/* One dot, two jobs: unread is blue, and the classifier's
-                  read on the message tints it instead when there is one.
-                  Previously that was a second coloured pill competing with
-                  the category pill for the same glance. */}
+              {/* Unread, and only unread. Sharing this dot with the intent
+                  meant neither could be read with any confidence. */}
               <span
-                title={intent ? intent.label : unread ? 'Unread' : ''}
-                className={cn(
-                  'h-1.5 w-1.5 shrink-0 rounded-full',
-                  intent ? intent.tone : unread ? 'bg-blue-400' : 'bg-transparent',
-                )}
+                title={unread ? 'Unread' : ''}
+                className={cn('h-1.5 w-1.5 shrink-0 rounded-full', unread ? 'bg-blue-400' : 'bg-transparent')}
               />
 
               <Avatar className="h-7 w-7 shrink-0">
@@ -170,6 +192,14 @@ export function MailList({
                     aria-label="Waiting on your reply"
                   />
                 )}
+                {intent && (
+                  <span
+                    title={intent.title}
+                    className={cn('whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-medium', intent.tone)}
+                  >
+                    {intent.label}
+                  </span>
+                )}
                 {categoryTag && (
                   <span className="whitespace-nowrap rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-300">
                     {categoryTag}
@@ -194,8 +224,15 @@ export function MailList({
                     Connect
                   </Button>
                 )}
-                <span className={cn('w-14 text-right text-[11px]', unread ? 'font-medium text-blue-300' : 'text-slate-500')}>
-                  {timeLabel(thread.last_message_at)}
+                <span
+                  className={cn(
+                    'w-16 shrink-0 text-right text-[11px] leading-tight tabular-nums',
+                    unread ? 'font-medium text-blue-300' : 'text-slate-500',
+                  )}
+                >
+                  {when.top}
+                  <br />
+                  <span className={unread ? 'text-blue-400/80' : 'text-slate-600'}>{when.bottom}</span>
                 </span>
               </div>
             </div>

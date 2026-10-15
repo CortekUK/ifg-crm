@@ -2,7 +2,10 @@
 
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { FOLDER_CATEGORIES, HIDDEN_CATEGORIES, type MailFolder, type SenderKind } from '@/lib/outlook/classify-sender'
+import {
+  AUDIENCE_CATEGORIES, AUDIENCE_FIXED, FOLDER_CATEGORIES, HIDDEN_CATEGORIES,
+  type MailAudience, type MailFolder, type SenderKind,
+} from '@/lib/outlook/classify-sender'
 
 /**
  * Data for the Outlook mailbox screen.
@@ -69,6 +72,23 @@ const FOLDER_FILTER: Record<MailFolder, (q: ReturnType<typeof baseQuery>) => Ret
  * showed the total, so the same folder read 30 in one place and 33 in the
  * other with nothing saying why.
  */
+/**
+ * Narrow a folder to who the conversation is with.
+ *
+ * A folder that already means one audience ignores it — filtering Contacts
+ * down to "unmatched" would always be empty, and offering that is worse than
+ * not offering it.
+ */
+function applyAudience<T extends { in: (c: string, v: unknown[]) => T }>(
+  query: T,
+  folder: MailFolder,
+  audience: MailAudience,
+): T {
+  const effective = AUDIENCE_FIXED[folder] ?? audience
+  if (effective === 'all') return query
+  return query.in('category', AUDIENCE_CATEGORIES[effective])
+}
+
 export const FOLDER_BADGE: Record<MailFolder, 'unread' | 'all' | 'none'> = {
   inbox: 'unread',
   waiting: 'all',
@@ -111,14 +131,17 @@ export function useMailThreads(params: {
   recruiterIds: string[]
   intent?: string
   search?: string
+  audience?: MailAudience
 }) {
-  const { folder, scope, myUserId, recruiterIds, intent = 'all', search = '' } = params
+  const {
+    folder, scope, myUserId, recruiterIds, intent = 'all', search = '', audience = 'crm',
+  } = params
 
   return useInfiniteQuery({
     // myUserId and the recruiter list are part of what the query asks for, so
     // they belong in the key. Without them a cached page survives the roster
     // arriving a moment later, and the list shows somebody else's mail.
-    queryKey: ['mail-threads', folder, scope, intent, search, myUserId, recruiterIds.join(',')],
+    queryKey: ['mail-threads', folder, scope, intent, search, audience, myUserId, recruiterIds.join(',')],
     enabled: !!myUserId,
     initialPageParam: 0,
     getNextPageParam: (last: { nextPage: number | null }) => last.nextPage,
@@ -129,6 +152,7 @@ export function useMailThreads(params: {
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
 
       query = FOLDER_FILTER[folder](query)
+      query = applyAudience(query, folder, audience)
       query = applyScope(query, scope, myUserId, recruiterIds)
       if (intent !== 'all') query = query.eq('latest_intent', intent)
 
@@ -179,11 +203,12 @@ export function useFolderCounts(params: {
   scope: MailboxScope
   myUserId: string
   recruiterIds: string[]
+  audience?: MailAudience
 }) {
-  const { scope, myUserId, recruiterIds } = params
+  const { scope, myUserId, recruiterIds, audience = 'crm' } = params
 
   return useQuery({
-    queryKey: ['mail-folder-counts', scope, myUserId, recruiterIds.join(',')],
+    queryKey: ['mail-folder-counts', scope, audience, myUserId, recruiterIds.join(',')],
     enabled: !!myUserId,
     queryFn: async () => {
       const folders: MailFolder[] = ['inbox', 'waiting', 'unmatched', 'matched', 'sent']
@@ -197,6 +222,7 @@ export function useFolderCounts(params: {
               .select('id', { count: 'exact', head: true })
               .not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`)
             q = FOLDER_FILTER[folder](q as never) as never
+            q = applyAudience(q as never, folder, audience) as never
             return applyScope(q as never, scope, myUserId, recruiterIds) as never as ReturnType<typeof baseQuery>
           }
 
