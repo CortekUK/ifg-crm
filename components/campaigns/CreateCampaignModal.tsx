@@ -110,6 +110,18 @@ function startOfToday(): Date {
   return d
 }
 
+/**
+ * "1 list", "2 lists". "1 list(s)" read like an unfinished form field.
+ *
+ * Goes through formatNumber because this also renders the recipient count,
+ * and the largest list in the CRM holds 181,663 contacts — "181663 contacts"
+ * is a number nobody can read at a glance, on the one dialog where the size
+ * of what you are about to send is the whole point.
+ */
+function plural(n: number, word: string): string {
+  return `${formatNumber(n)} ${word}${n === 1 ? '' : 's'}`
+}
+
 export function CreateCampaignModal({
   isOpen,
   onClose,
@@ -892,7 +904,10 @@ export function CreateCampaignModal({
       />
 
       <Dialog open={showSendConfirmation} onOpenChange={setShowSendConfirmation}>
-        <DialogContent className="sm:max-w-md">
+        {/* A little wider than the default: the subject line is the thing
+            you are checking before an irreversible send, and md clipped it
+            to a few words. */}
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Send this campaign now?</DialogTitle>
             <DialogDescription>
@@ -901,40 +916,40 @@ export function CreateCampaignModal({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* A label/value list. `truncate` was already on the values and
+                could never fire: a flex child only clips once it is allowed to
+                shrink below its content, which needs min-w-0 on the value and
+                shrink-0 on the label. Without both, a long subject ran
+                straight through the right-hand border of this box. The full
+                value is on `title` so nothing is actually lost. */}
             <div className="space-y-2 rounded-lg border p-4 text-sm">
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="text-muted-foreground">Campaign</span>
-                <span className="truncate font-medium">{name}</span>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="text-muted-foreground">Subject</span>
-                <span className="truncate font-medium">
-                  {selectedTemplate?.subject || '(none)'}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="text-muted-foreground">From</span>
-                <span className="truncate font-medium">
-                  {sendAsMember?.full_name || sendAsMember?.email || 'IFG Team'}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="text-muted-foreground">Recipients</span>
-                <span className="font-medium">
-                  {formatNumber(audienceCount)} contacts
-                </span>
-              </div>
+              {[
+                { label: 'Campaign', value: name },
+                { label: 'Subject', value: selectedTemplate?.subject || '(none)' },
+                {
+                  label: 'From',
+                  value: sendAsMember?.full_name || sendAsMember?.email || 'IFG Team',
+                },
+                { label: 'Recipients', value: plural(audienceCount, 'contact') },
+              ].map((row) => (
+                <div key={row.label} className="flex items-baseline justify-between gap-4">
+                  <span className="shrink-0 text-muted-foreground">{row.label}</span>
+                  <span className="min-w-0 truncate text-right font-medium" title={row.value}>
+                    {row.value}
+                  </span>
+                </div>
+              ))}
             </div>
 
             <div className="flex flex-wrap gap-1.5">
               {selectedLists.length > 0 && (
-                <Badge variant="secondary">{selectedLists.length} list(s)</Badge>
+                <Badge variant="secondary">{plural(selectedLists.length, 'list')}</Badge>
               )}
               {selectedTags.length > 0 && (
-                <Badge variant="secondary">{selectedTags.length} tag(s)</Badge>
+                <Badge variant="secondary">{plural(selectedTags.length, 'tag')}</Badge>
               )}
               {selectedStages.length > 0 && (
-                <Badge variant="secondary">{selectedStages.length} stage(s)</Badge>
+                <Badge variant="secondary">{plural(selectedStages.length, 'stage')}</Badge>
               )}
             </div>
           </div>
