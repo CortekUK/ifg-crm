@@ -373,6 +373,20 @@ backend = "postgres"
 # Public webhook endpoints — JWT verification must stay off so external
 # providers (Resend, Calendly, ClickSend, etc.) can deliver events. Each
 # function does its own signature/secret check inside the handler.
+# These three are invoked by Vercel crons and by the app's own API routes,
+# which do not present a Supabase user JWT. They were deployed with
+# verification off but were missing from this file, so a deploy that reads
+# its setting from here turned it on and broke campaign processing with a
+# 401. Recorded now so the file matches what actually runs.
+[functions.process-campaigns]
+verify_jwt = false
+
+[functions.process-automations]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
 [functions.resend-inbound]
 verify_jwt = false
 

@@ -33,10 +33,26 @@ if (!slugs.length) {
 
 const config = fs.readFileSync('supabase/config.toml', 'utf8')
 
-/** Supabase verifies the JWT unless config.toml turns it off for this slug. */
+/**
+ * Read verify_jwt from config.toml — and refuse to guess it.
+ *
+ * This used to default to true for a slug the file did not mention, which is
+ * Supabase's own default and still the wrong thing to do here: deploying
+ * process-campaigns, which was running with verification OFF but had no entry
+ * in the file, silently turned it ON and every cron invocation started coming
+ * back 401. A deploy must not change an auth setting as a side effect of an
+ * omission. Missing entry is now an error that says what to add.
+ */
 function verifyJwtFor(slug) {
   const section = config.split(`[functions.${slug}]`)[1]
-  if (!section) return true
+  if (!section) {
+    console.error(
+      `${slug}: no [functions.${slug}] section in supabase/config.toml.\n` +
+        `Add one with the verify_jwt this function actually runs with, e.g.\n\n` +
+        `  [functions.${slug}]\n  verify_jwt = false\n`,
+    )
+    process.exit(1)
+  }
   const next = section.split('\n[')[0]
   return !/verify_jwt\s*=\s*false/.test(next)
 }

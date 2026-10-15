@@ -661,7 +661,11 @@ export function CampaignDetailSheet({
                                     variant="outline"
                                     className={cn(
                                       'text-xs',
-                                      (send.status === 'sent' || send.status === 'delivered') && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+                                      // Green is for confirmed delivery only.
+                                      // 'sent' is neutral: handed to SES, no
+                                      // Delivery event back yet.
+                                      send.status === 'sent' && 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+                                      send.status === 'delivered' && 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
                                       send.status === 'opened' && 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
                                       send.status === 'clicked' && 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
                                       send.status === 'bounced' && 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
@@ -669,7 +673,11 @@ export function CampaignDetailSheet({
                                       send.status === 'pending' && 'bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800'
                                     )}
                                   >
-                                    {send.status === 'sent' ? 'Delivered' : send.status.charAt(0).toUpperCase() + send.status.slice(1)}
+                                    {/* 'sent' is shown as Sent. It used to be
+                                        relabelled "Delivered", which made a
+                                        campaign that never reached SES read as
+                                        34 green Delivered badges. */}
+                                    {send.status.charAt(0).toUpperCase() + send.status.slice(1)}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>

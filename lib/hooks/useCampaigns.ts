@@ -456,10 +456,21 @@ export function useCampaignStats(campaignId: string | null, isSending?: boolean)
       const total = sends.length
       // Count emails that were successfully sent
       const sent = sends.filter(s => ['sent', 'delivered', 'opened', 'clicked'].includes(s.status)).length
-      // Count delivered (sent = delivered for Resend, or explicit delivered_at)
+      // Delivered means the receiving server accepted it — NOT that we handed
+      // it to the provider.
+      //
+      // This used to count 'sent' as delivered, on the Resend-era reasoning in
+      // the comment it replaces. It is now a lie with consequences: a campaign
+      // that never reached SES at all reported "34 Sent, 34 Delivered" in
+      // green, so the one screen anyone would check to find out whether a send
+      // worked was the screen most confidently telling them it had.
+      //
+      // SES publishes a real Delivery event and the webhook writes
+      // delivered_at, so there is a true answer to show. A send still waiting
+      // on its event counts as sent and not yet delivered, which is correct —
+      // that IS what is known about it.
       const delivered = sends.filter(s =>
-        s.delivered_at !== null ||
-        ['sent', 'delivered', 'opened', 'clicked'].includes(s.status)
+        s.delivered_at !== null || ['delivered', 'opened', 'clicked'].includes(s.status)
       ).length
       const opened = sends.filter(s => s.opened_at !== null || s.status === 'opened' || s.status === 'clicked').length
       const clicked = sends.filter(s => s.clicked_at !== null || s.status === 'clicked').length

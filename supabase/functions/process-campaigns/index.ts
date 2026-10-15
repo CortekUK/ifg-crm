@@ -322,11 +322,41 @@ async function processCampaign(
     }
 
     try {
+      // CLAIM THE RECIPIENT BEFORE SENDING, not after.
+      //
+      // Two things invoke this function: the Send button and a cron that runs
+      // every minute. Pressing Send just as the cron fires ran both at once,
+      // and because a recipient was only marked 'sent' AFTER its email went
+      // out, both runs read the same 17 pending rows and both sent to all of
+      // them. A real test produced 34 sends for a 17-contact list.
+      //
+      // `.eq('status','pending')` inside the UPDATE is what makes this safe:
+      // the check and the write are one statement, so exactly one run can win
+      // a given row. The loser gets no rows back and moves on.
+      //
+      // Claiming as 'sent' rather than adding a 'sending' state keeps this to
+      // a code change — the status column has a CHECK constraint and a new
+      // value would need a migration. The trade is that a crash between the
+      // claim and the send leaves a row marked sent that never went. That is
+      // the better failure: emailing a player twice is visible to them and
+      // costs us sender reputation, a rare miss is not.
+      const { data: claimed } = await supabase
+        .from('campaign_recipients')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .eq('id', recipient.id)
+        .eq('status', 'pending')
+        .select('id')
+
+      if (!claimed || claimed.length === 0) {
+        console.log(`Recipient ${recipient.id} was claimed by another run — skipping`)
+        continue
+      }
+
       // Build full merge data per recipient — contact fields plus sender
       // mapped onto deal_owner_* slots so templates that reference
       // {{deal_owner_name}}, {{#if deal_owner_calendly}}…{{/if}}, etc.
       // resolve correctly for broadcast campaigns (no per-deal owner).
-      const sendResult = await sendEmail(supabase, {
+      const sendResult = await sendCampaignEmail(supabase, {
         to: contact.email,
         from_name: fromName,
         from_email: fromEmail,
@@ -339,19 +369,15 @@ async function processCampaign(
       })
 
       if (sendResult.success) {
-        // Update recipient as sent
+        // Already marked sent by the claim above — just record which message.
         await supabase
           .from('campaign_recipients')
-          .update({
-            status: 'sent',
-            sent_at: new Date().toISOString(),
-            resend_message_id: sendResult.message_id,
-          })
+          .update({ resend_message_id: sendResult.message_id })
           .eq('id', recipient.id)
 
         successCount++
       } else {
-        // Update recipient as failed
+        // The claim marked it sent; it was not. Put it back.
         const errorMsg = sendResult.error || 'Email send failed - no error details'
         console.error(`Failed to send to ${contact.email}: ${errorMsg}`)
         await supabase
@@ -524,7 +550,23 @@ function buildCampaignMergeData(
   }
 }
 
-async function sendEmail(
+/**
+ * Send one campaign email and log it.
+ *
+ * NAMED sendCampaignEmail, NOT sendEmail. It used to be sendEmail, which is
+ * also the name of the SES sender imported at the top of this file — so the
+ * declaration shadowed the import and the `await sendEmail({...})` below
+ * called THIS function recursively instead of SES.
+ *
+ * It failed silently, which is the worst part. The recursive call got the
+ * options object as its `supabase` argument and nothing as `params`, threw on
+ * `params.to`, and its own catch turned that into `{ success: false }` — an
+ * object, not a throw. The caller then read `.messageId` off it (undefined),
+ * inserted the email_sends row anyway with status 'sent', and reported
+ * success. A whole campaign was recorded as sent without one message reaching
+ * SES. Do not reintroduce the name.
+ */
+async function sendCampaignEmail(
   supabase: ReturnType<typeof createClient>,
   params: {
     to: string

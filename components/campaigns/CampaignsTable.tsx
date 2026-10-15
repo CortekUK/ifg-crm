@@ -304,16 +304,16 @@ export function CampaignsTable({
               const totalRecipients = recipientLists.reduce((sum, list) => sum + (list.contact_count || 0), 0)
               const recipients = campaign.recipient_count || totalRecipients
               
-              // delivered_count is updated by the Resend webhook handler when
-              // an "email.delivered" event fires. If that's not configured (or
-              // events haven't arrived yet), fall back to processed_recipients
-              // — the count of emails the campaign runner actually pushed
-               // through Resend's API. That's the most reliable "left our system"
-              // signal we have without webhook acknowledgement.
-              const deliveredCount =
-                campaign.delivered_count ||
-                campaign.processed_recipients ||
-                0
+              // delivered_count is written by the delivery webhook when the
+              // receiving server accepts the message.
+              //
+              // It used to fall back to processed_recipients — what the runner
+              // pushed at the provider — and show that under a "Delivered"
+              // heading. That reads as confirmation and is not: a campaign
+              // that never reached SES still showed 34/34 here. A campaign
+              // waiting on its events now reads 0/34, which is the honest
+              // answer and fills in as the events land.
+              const deliveredCount = campaign.delivered_count || 0
               const totalSent = campaign.total_recipients || recipients
               const deliveredDisplay = campaign.status === 'sent' && totalSent > 0
                 ? `${deliveredCount}/${totalSent}`
