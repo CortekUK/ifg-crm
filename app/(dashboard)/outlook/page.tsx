@@ -110,7 +110,11 @@ export default function OutlookPage() {
   const { data: counts = {} } = useFolderCounts({ scope, myUserId: userId, recruiterIds })
   const { data: today = { received: 0, positive: 0, negative: 0 } } = useTodaySummary({ scope, myUserId: userId, recruiterIds })
 
-  const threads = useMemo(() => threadsQuery.data?.threads ?? [], [threadsQuery.data])
+  const threads = useMemo(
+    () => threadsQuery.data?.pages.flatMap((p) => p.threads) ?? [],
+    [threadsQuery.data],
+  )
+  const total = threadsQuery.data?.pages[0]?.total ?? 0
 
   /**
    * An email has been connected (or filed as external).
@@ -234,7 +238,7 @@ export default function OutlookPage() {
               <div className="shrink-0 px-5 pb-3 pt-4">
                 <div className="flex items-baseline gap-2">
                   <h1 className="text-lg font-semibold text-white">{copy.title}</h1>
-                  <span className="text-sm text-slate-500">{threadsQuery.data?.total ?? 0}</span>
+                  <span className="text-sm text-slate-500">{total}</span>
                 </div>
                 <p className="mt-0.5 text-sm text-slate-500">{copy.blurb}</p>
 
@@ -266,6 +270,10 @@ export default function OutlookPage() {
                   onConnect={setConnectThread}
                   emptyTitle={copy.empty}
                   emptyHint={copy.hint}
+                  total={total}
+                  hasMore={!!threadsQuery.hasNextPage}
+                  loadingMore={threadsQuery.isFetchingNextPage}
+                  onLoadMore={() => threadsQuery.fetchNextPage()}
                 />
               </div>
             </div>

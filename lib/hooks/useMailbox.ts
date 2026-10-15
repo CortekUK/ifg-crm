@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { MailFolder, SenderKind } from '@/lib/outlook/classify-sender'
 
@@ -70,6 +70,13 @@ function applyScope<T extends { eq: (c: string, v: unknown) => T; in: (c: string
   return query
 }
 
+/**
+ * One folder's conversations, newest first, a page at a time.
+ *
+ * Infinite rather than a single query: the screen used to ask for page 0 and
+ * nothing else, so a mailbox with 300 conversations showed 50 rows under a
+ * header reading 300 — which looks exactly like mail going missing.
+ */
 export function useMailThreads(params: {
   folder: MailFolder
   scope: MailboxScope
@@ -77,14 +84,19 @@ export function useMailThreads(params: {
   recruiterIds: string[]
   intent?: string
   search?: string
-  page?: number
 }) {
-  const { folder, scope, myUserId, recruiterIds, intent = 'all', search = '', page = 0 } = params
+  const { folder, scope, myUserId, recruiterIds, intent = 'all', search = '' } = params
 
-  return useQuery({
-    queryKey: ['mail-threads', folder, scope, intent, search, page],
+  return useInfiniteQuery({
+    // myUserId and the recruiter list are part of what the query asks for, so
+    // they belong in the key. Without them a cached page survives the roster
+    // arriving a moment later, and the list shows somebody else's mail.
+    queryKey: ['mail-threads', folder, scope, intent, search, myUserId, recruiterIds.join(',')],
     enabled: !!myUserId,
-    queryFn: async () => {
+    initialPageParam: 0,
+    getNextPageParam: (last: { nextPage: number | null }) => last.nextPage,
+    queryFn: async ({ pageParam }) => {
+      const page = pageParam as number
       let query = baseQuery()
         .order('last_message_at', { ascending: false, nullsFirst: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
@@ -118,7 +130,12 @@ export function useMailThreads(params: {
         }
       }
 
-      return { threads, total: count ?? 0, pageSize: PAGE_SIZE }
+      const total = count ?? 0
+      return {
+        threads,
+        total,
+        nextPage: (page + 1) * PAGE_SIZE < total ? page + 1 : null,
+      }
     },
   })
 }
@@ -132,7 +149,7 @@ export function useFolderCounts(params: {
   const { scope, myUserId, recruiterIds } = params
 
   return useQuery({
-    queryKey: ['mail-folder-counts', scope],
+    queryKey: ['mail-folder-counts', scope, myUserId, recruiterIds.join(',')],
     enabled: !!myUserId,
     queryFn: async () => {
       const folders: MailFolder[] = ['inbox', 'unmatched', 'matched', 'sent', 'internal', 'external']
@@ -158,7 +175,7 @@ export function useFolderCounts(params: {
 export function useTodaySummary(params: { scope: MailboxScope; myUserId: string; recruiterIds: string[] }) {
   const { scope, myUserId, recruiterIds } = params
   return useQuery({
-    queryKey: ['mail-today', scope],
+    queryKey: ['mail-today', scope, myUserId, recruiterIds.join(',')],
     enabled: !!myUserId,
     queryFn: async () => {
       const since = new Date(); since.setHours(0, 0, 0, 0)

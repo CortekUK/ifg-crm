@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Link2, Mail } from 'lucide-react'
+import { Link2, Loader2, Mail } from 'lucide-react'
 import { senderLabel } from '@/lib/outlook/classify-sender'
 import type { MailThread } from '@/lib/hooks/useMailbox'
 
@@ -16,6 +16,11 @@ interface MailListProps {
   onConnect?: (thread: MailThread) => void
   emptyTitle: string
   emptyHint: string
+  /** How many conversations the folder holds, against how many are loaded. */
+  total: number
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: () => void
 }
 
 /** Tag colours. Plain text on a tinted pill — the mockups' vocabulary. */
@@ -73,6 +78,7 @@ function timeLabel(iso: string | null): string {
 
 export function MailList({
   threads, isLoading, showMailboxOwner, showConnect, onOpen, onConnect, emptyTitle, emptyHint,
+  total, hasMore, loadingMore, onLoadMore,
 }: MailListProps) {
   if (isLoading) {
     return (
@@ -172,6 +178,26 @@ export function MailList({
           </li>
         )
       })}
+
+      {/* The count in the header is the folder's real total, so without this
+          the list silently stopped at 50 under a header saying 300. */}
+      {hasMore && (
+        <li className="flex items-center justify-center gap-3 px-4 py-4 text-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-slate-700 text-slate-300"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+            Load more
+          </Button>
+          <span className="text-xs text-slate-500">
+            {threads.length} of {total}
+          </span>
+        </li>
+      )}
     </ul>
   )
 }
