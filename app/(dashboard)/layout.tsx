@@ -4,6 +4,7 @@ import { Header } from '@/components/dashboard/Header'
 import { MainContent } from '@/components/dashboard/MainContent'
 import { SidebarProvider } from '@/components/providers/SidebarProvider'
 import { Toaster } from '@/components/ui/toaster'
+import { OutlookBanner } from '@/components/outlook/OutlookBanner'
 import { KeyboardShortcutsProvider } from '@/components/providers/KeyboardShortcutsProvider'
 // Scout's floating widget retired in favour of a dedicated /scout page
 // (Claude-style standalone window). Sidebar nav links to it with target
@@ -31,6 +32,9 @@ export default async function DashboardLayout({
     profile = data
   }
 
+  // Only staff can connect a mailbox, so only staff are told to.
+  const isStaff = ['admin', 'super_admin', 'recruiter'].includes(profile?.role ?? '')
+
   const userData = user ? {
     email: user.email || '',
     full_name: profile?.full_name || user.user_metadata?.full_name || null,
@@ -49,6 +53,10 @@ export default async function DashboardLayout({
         {/* Main Content - Responsive to sidebar width */}
         <MainContent>
           <Header user={userData} />
+          {/* Rides every CRM page until the mailbox is connected. A broken
+              connection shows up as mail quietly not arriving, which looks
+              identical to a quiet week on every screen except this bar. */}
+          {isStaff && <OutlookBanner />}
           <main className="p-4 md:p-6">
             {children}
           </main>

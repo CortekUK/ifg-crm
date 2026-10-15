@@ -216,7 +216,7 @@ export default function OutlookPage() {
         </Avatar>
       </header>
 
-      <OutlookBanner />
+      <OutlookBanner tone="dark" />
 
       <div className="flex min-h-0 flex-1">
         <MailRail

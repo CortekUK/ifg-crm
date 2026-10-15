@@ -10,25 +10,36 @@ import { useOutlookStatus } from '@/lib/hooks/useOutlook'
 /**
  * "Set up your Outlook" — the prompt for anyone whose mailbox isn't connected.
  *
- * It sits at the top of the mailbox and nowhere else: this is the only screen
- * where a missing connection explains what you are looking at. An empty Inbox
- * with no explanation reads as a broken page, which is exactly the report that
- * came back from the client about the Replies screen.
+ * It rides on every CRM page, not just the mailbox, and stays until the
+ * mailbox is connected. A disconnected mailbox is not a problem you notice by
+ * visiting the mailbox: mail stops arriving, replies stop being recorded
+ * against contacts, and the screens where that matters — a contact, a deal,
+ * the pipeline — look exactly as they always did. The one place the absence
+ * was announced was the one place you only open if you already knew.
  *
- * Renders nothing at all once a mailbox is connected, and nothing while the
- * status is still loading, so it cannot flash on for users who are fine.
+ * Renders nothing once a mailbox is connected, and nothing while the status
+ * is still loading, so it cannot flash on for users who are fine.
  */
-export function OutlookBanner() {
+export function OutlookBanner({ tone = 'crm' }: { tone?: 'crm' | 'dark' }) {
   const { data: status, isLoading } = useOutlookStatus()
   const [dismissed, setDismissed] = useState(false)
 
-  if (isLoading || !status || status.connected || dismissed) return null
+  if (isLoading || !status || status.connected) return null
 
   const needsReconnect = status.status === 'reconnect_needed'
 
+  // A broken connection is never dismissible — it is losing mail right now.
+  // The first-time prompt can be put away for the session.
+  if (dismissed && !needsReconnect) return null
+
+  const dark = tone === 'dark'
+
   // An unconfigured deployment is an administrator's job, not this user's, so
-  // they get an explanation rather than a button that cannot work.
+  // they get an explanation rather than a button that cannot work. Only on
+  // the mailbox itself: a recruiter looking at a contact can do nothing about
+  // it, and a bar on every page saying so is noise.
   if (!status.configured) {
+    if (!dark) return null
     return (
       <div className="flex items-start gap-3 border-b border-amber-500/20 bg-amber-500/5 px-5 py-3">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
@@ -45,25 +56,38 @@ export function OutlookBanner() {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 border-b px-5 py-3',
-        needsReconnect
-          ? 'border-amber-500/20 bg-amber-500/5'
-          : 'border-blue-500/20 bg-blue-500/5',
+        'flex items-center gap-3 border-b px-4 py-2 md:px-6',
+        dark
+          ? needsReconnect
+            ? 'border-amber-500/20 bg-amber-500/5'
+            : 'border-blue-500/20 bg-blue-500/5'
+          : needsReconnect
+            ? 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40'
+            : 'border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/40',
       )}
     >
       {needsReconnect ? (
-        <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />
+        <AlertCircle className={cn('h-4 w-4 shrink-0', dark ? 'text-amber-400' : 'text-amber-600 dark:text-amber-400')} />
       ) : (
-        <Mail className="h-4 w-4 shrink-0 text-blue-400" />
+        <Mail className={cn('h-4 w-4 shrink-0', dark ? 'text-blue-400' : 'text-blue-600 dark:text-blue-400')} />
       )}
 
       <div className="min-w-0 flex-1 text-sm">
-        <span className={cn('font-medium', needsReconnect ? 'text-amber-200' : 'text-blue-200')}>
+        <span
+          className={cn(
+            'font-medium',
+            dark
+              ? needsReconnect ? 'text-amber-200' : 'text-blue-200'
+              : needsReconnect
+                ? 'text-amber-900 dark:text-amber-200'
+                : 'text-blue-900 dark:text-blue-200',
+          )}
+        >
           {needsReconnect ? 'Your Outlook connection has stopped working' : 'Set up your Outlook'}
         </span>
-        <span className="text-slate-400">
+        <span className={cn('hidden sm:inline', dark ? 'text-slate-400' : 'text-muted-foreground')}>
           {needsReconnect
-            ? ' — this usually follows a Microsoft password change. Reconnect to start receiving mail again; nothing already here is lost.'
+            ? ' — mail has stopped arriving in the CRM. This usually follows a Microsoft password change; nothing already here is lost.'
             : ' — connect your mailbox to send and receive email from here. Your sent mail still appears in Outlook, and replies land in both places.'}
         </span>
       </div>
@@ -72,14 +96,14 @@ export function OutlookBanner() {
         asChild
         size="sm"
         className={cn(
-          'shrink-0',
+          'h-7 shrink-0',
           needsReconnect
             ? 'bg-amber-500/20 text-amber-200 hover:bg-amber-500/30'
             : 'bg-blue-600 text-white hover:bg-blue-700',
         )}
       >
         <Link href="/settings?section=outlook">
-          {needsReconnect ? 'Reconnect Outlook' : 'Set up Outlook'}
+          {needsReconnect ? 'Reconnect' : 'Set up Outlook'}
         </Link>
       </Button>
 
@@ -87,7 +111,7 @@ export function OutlookBanner() {
         <button
           onClick={() => setDismissed(true)}
           aria-label="Dismiss"
-          className="shrink-0 text-slate-500 hover:text-slate-300"
+          className={cn('shrink-0', dark ? 'text-slate-500 hover:text-slate-300' : 'text-muted-foreground hover:text-foreground')}
         >
           <X className="h-4 w-4" />
         </button>
