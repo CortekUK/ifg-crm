@@ -153,14 +153,22 @@ export async function replyToMessage(
   return mirrorSentMessage(supabase, userId, credentials.mailbox_email, subject)
 }
 
-/** Mark a message read in the real mailbox, so the two stay in step. */
-export async function markMessageRead(
+/**
+ * Set a message's read state in the real mailbox, so the two stay in step.
+ *
+ * Both directions, because the CRM offers both: reading a conversation here
+ * should clear the bold in Outlook, and marking it unread here should put it
+ * back. Pushing only one way leaves the two mailboxes disagreeing, and the one
+ * people trust is Outlook.
+ */
+export async function setMessageRead(
   supabase: SupabaseClient,
   userId: string,
   graphMessageId: string,
+  isRead: boolean,
 ): Promise<void> {
   await graphFetch(supabase, userId, `/me/messages/${graphMessageId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ isRead: true }),
+    body: JSON.stringify({ isRead }),
   })
 }

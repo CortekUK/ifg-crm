@@ -227,6 +227,7 @@ export default function OutlookPage() {
                 t.contact_id && setDealContact({ id: t.contact_id, name: t.counterparty_name || t.counterparty_email || 'this contact' })
               }
               currentUserEmail={userEmail}
+              currentUserId={userId}
             />
           ) : (
             <div className="flex h-full flex-col">

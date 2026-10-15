@@ -240,10 +240,22 @@ async function ingestInbound(
   if (ctx.internetMessageId) {
     const { data: existing } = await supabase
       .from('email_replies')
-      .select('id')
+      .select('id, read')
       .eq('internet_message_id', ctx.internetMessageId)
       .maybeSingle()
-    if (existing) return { status: 'duplicate', replyId: (existing as { id: string }).id }
+    if (existing) {
+      const row = existing as { id: string; read: boolean | null }
+      // Seen before, but Graph may be telling us it has since been opened — or
+      // marked unread — in Outlook itself. Read state was written once at
+      // insert and never revisited, so a message read on someone's phone stayed
+      // bold in the CRM for good.
+      const isRead = message.isRead ?? false
+      if (isRead !== (row.read ?? false)) {
+        await supabase.from('email_replies').update({ read: isRead }).eq('id', row.id)
+        await refreshThreadUnread(supabase, mailbox.userId, ctx.conversationId)
+      }
+      return { status: 'duplicate', replyId: row.id }
+    }
   }
 
   const linked = await resolveLinkedSend(supabase, ctx.conversationId, mailbox.userId)
@@ -370,6 +382,37 @@ async function recordOutbound(
   }
 
   return { status: 'inserted', sendId: (inserted as { id: string }).id }
+}
+
+/**
+ * Recount a thread's unread messages from the messages themselves.
+ *
+ * upsertThread keeps a running total as mail arrives, which is right for the
+ * common path and wrong the moment anything else changes a message's read
+ * state — opening the conversation in the CRM, or reading it in Outlook. A
+ * derived counter that is only ever incremented is a counter that only ever
+ * goes up, which is exactly how every folder badge came to be permanently lit.
+ *
+ * Counting is cheap (one indexed count per conversation) and self-correcting:
+ * whatever the running total has drifted to, this puts it back.
+ */
+export async function refreshThreadUnread(
+  supabase: SupabaseClient,
+  mailboxUserId: string,
+  conversationId: string | null,
+): Promise<void> {
+  if (!conversationId) return
+  const { count } = await supabase
+    .from('email_replies')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', conversationId)
+    .eq('mailbox_user_id', mailboxUserId)
+    .eq('read', false)
+  await supabase
+    .from('email_threads')
+    .update({ unread_count: count ?? 0 })
+    .eq('conversation_id', conversationId)
+    .eq('mailbox_user_id', mailboxUserId)
 }
 
 /**

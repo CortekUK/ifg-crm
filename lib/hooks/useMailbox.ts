@@ -177,15 +177,27 @@ export function useTodaySummary(params: { scope: MailboxScope; myUserId: string;
   })
 }
 
-export function useMarkThreadUnread() {
+/**
+ * Mark a conversation read or unread.
+ *
+ * Goes through the API rather than writing unread_count from here: the count
+ * is derived from the messages, and the real Outlook mailbox has to be told
+ * as well. Setting the counter directly from the browser left the messages
+ * untouched, so the next sync recounted them and silently undid it.
+ */
+export function useSetThreadRead() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ threadId, unread }: { threadId: string; unread: boolean }) => {
-      const { error } = await createClient()
-        .from('email_threads')
-        .update({ unread_count: unread ? 1 : 0 })
-        .eq('id', threadId)
-      if (error) throw error
+    mutationFn: async ({ threadId, read }: { threadId: string; read: boolean }) => {
+      const res = await fetch('/api/outlook/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId, read }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Could not update the conversation.')
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mail-threads'] })

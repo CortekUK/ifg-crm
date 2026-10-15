@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -11,7 +11,7 @@ import {
   CornerUpLeft, ExternalLink, Globe, Link2, Loader2, Reply, Send, Building2, AlertTriangle, UserCheck,
 } from 'lucide-react'
 import { toast } from '@/lib/hooks/use-toast'
-import { useThreadMessages, useThreadContact, useMarkThreadUnread, type MailThread, type MailMessage } from '@/lib/hooks/useMailbox'
+import { useThreadMessages, useThreadContact, useSetThreadRead, type MailThread, type MailMessage } from '@/lib/hooks/useMailbox'
 import { useReplyToThread } from '@/lib/hooks/useOutlook'
 import type { SenderKind } from '@/lib/outlook/classify-sender'
 
@@ -25,6 +25,9 @@ interface ConversationViewProps {
   onConnect: (thread: MailThread) => void
   onSmartDeal: (thread: MailThread) => void
   currentUserEmail: string
+  /** Whose mailbox the reader is. An admin looking at a colleague's thread
+   *  must not clear the bold on mail that colleague has not opened. */
+  currentUserId: string
 }
 
 const SENDER_TAG: Record<SenderKind, { label: string; tone: string }> = {
@@ -119,12 +122,13 @@ function Message({
 }
 
 export function ConversationView({
-  thread, index, total, onBack, onPrev, onNext, onConnect, onSmartDeal, currentUserEmail,
+  thread, index, total, onBack, onPrev, onNext, onConnect, onSmartDeal, currentUserEmail, currentUserId,
 }: ConversationViewProps) {
   const { data: messages = [], isLoading } = useThreadMessages(thread.conversation_id)
   const { data: contact } = useThreadContact(thread.contact_id)
-  const markUnread = useMarkThreadUnread()
+  const setRead = useSetThreadRead()
   const sendReply = useReplyToThread()
+  const isMyMailbox = !!currentUserId && thread.mailbox_user_id === currentUserId
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showEarlier, setShowEarlier] = useState(false)
@@ -137,6 +141,18 @@ export function ConversationView({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onBack])
+
+  // Opening a conversation reads it. Once per conversation: the thread held in
+  // page state keeps its old unread count after the list refetches, so without
+  // the guard this would fire again on every render, and again the moment
+  // somebody pressed Mark unread.
+  const markedRead = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isMyMailbox || thread.unread_count < 1) return
+    if (markedRead.current === thread.id) return
+    markedRead.current = thread.id
+    setRead.mutate({ threadId: thread.id, read: true })
+  }, [thread.id, thread.unread_count, isMyMailbox, setRead])
 
   // Only the newest message is open by default, the way Gmail does it.
   const lastId = messages.length ? messages[messages.length - 1].id : null
@@ -190,12 +206,15 @@ export function ConversationView({
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
-          <button
-            onClick={() => markUnread.mutate({ threadId: thread.id, unread: true })}
-            className="text-sm text-slate-400 hover:text-slate-200"
-          >
-            Mark unread
-          </button>
+          {isMyMailbox && (
+            <button
+              onClick={() => setRead.mutate({ threadId: thread.id, read: false })}
+              disabled={setRead.isPending}
+              className="text-sm text-slate-400 hover:text-slate-200 disabled:opacity-50"
+            >
+              Mark unread
+            </button>
+          )}
           <div className="flex items-center gap-1 text-xs text-slate-500">
             <span>{index + 1} of {total}</span>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onPrev} disabled={index === 0} aria-label="Previous">
