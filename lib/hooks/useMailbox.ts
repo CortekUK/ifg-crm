@@ -301,6 +301,12 @@ export interface MailMessage {
   cc: string[]
   subject: string | null
   body: string | null
+  /**
+   * The message as the recipient saw it. Preferred over `body` for display:
+   * outbound mail is a designed document and 24 of 35 sent messages have no
+   * text part at all, so text-only rendering showed them as empty.
+   */
+  html: string | null
   at: string | null
   graphMessageId: string | null
   intent: string | null
@@ -316,13 +322,13 @@ export function useThreadMessages(conversationId: string | null) {
       const [{ data: replies }, { data: sends }] = await Promise.all([
         supabase
           .from('email_replies')
-          .select('id, from_email, from_name, to_email, subject, body, received_at, created_at, graph_message_id, ai_intent, sender_kind')
+          .select('id, from_email, from_name, to_email, subject, body, html_body, received_at, created_at, graph_message_id, ai_intent, sender_kind')
           .eq('conversation_id', conversationId)
           .order('received_at', { ascending: true })
           .limit(200),
         supabase
           .from('email_sends')
-          .select('id, recipient_email, subject, body_text, sent_at, from_email')
+          .select('id, recipient_email, subject, body_text, body_html, sent_at, from_email')
           .eq('conversation_id', conversationId)
           .order('sent_at', { ascending: true })
           .limit(200),
@@ -338,6 +344,7 @@ export function useThreadMessages(conversationId: string | null) {
         cc: [],
         subject: r.subject as string | null,
         body: r.body as string | null,
+        html: r.html_body as string | null,
         at: (r.received_at ?? r.created_at) as string | null,
         graphMessageId: r.graph_message_id as string | null,
         intent: (r.ai_intent ?? null) as string | null,
@@ -353,6 +360,7 @@ export function useThreadMessages(conversationId: string | null) {
         cc: [],
         subject: s.subject as string | null,
         body: s.body_text as string | null,
+        html: s.body_html as string | null,
         at: s.sent_at as string | null,
         graphMessageId: null,
         intent: null,

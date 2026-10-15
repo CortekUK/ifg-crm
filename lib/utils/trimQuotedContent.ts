@@ -2,7 +2,7 @@
  * Strip quoted history from an email reply so the UI shows only what the
  * contact actually wrote, not the entire forwarded thread.
  *
- * MIRROR: stripQuotedThread() in supabase/functions/resend-inbound/index.ts.
+ * MIRROR: stripQuotedThread() in supabase/functions/_shared/inbound-core.ts.
  * That copy decides what gets sent for intent classification; this one decides
  * what staff read in the Replies inbox. They must agree, or a reply is
  * labelled on one body and displayed as another.

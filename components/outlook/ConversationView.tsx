@@ -14,6 +14,7 @@ import { toast } from '@/lib/hooks/use-toast'
 import { useThreadMessages, useThreadContact, useSetThreadRead, type MailThread, type MailMessage } from '@/lib/hooks/useMailbox'
 import { useReplyToThread } from '@/lib/hooks/useOutlook'
 import type { SenderKind } from '@/lib/outlook/classify-sender'
+import { MessageBody } from '@/components/outlook/MessageBody'
 
 interface ConversationViewProps {
   thread: MailThread
@@ -48,6 +49,18 @@ function when(iso: string | null): string {
   return stamp
 }
 
+/**
+ * The one line shown when a message is collapsed.
+ *
+ * Falls back to the HTML with its tags taken out, because most sent messages
+ * have no text part at all and the collapsed row for them was simply blank.
+ * Rendered as text by React, so the stripping is for legibility, not safety.
+ */
+function preview(message: MailMessage): string {
+  const raw = message.body || (message.html ?? '').replace(/<[^>]+>/g, ' ')
+  return raw.replace(/\s+/g, ' ').trim()
+}
+
 /** One message. Collapsed messages are a single clickable line, as in Gmail. */
 function Message({
   message, expanded, onToggle, currentUserEmail, senderLabel,
@@ -77,7 +90,7 @@ function Message({
           <AvatarFallback className="bg-slate-700 text-[10px] text-slate-200">{initials}</AvatarFallback>
         </Avatar>
         <span className="shrink-0 text-sm font-medium text-slate-200">{name}</span>
-        <span className="min-w-0 flex-1 truncate text-sm text-slate-500">{message.body?.replace(/\s+/g, ' ').trim()}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-slate-500">{preview(message)}</span>
         <span className="shrink-0 text-[11px] text-slate-500">{when(message.at)}</span>
       </button>
     )
@@ -122,9 +135,7 @@ function Message({
         <span className="shrink-0 text-[11px] text-slate-500">{when(message.at)}</span>
       </div>
 
-      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">
-        {message.body || '(no content)'}
-      </p>
+      <MessageBody html={message.html} text={message.body} />
     </div>
   )
 }
@@ -141,7 +152,9 @@ export function ConversationView({
   // was shown the recruiter's own messages as if they had written them.
   const senderLabel = isMyMailbox ? 'You' : thread.mailbox_owner_name || 'Mailbox owner'
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  // Explicitly opened/closed messages. Anything absent falls back to the
+  // default below, so this stays empty until somebody actually clicks.
+  const [override, setOverride] = useState<Record<string, boolean>>({})
   const [showEarlier, setShowEarlier] = useState(false)
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyAll, setReplyAll] = useState(false)
@@ -166,9 +179,14 @@ export function ConversationView({
     setRead.mutate({ threadId: thread.id, read: true })
   }, [thread.id, thread.unread_count, isMyMailbox, setRead])
 
-  // Only the newest message is open by default, the way Gmail does it.
+  // Only the newest message is open by default, the way Gmail does it — but
+  // only as a DEFAULT, which is the bug this replaces. It used to read
+  // `expandedIds.has(m.id) || m.id === lastId`, pinning the newest message
+  // open forever: clicking it added its id, clicking again removed it, and
+  // the `|| lastId` kept it expanded either way. The one message everybody
+  // actually opens was the only one that could never be closed.
   const lastId = messages.length ? messages[messages.length - 1].id : null
-  const isExpanded = (m: MailMessage) => expandedIds.has(m.id) || m.id === lastId
+  const isExpanded = (m: MailMessage) => override[m.id] ?? m.id === lastId
 
   // Long threads fold everything but the last two behind a divider.
   const FOLD_AFTER = 3
@@ -372,12 +390,7 @@ export function ConversationView({
                 key={`${m.direction}-${m.id}`}
                 message={m}
                 expanded={isExpanded(m)}
-                onToggle={() => setExpandedIds((prev) => {
-                  const next = new Set(prev)
-                  if (next.has(m.id)) next.delete(m.id)
-                  else next.add(m.id)
-                  return next
-                })}
+                onToggle={() => setOverride((o) => ({ ...o, [m.id]: !isExpanded(m) }))}
                 currentUserEmail={currentUserEmail}
                 senderLabel={senderLabel}
               />
