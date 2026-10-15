@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getServiceClient } from '@/lib/outlook/credentials'
-import { sendNewMessage } from '@/lib/outlook/send'
+import { sendNewMessage, type OutgoingAttachment } from '@/lib/outlook/send'
 import { OutlookReconnectRequired } from '@/lib/outlook/graph'
 import { escapeLikeWildcards } from '@/lib/email/classify'
 import { tidyNameFromEmail } from '@/lib/utils/smartMatch'
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     cc?: string[]
     templateId?: string | null
     brochureId?: string | null
+    attachments?: { name?: string; contentType?: string; contentBytes?: string }[]
   }
   try {
     body = await request.json()
@@ -61,8 +62,36 @@ export async function POST(request: NextRequest) {
   if (!subject && !body.templateId) {
     return NextResponse.json({ error: 'A subject is required.' }, { status: 400 })
   }
-  if (!content?.trim() && !body.templateId && !body.brochureId) {
+  if (!content?.trim() && !body.templateId && !body.brochureId && !body.attachments?.length) {
     return NextResponse.json({ error: 'The message is empty.' }, { status: 400 })
+  }
+
+  // Graph takes attachments inline on sendMail only while the whole message
+  // stays under about 4MB, and base64 adds a third to every file. 2.5MB of
+  // real files leaves room for the branded body underneath both that ceiling
+  // and the request limit. Bigger needs an upload session on a draft; the one
+  // genuinely large thing people send is a brochure, and that goes as a link.
+  const ATTACHMENT_LIMIT_BYTES = 2.5 * 1024 * 1024
+
+  const attachments: OutgoingAttachment[] = []
+  for (const a of body.attachments ?? []) {
+    if (!a?.name || !a.contentBytes) continue
+    attachments.push({
+      name: a.name,
+      contentType: a.contentType || 'application/octet-stream',
+      contentBytes: a.contentBytes,
+    })
+  }
+
+  // base64 is 4 characters per 3 bytes; this is the real size on the wire.
+  const attachedBytes = attachments.reduce((sum, a) => sum + Math.floor(a.contentBytes.length * 0.75), 0)
+  if (attachedBytes > ATTACHMENT_LIMIT_BYTES) {
+    return NextResponse.json(
+      {
+        error: `Attachments total ${(attachedBytes / 1024 / 1024).toFixed(1)}MB. The limit is 2.5MB — for anything larger, attach a brochure instead, which sends as a link.`,
+      },
+      { status: 413 },
+    )
   }
 
   const service = getServiceClient()
@@ -139,6 +168,7 @@ export async function POST(request: NextRequest) {
       subject: composed.subject,
       body: composed.html,
       cc: body.cc,
+      attachments,
     })
 
     let hasDeal = false

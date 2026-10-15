@@ -111,11 +111,42 @@ async function mirrorSentMessage(
   }
 }
 
+/**
+ * A file travelling with the message.
+ *
+ * `contentBytes` is base64. Graph accepts attachments inline on sendMail only
+ * while the WHOLE message stays under about 4MB — see ATTACHMENT_LIMIT_BYTES
+ * in the send route for where that is enforced and why. Anything larger needs
+ * a draft and an upload session, which is a bigger build and has not been
+ * needed: the thing people want to send that is genuinely large is a
+ * brochure, and a brochure goes as a link.
+ */
+export interface OutgoingAttachment {
+  name: string
+  contentType: string
+  contentBytes: string
+}
+
+function graphAttachments(attachments: OutgoingAttachment[] | undefined) {
+  return (attachments ?? []).map((a) => ({
+    '@odata.type': '#microsoft.graph.fileAttachment',
+    name: a.name,
+    contentType: a.contentType,
+    contentBytes: a.contentBytes,
+  }))
+}
+
 /** A brand-new message (Compose). */
 export async function sendNewMessage(
   supabase: SupabaseClient,
   userId: string,
-  input: { to: string; subject: string; body: string; cc?: string[] },
+  input: {
+    to: string
+    subject: string
+    body: string
+    cc?: string[]
+    attachments?: OutgoingAttachment[]
+  },
 ): Promise<SendResult> {
   const credentials = await getCredentials(supabase, userId)
   if (!credentials?.mailbox_email) throw new Error('No Outlook mailbox is connected.')
@@ -129,6 +160,7 @@ export async function sendNewMessage(
         body: htmlBody(input.body),
         toRecipients: [{ emailAddress: { address: input.to } }],
         ccRecipients: (input.cc ?? []).map((address) => ({ emailAddress: { address } })),
+        ...(input.attachments?.length && { attachments: graphAttachments(input.attachments) }),
       },
       // Microsoft files it in Sent Items for us. The spec notes this needs no
       // extra work, and turning it off would leave the recruiter's own Outlook

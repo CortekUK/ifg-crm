@@ -88,6 +88,8 @@ export function useSendOutlookMail() {
       /** Rendered server-side through the same branding campaigns use. */
       templateId?: string | null
       brochureId?: string | null
+      /** contentBytes is base64; the route enforces the size ceiling. */
+      attachments?: { name: string; contentType: string; contentBytes: string }[]
     }) => {
       const res = await fetch('/api/outlook/send', {
         method: 'POST',

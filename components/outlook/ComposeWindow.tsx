@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { BookOpen, FileText, Loader2, Maximize2, Minus, Send, UserPlus, X } from 'lucide-react'
+import { BookOpen, FileText, Loader2, Maximize2, Minus, Paperclip, Send, UserPlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/hooks/use-toast'
 import { useSearchContacts } from '@/lib/hooks/useSearchContacts'
@@ -96,6 +96,8 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
   const [template, setTemplate] = useState<Picked | null>(null)
   const [brochure, setBrochure] = useState<Picked | null>(null)
   const [picker, setPicker] = useState<'template' | 'brochure' | null>(null)
+  const [files, setFiles] = useState<{ name: string; type: string; size: number; bytes: string }[]>([])
+  const fileRef = useRef<HTMLInputElement>(null)
   const [highlighted, setHighlighted] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -148,6 +150,50 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
     }
   }
 
+  // Graph carries attachments inline only while the whole message stays small
+  // (see ATTACHMENT_LIMIT_BYTES in the send route). Checked here as well so a
+  // file too big is refused before minutes are spent reading it.
+  const attachedBytes = files.reduce((sum, f) => sum + f.size, 0)
+  const ATTACH_LIMIT = 2.5 * 1024 * 1024
+
+  async function addFiles(chosen: FileList | null) {
+    if (!chosen?.length) return
+    const read = await Promise.all(
+      Array.from(chosen).map(
+        (file) =>
+          new Promise<{ name: string; type: string; size: number; bytes: string }>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onerror = () => reject(new Error(`Could not read ${file.name}`))
+            reader.onload = () =>
+              resolve({
+                name: file.name,
+                type: file.type || 'application/octet-stream',
+                size: file.size,
+                // data: URLs are "data:<type>;base64,<payload>" — Graph wants
+                // the payload alone.
+                bytes: String(reader.result).split(',')[1] ?? '',
+              })
+            reader.readAsDataURL(file)
+          }),
+      ),
+    ).catch((err: Error) => {
+      toast({ title: 'Could not attach that file', description: err.message, variant: 'destructive' })
+      return []
+    })
+
+    const next = [...files, ...read]
+    const total = next.reduce((sum, f) => sum + f.size, 0)
+    if (total > ATTACH_LIMIT) {
+      toast({
+        title: 'Too large to attach',
+        description: `That comes to ${(total / 1024 / 1024).toFixed(1)}MB and the limit is 2.5MB. For a brochure, use the Brochure button — it sends as a link with no size limit.`,
+        variant: 'destructive',
+      })
+      return
+    }
+    setFiles(next)
+  }
+
   const send = async () => {
     if (!recipients.length) return
     let sent = 0
@@ -163,6 +209,11 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
           body,
           templateId: template?.id ?? null,
           brochureId: brochure?.id ?? null,
+          attachments: files.map((f) => ({
+            name: f.name,
+            contentType: f.type,
+            contentBytes: f.bytes,
+          })),
         })
         sent++
         if (!opportunity && result.contact && !result.contact.hasDeal) {
@@ -349,13 +400,26 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
 
         {/* What is going out besides what was typed. Shown above the toolbar
             so it is still in view at the moment Send is pressed. */}
-        {(template || brochure) && (
+        {(template || brochure || files.length > 0) && (
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-800 px-4 py-2">
             {template && (
               <AttachedChip icon={FileText} label={template.name} onRemove={() => setTemplate(null)} />
             )}
             {brochure && (
               <AttachedChip icon={BookOpen} label={brochure.name} onRemove={() => setBrochure(null)} />
+            )}
+            {files.map((f, i) => (
+              <AttachedChip
+                key={`${f.name}-${i}`}
+                icon={Paperclip}
+                label={`${f.name} · ${(f.size / 1024).toFixed(0)}KB`}
+                onRemove={() => setFiles((prev) => prev.filter((_, n) => n !== i))}
+              />
+            ))}
+            {files.length > 0 && (
+              <span className="text-[11px] text-slate-500">
+                {(attachedBytes / 1024 / 1024).toFixed(1)}MB of 2.5MB
+              </span>
             )}
           </div>
         )}
@@ -424,6 +488,25 @@ export function ComposeWindow({ fromEmail, onClose, onDealOpportunity }: Compose
           >
             <BookOpen className="mr-1.5 h-4 w-4" />
             Brochure
+          </Button>
+          {/* There was a paperclip here that did nothing. */}
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => { addFiles(e.target.files); if (fileRef.current) fileRef.current.value = '' }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-slate-400 hover:text-slate-100"
+            onClick={() => fileRef.current?.click()}
+            title="Attach a file — up to 2.5MB. Brochures go as links instead."
+          >
+            <Paperclip className="mr-1.5 h-4 w-4" />
+            Attach
           </Button>
 
           <span className="ml-auto text-xs text-slate-500">
