@@ -18,7 +18,71 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * their internal mail filed as a player reply, which would put a colleague in
  * a pipeline.
  */
-export type SenderKind = 'player' | 'parent' | 'secondary' | 'internal' | 'external' | 'unknown'
+export type SenderKind = 'player' | 'parent' | 'secondary' | 'internal' | 'external' | 'vendor' | 'unknown'
+
+/**
+ * Addresses no human reads a reply from — and which nobody opens this mailbox
+ * to find.
+ *
+ * Measured against the 246 unmatched threads actually sitting in the mailbox
+ * rather than guessed at. The local part is the signal; the domain is not.
+ * A domain blocklist would have to chase calendly, zoom, southwest, brighthr,
+ * openai, xero, constant contact and whatever is signed up for next, while
+ * these patterns catch 95 of those threads with nothing to maintain:
+ *
+ *   notifications  54    no-reply       17    noreply         9
+ *   donotreply      5    no-reply-aws    3    mailer-daemon   3
+ *   messaging-service 2  microsoftexchange<hex>  2
+ *
+ * Deliberately narrow. admin@, accounts@, info@, training@, support@ and
+ * theteam@ are NOT here: they are shared human mailboxes, and at a football
+ * club and a university they are exactly the addresses a real conversation
+ * arrives from. Hiding a person is far worse than leaving a robot on screen.
+ */
+const VENDOR_LOCAL_PART =
+  /^(no[-_.]?reply|do[-_.]?not[-_.]?reply|mailer[-_]?daemon$|postmaster$|notifications?([-_.]|$)|bounces?([-_.]|$)|automated|auto[-_]?reply|auto[-_]?confirm|messaging[-_]service$|microsoftexchange[0-9a-f]{16,}$)/
+
+/**
+ * Mail-sending infrastructure. Never a person, whatever the local part says —
+ * Constant Contact puts the customer's own name in front of ccsend.com.
+ */
+const VENDOR_DOMAINS = [
+  'ccsend.com',
+  'amazonses.com',
+  'sendgrid.net',
+  'mailchimp.com',
+  'mcsv.net',
+  'rsgsv.net',
+  'sparkpostmail.com',
+  'mandrillapp.com',
+]
+
+/**
+ * Robots whose mail is still the business record of something.
+ *
+ * Calendly sends from notifications@calendly.com, which every pattern above
+ * says to hide — and those "New Event" emails are the ONLY place a booked
+ * call appears in the CRM: calendly_events is empty, so the webhook that was
+ * meant to carry bookings is delivering nothing. Hiding them would have taken
+ * away the team's one sight of a booking to tidy up an inbox.
+ */
+const VENDOR_EXCEPT_DOMAINS = ['calendly.com']
+
+/** Is this address a robot whose mail nobody needs to see? */
+export function isVendorAddress(email: string | null | undefined): boolean {
+  const address = (email ?? '').trim().toLowerCase()
+  const at = address.lastIndexOf('@')
+  if (at < 1) return false
+  const local = address.slice(0, at)
+  const domain = address.slice(at + 1)
+
+  const matches = (list: string[]) =>
+    list.some((d) => domain === d || domain.endsWith(`.${d}`))
+
+  if (matches(VENDOR_EXCEPT_DOMAINS)) return false
+  if (VENDOR_LOCAL_PART.test(local)) return true
+  return matches(VENDOR_DOMAINS)
+}
 
 export interface SenderIdentity {
   kind: SenderKind
@@ -39,6 +103,11 @@ export async function classifySender(
   const row = (data as { contact_id: string; match_kind: SenderKind }[] | null)?.[0]
   if (row?.contact_id) return { kind: row.match_kind, contactId: row.contact_id }
 
+  // AFTER the contact lookup, never before. If someone is in contacts under an
+  // address that looks automated, they are still a person we are talking to —
+  // the match wins and they stay visible.
+  if (isVendorAddress(address)) return { kind: 'vendor', contactId: null }
+
   return { kind: 'unknown', contactId: null }
 }
 
@@ -55,6 +124,9 @@ export function threadCategory(kinds: SenderKind[]): SenderKind {
   if (kinds.some((k) => k === 'parent')) return 'parent'
   if (kinds.some((k) => k === 'secondary')) return 'secondary'
   if (kinds.length && kinds.every((k) => k === 'internal')) return 'internal'
+  // Below the contact checks on purpose: a thread that holds a real contact is
+  // never filed as a robot, whatever else landed in it.
+  if (kinds.some((k) => k === 'vendor')) return 'vendor'
   if (kinds.some((k) => k === 'external')) return 'external'
   return 'unknown'
 }
@@ -80,7 +152,7 @@ export type MailFolder = 'inbox' | 'waiting' | 'unmatched' | 'matched' | 'sent'
  * email_replies, and still fires every trigger that hangs off that table. One
  * line to put it back if the decision changes.
  */
-export const HIDDEN_CATEGORIES: SenderKind[] = ['internal']
+export const HIDDEN_CATEGORIES: SenderKind[] = ['internal', 'vendor']
 
 /**
  * Who a conversation is with, as a filter across the mixed folders.

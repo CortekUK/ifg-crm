@@ -518,7 +518,15 @@ async function upsertThread(
       // Only ever widen the category, for the same reason attribution only
       // widens: a thread that has been matched must not fall back to Unmatched
       // because a later message in it came from an address we do not hold.
-      ...(ctx.senderKind !== 'unknown' ? { category: threadCategory([ctx.senderKind]) } : {}),
+      //
+      // 'vendor' is excluded for the same reason as 'unknown', and it matters
+      // more: a matched player thread that happens to receive one automated
+      // message would otherwise be recategorised as a robot and vanish from
+      // every folder. New vendor threads are classified correctly on INSERT
+      // above; this path only ever widens.
+      ...(ctx.senderKind !== 'unknown' && ctx.senderKind !== 'vendor'
+        ? { category: threadCategory([ctx.senderKind]) }
+        : {}),
       ...(isNewer && ctx.intent ? { latest_intent: ctx.intent } : {}),
     })
     .eq('id', row.id)

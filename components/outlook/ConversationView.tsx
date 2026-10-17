@@ -37,6 +37,9 @@ const SENDER_TAG: Record<SenderKind, { label: string; tone: string }> = {
   secondary: { label: 'Secondary email', tone: 'bg-amber-500/15 text-amber-300' },
   internal:  { label: 'IFG staff',       tone: 'bg-slate-500/20 text-slate-300' },
   external:  { label: 'External',        tone: 'bg-teal-500/15 text-teal-300' },
+  // Hidden from every folder, so this only shows if a thread is opened by a
+  // direct link — worth labelling honestly rather than calling it unknown.
+  vendor:    { label: 'Automated',       tone: 'bg-slate-500/20 text-slate-400' },
   unknown:   { label: 'Unknown sender',  tone: 'bg-amber-500/15 text-amber-300' },
 }
 
