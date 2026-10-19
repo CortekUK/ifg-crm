@@ -59,7 +59,7 @@ const HOME: PageSchema = {
     { section: 'Hero', path: 'hero.ctaPrimary', label: 'Primary button', type: 'text', default: 'Apply Now' },
     { section: 'Hero', path: 'hero.ctaSecondary', label: 'Secondary button', type: 'text', default: 'Book a call' },
     { section: 'Hero', path: 'hero.poster', label: 'Background poster image', type: 'image', hint: 'Still shown before the background videos load — and on its own while there are none.', default: '/summer/DJI_20240719121925_0067_D-scaled.jpg' },
-    { section: 'Hero', path: 'hero.videos', label: 'Background video URLs', type: 'list', hint: 'The clips that crossfade behind the hero. Empty = the poster image alone. These are served from the website itself (/hero/...) so no third-party host can switch them off; a full https:// mp4 URL works too.', default: ['/hero/arrival.mp4', '/hero/gym.mp4', '/hero/match-action.mp4', '/hero/celebration.mp4', '/hero/matchday.mp4', '/hero/training-aerial.mp4'] },
+    { section: 'Hero', path: 'hero.videos', label: 'Background video URLs', type: 'list', hint: 'Direct links to video FILES, ending .mp4 — a YouTube or Vimeo page link will not play and is ignored. The built-in clips are served by the website itself (/hero/arrival.mp4 and so on) so no third-party host can switch them off. Empty = the poster image alone.', default: ['/hero/arrival.mp4', '/hero/gym.mp4', '/hero/match-action.mp4', '/hero/celebration.mp4', '/hero/matchday.mp4', '/hero/training-aerial.mp4'] },
 
     // 2 — PROGRAMMES
     { section: 'Programmes', path: 'programmes.eyebrow', label: 'Eyebrow', type: 'text', default: 'Our programmes' },
