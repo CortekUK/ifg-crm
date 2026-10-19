@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type Stripe from 'stripe'
 import { stripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
 import { formatSender, sendEmail, sesAvailable } from '@/lib/email/ses'
@@ -26,19 +27,45 @@ export async function POST(request: NextRequest) {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-  let event
-
-  // Verify webhook signature if secret is configured
+  // The signature is the only thing standing between this endpoint and anyone
+  // on the internet. It is a public URL that marks invoices paid, writes
+  // payment rows and moves deals.
+  //
+  // It used to verify only `if (webhookSecret && signature)` and otherwise fall
+  // through to `JSON.parse(payload)` — so with the secret unset, or with the
+  // header simply omitted by the caller, a hand-written POST was accepted as a
+  // completed checkout. An attacker who knew the URL could settle an invoice
+  // they had never paid. It now fails closed on both.
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
-  if (webhookSecret && signature) {
-    try {
-      event = stripe.webhooks.constructEvent(payload, signature, webhookSecret)
-    } catch (err) {
-      console.error('Stripe webhook signature verification failed:', err)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-    }
-  } else {
-    event = JSON.parse(payload)
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET is not set — refusing to process a payment webhook')
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
+  }
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
+  }
+
+  let event: Stripe.Event
+  try {
+    event = stripe.webhooks.constructEvent(payload, signature, webhookSecret)
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed:', err)
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+  }
+
+  // Test events must never reach live books, and vice versa.
+  //
+  // A signature check alone does not cover this: the CRM's test-mode webhook
+  // endpoint points at this same production URL, so the moment the keys are
+  // switched to live that endpoint still exists and still fires. It would be
+  // rejected for a bad signature today, but only by luck of the secrets
+  // differing — this says it outright, and logs which way round it went.
+  const keyIsLive = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ?? false
+  if (event.livemode !== keyIsLive) {
+    console.warn(
+      `Ignoring Stripe ${event.livemode ? 'live' : 'test'} event on a ${keyIsLive ? 'live' : 'test'} key: ${event.id}`,
+    )
+    return NextResponse.json({ received: true, ignored: 'livemode-mismatch' })
   }
 
   if (event.type === 'checkout.session.completed') {
@@ -47,7 +74,24 @@ export async function POST(request: NextRequest) {
     const contactId = session.metadata?.contact_id
     const programmeKey = session.metadata?.programme_key
     const paymentMode = session.metadata?.payment_mode
-    const paymentIntentId = session.payment_intent
+    const paymentIntentId =
+      typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : session.payment_intent?.id ?? null
+
+    // A completed Checkout Session should always carry an amount. Until this
+    // event was properly typed the code divided session.amount_total by 100, and
+    // null / 100 is 0 in JavaScript — so a session arriving without one would
+    // have booked a 0.00 payment and marked the invoice settled, in silence.
+    // Treated as the anomaly it is. 200, because a redelivery of the same
+    // malformed event cannot succeed either.
+    const amountTotal = session.amount_total
+    if (amountTotal === null) {
+      console.error(
+        `checkout.session.completed ${session.id} arrived with no amount_total - no payment recorded`,
+      )
+      return NextResponse.json({ received: true, ignored: 'no-amount' })
+    }
 
     if (invoiceId) {
       // Check if invoice is still valid (not cancelled/deleted)
@@ -166,7 +210,7 @@ export async function POST(request: NextRequest) {
         await supabase.from('payments').insert({
           invoice_id: invoiceId,
           contact_id: contactId,
-          amount: session.amount_total / 100,
+          amount: amountTotal / 100,
           payment_date: new Date().toISOString(),
           payment_method: 'stripe',
           stripe_payment_id: paymentIntentId,
@@ -202,7 +246,7 @@ export async function POST(request: NextRequest) {
       const formattedAmount = new Intl.NumberFormat('en-GB', {
         style: 'currency',
         currency: invoice?.currency || 'GBP',
-      }).format(session.amount_total / 100)
+      }).format(amountTotal / 100)
 
       // ---- IN-APP NOTIFICATIONS ----
 
