@@ -154,6 +154,8 @@ export function KanbanBoard({
    */
   const handleDragEnd = useCallback(
     (result: DropResult) => {
+      // Sideways scrolling is allowed again the moment the card lands.
+      delete scrollerRef.current?.dataset.lockedScrollLeft
       const { destination, draggableId } = result
       if (!destination) {
         onDragEnd(result)
@@ -187,6 +189,37 @@ export function KanbanBoard({
   }, [stages, deals])
 
   const scrollerRef = useRef<HTMLDivElement>(null)
+
+  // Sideways scroll, held still while a card is in the air.
+  //
+  // Each column is its own scroll container now, which the drag library only
+  // tolerates while nothing ELSE scrolls underneath it. Scrolling the board
+  // sideways mid-drag was what made every column's cached position stale and
+  // dropped cards into the wrong stage. Pinning scrollLeft for the duration
+  // of the drag removes that, at the cost of not being able to drag a card to
+  // a stage that is off the side of the screen — scroll to it first, then
+  // drag. A card in the wrong stage is the worse of the two.
+  //
+  // Parked on the element's own dataset rather than a ref: the compiler's
+  // immutability rule refuses a ref mutated from inside a callback, and the
+  // lock belongs to the element it governs anyway.
+  const handleDragStart = useCallback(() => {
+    const el = scrollerRef.current
+    if (el) el.dataset.lockedScrollLeft = String(el.scrollLeft)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const hold = () => {
+      const locked = el.dataset.lockedScrollLeft
+      if (locked !== undefined && el.scrollLeft !== Number(locked)) {
+        el.scrollLeft = Number(locked)
+      }
+    }
+    el.addEventListener('scroll', hold)
+    return () => el.removeEventListener('scroll', hold)
+  }, [])
 
   // Fill whatever is left of the viewport below wherever the board starts.
   //
@@ -237,7 +270,7 @@ export function KanbanBoard({
   const compact = zoom < 0.8
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       {/* The board scrolls, not the page.
           UNIVERSITY 2027 holds 365 deals in Dormant alone, so the tallest
           column used to stretch the document and the stage headers scrolled
@@ -249,8 +282,8 @@ export function KanbanBoard({
           columns themselves still must not scroll (see KanbanColumn).
           Height is measured rather than hard-coded: a calc() against a guessed
           header height goes wrong the moment anything above it changes. */}
-      <div ref={scrollerRef} className="w-full overflow-auto pb-4">
-        <div className="flex" style={{ gap }}>
+      <div ref={scrollerRef} className="w-full overflow-x-auto overflow-y-hidden pb-4">
+        <div className="flex h-full" style={{ gap }}>
           {stages.map((stage) => (
             <KanbanColumn
               key={stage.id}

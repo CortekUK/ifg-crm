@@ -245,7 +245,7 @@ export function KanbanColumn({
       // moment it leaves this column — which looks exactly like the drag has
       // stopped working, and is worst for the far-apart columns you have to
       // drag the longest to reach.
-      className="flex flex-col flex-shrink-0 rounded-xl border border-border/50 bg-card shadow-sm"
+      className="flex h-full flex-col flex-shrink-0 overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
       style={{ width: columnWidth }}
     >
       {/* Column Header */}
@@ -379,25 +379,25 @@ export function KanbanColumn({
       {/* Cards Container */}
       <Droppable droppableId={stage.id}>
         {(provided, snapshot) => (
-          /* Deliberately NOT a scroll container, and not Radix ScrollArea.
+          /* THIS is the scroller — each stage scrolls its own cards.
+             It was deliberately not one before, and the reason was real:
              @hello-pangea/dnd tracks exactly one scroll parent per droppable
-             — the closest one — so an `overflow-y-auto` here claimed that
-             slot and left the board's horizontal scroller untracked. The
-             library logged "unsupported nested scroll container detected"
-             once per column, and once the board scrolled sideways mid-drag
-             every column's cached position was stale: the highlight stopped
-             following the cursor and the card dropped into whichever stage
-             rbd had last measured. The board scrolls BOTH ways now, so the
-             page no longer grows with the tallest column and the sticky
-             header above stays put while you read down a stage; more cards
-             load as the bottom comes into view.
-             It never even earned the scrollbar —
-             columns stretch to the tallest one in the flex row, so this body
-             had nothing to scroll (scrollWidth === clientWidth).
-             Plain flex-1 keeps the definite-height parent that `min-h-full`
-             on the drop target needs, and hands the scroll-parent slot to
-             the board, which is the one that actually scrolls. */
-          <div className={cn('flex-1 min-h-[120px] pb-2', compact ? 'px-1' : 'px-2')}>
+             — the closest one — so an `overflow-y-auto` here claims that slot
+             and leaves the board's horizontal scroller untracked. Once the
+             board was scrolled sideways mid-drag, every column's cached
+             position went stale: the highlight stopped following the cursor
+             and the card dropped into whichever stage the library had last
+             measured.
+             What makes it safe now is that the board CANNOT be scrolled
+             sideways during a drag — KanbanBoard freezes its scrollLeft from
+             onDragStart to onDragEnd. The stale-position bug needs that
+             sideways scroll to happen; with it frozen, the only scroll
+             anything does mid-drag is this column's own, which the library
+             tracks correctly.
+             min-h-0 is what lets a flex child shrink below its content and
+             actually scroll; without it this just grows and the page scrolls
+             again. */
+          <div className={cn('flex-1 min-h-0 overflow-y-auto pb-2', compact ? 'px-1' : 'px-2')}>
             {/* min-h-full, not a fixed strip.
                 Columns sit in a flex row, so every one of them stretches to the
                 height of the tallest. The drop target used to be min-h-[120px],
