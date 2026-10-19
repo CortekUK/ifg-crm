@@ -883,7 +883,12 @@ export const CONTACT = {
     heading: "Speak to the team",
     intro: "Grab a 15-minute call with us — we'll talk through the programmes and help you find the right pathway. Pick a time that works for you below.",
   },
-  calendlyUrl: "https://calendly.com/nathan-9394/15min",
+  // One booking tab per person, in the order shown. The first is open by
+  // default, so put whoever should take calls first at the top.
+  hosts: [
+    { name: "Nathan", url: "https://calendly.com/nathan-9394/15min" },
+    { name: "Matthew", url: "https://calendly.com/matthewjmorgan/30min" },
+  ],
 };
 
 // ---- IFG TV page (CMS-editable copy + YouTube videos) ----

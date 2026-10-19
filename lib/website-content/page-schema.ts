@@ -493,7 +493,17 @@ const CONTACT: PageSchema = {
     { section: 'Book a call', path: 'booking.eyebrow', label: 'Eyebrow', type: 'text', default: 'Book a call' },
     { section: 'Book a call', path: 'booking.heading', label: 'Heading', type: 'text', default: 'Speak to the team' },
     { section: 'Book a call', path: 'booking.intro', label: 'Intro', type: 'textarea', default: "Grab a 15-minute call with us — we'll talk through the programmes and help you find the right pathway. Pick a time that works for you below." },
-    { section: 'Book a call', path: 'calendlyUrl', label: 'Calendly link', type: 'text', hint: 'The scheduling link the booking widget loads.', default: 'https://calendly.com/nathan-9394/15min' },
+    { section: 'Book a call', path: 'hosts', label: 'Who can be booked', type: 'cards',
+      itemLabel: 'person', itemTitleKey: 'name',
+      hint: 'One tab per person above the booking widget. The first is open by default. With a single person the tabs are hidden and the widget looks as it always did.',
+      itemFields: [
+        { key: 'name', label: 'Name', type: 'text', hint: 'What the tab says, e.g. Nathan.' },
+        { key: 'url', label: 'Calendly link', type: 'text', hint: 'Their full scheduling link, e.g. https://calendly.com/their-name/30min' },
+      ],
+      default: [
+        { name: 'Nathan', url: 'https://calendly.com/nathan-9394/15min' },
+        { name: 'Matthew', url: 'https://calendly.com/matthewjmorgan/30min' },
+      ] },
   ],
 }
 

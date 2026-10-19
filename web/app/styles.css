@@ -395,6 +395,12 @@ a.cmethod-v:hover{color:var(--pitch-400)}
 .cal-wrap{max-width:1500px;margin:0 auto;padding:0 clamp(16px,3vw,40px)}
 .cal-embed{height:760px;min-width:320px;border-radius:18px;overflow:hidden;border:1px solid var(--hairline);background:#0a0f0e;box-shadow:var(--shadow-md)}
 @media (max-width:640px){.cal-embed{height:1040px}}
+.cal-hosts{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin:0 0 20px}
+.cal-host{font-family:var(--font-sans);font-weight:700;font-size:14px;letter-spacing:.01em;border-radius:999px;padding:11px 22px;cursor:pointer;background:transparent;color:var(--fg);border:1.5px solid var(--hairline-strong);transition:transform var(--dur-fast) var(--ease-out),background var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),color var(--dur) var(--ease-out)}
+.cal-host:hover{border-color:var(--pitch-500);color:var(--pitch-300)}
+.cal-host:active{transform:scale(.97)}
+.cal-host.is-on{background:var(--pitch-500);border-color:var(--pitch-500);color:#fff}
+.cal-host.is-on:hover{background:var(--pitch-400);color:#fff;box-shadow:var(--shadow-accent)}
 
 /* ---- apply (Macclesfield application) ---- */
 .apply-hero{min-height:62vh}
