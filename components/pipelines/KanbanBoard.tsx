@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { DragDropContext, DropResult } from '@hello-pangea/dnd'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -186,6 +186,23 @@ export function KanbanBoard({
     return grouped
   }, [stages, deals])
 
+  const scrollerRef = useRef<HTMLDivElement>(null)
+
+  // Fill whatever is left of the viewport below wherever the board starts.
+  // Writes the style directly instead of through state: this runs on every
+  // resize and a re-render per frame would be wasted work.
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const apply = () => {
+      const top = el.getBoundingClientRect().top
+      el.style.height = `${Math.max(320, window.innerHeight - top - 16)}px`
+    }
+    apply()
+    window.addEventListener('resize', apply)
+    return () => window.removeEventListener('resize', apply)
+  }, [])
+
   if (isLoading || !prefsLoaded) {
     return <LoadingSkeleton />
   }
@@ -205,7 +222,18 @@ export function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="w-full overflow-x-auto pb-4">
+      {/* The board scrolls, not the page.
+          UNIVERSITY 2027 holds 365 deals in Dormant alone, so the tallest
+          column used to stretch the document and the stage headers scrolled
+          away with it — you lost sight of which column you were in.
+          This element scrolls BOTH ways and is the only scroll container in
+          the tree, which is what @hello-pangea/dnd requires: one scroll
+          parent per droppable. An ANCESTOR scroller is fine and is the
+          supported arrangement; what breaks it is NESTING, which is why the
+          columns themselves still must not scroll (see KanbanColumn).
+          Height is measured rather than hard-coded: a calc() against a guessed
+          header height goes wrong the moment anything above it changes. */}
+      <div ref={scrollerRef} className="w-full overflow-auto pb-4">
         <div className="flex" style={{ gap }}>
           {stages.map((stage) => (
             <KanbanColumn

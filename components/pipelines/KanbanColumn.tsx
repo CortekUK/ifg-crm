@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Droppable } from '@hello-pangea/dnd'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, ChevronRight, PoundSterling, Users, Search, X } from 'lucide-react'
+import { Plus, ChevronRight, PoundSterling, Users, Search, X, Loader2 } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { matchesDealSearch } from '@/lib/utils/deal-search'
@@ -157,6 +157,27 @@ export function KanbanColumn({
 
   const visibleDeals = matchedDeals.slice(0, effectiveCount)
   const hiddenCount = matchedDeals.length - visibleDeals.length
+
+  // Reveal the next page as the sentinel nears the viewport. rootMargin pulls
+  // it in slightly early so the column does not visibly stall at the bottom.
+  // Rebuilt whenever hiddenCount changes, which is also what disconnects it
+  // once every card is shown.
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (hiddenCount <= 0) return
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((current) => current + PAGE_SIZE)
+        }
+      },
+      { rootMargin: '300px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hiddenCount])
   const isNarrowed = search.trim() !== '' || dateRange !== 'all'
 
   // Hand the visible list up. An effect writing into the board's ref rather
@@ -366,7 +387,11 @@ export function KanbanColumn({
              once per column, and once the board scrolled sideways mid-drag
              every column's cached position was stale: the highlight stopped
              following the cursor and the card dropped into whichever stage
-             rbd had last measured. It never even earned the scrollbar —
+             rbd had last measured. The board scrolls BOTH ways now, so the
+             page no longer grows with the tallest column and the sticky
+             header above stays put while you read down a stage; more cards
+             load as the bottom comes into view.
+             It never even earned the scrollbar —
              columns stretch to the tallest one in the flex row, so this body
              had nothing to scroll (scrollWidth === clientWidth).
              Plain flex-1 keeps the definite-height parent that `min-h-full`
@@ -416,17 +441,22 @@ export function KanbanColumn({
               {provided.placeholder}
             </div>
 
+            {/* Loads the next page as it comes into view instead of asking
+                for a click per 25 cards — Dormant holds 365 deals, which was
+                fifteen presses of "Show more" to reach the bottom.
+                Watched against the viewport rather than the board: the board
+                is on screen, so entering the viewport means entering the
+                board, and that saves threading a root ref into every column. */}
             {hiddenCount > 0 && (
-              <div className={cn('pt-1', compact ? 'pb-1' : 'pb-2')}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn('w-full text-muted-foreground', compact ? 'h-6 text-[10px]' : 'h-7 text-xs')}
-                  onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
-                >
-                  Show {formatNumber(Math.min(PAGE_SIZE, hiddenCount))} more
-                  <span className="ml-1 opacity-70">({formatNumber(hiddenCount)} hidden)</span>
-                </Button>
+              <div
+                ref={sentinelRef}
+                className={cn(
+                  'flex items-center justify-center text-muted-foreground',
+                  compact ? 'h-6 pb-1 text-[10px]' : 'h-7 pb-2 text-xs',
+                )}
+              >
+                <Loader2 className={cn('mr-1.5 animate-spin', compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+                {formatNumber(hiddenCount)} more
               </div>
             )}
           </div>
