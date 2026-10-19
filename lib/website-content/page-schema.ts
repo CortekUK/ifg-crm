@@ -59,7 +59,7 @@ const HOME: PageSchema = {
     { section: 'Hero', path: 'hero.ctaPrimary', label: 'Primary button', type: 'text', default: 'Apply Now' },
     { section: 'Hero', path: 'hero.ctaSecondary', label: 'Secondary button', type: 'text', default: 'Book a call' },
     { section: 'Hero', path: 'hero.poster', label: 'Background poster image', type: 'image', hint: 'Still shown before the background videos load — and on its own while there are none.', default: '/summer/DJI_20240719121925_0067_D-scaled.jpg' },
-    { section: 'Hero', path: 'hero.videos', label: 'Background video URLs', type: 'list', hint: 'Full mp4 URLs that crossfade behind the hero. Empty = the poster image alone. The old Cloudinary clips were lost when that account was disabled; paste the re-hosted URLs here to bring the reel back.', default: [] },
+    { section: 'Hero', path: 'hero.videos', label: 'Background video URLs', type: 'list', hint: 'The clips that crossfade behind the hero. Empty = the poster image alone. These are served from the website itself (/hero/...) so no third-party host can switch them off; a full https:// mp4 URL works too.', default: ['/hero/arrival.mp4', '/hero/gym.mp4', '/hero/match-action.mp4', '/hero/celebration.mp4', '/hero/matchday.mp4', '/hero/training-aerial.mp4'] },
 
     // 2 — PROGRAMMES
     { section: 'Programmes', path: 'programmes.eyebrow', label: 'Eyebrow', type: 'text', default: 'Our programmes' },

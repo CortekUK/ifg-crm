@@ -735,18 +735,30 @@ export const GAP_YEAR = {
 // The clips that crossfade behind the home hero and the success-stories hero,
 // and the still shown before (and instead of) them.
 //
-// EMPTY ON PURPOSE, 19 Oct 2026. These pointed at Cloudinary cloud
-// `dc4vvqb5z`, which is disabled — every URL answers 401 with
-// `x-cld-error: cloud_name dc4vvqb5z is disabled`. The poster was a Cloudinary
-// still of the first clip, so it died with them and both heroes rendered as a
-// black box (.hero-yt is background:#000) with the headline floating on it.
+// Served from web/public, deliberately. These used to come from Cloudinary
+// cloud `dc4vvqb5z`, which was disabled — every URL answered 401 with
+// `x-cld-error: cloud_name dc4vvqb5z is disabled` — and because the poster was
+// a Cloudinary still of the first clip, it died with them and both heroes
+// rendered as a black box (.hero-yt is background:#000). Self-hosting means
+// the site serves its own hero from Vercel's CDN and no third party can switch
+// it off again.
 //
-// HeroReel treats an empty list as "poster only", so a self-hosted still
-// carries both heroes until the clips are re-hosted somewhere that stays up.
-// Put the new mp4 URLs back here and the reel starts again untouched; for the
-// home hero they can also go in the CRM under Website → Pages → Home → Hero,
-// with no deploy at all.
-export const HERO_VIDEOS: string[] = [];
+// Cut from IFG's own YouTube exports and re-encoded for a muted background:
+// audio stripped, capped at 1920 wide, ~2Mbps, +faststart so playback begins
+// before the file is down. 53MB of source became 7MB of reel. Each window was
+// chosen to avoid the captions burned into the promos ("COMING TO", "IN THE
+// UK", "SHOWCASE") — big text behind the hero headline reads as a mess.
+//
+// Lengths vary on purpose: HeroReel advances on `ended` as well as on its own
+// 14s timer, so a short clip simply moves on sooner.
+export const HERO_VIDEOS: string[] = [
+  "/hero/arrival.mp4",          // players arriving on campus
+  "/hero/gym.mp4",              // strength session
+  "/hero/match-action.mp4",     // goalmouth action across several fixtures
+  "/hero/celebration.mp4",      // trophy lift and goal celebrations
+  "/hero/matchday.mp4",         // goal, night match, confetti
+  "/hero/training-aerial.mp4",  // training session + facilities from the air
+];
 
 // Self-hosted so it cannot go the same way as the clips it replaces.
 export const HERO_POSTER = "/summer/DJI_20240719121925_0067_D-scaled.jpg";
