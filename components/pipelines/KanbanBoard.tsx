@@ -189,8 +189,19 @@ export function KanbanBoard({
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   // Fill whatever is left of the viewport below wherever the board starts.
-  // Writes the style directly instead of through state: this runs on every
-  // resize and a re-render per frame would be wasted work.
+  //
+  // Measured, not calc()'d: a calc() against a guessed header height goes
+  // wrong the moment anything above the board changes.
+  //
+  // And re-measured on LAYOUT changes, not just window resizes. Measuring
+  // once on mount was wrong — the stats row and the filter bar above the
+  // board load their data afterwards and push it down, so the height stayed
+  // as if the board still started near the top of the page, the board ran
+  // off the bottom of the screen, and the document kept scrolling. Which is
+  // the whole thing this was meant to stop.
+  //
+  // Writes the style directly rather than through state: this fires on every
+  // layout change and a re-render per frame would be wasted work.
   useEffect(() => {
     const el = scrollerRef.current
     if (!el) return
@@ -199,8 +210,13 @@ export function KanbanBoard({
       el.style.height = `${Math.max(320, window.innerHeight - top - 16)}px`
     }
     apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(document.body)
     window.addEventListener('resize', apply)
-    return () => window.removeEventListener('resize', apply)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', apply)
+    }
   }, [])
 
   if (isLoading || !prefsLoaded) {
