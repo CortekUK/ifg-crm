@@ -58,13 +58,8 @@ const HOME: PageSchema = {
     { section: 'Hero', path: 'hero.subtitle', label: 'Subtitle', type: 'textarea', default: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities." },
     { section: 'Hero', path: 'hero.ctaPrimary', label: 'Primary button', type: 'text', default: 'Apply Now' },
     { section: 'Hero', path: 'hero.ctaSecondary', label: 'Secondary button', type: 'text', default: 'Book a call' },
-    { section: 'Hero', path: 'hero.poster', label: 'Background poster image', type: 'image', hint: 'Still shown before the background videos load.', default: 'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto,so_0/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.jpg' },
-    { section: 'Hero', path: 'hero.videos', label: 'Background video URLs', type: 'list', hint: 'Full mp4 URLs that crossfade behind the hero.', default: [
-      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.mp4',
-      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901312/Macclesfield_FC_U23_3-3_Squires_Gate_FC_Match_Highlights_iivx9w.mp4',
-      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901477/UCLan_University_in_partnership_with_IFG_yr8sle.mp4',
-      'https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901671/UK_Soccer_SUMMER_RESIDENCY_2023_bwrctr.mp4',
-    ] },
+    { section: 'Hero', path: 'hero.poster', label: 'Background poster image', type: 'image', hint: 'Still shown before the background videos load — and on its own while there are none.', default: '/summer/DJI_20240719121925_0067_D-scaled.jpg' },
+    { section: 'Hero', path: 'hero.videos', label: 'Background video URLs', type: 'list', hint: 'Full mp4 URLs that crossfade behind the hero. Empty = the poster image alone. The old Cloudinary clips were lost when that account was disabled; paste the re-hosted URLs here to bring the reel back.', default: [] },
 
     // 2 — PROGRAMMES
     { section: 'Programmes', path: 'programmes.eyebrow', label: 'Eyebrow', type: 'text', default: 'Our programmes' },

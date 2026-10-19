@@ -731,6 +731,26 @@ export const GAP_YEAR = {
 // ---- Home page (CMS-editable copy) ----
 // The animated hero title is intentionally NOT here (its per-line masks are
 // hand-built); everything below is plain text/CTA copy safe to edit in the CMS.
+// ---- Hero background reel ----
+// The clips that crossfade behind the home hero and the success-stories hero,
+// and the still shown before (and instead of) them.
+//
+// EMPTY ON PURPOSE, 19 Oct 2026. These pointed at Cloudinary cloud
+// `dc4vvqb5z`, which is disabled — every URL answers 401 with
+// `x-cld-error: cloud_name dc4vvqb5z is disabled`. The poster was a Cloudinary
+// still of the first clip, so it died with them and both heroes rendered as a
+// black box (.hero-yt is background:#000) with the headline floating on it.
+//
+// HeroReel treats an empty list as "poster only", so a self-hosted still
+// carries both heroes until the clips are re-hosted somewhere that stays up.
+// Put the new mp4 URLs back here and the reel starts again untouched; for the
+// home hero they can also go in the CRM under Website → Pages → Home → Hero,
+// with no deploy at all.
+export const HERO_VIDEOS: string[] = [];
+
+// Self-hosted so it cannot go the same way as the clips it replaces.
+export const HERO_POSTER = "/summer/DJI_20240719121925_0067_D-scaled.jpg";
+
 export const HOME = {
   hero: {
     eyebrow: "Market-leading sports education",
@@ -741,13 +761,8 @@ export const HOME = {
     subtitle: "Bachelor and master degrees in sport — train inside the methodologies of world-renowned clubs while living in Europe's great cities.",
     ctaPrimary: "Apply Now",
     ctaSecondary: "Book a call",
-    poster: "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto,so_0/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.jpg",
-    videos: [
-      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.mp4",
-      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901312/Macclesfield_FC_U23_3-3_Squires_Gate_FC_Match_Highlights_iivx9w.mp4",
-      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901477/UCLan_University_in_partnership_with_IFG_yr8sle.mp4",
-      "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901671/UK_Soccer_SUMMER_RESIDENCY_2023_bwrctr.mp4",
-    ],
+    poster: HERO_POSTER,
+    videos: HERO_VIDEOS,
   },
   programmes: {
     eyebrow: "Our programmes",
@@ -1268,19 +1283,6 @@ export const YT_CHANNEL = {
 
 // 16:9 thumbnail (maxres where available; component falls back to hqdefault).
 export const ytThumb = (id: string) => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
-
-// Hero background reel — hosted mp4 clips that crossfade behind the home hero.
-// Cloudinary `f_auto,q_auto` serves the best format/quality per browser.
-export const HERO_VIDEOS: string[] = [
-  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.mp4",
-  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901312/Macclesfield_FC_U23_3-3_Squires_Gate_FC_Match_Highlights_iivx9w.mp4",
-  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901477/UCLan_University_in_partnership_with_IFG_yr8sle.mp4",
-  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto/v1780901671/UK_Soccer_SUMMER_RESIDENCY_2023_bwrctr.mp4",
-];
-
-// First-frame poster (Cloudinary derives a still by swapping .mp4 → .jpg).
-export const HERO_POSTER =
-  "https://res.cloudinary.com/dc4vvqb5z/video/upload/f_auto,q_auto,so_0/v1780901286/Summer_residency_in_the_UK___My_IFG_Experience_f9mvvh.jpg";
 
 export type YTVideo = { id: string; title: string; tag: string };
 
