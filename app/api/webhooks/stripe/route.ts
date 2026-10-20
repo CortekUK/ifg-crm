@@ -60,7 +60,13 @@ export async function POST(request: NextRequest) {
   // switched to live that endpoint still exists and still fires. It would be
   // rejected for a bad signature today, but only by luck of the secrets
   // differing — this says it outright, and logs which way round it went.
-  const keyIsLive = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ?? false
+  // Both key shapes count. Stripe issues standard secret keys as sk_live_/
+  // sk_test_ and RESTRICTED keys as rk_live_/rk_test_, and the CRM is
+  // deliberately configured with a restricted key scoped to Checkout Sessions.
+  // Matching only `sk_live_` read a perfectly good rk_live_ key as test mode,
+  // so every genuine live payment would have been dropped by the check below —
+  // money taken, invoice never marked paid, in silence.
+  const keyIsLive = /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? '')
   if (event.livemode !== keyIsLive) {
     console.warn(
       `Ignoring Stripe ${event.livemode ? 'live' : 'test'} event on a ${keyIsLive ? 'live' : 'test'} key: ${event.id}`,
