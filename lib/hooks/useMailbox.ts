@@ -16,8 +16,6 @@ import {
  * a mailbox would hit faster than any of them.
  */
 
-export type MailboxScope = 'all' | 'mine' | 'recruiters' | string // or a user id
-
 export interface MailThread {
   id: string
   conversation_id: string
@@ -104,17 +102,20 @@ function baseQuery() {
     .not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`)
 }
 
-/** Narrow a query to the mailboxes the selector is pointing at. */
-function applyScope<T extends { eq: (c: string, v: unknown) => T; in: (c: string, v: unknown[]) => T }>(
+/**
+ * Your mailbox, and only ever yours.
+ *
+ * This used to take a scope — all mailboxes, all recruiters, or one named
+ * person — which the screen defaulted to 'all' for admins. A mailbox is now
+ * private to whoever connected it (265), so there is nothing to choose. The
+ * filter is kept rather than left to RLS alone: belt and braces on a query
+ * that would otherwise be one policy edit away from returning the lot.
+ */
+function onlyMyMailbox<T extends { eq: (c: string, v: unknown) => T }>(
   query: T,
-  scope: MailboxScope,
   myUserId: string,
-  recruiterIds: string[],
 ): T {
-  if (scope === 'mine') return query.eq('mailbox_user_id', myUserId)
-  if (scope === 'recruiters') return query.in('mailbox_user_id', recruiterIds.length ? recruiterIds : ['-'])
-  if (scope !== 'all') return query.eq('mailbox_user_id', scope) // a named recruiter
-  return query
+  return query.eq('mailbox_user_id', myUserId)
 }
 
 /**
@@ -126,22 +127,18 @@ function applyScope<T extends { eq: (c: string, v: unknown) => T; in: (c: string
  */
 export function useMailThreads(params: {
   folder: MailFolder
-  scope: MailboxScope
   myUserId: string
-  recruiterIds: string[]
   intent?: string
   search?: string
   audience?: MailAudience
 }) {
-  const {
-    folder, scope, myUserId, recruiterIds, intent = 'all', search = '', audience = 'crm',
-  } = params
+  const { folder, myUserId, intent = 'all', search = '', audience = 'crm' } = params
 
   return useInfiniteQuery({
     // myUserId and the recruiter list are part of what the query asks for, so
     // they belong in the key. Without them a cached page survives the roster
     // arriving a moment later, and the list shows somebody else's mail.
-    queryKey: ['mail-threads', folder, scope, intent, search, audience, myUserId, recruiterIds.join(',')],
+    queryKey: ['mail-threads', folder, intent, search, audience, myUserId],
     enabled: !!myUserId,
     initialPageParam: 0,
     getNextPageParam: (last: { nextPage: number | null }) => last.nextPage,
@@ -153,7 +150,7 @@ export function useMailThreads(params: {
 
       query = FOLDER_FILTER[folder](query)
       query = applyAudience(query, folder, audience)
-      query = applyScope(query, scope, myUserId, recruiterIds)
+      query = onlyMyMailbox(query, myUserId)
       if (intent !== 'all') query = query.eq('latest_intent', intent)
 
       if (search.trim()) {
@@ -167,19 +164,6 @@ export function useMailThreads(params: {
       if (error) throw error
 
       const threads = (data ?? []) as MailThread[]
-
-      // Whose mailbox each row belongs to — shown as a tag when an admin is
-      // looking at more than one. Resolved in one query for the page rather
-      // than one per row.
-      const ownerIds = [...new Set(threads.map((t) => t.mailbox_user_id).filter(Boolean))] as string[]
-      if (ownerIds.length) {
-        const { data: owners } = await createClient()
-          .from('profiles').select('id, full_name').in('id', ownerIds)
-        const byId = new Map((owners ?? []).map((o) => [o.id as string, o.full_name as string | null]))
-        for (const t of threads) {
-          t.mailbox_owner_name = t.mailbox_user_id ? byId.get(t.mailbox_user_id) ?? null : null
-        }
-      }
 
       const total = count ?? 0
       return {
@@ -200,15 +184,13 @@ export function useMailThreads(params: {
  * can show two numbers again without saying which is which.
  */
 export function useFolderCounts(params: {
-  scope: MailboxScope
   myUserId: string
-  recruiterIds: string[]
   audience?: MailAudience
 }) {
-  const { scope, myUserId, recruiterIds, audience = 'crm' } = params
+  const { myUserId, audience = 'crm' } = params
 
   return useQuery({
-    queryKey: ['mail-folder-counts', scope, audience, myUserId, recruiterIds.join(',')],
+    queryKey: ['mail-folder-counts', audience, myUserId],
     enabled: !!myUserId,
     queryFn: async () => {
       const folders: MailFolder[] = ['inbox', 'waiting', 'unmatched', 'matched', 'sent']
@@ -223,7 +205,7 @@ export function useFolderCounts(params: {
               .not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`)
             q = FOLDER_FILTER[folder](q as never) as never
             q = applyAudience(q as never, folder, audience) as never
-            return applyScope(q as never, scope, myUserId, recruiterIds) as never as ReturnType<typeof baseQuery>
+            return onlyMyMailbox(q as never, myUserId) as never as ReturnType<typeof baseQuery>
           }
 
           const [{ count: total }, { count: unread }] = await Promise.all([
@@ -269,24 +251,6 @@ export function useSetThreadRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mail-threads'] })
       qc.invalidateQueries({ queryKey: ['mail-folder-counts'] })
-    },
-  })
-}
-
-/** Every mailbox an admin may look at. */
-export function useMailboxOwners(isAdmin: boolean) {
-  return useQuery({
-    queryKey: ['mailbox-owners'],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data, error } = await createClient()
-        .from('profiles')
-        .select('id, full_name, email, role')
-        .in('role', ['admin', 'super_admin', 'recruiter'])
-        .eq('is_active', true)
-        .order('full_name')
-      if (error) throw error
-      return (data ?? []) as { id: string; full_name: string | null; email: string; role: string }[]
     },
   })
 }

@@ -10,7 +10,6 @@ import type { MailThread } from '@/lib/hooks/useMailbox'
 interface MailListProps {
   threads: MailThread[]
   isLoading: boolean
-  showMailboxOwner: boolean
   showConnect: boolean
   onOpen: (thread: MailThread) => void
   onConnect?: (thread: MailThread) => void
@@ -103,7 +102,7 @@ function timeLabel(iso: string | null): { top: string; bottom: string } {
 }
 
 export function MailList({
-  threads, isLoading, showMailboxOwner, showConnect, onOpen, onConnect, emptyTitle, emptyHint,
+  threads, isLoading, showConnect, onOpen, onConnect, emptyTitle, emptyHint,
   total, hasMore, loadingMore, onLoadMore,
 }: MailListProps) {
   if (isLoading) {
@@ -203,14 +202,6 @@ export function MailList({
                 {categoryTag && (
                   <span className="whitespace-nowrap rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-300">
                     {categoryTag}
-                  </span>
-                )}
-                {/* Only while more than one mailbox is actually in view —
-                    the same name repeated down every row of your own mailbox
-                    was pure noise. */}
-                {showMailboxOwner && thread.mailbox_owner_name && (
-                  <span className="whitespace-nowrap text-[11px] text-slate-500">
-                    {thread.mailbox_owner_name}
                   </span>
                 )}
                 {showConnect && onConnect && (

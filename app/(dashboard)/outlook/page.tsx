@@ -12,8 +12,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import {
-  useMailThreads, useFolderCounts, useMailboxOwners,
-  type MailThread, type MailboxScope,
+  useMailThreads, useFolderCounts,
+  type MailThread,
 } from '@/lib/hooks/useMailbox'
 import { AUDIENCE_FIXED, type MailAudience, type MailFolder } from '@/lib/outlook/classify-sender'
 import { OutlookBanner } from '@/components/outlook/OutlookBanner'
@@ -84,18 +84,15 @@ const FOLDER_COPY: Record<MailFolder, { title: string; blurb: string; empty: str
 export default function OutlookPage() {
   const queryClient = useQueryClient()
   const { data: currentUser } = useCurrentUser()
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
 
   const [userId, setUserId] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [folder, setFolder] = useState<MailFolder>('inbox')
-  // A recruiter can only ever look at their own mailbox, so the scope is
-  // derived rather than stored. Holding it in state and syncing it from an
-  // effect meant the first render used 'all', fired a query that returns
-  // nothing for them, and made an empty list look like a fault.
-  const [adminScope, setAdminScope] = useState<MailboxScope>('all')
-  const scope: MailboxScope = isAdmin ? adminScope : 'mine'
-  const setScope = setAdminScope
+  // There is no scope to choose any more. A connected mailbox is private to
+  // the person who connected it (265), so this screen only ever shows your
+  // own mail — and the database refuses the rest regardless of what is asked
+  // for. This used to default to 'all' for admins, which is how the mailbox
+  // came to open on everyone's mail at once.
   const [intent, setIntent] = useState('all')
   // CRM contacts by default: the Inbox is for conversations with people, not
   // for GoDaddy security alerts sitting between a parent and a player.
@@ -121,25 +118,14 @@ export default function OutlookPage() {
   const { data: outlook } = useOutlookStatus()
   const mailboxEmail = outlook?.connected ? outlook.mailboxEmail ?? '' : ''
 
-  const { data: owners = [] } = useMailboxOwners(!!isAdmin)
-  const recruiterIds = useMemo(() => owners.filter((o) => o.role === 'recruiter').map((o) => o.id), [owners])
-
-  const threadsQuery = useMailThreads({ folder, scope, myUserId: userId, recruiterIds, intent, search: debouncedSearch, audience })
-  const { data: counts = {} } = useFolderCounts({ scope, myUserId: userId, recruiterIds, audience })
+  const threadsQuery = useMailThreads({ folder, myUserId: userId, intent, search: debouncedSearch, audience })
+  const { data: counts = {} } = useFolderCounts({ myUserId: userId, audience })
 
   const threads = useMemo(
     () => threadsQuery.data?.pages.flatMap((p) => p.threads) ?? [],
     [threadsQuery.data],
   )
   const total = threadsQuery.data?.pages[0]?.total ?? 0
-
-  // Whose mailbox a row belongs to is only worth saying when more than one is
-  // actually on screen. "All mailboxes" with a single connected account was
-  // stamping the same name down every row.
-  const ownersInView = useMemo(
-    () => new Set(threads.map((t) => t.mailbox_user_id).filter(Boolean)).size,
-    [threads],
-  )
 
   /**
    * An email has been connected (or filed as external).
@@ -231,7 +217,7 @@ export default function OutlookPage() {
           />
         </div>
 
-        <MailboxSelector isAdmin={!!isAdmin} scope={scope} onChange={setScope} owners={owners} />
+        <MailboxSelector />
 
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarFallback className="bg-blue-600 text-xs text-white">
@@ -343,7 +329,6 @@ export default function OutlookPage() {
                 <MailList
                   threads={threads}
                   isLoading={threadsQuery.isLoading}
-                  showMailboxOwner={!!isAdmin && scope !== 'mine' && ownersInView > 1}
                   showConnect={folder === 'unmatched'}
                   onOpen={setOpenThread}
                   onConnect={setConnectThread}
