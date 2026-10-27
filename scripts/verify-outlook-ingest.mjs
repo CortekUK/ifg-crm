@@ -117,7 +117,9 @@ try {
   console.log('\n3. Inbound from an address the CRM has never seen')
   const stranger = graphMessage({
     from: { emailAddress: { address: STRANGER_EMAIL, name: 'Nobody' } },
-    body: { contentType: 'text', content: 'Who is this?' },
+    // A real enquiry, not 'Who is this?': since 267 an unknown sender passes
+    // the relevance filter only when the message reads as IFG business.
+    body: { contentType: 'text', content: 'Hi, my son is 17 and plays for his county. How do the US soccer scholarships work?' },
   })
   createdConversationIds.push(stranger.conversationId)
   const r3 = await ingestMessage(supabase, mailbox, stranger)

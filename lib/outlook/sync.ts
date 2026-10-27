@@ -3,7 +3,7 @@ import { graphFetch, OutlookReconnectRequired } from './graph'
 import { getConnectedMailboxes, recordSync, type OutlookCredentials } from './credentials'
 import { ensureSubscriptions } from './subscriptions'
 import { ingestMessage } from './ingest'
-import { MESSAGE_SELECT, type GraphMessage } from './types'
+import { MESSAGE_SELECT, SINGLE_MESSAGE_SELECT, type GraphMessage } from './types'
 
 /**
  * The catch-up sweep.
@@ -93,7 +93,7 @@ async function syncFolder(
       try {
         const result = await ingestMessage(
           supabase,
-          { userId: credentials.user_id, mailboxEmail },
+          { userId: credentials.user_id, mailboxEmail, loadHeaders: headerLoader(supabase, credentials) },
           message,
         )
         if (result.status === 'inserted') summary.inserted++
@@ -197,6 +197,20 @@ export async function syncAllMailboxes(supabase: SupabaseClient): Promise<SyncSu
   return summaries
 }
 
+/** Fetch one message's headers, for the relevance filter. */
+export function headerLoader(supabase: SupabaseClient, credentials: OutlookCredentials) {
+  return async (graphMessageId: string) => {
+    const found = await graphFetch<Pick<GraphMessage, 'internetMessageHeaders'>>(
+      supabase,
+      credentials.user_id,
+      `/me/messages/${graphMessageId}?$select=internetMessageHeaders`,
+      {},
+      credentials,
+    )
+    return found.internetMessageHeaders ?? null
+  }
+}
+
 /** Fetch one message by id — the path a change notification takes. */
 export async function fetchMessage(
   supabase: SupabaseClient,
@@ -207,7 +221,7 @@ export async function fetchMessage(
     return await graphFetch<GraphMessage>(
       supabase,
       credentials.user_id,
-      `/me/messages/${graphMessageId}?$select=${MESSAGE_SELECT}`,
+      `/me/messages/${graphMessageId}?$select=${SINGLE_MESSAGE_SELECT}`,
       {},
       credentials,
     )

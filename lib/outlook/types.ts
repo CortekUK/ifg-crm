@@ -41,6 +41,14 @@ export const MESSAGE_SELECT = [
   'hasAttachments',
 ].join(',')
 
+/**
+ * The same, plus headers, for fetching ONE message. Headers are what tell a
+ * newsletter or an autoresponder from a person, but they are not part of a
+ * delta page — so the sweep fetches them per message only when the relevance
+ * filter needs them, and the webhook path (one message at a time) asks here.
+ */
+export const SINGLE_MESSAGE_SELECT = `${MESSAGE_SELECT},internetMessageHeaders`
+
 export function addressOf(recipient: GraphRecipient | null | undefined): string | null {
   const address = recipient?.emailAddress?.address
   return address ? address.trim().toLowerCase() : null

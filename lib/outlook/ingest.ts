@@ -3,6 +3,7 @@ import { classifyIntent, detectAutoReply, stripHtml, truncateText } from '@/lib/
 import { trimQuotedContent } from '@/lib/utils/trimQuotedContent'
 import { addressOf, headersToRecord, nameOf, type GraphMessage } from './types'
 import { classifySender, threadCategory, type SenderKind } from './classify-sender'
+import { decideRelevance, messageKey, recordFiltered, wasFiltered } from './relevance'
 
 /**
  * Turn a Microsoft Graph message into CRM rows.
@@ -37,6 +38,12 @@ export interface IngestResult {
 interface MailboxContext {
   userId: string
   mailboxEmail: string
+  /** Fetch one message's internetMessageHeaders; the relevance filter needs
+   *  them for the few messages no other rule settles. */
+  loadHeaders?: (graphMessageId: string) => Promise<{ name: string; value: string }[] | null>
+  /** Sent from the CRM itself (Compose, Reply). Somebody chose to send it
+   *  from here, so it is business by definition and skips the filter. */
+  sentFromCrm?: boolean
 }
 
 /** Everything the thread row needs, derived once per message. */
@@ -127,6 +134,19 @@ async function resolveLinkedSend(
   }
 }
 
+/** Has this message already been stored, inbound or outbound? */
+async function alreadyStored(
+  supabase: SupabaseClient,
+  internetMessageId: string | null,
+): Promise<boolean> {
+  if (!internetMessageId) return false
+  const [{ data: reply }, { data: send }] = await Promise.all([
+    supabase.from('email_replies').select('id').eq('internet_message_id', internetMessageId).limit(1).maybeSingle(),
+    supabase.from('email_sends').select('id').eq('internet_message_id', internetMessageId).limit(1).maybeSingle(),
+  ])
+  return !!reply || !!send
+}
+
 function bodyOf(message: GraphMessage): { text: string; html: string | null } {
   const content = message.body?.content ?? ''
   const isHtml = (message.body?.contentType ?? '').toLowerCase() === 'html'
@@ -170,9 +190,37 @@ export async function ingestMessage(
   const recipients = (message.toRecipients ?? []).map(addressOf).filter(Boolean) as string[]
   const counterpartyEmail = isOutbound ? recipients[0] ?? null : fromEmail
   const counterpartyName = isOutbound ? nameOf(message.toRecipients?.[0]) : fromName
+  const { text, html } = bodyOf(message)
+
+  // The relevance filter, before ANYTHING is written or sent to OpenAI. A
+  // message already stored skips it: it was kept once, and re-deciding would
+  // let a rule change silently orphan half a conversation.
+  if (!mailbox.sentFromCrm && !(await alreadyStored(supabase, internetMessageId))) {
+    const key = messageKey(message)
+    if (await wasFiltered(supabase, mailbox.userId, key)) {
+      return { status: 'skipped', reason: 'filtered' }
+    }
+    const own = mailbox.mailboxEmail.toLowerCase()
+    const cc = (message.ccRecipients ?? []).map(addressOf).filter(Boolean) as string[]
+    const participants = [fromEmail, ...recipients, ...cc].filter(
+      (a): a is string => !!a && a !== own,
+    )
+    const relevance = await decideRelevance(supabase, {
+      mailboxUserId: mailbox.userId,
+      message,
+      direction: isOutbound ? 'outbound' : 'inbound',
+      counterparty: counterpartyEmail,
+      participants,
+      text: trimQuotedContent(text),
+      loadHeaders: mailbox.loadHeaders ? () => mailbox.loadHeaders!(message.id) : undefined,
+    })
+    if (!relevance.keep) {
+      await recordFiltered(supabase, mailbox.userId, key, isOutbound ? 'outbound' : 'inbound', relevance.reason)
+      return { status: 'skipped', reason: `filtered: ${relevance.reason}` }
+    }
+  }
 
   const attribution = await attributeToContact(supabase, counterpartyEmail)
-  const { text, html } = bodyOf(message)
   const occurredAt =
     message.receivedDateTime || message.sentDateTime || new Date().toISOString()
 

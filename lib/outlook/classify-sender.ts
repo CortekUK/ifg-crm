@@ -18,7 +18,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * their internal mail filed as a player reply, which would put a colleague in
  * a pipeline.
  */
-export type SenderKind = 'player' | 'parent' | 'secondary' | 'internal' | 'external' | 'vendor' | 'unknown'
+// 'personal' is never written by ingest — the relevance filter stops personal
+// mail before it is stored. It marks mail stored BEFORE that filter existed,
+// hidden by migration 267 rather than deleted.
+export type SenderKind = 'player' | 'parent' | 'secondary' | 'internal' | 'external' | 'vendor' | 'personal' | 'unknown'
 
 /**
  * Addresses no human reads a reply from — and which nobody opens this mailbox
@@ -66,7 +69,7 @@ const VENDOR_DOMAINS = [
  * meant to carry bookings is delivering nothing. Hiding them would have taken
  * away the team's one sight of a booking to tidy up an inbox.
  */
-const VENDOR_EXCEPT_DOMAINS = ['calendly.com']
+export const VENDOR_EXCEPT_DOMAINS = ['calendly.com']
 
 /** Is this address a robot whose mail nobody needs to see? */
 export function isVendorAddress(email: string | null | undefined): boolean {
@@ -152,7 +155,7 @@ export type MailFolder = 'inbox' | 'waiting' | 'unmatched' | 'matched' | 'sent'
  * email_replies, and still fires every trigger that hangs off that table. One
  * line to put it back if the decision changes.
  */
-export const HIDDEN_CATEGORIES: SenderKind[] = ['internal', 'vendor']
+export const HIDDEN_CATEGORIES: SenderKind[] = ['internal', 'vendor', 'personal']
 
 /**
  * Who a conversation is with, as a filter across the mixed folders.

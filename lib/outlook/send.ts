@@ -102,7 +102,7 @@ async function mirrorSentMessage(
   // recorded at send time and the same message seen later by the sweep produce
   // an identical row — and the unique index on internet_message_id makes the
   // second one a no-op instead of a duplicate.
-  await ingestMessage(supabase, { userId, mailboxEmail }, sent)
+  await ingestMessage(supabase, { userId, mailboxEmail, sentFromCrm: true }, sent)
 
   return {
     graphMessageId: sent.id,
