@@ -117,6 +117,8 @@ await expect('Website form notification', { from: 'noreply@theinternationalfootb
 await expect('Reply in a CRM conversation', { from: 'new.address@yahoo.com', subject: 'Re: Your application', text: 'see attached', conversationId: 'conv-crm' }, 'keep:crm_conversation', { aiCalled: false })
 await expect('Calendly booking', { from: 'notifications@calendly.com', subject: 'New Event: Call with Sam', text: '' }, 'keep:business_service', { aiCalled: false })
 await expect('Parent\'s first enquiry', { from: 'new.parent@gmail.com', name: 'Ahmed Khan', subject: 'Scholarship for my son', text: 'My son is 17 and plays as a striker. How do the US scholarships work?' }, 'keep:ai_business', { aiCalled: true })
+await expect('University reply about a locked account', { from: 'cmwright1@lancashire.ac.uk', subject: 'RE: ACCOUNT LOCKED - DO NOT IGNORE - Have you Submitted your Visa Application', text: 'Please submit by Friday.' }, 'keep:ai_business', { aiCalled: true })
+await expect('Google Drive share', { from: 'drive-shares-dm-noreply@google.com', subject: "Spreadsheet shared with you: 'Weekly Content Plan'", text: '' }, 'keep:ai_business', { aiCalled: true })
 await expect('Supplier invoice', { from: 'accounts@coachhire.co.uk', subject: 'Invoice 2231 - summer residency transport', text: 'Please find attached.' }, 'keep:ai_business', { aiCalled: true })
 await expect('AI unavailable keeps the human', { from: 'someone@club.example', subject: 'Quick question', text: 'Hi Nathan' }, 'keep:ai_unavailable', { ai: 'FAIL', aiCalled: true })
 await expect('Outbound to a player', { direction: 'outbound', from: MAILBOX, to: ['player.one@gmail.com'], subject: 'Following up', text: '' }, 'keep:contact', { aiCalled: false })

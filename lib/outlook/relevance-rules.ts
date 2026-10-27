@@ -51,7 +51,7 @@ const SECURITY_SUBJECT = [
   /\b2-?step verification\b/i,
   /\b2fa\b/i,
   /\bsecurity (alert|notification|warning|check)\b/i,
-  /\baccount (alert|security|recovery|locked|suspended)\b/i,
+  /\baccount (alert|security|recovery)\b/i,
   /\bsomeone (tried to|signed in|logged in)\b/i,
 ]
 
@@ -87,7 +87,9 @@ export const CONSUMER_SERVICE_DOMAINS = [
   'discord.com',
   'telegram.org',
   'linkedin.com',
-  'google.com',
+  // accounts.google.com only: drive-shares@ and calendar@ google.com carry
+  // work — a shared spreadsheet is somebody at IFG sending a document.
+  'accounts.google.com',
   'youtube.com',
   'apple.com',
   'accountprotection.microsoft.com',
@@ -197,8 +199,14 @@ export interface MarkerInput {
  */
 export function personalMarker(input: MarkerInput): DropReason | null {
   const subject = input.subject ?? ''
-  if (OTP_SUBJECT.some((re) => re.test(subject))) return 'otp'
-  if (SECURITY_SUBJECT.some((re) => re.test(subject))) return 'account_security'
+  // A reply or forward is a person in a conversation, not a service sending a
+  // code — a university writing "RE: ACCOUNT LOCKED - have you submitted your
+  // visa application" is business. Found in the live data before 267 ran.
+  const isConversation = /^\s*(re|fw|fwd)\s*:/i.test(subject)
+  if (!isConversation) {
+    if (OTP_SUBJECT.some((re) => re.test(subject))) return 'otp'
+    if (SECURITY_SUBJECT.some((re) => re.test(subject))) return 'account_security'
+  }
   if (OTP_BODY.test(input.text.slice(0, 1500))) return 'otp'
   if (isConsumerService(input.counterparty)) return 'consumer_service'
   if (isAutomatedAddress(input.counterparty)) return 'automated_sender'

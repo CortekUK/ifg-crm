@@ -65,8 +65,10 @@ ALTER TABLE email_replies ADD CONSTRAINT email_replies_sender_kind_check
 CREATE OR REPLACE FUNCTION pg_temp.looks_personal(p_email text, p_subject text)
 RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
   SELECT
-    -- one-time codes and account security
-    coalesce(p_subject, '') ~* (
+    -- one-time codes and account security — never on a reply or forward,
+    -- which is a person in a conversation (a university's "RE: ACCOUNT LOCKED
+    -- … visa application" was caught by the first dry run)
+    (coalesce(p_subject, '') !~* '^\s*(re|fw|fwd)\s*:' AND coalesce(p_subject, '') ~* (
       '\motp\M|one[- ]?time (pass ?(word|code)|code|pin|login)'
       || '|(verification|security|login|log-in|sign[- ]?in|confirmation|authentication|access|2fa|single-use) code'
       || '|\mpass ?code\M|your (\w+ )?code is|code:\s*[0-9]{4,8}|^\s*[0-9]{4,8}\s+is your'
@@ -77,14 +79,14 @@ RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
       || '|(sign[- ]?in|login|log-in) (attempt|alert|activity|notification|detected|from)'
       || '|(unusual|suspicious|unrecogni[sz]ed) (sign[- ]?in|login|activity|device)'
       || '|two[- ]?(factor|step)|2-?step verification|\m2fa\M'
-      || '|security (alert|notification|warning|check)|account (alert|security|recovery|locked|suspended)'
+      || '|security (alert|notification|warning|check)|account (alert|security|recovery)'
       || '|someone (tried to|signed in|logged in)'
-    )
+    ))
     -- consumer services (never webmail: parents write from gmail/hotmail/icloud)
     OR lower(split_part(coalesce(p_email, ''), '@', 2)) ~ (
       '(^|\.)(instagram\.com|facebookmail\.com|facebook\.com|meta\.com|whatsapp\.com|messenger\.com'
       || '|threads\.net|tiktok\.com|snapchat\.com|x\.com|twitter\.com|pinterest\.com|reddit\.com'
-      || '|redditmail\.com|discord\.com|telegram\.org|linkedin\.com|google\.com|youtube\.com'
+      || '|redditmail\.com|discord\.com|telegram\.org|linkedin\.com|accounts\.google\.com|youtube\.com'
       || '|apple\.com|accountprotection\.microsoft\.com|amazon\.com|amazon\.co\.uk|paypal\.com'
       || '|paypal\.co\.uk|ebay\.com|ebay\.co\.uk|netflix\.com|spotify\.com|primevideo\.com'
       || '|disneyplus\.com|uber\.com|deliveroo\.co\.uk|just-eat\.co\.uk|temu\.com|shein\.com|aliexpress\.com)$'
