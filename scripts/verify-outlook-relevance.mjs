@@ -120,6 +120,8 @@ await expect('Parent\'s first enquiry', { from: 'new.parent@gmail.com', name: 'A
 await expect('University reply about a locked account', { from: 'cmwright1@lancashire.ac.uk', subject: 'RE: ACCOUNT LOCKED - DO NOT IGNORE - Have you Submitted your Visa Application', text: 'Please submit by Friday.' }, 'keep:ai_business', { aiCalled: true })
 await expect('Google Drive share', { from: 'drive-shares-dm-noreply@google.com', subject: "Spreadsheet shared with you: 'Weekly Content Plan'", text: '' }, 'keep:ai_business', { aiCalled: true })
 await expect('Supplier invoice', { from: 'accounts@coachhire.co.uk', subject: 'Invoice 2231 - summer residency transport', text: 'Please find attached.' }, 'keep:ai_business', { aiCalled: true })
+await expect('Reply the AI calls personal stays', { from: 'rep@hudl.example', subject: 'Re: Get started with your subscription', text: 'Happy to help.' }, 'keep:ai_business', { ai: 'PERSONAL', aiCalled: true })
+await expect('Shared document the AI calls personal stays', { from: 'someone.at.ifg@gmail.com', subject: "Spreadsheet shared with you: 'Weekly Content Plan'", text: '' }, 'keep:ai_business', { ai: 'PERSONAL', aiCalled: true })
 await expect('AI unavailable keeps the human', { from: 'someone@club.example', subject: 'Quick question', text: 'Hi Nathan' }, 'keep:ai_unavailable', { ai: 'FAIL', aiCalled: true })
 await expect('Outbound to a player', { direction: 'outbound', from: MAILBOX, to: ['player.one@gmail.com'], subject: 'Following up', text: '' }, 'keep:contact', { aiCalled: false })
 await expect('Outbound personal', { direction: 'outbound', from: MAILBOX, to: ['my.sister@gmail.com'], subject: 'Dinner sunday?', text: 'Are you free?' }, 'drop:ai_personal', { ai: 'PERSONAL', aiCalled: true })

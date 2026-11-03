@@ -158,8 +158,12 @@ export async function decideRelevance(
     subject: message.subject ?? null,
     text: input.text,
   })
-  if (verdict === 'personal') return { keep: false, reason: 'ai_personal' }
-  return { keep: true, reason: verdict === 'business' ? 'ai_business' : 'ai_unavailable' }
+  // A reply, a forward or a shared document is a person doing something, not a
+  // mailing, and the AI gets these wrong: it called a Hudl account manager's
+  // "Re:" and Jake's shared content plan personal, even when told otherwise.
+  const isFromAPerson = /^\s*(re|fw|fwd)\s*:|\bshared with you\b/i.test(message.subject ?? '')
+  if (verdict === 'personal' && !isFromAPerson) return { keep: false, reason: 'ai_personal' }
+  return { keep: true, reason: verdict === 'business' || verdict === 'personal' ? 'ai_business' : 'ai_unavailable' }
 }
 
 const RELEVANCE_PROMPT = `You screen email for the CRM of The International Football Group (IFG).
@@ -172,7 +176,9 @@ BUSINESS: a player, parent, coach, school, university, club, agent, partner or s
 
 PERSONAL: the employee's own family and friends about non-work matters, personal shopping, banking, bills, subscriptions, social media, dating, personal travel, medical matters, newsletters, marketing and promotions, verification codes and account alerts.
 
-If a real person is writing about work and you are unsure, answer BUSINESS. If it is a promotion or anything about the employee's private life, answer PERSONAL.
+A document, spreadsheet or calendar invitation shared by a person is BUSINESS. A university or school writing about recruitment, counsellors or admissions is BUSINESS. An individual supplier checking in about an existing account is BUSINESS.
+
+If a real person is writing about work and you are unsure, answer BUSINESS. If it is a promotion, a mass mailing or anything about the employee's private life, answer PERSONAL.
 
 Respond with ONLY one word: BUSINESS or PERSONAL.`
 
