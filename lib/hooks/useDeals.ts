@@ -420,6 +420,44 @@ export function useMoveDeal() {
   })
 }
 
+/**
+ * Move a deal to another pipeline, keeping its notes and history. The database
+ * stops the old automations and starts the new ones: see migration 270.
+ */
+export function useMoveDealToPipeline() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      dealId,
+      pipelineId,
+      stageId,
+      dealValue,
+    }: {
+      dealId: string
+      pipelineId: string
+      stageId: string
+      dealValue: number | null
+    }) => {
+      const { error } = await supabase.rpc('move_deal_to_pipeline', {
+        p_deal_id: dealId,
+        p_pipeline_id: pipelineId,
+        p_stage_id: stageId,
+        p_deal_value: dealValue,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: (_data, { dealId }) => {
+      // Every pipeline's board, because the card left one and joined another.
+      queryClient.invalidateQueries({ queryKey: ['deals'] })
+      queryClient.invalidateQueries({ queryKey: ['deal', dealId] })
+      queryClient.invalidateQueries({ queryKey: ['deal-activities', dealId] })
+      queryClient.invalidateQueries({ queryKey: ['deal-automations', dealId] })
+    },
+  })
+}
+
 export function useUpdateDeal() {
   const supabase = createClient()
   const queryClient = useQueryClient()

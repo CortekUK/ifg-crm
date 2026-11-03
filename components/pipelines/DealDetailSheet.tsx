@@ -88,6 +88,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/lib/hooks/use-toast'
 import { OwnerSelect } from '@/components/ui/owner-select'
+import { MoveDealDialog } from './MoveDealDialog'
 import type { Deal, PipelineStage } from '@/lib/types/pipelines'
 
 interface DealDetailSheetProps {
@@ -195,6 +196,7 @@ export function DealDetailSheet({
   const updateDeal = useUpdateDeal()
   const deleteDeal = useDeleteDeal()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false)
   // Separate "Remove from pipeline" flow — only offered when the deal sits
   // in a terminal stage (lost / dormant / dead). Same underlying mutation
   // as the admin trash icon, but framed as a clean-up action so recruiters
@@ -560,6 +562,19 @@ export function DealDetailSheet({
   ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
   return (
+    <>
+    {isMoveDialogOpen && deal.pipeline_id && (
+      <MoveDealDialog
+        dealId={deal.id}
+        currentPipelineId={deal.pipeline_id}
+        isOpen
+        onClose={() => setIsMoveDialogOpen(false)}
+        onMoved={() => {
+          setIsMoveDialogOpen(false)
+          onClose()
+        }}
+      />
+    )}
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       {/* The sheet's own close button is suppressed and re-rendered in the
           header action row below. It was absolutely positioned at top-4 right-4
@@ -594,6 +609,9 @@ export function DealDetailSheet({
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setIsMoveDialogOpen(true)} className="h-8">
+                Move deal
+              </Button>
               {/* Admin-only delete. Hard-delete with cascade — see useDeleteDeal. */}
               {isAdmin && (
                 <Button
@@ -1661,5 +1679,6 @@ export function DealDetailSheet({
         </AlertDialogContent>
       </AlertDialog>
     </Sheet>
+    </>
   )
 }
