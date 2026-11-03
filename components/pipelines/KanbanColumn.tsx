@@ -379,25 +379,22 @@ export function KanbanColumn({
       {/* Cards Container */}
       <Droppable droppableId={stage.id}>
         {(provided, snapshot) => (
-          /* THIS is the scroller — each stage scrolls its own cards.
-             It was deliberately not one before, and the reason was real:
-             @hello-pangea/dnd tracks exactly one scroll parent per droppable
-             — the closest one — so an `overflow-y-auto` here claims that slot
-             and leaves the board's horizontal scroller untracked. Once the
-             board was scrolled sideways mid-drag, every column's cached
-             position went stale: the highlight stopped following the cursor
-             and the card dropped into whichever stage the library had last
-             measured.
-             What makes it safe now is that the board CANNOT be scrolled
-             sideways during a drag — KanbanBoard freezes its scrollLeft from
-             onDragStart to onDragEnd. The stale-position bug needs that
-             sideways scroll to happen; with it frozen, the only scroll
-             anything does mid-drag is this column's own, which the library
-             tracks correctly.
+          /* Each stage scrolls its own cards, except during a drag: the board
+             sets data-card-dragging so this stops being a scroller and the drag
+             library follows the board instead (see handleBeforeCapture).
+             Both axes: with only overflow-y hidden the browser computes
+             overflow-x as auto, which still counts as a scroller.
+             The stable gutter stops the cards changing width when the scrollbar
+             goes away at the start of a drag.
              min-h-0 is what lets a flex child shrink below its content and
              actually scroll; without it this just grows and the page scrolls
              again. */
-          <div className={cn('flex-1 min-h-0 overflow-y-auto pb-2', compact ? 'px-1' : 'px-2')}>
+          <div
+            className={cn(
+              'flex-1 min-h-0 overflow-y-auto pb-2 [scrollbar-gutter:stable] [[data-card-dragging]_&]:overflow-hidden',
+              compact ? 'px-1' : 'px-2',
+            )}
+          >
             {/* min-h-full, not a fixed strip.
                 Columns sit in a flex row, so every one of them stretches to the
                 height of the tallest. The drop target used to be min-h-[120px],

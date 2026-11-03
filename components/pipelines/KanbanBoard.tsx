@@ -25,6 +25,80 @@ interface KanbanBoardProps {
   revealDealId?: string | null
 }
 
+// Sideways scroll while a card is held near either edge of the board.
+const EDGE_ZONE_PX = 160
+const MAX_SPEED_PX_PER_SEC = 650
+const RAMP_UP_MS = 500
+
+/**
+ * Scrolls the board while a card is dragged near its edges: gently at first and
+ * faster the closer the pointer is, so a stage can be aimed at as it comes into
+ * view.
+ *
+ * Follows the pointer, not the library's auto-scroller, which goes by the
+ * middle of the card. A card grabbed by its left side has its middle past the
+ * board by the time the pointer reaches the edge, and scrolling stopped there.
+ * The library still sees every scroll here, because the board is the scroll
+ * parent it watches during a drag (see handleBeforeCapture).
+ */
+function scrollBoardNearEdges(board: HTMLElement) {
+  let pointerX = 0
+  let running = false
+
+  const run = () => {
+    running = true
+    let lastTime = performance.now()
+    let enteredZoneAt: number | null = null
+    let owed = 0
+
+    const tick = (now: number) => {
+      if (!board.dataset.cardDragging) {
+        running = false
+        return
+      }
+      const { left, right } = board.getBoundingClientRect()
+      const fromLeft = pointerX - left
+      const fromRight = right - pointerX
+      const direction = fromRight < EDGE_ZONE_PX ? 1 : fromLeft < EDGE_ZONE_PX ? -1 : 0
+
+      if (direction === 0) {
+        enteredZoneAt = null
+        owed = 0
+      } else {
+        enteredZoneAt ??= now
+        const depth = 1 - Math.max(0, direction === 1 ? fromRight : fromLeft) / EDGE_ZONE_PX
+        const ramp = Math.min(1, (now - enteredZoneAt) / RAMP_UP_MS)
+        // Whole pixels only: scrollLeft can round a small step away entirely.
+        owed += direction * depth * depth * ramp * MAX_SPEED_PX_PER_SEC * ((now - lastTime) / 1000)
+        const step = Math.trunc(owed)
+        board.scrollLeft += step
+        owed -= step
+      }
+      lastTime = now
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }
+
+  const follow = (x: number) => {
+    if (!board.dataset.cardDragging) return
+    pointerX = x
+    if (!running) run()
+  }
+  const onMouseMove = (event: MouseEvent) => follow(event.clientX)
+  const onTouchMove = (event: TouchEvent) => follow(event.touches[0]?.clientX ?? pointerX)
+
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('touchmove', onTouchMove, { passive: true })
+  return () => {
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('touchmove', onTouchMove)
+  }
+}
+
+// Off so the two do not scroll the board at once. See scrollBoardNearEdges.
+const LIBRARY_AUTO_SCROLL = { disabled: true }
+
 function LoadingSkeleton() {
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
@@ -127,22 +201,24 @@ export function KanbanBoard({
   }, [])
 
   /**
-   * There is no hand-rolled auto-scroll here on purpose.
+   * Makes the board the scroll parent for the length of a drag, so any stage
+   * can be reached.
    *
-   * This used to run its own requestAnimationFrame loop that nudged the
-   * board's scrollLeft whenever the pointer sat near either edge. Because
-   * @hello-pangea/dnd measures every column once at drag start and then only
-   * follows the window and each droppable's own scroll parent, those nudges
-   * were invisible to it: scrolling the board a couple of thousand pixels
-   * mid-drag left every column's cached position that far out of date, so the
-   * drop highlight stopped tracking the cursor and the card landed in
-   * whichever stage had last been measured — which is why a drop registered
-   * over the columns near where the drag began and over nothing further out.
+   * @hello-pangea/dnd follows one scroll parent per droppable, the closest one
+   * with overflow auto or scroll, and measures it when the drag starts. Columns
+   * scroll their own cards, which would make each column that parent and leave
+   * the board's sideways scroll untracked: its measurements went stale and cards
+   * dropped in the wrong stage. So the columns stop being scrollers during a
+   * drag (see the column body in KanbanColumn) and the board takes over.
    *
-   * The board is now the single scroll parent each droppable reports (see the
-   * note on the column body), so the library auto-scrolls it itself and keeps
-   * its own measurements in step.
+   * This has to happen in onBeforeCapture, the last moment before it measures.
+   * Written to the element rather than state, because a re-render would land
+   * after the measuring. The cost is that a column cannot scroll its own cards
+   * during a drag.
    */
+  const handleBeforeCapture = useCallback(() => {
+    if (scrollerRef.current) scrollerRef.current.dataset.cardDragging = 'true'
+  }, [])
 
   /**
    * Turn "dropped at index 3 of the Follow Up column" into a board_position.
@@ -154,8 +230,8 @@ export function KanbanBoard({
    */
   const handleDragEnd = useCallback(
     (result: DropResult) => {
-      // Sideways scrolling is allowed again the moment the card lands.
-      delete scrollerRef.current?.dataset.lockedScrollLeft
+      // The columns scroll their own cards again the moment this one lands.
+      delete scrollerRef.current?.dataset.cardDragging
       const { destination, draggableId } = result
       if (!destination) {
         onDragEnd(result)
@@ -190,37 +266,6 @@ export function KanbanBoard({
 
   const scrollerRef = useRef<HTMLDivElement>(null)
 
-  // Sideways scroll, held still while a card is in the air.
-  //
-  // Each column is its own scroll container now, which the drag library only
-  // tolerates while nothing ELSE scrolls underneath it. Scrolling the board
-  // sideways mid-drag was what made every column's cached position stale and
-  // dropped cards into the wrong stage. Pinning scrollLeft for the duration
-  // of the drag removes that, at the cost of not being able to drag a card to
-  // a stage that is off the side of the screen — scroll to it first, then
-  // drag. A card in the wrong stage is the worse of the two.
-  //
-  // Parked on the element's own dataset rather than a ref: the compiler's
-  // immutability rule refuses a ref mutated from inside a callback, and the
-  // lock belongs to the element it governs anyway.
-  const handleDragStart = useCallback(() => {
-    const el = scrollerRef.current
-    if (el) el.dataset.lockedScrollLeft = String(el.scrollLeft)
-  }, [])
-
-  useEffect(() => {
-    const el = scrollerRef.current
-    if (!el) return
-    const hold = () => {
-      const locked = el.dataset.lockedScrollLeft
-      if (locked !== undefined && el.scrollLeft !== Number(locked)) {
-        el.scrollLeft = Number(locked)
-      }
-    }
-    el.addEventListener('scroll', hold)
-    return () => el.removeEventListener('scroll', hold)
-  }, [])
-
   // Fill whatever is left of the viewport below wherever the board starts.
   //
   // Measured, not calc()'d: a calc() against a guessed header height goes
@@ -235,6 +280,16 @@ export function KanbanBoard({
   //
   // Writes the style directly rather than through state: this fires on every
   // layout change and a re-render per frame would be wasted work.
+  //
+  // Keyed on boardVisible because the loading skeleton has no scroller. Running
+  // only on mount found nothing to measure, so the board never got a height.
+  const boardVisible = !isLoading && prefsLoaded && stages.length > 0
+
+  useEffect(() => {
+    const el = scrollerRef.current
+    return el ? scrollBoardNearEdges(el) : undefined
+  }, [boardVisible])
+
   useEffect(() => {
     const el = scrollerRef.current
     if (!el) return
@@ -250,7 +305,7 @@ export function KanbanBoard({
       observer.disconnect()
       window.removeEventListener('resize', apply)
     }
-  }, [])
+  }, [boardVisible])
 
   if (isLoading || !prefsLoaded) {
     return <LoadingSkeleton />
@@ -270,16 +325,17 @@ export function KanbanBoard({
   const compact = zoom < 0.8
 
   return (
-    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DragDropContext
+      onBeforeCapture={handleBeforeCapture}
+      onDragEnd={handleDragEnd}
+      autoScrollerOptions={LIBRARY_AUTO_SCROLL}
+    >
       {/* The board scrolls, not the page.
           UNIVERSITY 2027 holds 365 deals in Dormant alone, so the tallest
           column used to stretch the document and the stage headers scrolled
           away with it — you lost sight of which column you were in.
-          This element scrolls BOTH ways and is the only scroll container in
-          the tree, which is what @hello-pangea/dnd requires: one scroll
-          parent per droppable. An ANCESTOR scroller is fine and is the
-          supported arrangement; what breaks it is NESTING, which is why the
-          columns themselves still must not scroll (see KanbanColumn).
+          During a drag this is the only scroll container in the tree, which
+          is what @hello-pangea/dnd requires (see handleBeforeCapture).
           Height is measured rather than hard-coded: a calc() against a guessed
           header height goes wrong the moment anything above it changes. */}
       <div ref={scrollerRef} className="w-full overflow-x-auto overflow-y-hidden pb-4">
