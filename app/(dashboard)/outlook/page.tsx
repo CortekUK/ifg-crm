@@ -51,9 +51,9 @@ const AUDIENCES: { id: MailAudience; label: string; hint: string }[] = [
 const FOLDER_COPY: Record<MailFolder, { title: string; blurb: string; empty: string; hint: string }> = {
   inbox: {
     title: 'Inbox',
-    blurb: 'Every email that reaches your Outlook, newest first.',
+    blurb: 'Your CRM conversations, newest first. Personal mail and promotions stay in Outlook.',
     empty: 'Nothing in the inbox yet.',
-    hint: 'Once a mailbox is connected, every email that arrives in Outlook appears here automatically.',
+    hint: 'Once a mailbox is connected, replies from contacts and new enquiries appear here automatically.',
   },
   waiting: {
     title: 'Replies',
