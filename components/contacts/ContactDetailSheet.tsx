@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import {
   Sheet,
@@ -1108,9 +1109,10 @@ export function ContactDetailSheet({
                   </div>
                   <div className="space-y-2">
                     {deals.map((deal) => (
-                      <div
+                      <Link
+                        href={`/pipelines?dealId=${deal.id}`}
                         key={deal.id}
-                        className="p-4 rounded-lg border bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        className="block p-4 rounded-lg border bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                         style={{ borderLeftWidth: 4, borderLeftColor: deal.stage?.color || '#e2e8f0' }}
                       >
                         <div className="flex items-center justify-between">
@@ -1125,7 +1127,7 @@ export function ContactDetailSheet({
                         <p className="text-xs text-muted-foreground mt-2">
                           {formatCurrency(deal.deal_value || 0)} · {deal.owner?.full_name || 'Unassigned'} · {formatDate(deal.created_at)}
                         </p>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
