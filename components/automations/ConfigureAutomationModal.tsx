@@ -71,6 +71,7 @@ import {
   programmeForPipeline,
   programmeForFormId,
   resolveProgrammePrice,
+  withCardFee,
   formatGBP,
 } from '@/lib/payments/programme-pricing'
 import { ProgrammePriceSummary } from './ProgrammePriceSummary'
@@ -1618,6 +1619,32 @@ export function ConfigureAutomationModal({
                           fallbackLabel="the invoice falls back to the fixed amount below."
                         />
                       )}
+
+                      {invoiceAmountSource === 'programme_deposit' && invoicePrice?.amount != null && (() => {
+                        const fees = pricingSettings.find((s) => s.programme === invoiceProgramme)
+                        if (!fees) return null
+                        return (
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              id="invoice-add-card-fee"
+                              checked={!!formData.config.invoice_add_card_fee}
+                              onCheckedChange={(checked) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  config: { ...prev.config, invoice_add_card_fee: checked === true },
+                                }))
+                              }
+                            />
+                            <Label htmlFor="invoice-add-card-fee" className="font-normal leading-snug">
+                              Add the card fee, as the website does. The invoice will be{' '}
+                              <span className="font-medium">
+                                {formatGBP(withCardFee(invoicePrice.amount, fees.fee_rate, fees.fee_fixed))}
+                              </span>{' '}
+                              so the bank receives the full {formatGBP(invoicePrice.amount)}.
+                            </Label>
+                          </div>
+                        )
+                      })()}
 
                       {formData.config.invoice_amount_source === 'percentage' && (
                         <div className="space-y-2">

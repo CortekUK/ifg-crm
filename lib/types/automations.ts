@@ -174,6 +174,8 @@ export interface AutomationConfig {
     | 'percentage'
     | 'custom'
   invoice_package_key?: string
+  // Add the website's card fee, so the bank nets the full deposit (271).
+  invoice_add_card_fee?: boolean
   invoice_amount_percent?: number
   invoice_amount_custom?: number
   invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'

@@ -150,6 +150,16 @@ export function resolveProgrammePrice(
   }
 }
 
+/**
+ * A price plus the card fee, so the bank nets the full price. The same sum the
+ * website charges: £2,000 at 3.5% + 20p is £2,072.75.
+ * MIRROR: withCardFee() in supabase/functions/process-automations/index.ts.
+ */
+export function withCardFee(base: number, rate: number, fixed: number): number {
+  const fee = Math.max(0, Math.ceil(((base + fixed) / (1 - rate) - base) * 100) / 100)
+  return Math.round((base + fee) * 100) / 100
+}
+
 /** £2,000 — no trailing .00 on whole pounds, which every IFG price is. */
 export function formatGBP(amount: number): string {
   return new Intl.NumberFormat('en-GB', {

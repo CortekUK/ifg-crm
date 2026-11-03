@@ -1989,8 +1989,31 @@ async function processMoveToStageStep(
  * automation editor, so the figure an admin is shown is the figure billed.
  */
 type PriceResolution =
-  | { amount: number; reason: null }
+  | { amount: number; reason: null; programme: string }
   | { amount: null; reason: string }
+
+/**
+ * The deposit plus the card fee, so the bank nets the full deposit. The same
+ * sum the website charges (price() in app/api/public/deposit/route.ts), read
+ * from the same settings: £2,000 at 3.5% + 20p is £2,072.75.
+ * MIRROR: withCardFee() in lib/payments/programme-pricing.ts.
+ */
+async function withCardFee(
+  supabase: ReturnType<typeof createClient>,
+  programme: string,
+  base: number,
+): Promise<number | null> {
+  const { data } = await supabase
+    .from('website_pricing_settings')
+    .select('fee_rate, fee_fixed')
+    .eq('programme', programme)
+    .maybeSingle()
+  const rate = Number(data?.fee_rate)
+  const fixed = Number(data?.fee_fixed)
+  if (!data || !Number.isFinite(rate) || !Number.isFinite(fixed) || rate >= 1) return null
+  const fee = Math.max(0, Math.ceil(((base + fixed) / (1 - rate) - base) * 100) / 100)
+  return Math.round((base + fee) * 100) / 100
+}
 
 async function resolveProgrammePrice(
   supabase: ReturnType<typeof createClient>,
@@ -2047,7 +2070,7 @@ async function resolveProgrammePrice(
 
     if (settings?.deposit_enabled) {
       const deposit = Number(settings.deposit_default)
-      if (Number.isFinite(deposit) && deposit > 0) return { amount: deposit, reason: null }
+      if (Number.isFinite(deposit) && deposit > 0) return { amount: deposit, reason: null, programme: programmeKey }
     }
   }
 
@@ -2074,7 +2097,7 @@ async function resolveProgrammePrice(
   // The automation names its package when the programme sells several.
   if (packageKey) {
     const picked = priced.find((pkg) => pkg.key === packageKey)
-    if (picked) return { amount: picked.amount, reason: null }
+    if (picked) return { amount: picked.amount, reason: null, programme: programmeKey }
     return {
       amount: null,
       reason: `${programmeKey} has no published ${noun} for package "${packageKey}" — it may have been renamed or unpublished`,
@@ -2082,7 +2105,7 @@ async function resolveProgrammePrice(
   }
 
   const amounts = [...new Set(priced.map((pkg) => pkg.amount))]
-  if (amounts.length === 1) return { amount: amounts[0], reason: null }
+  if (amounts.length === 1) return { amount: amounts[0], reason: null, programme: programmeKey }
 
   return {
     amount: null,
@@ -2127,6 +2150,7 @@ async function processCreateInvoiceStep(
       | 'percentage'
       | 'custom'
     invoice_package_key?: string
+    invoice_add_card_fee?: boolean
     invoice_amount_percent?: number
     invoice_amount_custom?: number
     invoice_type?: 'deposit' | 'installment' | 'full_payment' | 'meal_plan' | 'trip' | 'other'
@@ -2168,6 +2192,18 @@ async function processCreateInvoiceStep(
         amount = Number(cfg.invoice_amount_custom ?? 0) || dealValue
       } else {
         amount = resolved.amount
+        if (cfg.invoice_add_card_fee) {
+          const total = await withCardFee(supabase, resolved.programme, resolved.amount)
+          if (total === null) {
+            // Billing without the fee is what this setting exists to prevent,
+            // so stop and say so rather than short the bank again.
+            const reason = `no card fee settings for ${resolved.programme}, so the invoice for deal ${deal.id} was not raised`
+            summary.errors.push(`create_invoice: ${reason}`)
+            await logStepExecution(supabase, enrollment, step, 'failed', reason)
+            return
+          }
+          amount = total
+        }
       }
       break
     }
