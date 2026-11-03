@@ -57,21 +57,22 @@ const DEFAULT_STAGES: Array<{
   { name: 'Initial Lead', stage_type: 'lead', color: '#3b82f6', display_order: 2 },
   { name: 'Contact Response', stage_type: 'contact', color: '#22d3ee', display_order: 3 },
   { name: 'Zoom Scheduled', stage_type: 'meeting', color: '#8b5cf6', display_order: 4 },
-  { name: 'Follow Up', stage_type: 'follow_up', color: '#f59e0b', display_order: 5 },
+  { name: 'Rescheduled Zoom', stage_type: 'meeting', color: '#8b5cf6', display_order: 5 },
+  { name: 'Follow Up', stage_type: 'follow_up', color: '#f59e0b', display_order: 6 },
   // Document Collecting sits between Follow Up and Application — the
   // recruiter starts gathering paperwork (passport, transcripts, etc.)
   // BEFORE the formal application is submitted, so the column needs to
   // come first. "Reg Form received" further down the funnel is a separate
   // milestone (registration form back from the institution) and stays.
-  { name: 'Document Collecting', stage_type: 'documents', color: '#fb923c', display_order: 6 },
-  { name: 'Application', stage_type: 'applied', color: '#ec4899', display_order: 7 },
-  { name: 'Reg Form received', stage_type: 'documents', color: '#f97316', display_order: 8 },
-  { name: 'Interview', stage_type: 'meeting', color: '#6366f1', display_order: 9 },
-  { name: 'Conditional Offer', stage_type: 'offer', color: '#22c55e', display_order: 10 },
-  { name: 'Invoice Sent', stage_type: 'payment', color: '#84cc16', display_order: 11 },
-  { name: 'Deposit Paid', stage_type: 'payment', color: '#10b981', display_order: 12 },
-  { name: 'Arrival', stage_type: 'completed', color: '#059669', display_order: 13 },
-  { name: 'Lost', stage_type: 'lost', color: '#ef4444', display_order: 14 },
+  { name: 'Document Collecting', stage_type: 'documents', color: '#fb923c', display_order: 7 },
+  { name: 'Application', stage_type: 'applied', color: '#ec4899', display_order: 8 },
+  { name: 'Reg Form received', stage_type: 'documents', color: '#f97316', display_order: 9 },
+  { name: 'Interview', stage_type: 'meeting', color: '#6366f1', display_order: 10 },
+  { name: 'Conditional Offer', stage_type: 'offer', color: '#22c55e', display_order: 11 },
+  { name: 'Invoice Sent', stage_type: 'payment', color: '#84cc16', display_order: 12 },
+  { name: 'Deposit Paid', stage_type: 'payment', color: '#10b981', display_order: 13 },
+  { name: 'Arrival', stage_type: 'completed', color: '#059669', display_order: 14 },
+  { name: 'Lost', stage_type: 'lost', color: '#ef4444', display_order: 15 },
 ]
 
 export function CreatePipelineModal({ isOpen, onClose }: CreatePipelineModalProps) {
