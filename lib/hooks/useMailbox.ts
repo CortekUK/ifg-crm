@@ -103,7 +103,9 @@ function baseQuery() {
 }
 
 /**
- * Your mailbox, and only ever yours.
+ * One mailbox at a time — your own, or a recruiter's if you are a super admin
+ * (272). Never several merged into one list: opening on everyone's mail at
+ * once is what made Nathan disconnect in October.
  *
  * This used to take a scope — all mailboxes, all recruiters, or one named
  * person — which the screen defaulted to 'all' for admins. A mailbox is now
@@ -111,11 +113,11 @@ function baseQuery() {
  * filter is kept rather than left to RLS alone: belt and braces on a query
  * that would otherwise be one policy edit away from returning the lot.
  */
-function onlyMyMailbox<T extends { eq: (c: string, v: unknown) => T }>(
+function onlyThisMailbox<T extends { eq: (c: string, v: unknown) => T }>(
   query: T,
-  myUserId: string,
+  mailboxUserId: string,
 ): T {
-  return query.eq('mailbox_user_id', myUserId)
+  return query.eq('mailbox_user_id', mailboxUserId)
 }
 
 /**
@@ -127,19 +129,19 @@ function onlyMyMailbox<T extends { eq: (c: string, v: unknown) => T }>(
  */
 export function useMailThreads(params: {
   folder: MailFolder
-  myUserId: string
+  mailboxUserId: string
   intent?: string
   search?: string
   audience?: MailAudience
 }) {
-  const { folder, myUserId, intent = 'all', search = '', audience = 'crm' } = params
+  const { folder, mailboxUserId, intent = 'all', search = '', audience = 'crm' } = params
 
   return useInfiniteQuery({
-    // myUserId and the recruiter list are part of what the query asks for, so
-    // they belong in the key. Without them a cached page survives the roster
+    // mailboxUserId is part of what the query asks for, so it belongs in the
+    // key. Without them a cached page survives the roster
     // arriving a moment later, and the list shows somebody else's mail.
-    queryKey: ['mail-threads', folder, intent, search, audience, myUserId],
-    enabled: !!myUserId,
+    queryKey: ['mail-threads', folder, intent, search, audience, mailboxUserId],
+    enabled: !!mailboxUserId,
     initialPageParam: 0,
     getNextPageParam: (last: { nextPage: number | null }) => last.nextPage,
     queryFn: async ({ pageParam }) => {
@@ -150,7 +152,7 @@ export function useMailThreads(params: {
 
       query = FOLDER_FILTER[folder](query)
       query = applyAudience(query, folder, audience)
-      query = onlyMyMailbox(query, myUserId)
+      query = onlyThisMailbox(query, mailboxUserId)
       if (intent !== 'all') query = query.eq('latest_intent', intent)
 
       if (search.trim()) {
@@ -184,14 +186,14 @@ export function useMailThreads(params: {
  * can show two numbers again without saying which is which.
  */
 export function useFolderCounts(params: {
-  myUserId: string
+  mailboxUserId: string
   audience?: MailAudience
 }) {
-  const { myUserId, audience = 'crm' } = params
+  const { mailboxUserId, audience = 'crm' } = params
 
   return useQuery({
-    queryKey: ['mail-folder-counts', audience, myUserId],
-    enabled: !!myUserId,
+    queryKey: ['mail-folder-counts', audience, mailboxUserId],
+    enabled: !!mailboxUserId,
     queryFn: async () => {
       const folders: MailFolder[] = ['inbox', 'waiting', 'unmatched', 'matched', 'sent']
       const out: Record<string, { total: number; unread: number; badge: number }> = {}
@@ -205,7 +207,7 @@ export function useFolderCounts(params: {
               .not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`)
             q = FOLDER_FILTER[folder](q as never) as never
             q = applyAudience(q as never, folder, audience) as never
-            return onlyMyMailbox(q as never, myUserId) as never as ReturnType<typeof baseQuery>
+            return onlyThisMailbox(q as never, mailboxUserId) as never as ReturnType<typeof baseQuery>
           }
 
           const [{ count: total }, { count: unread }] = await Promise.all([
@@ -255,6 +257,29 @@ export function useSetThreadRead() {
   })
 }
 
+export interface ReadableMailbox {
+  user_id: string
+  full_name: string | null
+  mailbox_email: string | null
+  is_mine: boolean
+}
+
+/**
+ * The mailboxes this person may open: their own, plus every recruiter's for a
+ * super admin. Decided by the database (readable_mailboxes, 272), not here.
+ */
+export function useReadableMailboxes(enabled: boolean) {
+  return useQuery<ReadableMailbox[]>({
+    queryKey: ['readable-mailboxes'],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc('readable_mailboxes')
+      if (error) throw error
+      return (data ?? []) as ReadableMailbox[]
+    },
+  })
+}
+
 export interface MailMessage {
   id: string
   direction: 'inbound' | 'outbound'
@@ -276,10 +301,20 @@ export interface MailMessage {
   intent: string | null
 }
 
-/** Every message in one conversation, oldest first, both directions. */
-export function useThreadMessages(conversationId: string | null) {
+/**
+ * Every message in one conversation, oldest first, both directions.
+ *
+ * Scoped to the thread's mailbox: Outlook gives the same conversation id to
+ * every mailbox on a thread, so once a super admin can read a recruiter's
+ * mail, an unscoped lookup would mix the two copies together. Rows with no
+ * mailbox (14 sends from an older path) belong to whichever thread holds them.
+ */
+export function useThreadMessages(conversationId: string | null, mailboxUserId: string | null) {
+  const inMailbox = mailboxUserId
+    ? `mailbox_user_id.eq.${mailboxUserId},mailbox_user_id.is.null`
+    : 'mailbox_user_id.is.null'
   return useQuery<MailMessage[]>({
-    queryKey: ['mail-thread-messages', conversationId],
+    queryKey: ['mail-thread-messages', conversationId, mailboxUserId],
     enabled: !!conversationId,
     queryFn: async () => {
       const supabase = createClient()
@@ -288,12 +323,14 @@ export function useThreadMessages(conversationId: string | null) {
           .from('email_replies')
           .select('id, from_email, from_name, to_email, subject, body, html_body, received_at, created_at, graph_message_id, ai_intent, sender_kind')
           .eq('conversation_id', conversationId)
+          .or(inMailbox)
           .order('received_at', { ascending: true })
           .limit(200),
         supabase
           .from('email_sends')
           .select('id, recipient_email, subject, body_text, body_html, sent_at, from_email')
           .eq('conversation_id', conversationId)
+          .or(inMailbox)
           .order('sent_at', { ascending: true })
           .limit(200),
       ])

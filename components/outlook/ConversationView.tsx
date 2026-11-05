@@ -172,7 +172,7 @@ function Message({
 export function ConversationView({
   thread, index, total, onBack, onPrev, onNext, onConnect, onSmartDeal, currentUserEmail, currentUserId,
 }: ConversationViewProps) {
-  const { data: messages = [], isLoading } = useThreadMessages(thread.conversation_id)
+  const { data: messages = [], isLoading } = useThreadMessages(thread.conversation_id, thread.mailbox_user_id ?? null)
   const { data: contact } = useThreadContact(thread.contact_id)
   const setRead = useSetThreadRead()
   const sendReply = useReplyToThread()
@@ -299,10 +299,12 @@ export function ConversationView({
                 </p>
               </div>
             </div>
-            <Button onClick={() => onConnect(thread)} className="shrink-0 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30">
-              <Link2 className="mr-1.5 h-4 w-4" />
-              Connect
-            </Button>
+            {isMyMailbox && (
+              <Button onClick={() => onConnect(thread)} className="shrink-0 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30">
+                <Link2 className="mr-1.5 h-4 w-4" />
+                Connect
+              </Button>
+            )}
           </div>
         )}
 
@@ -317,10 +319,12 @@ export function ConversationView({
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => onConnect(thread)} className="shrink-0 border-slate-700">
-              <Link2 className="mr-1.5 h-4 w-4" />
-              Connect anyway
-            </Button>
+            {isMyMailbox && (
+              <Button variant="outline" onClick={() => onConnect(thread)} className="shrink-0 border-slate-700">
+                <Link2 className="mr-1.5 h-4 w-4" />
+                Connect anyway
+              </Button>
+            )}
           </div>
         )}
 
@@ -428,6 +432,13 @@ export function ConversationView({
         )}
 
         {/* ── reply ──────────────────────────────────────────────────── */}
+        {/* Someone else's mailbox is read only: a reply would go out as them,
+            and the reply route refuses it anyway. Say so instead. */}
+        {!isMyMailbox ? (
+          <p className="rounded-xl border border-slate-800 bg-slate-900/30 p-3 text-sm text-slate-500">
+            You are viewing {thread.mailbox_owner_name || 'a recruiter'}&apos;s mailbox. It is read only.
+          </p>
+        ) : (
         <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-3">
           {!replyOpen ? (
             <div className="flex items-center gap-2">
@@ -474,6 +485,7 @@ export function ConversationView({
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   )

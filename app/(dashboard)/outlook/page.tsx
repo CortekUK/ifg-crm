@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import {
-  useMailThreads, useFolderCounts,
+  useMailThreads, useFolderCounts, useReadableMailboxes,
   type MailThread,
 } from '@/lib/hooks/useMailbox'
 import type { MailFolder } from '@/lib/outlook/classify-sender'
@@ -81,11 +81,10 @@ export default function OutlookPage() {
   const [userId, setUserId] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [folder, setFolder] = useState<MailFolder>('inbox')
-  // There is no scope to choose any more. A connected mailbox is private to
-  // the person who connected it (265), so this screen only ever shows your
-  // own mail — and the database refuses the rest regardless of what is asked
-  // for. This used to default to 'all' for admins, which is how the mailbox
-  // came to open on everyone's mail at once.
+  // Whose mailbox is open. Always your own to start with; a super admin can
+  // switch to a recruiter's (272). Empty means "mine", so the screen never
+  // asks for a mailbox before it knows who you are.
+  const [viewingId, setViewingId] = useState('')
   const [intent, setIntent] = useState('all')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -108,12 +107,20 @@ export default function OutlookPage() {
   const { data: outlook } = useOutlookStatus()
   const mailboxEmail = outlook?.connected ? outlook.mailboxEmail ?? '' : ''
 
-  const threadsQuery = useMailThreads({ folder, myUserId: userId, intent, search: debouncedSearch })
-  const { data: counts = {} } = useFolderCounts({ myUserId: userId })
+  const { data: mailboxes = [] } = useReadableMailboxes(!!userId)
+  const mailboxUserId = viewingId || userId
+  const viewing = mailboxes.find((m) => m.user_id === mailboxUserId)
+  const isMyMailbox = mailboxUserId === userId
+  const ownerName = viewing?.full_name || viewing?.mailbox_email || null
+
+  const threadsQuery = useMailThreads({ folder, mailboxUserId, intent, search: debouncedSearch })
+  const { data: counts = {} } = useFolderCounts({ mailboxUserId })
 
   const threads = useMemo(
-    () => threadsQuery.data?.pages.flatMap((p) => p.threads) ?? [],
-    [threadsQuery.data],
+    () => (threadsQuery.data?.pages.flatMap((p) => p.threads) ?? []).map((t) =>
+      isMyMailbox ? t : { ...t, mailbox_owner_name: ownerName },
+    ),
+    [threadsQuery.data, isMyMailbox, ownerName],
   )
   const total = threadsQuery.data?.pages[0]?.total ?? 0
 
@@ -207,7 +214,11 @@ export default function OutlookPage() {
           />
         </div>
 
-        <MailboxSelector />
+        <MailboxSelector
+          mailboxes={mailboxes}
+          value={mailboxUserId}
+          onChange={(id) => { setViewingId(id === userId ? '' : id); setOpenThread(null) }}
+        />
 
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarFallback className="bg-blue-600 text-xs text-white">
@@ -225,6 +236,15 @@ export default function OutlookPage() {
           onFolderChange={(f) => { setFolder(f); setOpenThread(null) }}
           counts={counts}
           onCompose={() => {
+            // Mail goes out from your own mailbox only. Reading a recruiter's
+            // mailbox is oversight, not permission to write as them.
+            if (!isMyMailbox) {
+              toast({
+                title: 'This mailbox is read only',
+                description: 'Switch back to My mailbox to send.',
+              })
+              return
+            }
             // Without a mailbox there is nothing to send from, and the send
             // would fail after the message was written. Say so first.
             if (!mailboxEmail) {
