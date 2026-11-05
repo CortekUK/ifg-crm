@@ -15,7 +15,7 @@ import {
   useMailThreads, useFolderCounts,
   type MailThread,
 } from '@/lib/hooks/useMailbox'
-import { AUDIENCE_FIXED, type MailAudience, type MailFolder } from '@/lib/outlook/classify-sender'
+import type { MailFolder } from '@/lib/outlook/classify-sender'
 import { OutlookBanner } from '@/components/outlook/OutlookBanner'
 import { useOutlookStatus } from '@/lib/hooks/useOutlook'
 import { toast } from '@/lib/hooks/use-toast'
@@ -41,19 +41,12 @@ const INTENTS: { id: string; label: string; on: string }[] = [
   { id: 'neutral', label: 'Neutral', on: 'bg-slate-500/30 text-slate-200 ring-1 ring-slate-400/40' },
 ]
 
-/** Who the conversation is with. CRM contacts by default — see MailAudience. */
-const AUDIENCES: { id: MailAudience; label: string; hint: string }[] = [
-  { id: 'crm', label: 'Matched', hint: 'Players, parents and their other addresses' },
-  { id: 'unmatched', label: 'Mismatched', hint: 'Addresses not linked to a contact' },
-  { id: 'all', label: 'Everything', hint: 'Both' },
-]
-
 const FOLDER_COPY: Record<MailFolder, { title: string; blurb: string; empty: string; hint: string }> = {
   inbox: {
     title: 'Inbox',
     blurb: 'Your CRM conversations, newest first. Personal mail and promotions stay in Outlook.',
     empty: 'Nothing in the inbox yet.',
-    hint: 'Once a mailbox is connected, replies from contacts and new enquiries appear here automatically.',
+    hint: 'Once a mailbox is connected, replies from contacts appear here automatically.',
   },
   waiting: {
     title: 'Replies',
@@ -94,9 +87,6 @@ export default function OutlookPage() {
   // for. This used to default to 'all' for admins, which is how the mailbox
   // came to open on everyone's mail at once.
   const [intent, setIntent] = useState('all')
-  // CRM contacts by default: the Inbox is for conversations with people, not
-  // for GoDaddy security alerts sitting between a parent and a player.
-  const [audience, setAudience] = useState<MailAudience>('crm')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
   const [openThread, setOpenThread] = useState<MailThread | null>(null)
@@ -118,8 +108,8 @@ export default function OutlookPage() {
   const { data: outlook } = useOutlookStatus()
   const mailboxEmail = outlook?.connected ? outlook.mailboxEmail ?? '' : ''
 
-  const threadsQuery = useMailThreads({ folder, myUserId: userId, intent, search: debouncedSearch, audience })
-  const { data: counts = {} } = useFolderCounts({ myUserId: userId, audience })
+  const threadsQuery = useMailThreads({ folder, myUserId: userId, intent, search: debouncedSearch })
+  const { data: counts = {} } = useFolderCounts({ myUserId: userId })
 
   const threads = useMemo(
     () => threadsQuery.data?.pages.flatMap((p) => p.threads) ?? [],
@@ -283,31 +273,6 @@ export default function OutlookPage() {
                 <p className="mt-0.5 text-sm text-slate-500">{copy.blurb}</p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  {/* Hidden where the folder already answers it — filtering
-                      Contacts down to "outside the CRM" is always empty. */}
-                  {!AUDIENCE_FIXED[folder] && (
-                    <>
-                      <div className="flex rounded-full border border-slate-700 p-0.5">
-                        {AUDIENCES.map((a) => (
-                          <button
-                            key={a.id}
-                            onClick={() => setAudience(a.id)}
-                            title={a.hint}
-                            className={cn(
-                              'rounded-full px-3 py-1 text-xs transition-colors',
-                              audience === a.id
-                                ? 'bg-slate-700 font-medium text-white'
-                                : 'text-slate-400 hover:text-slate-200',
-                            )}
-                          >
-                            {a.label}
-                          </button>
-                        ))}
-                      </div>
-                      <span className="mx-1 h-5 w-px bg-slate-800" />
-                    </>
-                  )}
-
                   {INTENTS.map((i) => (
                     <button
                       key={i.id}
